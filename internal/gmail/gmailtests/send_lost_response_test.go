@@ -14,7 +14,7 @@ import (
 
 const (
 	listMessages = apiBase + "/messages"
-	sentRaw      = "From: a@example.com\r\nMessage-ID: <01ABC@example.com>\r\n\r\nbody"
+	sentRaw      = "From: a@example.com\r\nMessage-ID: <01ABC@example.com>\r\nX-Hitomado-Send-Id: 01ABC\r\n\r\nbody"
 )
 
 // dropConnection は応答を返さずに接続を切る（サーバー側で処理できたが応答だけが失われた状況の再現）。
@@ -56,30 +56,66 @@ func TestTransferCallsStillHonorContextDeadline(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
 	_, err := e.c.Send(ctx, testAccount, []byte(sentRaw), "")
-	require.Error(t, err)
-	assert.NotErrorIs(t, err, gmail.ErrSendUncertain, "検索で未送信と確認できたので、確認不能にはしない")
+	require.ErrorIs(t, err, gmail.ErrSendUncertain, "送ったあとの期限切れは、送信済みを確認できなければ確認不能")
 }
 
-func TestSendLostResponseIsSuccessWhenMessageExists(t *testing.T) {
+func TestSendWithCanceledContextBeforeRequestIsNotUncertain(t *testing.T) {
 	e := newTestEnv(t)
-	e.f.Handle("POST "+sendUpload, dropConnection)
-	e.f.HandleJSON("GET "+listMessages, 200, map[string]any{"messages": []map[string]any{{"id": "m-sent", "threadId": "t-sent"}}})
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := e.c.Send(ctx, testAccount, []byte(sentRaw), "")
+	require.ErrorIs(t, err, context.Canceled)
+	assert.NotErrorIs(t, err, gmail.ErrSendUncertain, "リクエストを送っていないので確認不能にしない")
+	assert.Empty(t, e.f.Requests("POST", sendUpload))
+}
+
+// Gmail が送信時に Message-ID を付け替えても、独自ヘッダで受理済みを見つけて成功として返す（二重送信にしない）。
+func TestSendLostResponseIsSuccessWhenSendIDHeaderSurvives(t *testing.T) {
+	e := newTestEnv(t)
+	gm := newSentGmail(t, e.f, gmailRewritesMessageID)
+	gm.otherSent("m-other") // 無関係な送信済み。取り違えない
+	gm.acceptThenDrop()
 
 	got, err := e.c.Send(context.Background(), testAccount, []byte(sentRaw), "")
 	require.NoError(t, err)
-	assert.Equal(t, gmail.SentMessage{MessageID: "m-sent", ThreadID: "t-sent"}, got)
+	assert.Equal(t, gmail.SentMessage{MessageID: "m-sent-1", ThreadID: "t-m-sent-1"}, got)
 	assert.Len(t, e.f.Requests("POST", sendUpload), 1, "再送しない")
-	assert.Equal(t, "rfc822msgid:01ABC@example.com", e.f.Requests("GET", listMessages)[0].Query.Get("q"))
+	assert.Regexp(t, `^in:sent after:\d+$`, e.f.Requests("GET", listMessages)[0].Query.Get("q"))
 }
 
-func TestSendLostResponseWithoutMessageKeepsOriginalError(t *testing.T) {
+// Message-ID が書き換えられず、独自ヘッダが落とされた場合でも Message-ID の一致で見つける。
+func TestSendLostResponseIsSuccessWhenMessageIDSurvives(t *testing.T) {
+	e := newTestEnv(t)
+	gm := newSentGmail(t, e.f, gmailDropsCustomHeaders)
+	gm.acceptThenDrop()
+
+	got, err := e.c.Send(context.Background(), testAccount, []byte(sentRaw), "")
+	require.NoError(t, err)
+	assert.Equal(t, "m-sent-1", got.MessageID)
+}
+
+// Message-ID を付け替えられ、独自ヘッダも残らないなら見つけられない。未送信とは言えないので再送へ誘導せず SEND_UNCERTAIN。
+func TestSendLostResponseWithoutAnyMarkerIsUncertain(t *testing.T) {
+	e := newTestEnv(t)
+	gm := newSentGmail(t, e.f, gmailRewritesMessageID|gmailDropsCustomHeaders)
+	gm.acceptThenDrop()
+
+	_, err := e.c.Send(context.Background(), testAccount, []byte(sentRaw), "")
+	require.ErrorIs(t, err, gmail.ErrSendUncertain)
+	assert.NotErrorIs(t, err, gmail.ErrOffline, "OFFLINE のまま再送へ誘導しない")
+	assert.Len(t, e.f.Requests("POST", sendUpload), 1)
+}
+
+// 送信済みに見当たらないだけでは未送信と断定できない（検索インデックスの遅れなど）ので、元のエラーは返さない。
+func TestSendLostResponseWithoutMessageIsUncertain(t *testing.T) {
 	e := newTestEnv(t)
 	e.f.Handle("POST "+sendUpload, dropConnection)
 	e.f.HandleJSON("GET "+listMessages, 200, map[string]any{"resultSizeEstimate": 0})
 
 	_, err := e.c.Send(context.Background(), testAccount, []byte(sentRaw), "")
-	require.ErrorIs(t, err, gmail.ErrOffline, "送信されていないと確認できたので、従来どおり再送できる")
-	assert.NotErrorIs(t, err, gmail.ErrSendUncertain)
+	require.ErrorIs(t, err, gmail.ErrSendUncertain)
+	assert.NotErrorIs(t, err, gmail.ErrOffline)
 }
 
 func TestSendLostResponseAndFailedLookupIsUncertain(t *testing.T) {
@@ -93,7 +129,7 @@ func TestSendLostResponseAndFailedLookupIsUncertain(t *testing.T) {
 	assert.Len(t, e.f.Requests("POST", sendUpload), 1)
 }
 
-func TestSendLostResponseWithoutMessageIDIsUncertain(t *testing.T) {
+func TestSendLostResponseWithoutSendIDIsUncertain(t *testing.T) {
 	e := newTestEnv(t)
 	e.f.Handle("POST "+sendUpload, dropConnection)
 
@@ -110,4 +146,25 @@ func TestSendServerErrorIsNotRetriedNorLookedUp(t *testing.T) {
 	require.ErrorIs(t, err, gmail.ErrGeneric)
 	assert.Len(t, e.f.Requests("POST", sendUpload), 1, "5xx は再試行しない")
 	assert.Empty(t, e.f.Requests("GET", listMessages), "応答を受け取れた失敗では検索しない")
+}
+
+// 接続前の失敗（接続拒否）はリクエストを送れていないので OFFLINE（再送可）。送信済みの確認はしない。
+func TestSendConnectionRefusedIsOfflineNotUncertain(t *testing.T) {
+	e := newTestEnvWith(t, func(o *gmail.Options) { o.Endpoint = closedURL(t) + "/" })
+
+	_, err := e.c.Send(context.Background(), testAccount, []byte(sentRaw), "")
+	require.ErrorIs(t, err, gmail.ErrOffline)
+	assert.NotErrorIs(t, err, gmail.ErrSendUncertain)
+	assert.Empty(t, e.f.Requests("GET", listMessages), "送っていないので送信済みの確認はしない")
+}
+
+// アクセストークンの更新（本文を送る前）に通信できない場合も OFFLINE（再送可）。Gmail へは何も送られない。
+func TestSendTokenRefreshNetworkFailureIsOfflineNotUncertain(t *testing.T) {
+	e := newTestEnvWith(t, func(o *gmail.Options) { o.TokenURL = closedURL(t) + "/token" })
+
+	_, err := e.c.Send(context.Background(), testAccount, []byte(sentRaw), "")
+	require.ErrorIs(t, err, gmail.ErrOffline)
+	assert.NotErrorIs(t, err, gmail.ErrSendUncertain)
+	assert.Empty(t, e.f.Requests("POST", sendUpload))
+	assert.Empty(t, e.f.Requests("GET", listMessages))
 }
