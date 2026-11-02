@@ -121,7 +121,7 @@ func classify(err error) *Error {
 		return Wrap(SendUncertain, "送信済みの可能性があります。送信済みを確認してから再送してください。", err)
 	case errors.Is(err, gmail.ErrNeedsReauth):
 		return Wrap(NeedsReauth, "アカウントの接続が切れました。再接続してください。", err)
-	case errors.Is(err, gmail.ErrClientRejected):
+	case errors.Is(err, gmail.ErrClientRejected), errors.Is(err, oauth.ErrClientRejected):
 		return Wrap(OAuthClientRejected, "OAuth クライアントの設定（Client ID／Secret）を確認してください。", err)
 	case errors.Is(err, oauth.ErrCancelled), errors.Is(err, context.Canceled):
 		// url.Error はキャンセルでも net.Error を満たすため、ネットワーク判定より先に見る。

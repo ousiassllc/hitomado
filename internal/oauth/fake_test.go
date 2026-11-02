@@ -36,6 +36,7 @@ type fakeGoogle struct {
 	challenge     string // 認可 URL から得た code_challenge
 	tokenForms    []url.Values
 	tokenStatus   int
+	tokenBody     string        // 空なら invalid_grant の既定本文
 	tokenDelay    time.Duration // トークン応答の遅延
 	tokenBlock    bool          // 応答しない
 	scope         string
@@ -102,8 +103,12 @@ func (g *fakeGoogle) handleToken(w http.ResponseWriter, r *http.Request) {
 		if status == http.StatusOK {
 			status = http.StatusBadRequest
 		}
+		body := g.tokenBody
+		if body == "" {
+			body = `{"error":"invalid_grant","error_description":"` + testRefresh + `"}`
+		}
 		w.WriteHeader(status)
-		_, _ = io.WriteString(w, `{"error":"invalid_grant","error_description":"`+testRefresh+`"}`)
+		_, _ = io.WriteString(w, body)
 		return
 	}
 	resp := map[string]any{"access_token": "access-token-value", "expires_in": 3600, "scope": g.scope, "token_type": "Bearer"}

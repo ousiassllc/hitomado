@@ -38,6 +38,10 @@ func (f *flow) exchange(ctx context.Context, cfg ClientConfig, code, verifier, r
 	}
 	var tok tokenResponse
 	if err := f.postForm(ctx, f.opts.TokenURL, form, &tok); err != nil {
+		var he *httpError
+		if errors.As(err, &he) && he.clientRejected() {
+			return tokenResponse{}, fmt.Errorf("oauth: トークン交換に失敗しました: %w", ErrClientRejected)
+		}
 		return tokenResponse{}, fmt.Errorf("oauth: トークン交換に失敗しました: %w", err)
 	}
 	if tok.AccessToken == "" {
@@ -82,8 +86,36 @@ func (f *flow) postForm(ctx context.Context, endpoint string, form url.Values, o
 	return f.do(req, out)
 }
 
+// httpError は非 2xx 応答。本文・error_description は機密を含み得るため保持せず、
+// ステータスと、固定語彙に一致した OAuth の error コードだけを持つ。
+type httpError struct {
+	status int
+	code   string // "invalid_client"／"unauthorized_client" のいずれか。それ以外は空
+}
+
+func (e *httpError) Error() string { return fmt.Sprintf("HTTP %d", e.status) }
+
+// clientRejected は Client ID／Secret が拒否された応答か（RFC 6749 §5.2。401 も invalid_client 相当）。
+func (e *httpError) clientRejected() bool {
+	return e.code != "" || e.status == http.StatusUnauthorized
+}
+
+// clientRejectCode は応答本文から OAuth の error コードを取り出す。固定語彙以外は空を返す。
+func clientRejectCode(body io.Reader) string {
+	var v struct {
+		Error string `json:"error"`
+	}
+	if err := json.NewDecoder(io.LimitReader(body, maxResponseBytes)).Decode(&v); err != nil {
+		return ""
+	}
+	if v.Error == "invalid_client" || v.Error == "unauthorized_client" {
+		return v.Error
+	}
+	return ""
+}
+
 // do は要求を実行し、2xx なら out（nil 可）へ JSON をデコードする。
-// 非 2xx のエラーはステータスコードのみ（本文は機密を含み得るので載せない）。
+// 非 2xx のエラーは *httpError（本文は機密を含み得るので載せない）。
 func (f *flow) do(req *http.Request, out any) error {
 	resp, err := f.opts.HTTPClient.Do(req)
 	if err != nil {
@@ -91,8 +123,7 @@ func (f *flow) do(req *http.Request, out any) error {
 	}
 	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBytes))
-		return fmt.Errorf("HTTP %d", resp.StatusCode)
+		return &httpError{status: resp.StatusCode, code: clientRejectCode(resp.Body)}
 	}
 	if out == nil {
 		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxResponseBytes))
