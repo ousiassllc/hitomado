@@ -23,7 +23,7 @@ Hitomado は HTTP サーバーを持たない。フロントエンド（Vue）�
 
 ### 1.2 エラー
 
-エラーは Go の `error` を返し、フロントでは reject される。reject 値は**次の JSON として解釈できる文字列**にする（フロントは共通ラッパー `parseBindingError` で `AppError` に変換する）。Wails v3 のエラー整形（`MarshalError` オプション等）を使うか、`error.Error()` に JSON を載せる。実装時に Wails の API を確認して選ぶ。
+エラーは Go の `error` を返し、フロントでは reject される。Wails の `MarshalError` オプションに `apperr.Marshal` を指定しており（`run.go`）、`AppError` の JSON を返す。フロントでは reject 値の `error.cause` にその JSON 文字列が入る。フロントは共通ラッパー `parseBindingError`（`frontend/src/lib/api.ts`）で `cause` → `message` → 文字列そのものの順に JSON として解釈し、`AppError` に変換する。どれも `AppError` として読めないときは `INTERNAL`（`retryable: false`）にフォールバックする。なお `(*Error).Error()` の文字列は `"<code>: <message>"` で JSON ではない。
 
 ```ts
 type AppError = {
@@ -271,7 +271,7 @@ type SendResult = { messageId: string; threadId: string; archived: boolean; arch
 | `Send(sessionId, confirmToken, content)` | string ×2, `ComposeContent` | `SendResult` | トークンを検証して送信する（§5.2）。成功時はセッションを閉じ、下書きを削除、連絡先候補を加算する |
 | `CloseCompose(sessionId)` | string | — | セッションを破棄（下書きは残す）。未保存の変更の保存はフロントが先に `SaveDraft` する |
 | `DiscardCompose(sessionId)` | string | — | セッションを破棄し、Gmail 下書きがあれば削除する |
-| `SuggestContacts(accountId, prefix, limit)` | string, string, number | `Address[]` | `contacts` から前方一致（メールアドレス）で候補を返す。順位は [ER §3.8](../architecture/er.md) |
+| `SuggestContacts(accountId, prefix, limit)` | string, string, number | `Address[]` | `contacts` から、メールアドレスまたは表示名の前方一致で候補を返す。順位は [ER §3.8](../architecture/er.md) |
 
 ### 5.1 OpenCompose の初期値
 
@@ -319,6 +319,7 @@ sequenceDiagram
 - 検証順序: 送信元（`SENDER_REQUIRED`）→ 宛先（`NO_RECIPIENTS`）→ アドレス形式（`INVALID_ADDRESS`）→ 送信元整合（`SENDER_MISMATCH`）。件名・本文が空のときは**エラーにせず警告**（`EMPTY_SUBJECT`／`EMPTY_BODY`）
 - 送信元の整合（`SENDER_MISMATCH`）: セッションのアカウントと、スレッドの所有アカウント（`threads.account_id`／セッション作成時の `ThreadRef.accountId`）が一致すること。`From` ヘッダは `accounts.email` から生成し、本文・ヘッダに由来する値を使わない
 - 送信は `archiveAfterSend` が真でも**送信成功後**にアーカイブする。アーカイブ失敗時は `SendResult.archived = false`、`archiveError` に理由を入れ、送信自体は成功として扱う
+- 送信が失敗したとき（`messages.send` は二重送信を避けるため 5xx を再試行しない）は、確認トークンは使用済みになるが、作成セッションと本文はそのまま残る。利用者は内容を保ったまま、`PrepareSend`（F-06 の確認）からやり直して再送できる
 - MIME: `multipart/alternative`（`text/plain`＋`text/html`）。添付があれば `multipart/mixed`。ヘッダは `From`、`To`、`Cc`、`Bcc`、`Subject`（RFC 2047）、`In-Reply-To`、`References`、`Date`、`Message-ID`
 
 ## 6. AIService
@@ -368,7 +369,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 |-----------|------------|------|
 | `sync:updated` | `{ accountId: string; changedThreadIds: string[] }` | 差分同期・リセット同期でキャッシュが更新された |
 | `account:status` | `{ accountId: string; status: 'active' \| 'syncing' \| 'needs_reauth' \| 'error'; message?: string }` | アカウント状態の変化（`syncing` は一時状態で DB に保存しない） |
-| `notify:open-thread` | `{ accountId: string; threadId: string }` | 通知クリック、またはトレイから開く |
+| `notify:open-thread` | `{ accountId: string; threadId: string }` | 通知クリック（トレイ操作ではウィンドウを前面に出すだけで、このイベントは発行しない） |
 | `update:available` | `{ version: string; url: string }` | 新バージョン検出 |
 | `app:before-quit` | なし | トレイの「終了」。フロントは未保存の下書きを保存して `AckBeforeQuit` を呼ぶ |
 | `files-dropped` | `{ files: string[] }` | ウィンドウへのファイルドロップ（`data-file-drop-target` 属性の要素上のみ）。フロントは `AddAttachments` に渡す |
@@ -389,14 +390,14 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 外部 API | 用途 | 主なエンドポイント／スコープ |
 |----------|------|------------------------------|
 | Google OAuth 2.0 | 認可・更新・revoke | `https://accounts.google.com/o/oauth2/v2/auth`、`https://oauth2.googleapis.com/token`、`https://oauth2.googleapis.com/revoke`、`https://openidconnect.googleapis.com/v1/userinfo`。スコープ: `https://www.googleapis.com/auth/gmail.modify`、`openid`、`email`、`profile` |
-| Gmail API v1 | メール取得・操作・送信 | `users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.attachments.get`、`users.drafts.create／update／delete／list`、`users.labels.list／get` |
+| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`（いずれも `gmail.modify` スコープ内） |
 | AI プロバイダ | 下書き生成 | Anthropic Messages API／OpenAI 互換 Chat Completions（Base URL 指定可） |
 | GitHub Releases API | 更新確認 | `GET /repos/ousiassllc/hitomado/releases/latest`（未認証） |
 
 ### Gmail API の呼び出し規則
 
 - `threads.get` は一覧同期で `format=metadata`（`metadataHeaders=From,To,Cc,Subject,Date`）、閲覧時は `format=full`
-- すべての Gmail 呼び出しはアカウントごとの `rate.Limiter`（クォータユニット単位）を通す。429／5xx は指数バックオフ（初回 1 秒、上限 60 秒、ジッタ付き）
+- すべての Gmail 呼び出しはアカウントごとの `rate.Limiter`（クォータユニット単位）を通す。429／5xx は指数バックオフ（初回 1 秒、上限 60 秒、ジッタ付き）。ただし二重実行になり得る `messages.send` と `drafts.create` は 5xx を再試行しない（429 は再試行する）
 - `invalid_grant` は `NEEDS_REAUTH` に変換し、`accounts.status = 'needs_reauth'` を更新して `account:status` を発行する
 - ネットワーク不通は `OFFLINE` に変換する。取得済みのキャッシュ表示は維持する
 
@@ -406,3 +407,8 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | `AckBeforeQuit`、イベント `app:before-quit`／`files-dropped` を追加 | トレイ終了時の下書き保存（F-12）とファイルドロップのパス取得（Wails はパスを Go 側でのみ受け取る）のため |
+| 1.2 | 2026-11-03 | §1.2 のエラー受け渡し方式を `MarshalError`（`apperr.Marshal`）／`error.cause`／`INTERNAL` フォールバックに確定。未決の記述を削除 | 実装との整合（#31） |
+| 1.3 | 2026-11-03 | §8 `notify:open-thread` の契機を通知クリックのみに修正 | 実装（通知の応答のみで発行）・アーキテクチャ設計 §5 との整合（#30） |
+| 1.4 | 2026-11-03 | §10 の Gmail API 一覧に `users.getProfile`・`users.drafts.get` を追加 | `internal/gmail` の呼び出しとの整合（#33） |
+| 1.5 | 2026-11-03 | `SuggestContacts` の一致対象にメールアドレスと表示名の前方一致を明記 | 実装（`SuggestContacts` クエリ）との整合（#32） |
+| 1.6 | 2026-11-03 | §5.2 に送信失敗時の動作を、§10 に `messages.send`／`drafts.create` が 5xx を再試行しない例外を追記 | `internal/gmail/call.go` との整合（#46） |

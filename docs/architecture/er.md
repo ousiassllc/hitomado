@@ -292,7 +292,7 @@ erDiagram
 | `email` | TEXT | NO | PK(2)。小文字正規化 |
 | `display_name` | TEXT | YES | 直近に観測した表示名 |
 | `send_count` | INTEGER | NO | 既定 0。送信完了時に宛先へ加算 |
-| `receive_count` | INTEGER | NO | 既定 0。同期・閲覧時に差出人・宛先・Cc を加算 |
+| `receive_count` | INTEGER | NO | 既定 0。同期時に、取得したメッセージの差出人・宛先・Cc を加算（閲覧時は加算しない） |
 | `last_used_at` | INTEGER | NO | 最終観測時刻 |
 
 - 候補の順位: `send_count * 3 + receive_count` の降順、同点は `last_used_at` の降順

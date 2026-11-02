@@ -27,7 +27,7 @@ type AccountStatusPayload struct {
 	Message   string `json:"message,omitempty"`
 }
 
-// OpenThreadPayload は通知クリックまたはトレイから開くスレッド。
+// OpenThreadPayload は通知クリックで開くスレッド。
 type OpenThreadPayload struct {
 	AccountID string `json:"accountId"`
 	ThreadID  string `json:"threadId"`

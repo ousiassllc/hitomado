@@ -92,7 +92,8 @@ OAuth 同意画面の公開ステータスが **外部かつ「テスト」** �
 - 保存した添付ファイルには Windows の Mark-of-the-Web（`Zone.Identifier` の `ZoneId=3`）を付けます。開くときに SmartScreen／保護ビューが働きます（FAT/exFAT など代替データストリーム非対応のボリュームでは付かず、保存自体は成功します）。
 - ログ（`%APPDATA%\Hitomado\logs\`）にトークン・本文・件名・宛先は出力しません。
 - アプリが行う外部通信先は次の 4 種類だけです。公開者のサーバーへは一切通信しません。テレメトリもありません。
-  - Google（`accounts.google.com`／`oauth2.googleapis.com`／`openidconnect.googleapis.com`／`gmail.googleapis.com`）
+  - Google OAuth（`accounts.google.com`／`oauth2.googleapis.com`／`openidconnect.googleapis.com`。認可・トークン更新・アドレス取得）
+  - Gmail（`gmail.googleapis.com`。メールの取得・操作・送信）
   - AI プロバイダ（設定したもの。「AI で下書き」を押したときだけ、スレッド本文の一部・表示名・署名を送信）
   - GitHub Releases（`api.github.com`。新バージョンの確認のみ。設定でオフにできます）
 - 例外: メールのリモート画像は既定でブロックします。メッセージごとに「画像を表示」を押したときだけ、そのメールが参照する画像を WebView が直接取得します（取得先はメールの送信者が指定したホストです）。
