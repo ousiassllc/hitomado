@@ -27,6 +27,7 @@ import { compose as msg } from '../lib/messages'
 import { cleanRichHtml } from '../lib/richtext'
 import { replaceUserBody } from '../lib/signature'
 import { useAccountsStore } from './accounts'
+import { useInboxStore } from './inbox'
 import { useUiStore } from './ui'
 
 export type { EditableContent, ThreadTarget } from '../lib/composeModel'
@@ -34,6 +35,7 @@ export type { EditableContent, ThreadTarget } from '../lib/composeModel'
 export const useComposeStore = defineStore('compose', () => {
   const ui = useUiStore()
   const accounts = useAccountsStore()
+  const inbox = useInboxStore()
 
   const session = ref<ComposeSession>()
   const openRef = ref<ThreadTarget>()
@@ -160,6 +162,13 @@ export const useComposeStore = defineStore('compose', () => {
     )
   }
 
+  /** 新規作成の送信元の初期値（F-11）: 受信箱のアカウントフィルタが単一選択ならそのアカウント、それ以外は未選択。 */
+  function withDefaultSender(req: OpenComposeRequest): OpenComposeRequest {
+    const ids = inbox.filter.accountIds
+    if (req.mode !== 'new' || req.accountId || ids.length !== 1) return req
+    return { ...req, accountId: ids[0] }
+  }
+
   /** 作成セッションを開く。別セッションが開いていれば保存して閉じてから。開けたら（または同じものが開いていれば）true。 */
   async function open(req: OpenComposeRequest): Promise<boolean> {
     if (opening) return false
@@ -167,7 +176,7 @@ export const useComposeStore = defineStore('compose', () => {
     opening = true
     try {
       if (session.value && !(await close())) return false
-      const s = normalizeSession(await call(ComposeService.OpenCompose(req)))
+      const s = normalizeSession(await call(ComposeService.OpenCompose(withDefaultSender(req))))
       silently(() => {
         session.value = s
         openRef.value = req.ref
