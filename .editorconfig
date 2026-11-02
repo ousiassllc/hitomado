@@ -12,3 +12,8 @@ indent_style = tab
 
 [Makefile]
 indent_style = tab
+
+# 日本語を含むため BOM 付き UTF-8 が必要（BOM が無いと NSIS は ANSI として読む）。
+[*.nsi]
+charset = utf-8-bom
+indent_size = 4

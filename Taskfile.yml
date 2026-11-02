@@ -17,6 +17,11 @@ tasks:
     cmds:
       - task: "{{.GOOS}}:build"
 
+  package:
+    summary: Builds the Windows installer (VERSION=X.Y.Z)
+    cmds:
+      - task: "{{.GOOS}}:package"
+
   run:
     summary: Runs the application
     cmds:
