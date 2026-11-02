@@ -27,6 +27,7 @@
 
 ```
 hitomado/
+├─ .github/scripts/          # next-version.sh（リリースのタグ決定）とそのテスト
 ├─ .github/workflows/        # ci.yml, release.yml
 ├─ .golangci.yml
 ├─ .linterly.yml
@@ -95,7 +96,7 @@ task dev                        # 開発サーバー（wails3 dev）
 
 ### 4.1 `ci.yml`
 
-- トリガー: `main` への push、`pull_request`。同一ブランチの古い実行は `concurrency` でキャンセルする
+- トリガー: `pull_request`、`workflow_call`（`release.yml` から呼ぶ）。`main` への push は `release.yml` 経由で実行する（§4.2）。同一ブランチの古い実行は `concurrency` でキャンセルする
 
 ```mermaid
 flowchart LR
@@ -114,8 +115,11 @@ flowchart LR
 
 ### 4.2 `release.yml`
 
-- トリガー: タグ `v*` の push
-- 内容: 同じタグのコミットで `ci.yml`（lint・test・Windows ビルド）を呼んで通したうえで、windows-latest で `wails3 build VERSION=<タグから v を除いた値>`（`-X main.version` で実行ファイルに版を埋め込む。更新確認の比較に使う）→ zip と `SHA256SUMS.txt` を GitHub Releases に添付（[NF-D01](../requirements/non-functional.md#8-配布更新)）。ビルドは `contents: read`、公開だけ `contents: write`。`v*-rc1` のようにハイフンを含むタグはプレリリースとして公開する。コード署名は行わない（NF-D02）
+- トリガー: `main` への push（PR のマージ）。タグの push では動かさない。手でタグを打つ必要はない
+- 版番号: `.github/scripts/next-version.sh` が決める。最新の安定版タグ（`vX.Y.Z`。`-rc1` などハイフン付きは無視）から patch を 1 つ上げる（`v0.1.0` → `v0.1.1`）。安定版タグがまだ無ければ最初の版は `v0.1.0`。そのコミットに既に安定版タグがあれば（失敗した run の再実行）、それをそのまま使う。minor／major を上げる手順は定めていない（最新のタグを基準にするだけなので、より大きい版のタグがあれば次の patch はそこから上がる）。テストは `.github/scripts/next-version_test.sh`（CI の `test` ジョブ・ubuntu で実行）
+- 直列化: ワークフロー全体を `concurrency: release`（`cancel-in-progress: false`）で 1 本ずつ実行し、同時にマージされても版番号がぶつからない。待機中の run は最新の 1 本だけが残るため、間に挟まったコミットは単独のリリースにならず、次のリリースに含まれる
+- 内容: 同じコミットで `ci.yml`（lint・test・Windows ビルド）を呼んで通したうえで、windows-latest で `wails3 build VERSION=<タグから v を除いた値>`（`-X main.version` で実行ファイルに版を埋め込む。更新確認の比較に使う）→ zip と `SHA256SUMS.txt` を作り、`gh release create <タグ> --target <コミット>` でタグと GitHub Release を成果物つきで同時に作る（[NF-D01](../requirements/non-functional.md#8-配布更新)）。Release が既にある場合（失敗した run の再実行）は、タグが同じコミットを指すときだけ成果物を上書きし、別のコミットなら失敗させる。CI が落ちたらリリースは作られない。ビルドは `contents: read`、タグ作成と公開だけ `contents: write`。コード署名は行わない（NF-D02）
+- `ci.yml` は `main` への push では動かさない（`release.yml` が同じ CI を呼ぶ。両方で動かすと同じ ref の `concurrency` で互いにキャンセルする）。PR では従来どおり動く
 - マージは squash／rebase せず、マージコミット方式（リポジトリ規約）
 
 ## 5. Lint
@@ -228,3 +232,4 @@ pre-push:
 | 1.1 | 2026-11-02 | フロントのテストランナーを Vitest から `bun test` に変更（§3.3、§4.1、§8、§5.3 を新設） | bun への統一方針 |
 | 1.2 | 2026-11-02 | §5.3 に preload・SFC ローダーの検証項目と Vitest 併用の代替を明記。§8 の pre-push に `vue-tsc` を追加 | `bun test` の前提（DOM・.vue）が未検証であること、template の型エラーを検出するため |
 | 1.3 | 2026-11-02 | §5.2・§5.3 の検証結果、ubuntu での purego 実行を反映。Linterly の除外を `.linterly.yml` の `ignore` に一本化（`.linterlyignore` は削除） | 実装（#1）での検証 |
+| 1.4 | 2026-11-02 | §4.1 の `ci.yml` から `main` への push トリガーを外し、§4.2 の `release.yml` を「`main` への push で patch を自動で上げて公開」に変更。タグ決定スクリプトとそのテストを追加 | 自動リリース（#8） |

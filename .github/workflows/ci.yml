@@ -1,8 +1,8 @@
 name: CI
 
+# main への push は release.yml が（同じ CI を呼んだうえで）受ける。ここでも受けると同じ ref の
+# concurrency グループで互いにキャンセルし合うため、push トリガーは置かない。
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_call:
 
@@ -91,6 +91,9 @@ jobs:
       - if: matrix.os == 'ubuntu-latest'
         run: bun test
         working-directory: frontend
+      - if: matrix.os == 'ubuntu-latest'
+        name: Release version script
+        run: bash .github/scripts/next-version_test.sh
 
   build:
     needs: [lint, test]
