@@ -79,7 +79,7 @@ task dev                        # 開発サーバー（wails3 dev）
 
 | タスク | 内容 |
 |--------|------|
-| `task dev` | `wails3 dev`（フロントは `bun run dev`） |
+| `task dev` | `wails3 dev`（フロントは `bun run dev`）。版は `-X` なしで `main.go` の既定値 `0.0.0`（§4.3 版番号） |
 | `task build` | `wails3 build`（Windows 向け成果物。`VERSION=X.Y.Z` で版を埋め込む。既定は `0.0.0`） |
 | `task package` | `wails3 package VERSION=X.Y.Z`（`build` のあと NSIS で `bin/hitomado-vX.Y.Z-windows-amd64-setup.exe` を作る。§4.3） |
 | `task generate` | `sqlc generate` と `wails3 generate bindings` |
