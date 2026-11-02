@@ -12,6 +12,8 @@ export interface MenuItem {
   label: string
   disabled?: boolean
   danger?: boolean
+  /** 併記するショートカットキー（例: `r`） */
+  shortcut?: string
 }
 
 defineProps<{ items: MenuItem[] }>()
@@ -33,7 +35,8 @@ const emit = defineEmits<{ select: [key: string] }>()
           :disabled="item.disabled"
           @select="emit('select', item.key)"
         >
-          {{ item.label }}
+          <span class="menu-label">{{ item.label }}</span>
+          <kbd v-if="item.shortcut" class="menu-shortcut">{{ item.shortcut }}</kbd>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenuPortal>
@@ -62,6 +65,17 @@ const emit = defineEmits<{ select: [key: string] }>()
   font-size: var(--font-size-sm);
   cursor: pointer;
   outline: none;
+}
+
+.menu-label {
+  flex: 1;
+}
+
+.menu-shortcut {
+  margin-left: var(--space-4);
+  color: var(--color-text-muted);
+  font-family: inherit;
+  font-size: var(--font-size-xs);
 }
 
 .menu-item[data-highlighted] {

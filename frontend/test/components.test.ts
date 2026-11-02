@@ -8,6 +8,7 @@ import ThreadRow from '../src/components/inbox/ThreadRow.vue'
 import BaseButton from '../src/components/ui/BaseButton.vue'
 import BaseDialog from '../src/components/ui/BaseDialog.vue'
 import BaseIconButton from '../src/components/ui/BaseIconButton.vue'
+import BaseTooltip from '../src/components/ui/BaseTooltip.vue'
 import { formatDate } from '../src/lib/format'
 
 setActivePinia(createPinia())
@@ -96,7 +97,33 @@ describe('BaseButton / BaseIconButton', () => {
 
   test('アイコンボタンは aria-label を持つ', () => {
     const w = mount(BaseIconButton, { props: { label: '更新' }, slots: { default: '⟳' } })
-    expect(w.attributes('aria-label')).toBe('更新')
+    expect(w.find('button').attributes('aria-label')).toBe('更新')
+  })
+})
+
+describe('BaseTooltip / BaseIconButton の shortcut', () => {
+  test('shortcut 指定時はフォーカスで「ラベル (キー)」を表示し、title は出さない', async () => {
+    const w = mount(BaseIconButton, {
+      attachTo: document.body,
+      props: { label: 'アーカイブ', shortcut: 'e' },
+      attrs: { 'data-testid': 'x' },
+      slots: { default: '🗄' },
+    })
+    const btn = w.find('button')
+    expect(btn.attributes('title')).toBeUndefined()
+    expect(btn.attributes('aria-label')).toBe('アーカイブ')
+    expect(btn.attributes('data-testid')).toBe('x')
+    await btn.trigger('focus')
+    await nextTick()
+    expect(document.body.textContent).toContain('アーカイブ (e)')
+    w.unmount()
+  })
+
+  test('shortcut なしは従来どおり title のみで、BaseTooltip の text 未指定はスロットだけ描画する', () => {
+    const icon = mount(BaseIconButton, { props: { label: '更新' }, slots: { default: '⟳' } })
+    expect(icon.find('button').attributes('title')).toBe('更新')
+    const tip = mount(BaseTooltip, { slots: { default: '<button id="plain">B</button>' } })
+    expect(tip.html()).toBe('<button id="plain">B</button>')
   })
 })
 

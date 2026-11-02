@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { common } from '../../lib/messages'
+import { SHORTCUT_KEYS } from '../../lib/shortcuts'
 import BaseIconButton from '../ui/BaseIconButton.vue'
 import BaseMenu from '../ui/BaseMenu.vue'
 import Spinner from '../ui/Spinner.vue'
@@ -46,16 +47,16 @@ function onLabelSelect(key: string): void {
       <span v-else aria-hidden="true">⟳</span>
     </BaseIconButton>
     <span class="sep" aria-hidden="true" />
-    <BaseIconButton :label="common.toolbar.markRead" :disabled="none" @click="emit('toggleRead', true)">
+    <BaseIconButton :label="common.toolbar.markRead" :shortcut="SHORTCUT_KEYS.markRead" :disabled="none" @click="emit('toggleRead', true)">
       <span aria-hidden="true">✉</span>
     </BaseIconButton>
-    <BaseIconButton :label="common.toolbar.markUnread" :disabled="none" @click="emit('toggleRead', false)">
+    <BaseIconButton :label="common.toolbar.markUnread" :shortcut="SHORTCUT_KEYS.markUnread" :disabled="none" @click="emit('toggleRead', false)">
       <span aria-hidden="true">●</span>
     </BaseIconButton>
-    <BaseIconButton :label="common.toolbar.archive" :disabled="none" @click="emit('archive')">
+    <BaseIconButton :label="common.toolbar.archive" :shortcut="SHORTCUT_KEYS.archive" :disabled="none" @click="emit('archive')">
       <span aria-hidden="true">🗄</span>
     </BaseIconButton>
-    <BaseIconButton :label="common.toolbar.trash" :disabled="none" variant="danger" @click="emit('trash')">
+    <BaseIconButton :label="common.toolbar.trash" :shortcut="SHORTCUT_KEYS.trash" :disabled="none" variant="danger" @click="emit('trash')">
       <span aria-hidden="true">🗑</span>
     </BaseIconButton>
     <BaseMenu :items="menuItems" @select="onLabelSelect">

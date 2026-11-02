@@ -207,12 +207,12 @@ graph TD
 
 | コンポーネント | 責務 | 備考 |
 |----------------|------|------|
-| `BaseButton`／`BaseIconButton` | ボタン。`variant`: primary／secondary／danger／ghost。`loading` 状態 | アイコンのみは `aria-label` 必須 |
+| `BaseButton`／`BaseIconButton` | ボタン。`variant`: primary／secondary／danger／ghost。`loading` 状態 | アイコンのみは `aria-label` 必須。`BaseIconButton` は任意の `shortcut` を受け取り、指定時は `BaseTooltip` で「ラベル (キー)」を表示する（`title` は出さない） |
 | `BaseDialog` | モーダル。フォーカストラップ・Esc・スクロールロック | Reka UI `Dialog` |
-| `BaseMenu` | ドロップダウンメニュー（返信メニュー・ラベル付け替え等） | Reka UI `DropdownMenu` |
+| `BaseMenu` | ドロップダウンメニュー（返信メニュー・ラベル付け替え等）。項目に任意の `shortcut` を併記できる | Reka UI `DropdownMenu` |
 | `BaseSelect` | 選択（AI プロバイダ等） | Reka UI `Select` |
 | `BaseSwitch` | オン／オフ（通知・更新確認） | Reka UI `Switch` |
-| `BaseTooltip` | ツールチップ（ショートカット表示） | Reka UI `Tooltip` |
+| `BaseTooltip` | ツールチップ（ショートカット表示）。ボタンを包んでホバー／フォーカスで表示。キー表記は `lib/shortcuts` の `SHORTCUT_KEYS`、併記文言は `common.shortcutHint` | Reka UI `Tooltip` |
 | `BaseChip` | 小さなラベル | 色トークンを受け取る |
 | `Spinner` | 読み込み表示 | `prefers-reduced-motion` 対応 |
 
