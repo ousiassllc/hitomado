@@ -3,6 +3,7 @@ package logging
 import (
 	"archive/zip"
 	"bufio"
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -117,17 +118,62 @@ func readFile(path string, q Query) ([]Entry, error) {
 	}
 	defer func() { _ = f.Close() }()
 	var out []Entry
-	sc := bufio.NewScanner(f)
-	sc.Buffer(make([]byte, 0, 64*1024), maxLineBytes)
-	for sc.Scan() {
-		if e, ok := parseLine(sc.Bytes()); ok && q.match(e) {
+	err = eachLine(f, func(line []byte) {
+		if !q.mayMatch(line) {
+			return
+		}
+		if e, ok := parseLine(line); ok && q.match(e) {
 			out = append(out, e)
 		}
-	}
-	if err := sc.Err(); err != nil && !errors.Is(err, bufio.ErrTooLong) {
+	})
+	if err != nil {
 		return nil, fmt.Errorf("read log: %w", err)
 	}
 	return out, nil
+}
+
+// eachLine は r を 1 行ずつ fn へ渡す。maxLineBytes を超える行は読み飛ばし、後ろの行は読み続ける。
+func eachLine(r io.Reader, fn func(line []byte)) error {
+	br := bufio.NewReaderSize(r, 64*1024)
+	var buf []byte
+	tooLong := false
+	for {
+		chunk, isPrefix, err := br.ReadLine()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err //nolint:wrapcheck // 呼び出し元がまとめて包む
+		}
+		if !tooLong {
+			if len(buf)+len(chunk) > maxLineBytes {
+				tooLong = true
+			} else {
+				buf = append(buf, chunk...)
+			}
+		}
+		if isPrefix {
+			continue
+		}
+		if !tooLong {
+			fn(buf)
+		}
+		buf, tooLong = buf[:0], false
+	}
+}
+
+// mayMatch は JSON を読む前の安い絞り込み。MinLevel が info より上のとき、水準名が行に無ければ読まない。
+func (q Query) mayMatch(line []byte) bool {
+	if q.MinLevel <= slog.LevelInfo {
+		return true
+	}
+	for _, l := range []slog.Level{slog.LevelError, slog.LevelWarn} {
+		if l >= q.MinLevel && bytes.Contains(line, []byte(`"level":"`+l.String())) {
+			return true
+		}
+	}
+	// ERROR+4 のような独自水準は水準名が "ERROR+4" で始まるので上の ERROR で拾える。WARN+n も同様。
+	return q.MinLevel > slog.LevelError && bytes.Contains(line, []byte(`"level":"ERROR+`))
 }
 
 func parseLine(line []byte) (Entry, bool) {
@@ -165,7 +211,8 @@ func (q Query) match(e Entry) bool {
 }
 
 // ExportZip はログフォルダのログファイル（現行とローテーション済み）を zip にして w へ書く。
-// ファイルはすでに伏せ済みの内容で、そのまま入れる。
+// 現行形式のログは書き込み時に伏せ済みだが、古い版が書いたログ（伏せ処理なし）が残っていても外へ出ないよう、
+// 書き出すときにも 1 行ずつ Scrub を通す。
 func ExportZip(dir string, w io.Writer) error {
 	files, err := logFiles(dir)
 	if err != nil {
@@ -196,7 +243,10 @@ func addToZip(zw *zip.Writer, path string) error {
 	if err != nil {
 		return fmt.Errorf("zip entry: %w", err)
 	}
-	if _, err := io.Copy(dst, f); err != nil {
+	err = eachLine(f, func(line []byte) {
+		_, _ = io.WriteString(dst, Scrub(string(line))+"\n")
+	})
+	if err != nil {
 		return fmt.Errorf("zip copy: %w", err)
 	}
 	return nil

@@ -84,6 +84,7 @@ func newServer(b Backend, logDir string, logger *slog.Logger, version string) *m
 	s := mcp.NewServer(&mcp.Implementation{Name: "hitomado", Version: version}, &mcp.ServerOptions{Instructions: instructions})
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: ptr(false)}
 	l := &callLogger{logger: logger}
+	s.AddReceivingMiddleware(l.middleware)
 
 	addTool(l, s, &mcp.Tool{Name: "get_status", Description: "アプリの版、アカウントごとの同期状態、最後のエラーを返す。", Annotations: readOnly},
 		func(ctx context.Context, _ noInput) (statusOutput, error) {
@@ -178,17 +179,55 @@ func parseTime(s string) (time.Time, error) {
 }
 
 // callLogger は MCP のツール呼び出しを記録する。残すのは時刻（ログの時刻）・ツール名・成否・所要時間・エラーコードだけで、
-// 引数（検索クエリ・本文）と結果は残さない。
+// 引数（検索クエリ・本文）と結果は残さない。記録は tools/call のミドルウェア 1 か所で行い、ツール本体に届かなかった
+// 呼び出し（未知のツール名・不正な引数）も同じ形で残す（エラーコードは PROTOCOL）。
 type callLogger struct{ logger *slog.Logger }
 
-func (c *callLogger) log(tool string, started time.Time, err error) {
-	attrs := []any{"tool", tool, "ok", err == nil, "duration_ms", time.Since(started).Milliseconds()}
-	if err != nil {
-		attrs = append(attrs, "error_code", errorCode(err))
-		c.logger.Warn("mcp tool call", attrs...)
-		return
+// callInfo はミドルウェアとツール本体（addTool）の間でエラーコードを受け渡す。
+type callInfo struct{ errCode string }
+
+type callInfoKey struct{}
+
+const (
+	codeProtocol      = "PROTOCOL"
+	maxToolNameLogged = 64
+)
+
+func (c *callLogger) middleware(next mcp.MethodHandler) mcp.MethodHandler {
+	return func(ctx context.Context, method string, req mcp.Request) (mcp.Result, error) {
+		if method != "tools/call" {
+			return next(ctx, method, req)
+		}
+		started := time.Now()
+		info := &callInfo{}
+		res, err := next(context.WithValue(ctx, callInfoKey{}, info), method, req)
+		name := "?"
+		if r, ok := req.(*mcp.CallToolRequest); ok && r.Params != nil {
+			name = truncate(r.Params.Name, maxToolNameLogged) // 呼び出し側が自由に決める文字列なので切る
+		}
+		failed := err != nil
+		if r, ok := res.(*mcp.CallToolResult); ok && r != nil && r.IsError {
+			failed = true
+		}
+		attrs := []any{"tool", name, "ok", !failed, "duration_ms", time.Since(started).Milliseconds()}
+		if !failed {
+			c.logger.Info("mcp tool call", attrs...)
+			return res, err
+		}
+		code := info.errCode
+		if code == "" {
+			code = codeProtocol
+		}
+		c.logger.Warn("mcp tool call", append(attrs, "error_code", code)...)
+		return res, err
 	}
-	c.logger.Info("mcp tool call", attrs...)
+}
+
+func truncate(s string, n int) string {
+	if r := []rune(s); len(r) > n {
+		return string(r[:n]) + "…"
+	}
+	return s
 }
 
 func errorCode(err error) string {
@@ -199,16 +238,18 @@ func errorCode(err error) string {
 	return apperr.Internal
 }
 
-// addTool はハンドラを呼び出しの記録つきで登録する。
+// addTool はハンドラを登録する。panic はスタックを記録して内部エラーにし、エラーは apperr に写して（想定外のエラーの文面を
+// MCP クライアントへ返さない）、エラーコードを呼び出しの記録（callLogger.middleware）へ渡す。
 func addTool[In, Out any](l *callLogger, s *mcp.Server, t *mcp.Tool, h func(context.Context, In) (Out, error)) {
 	mcp.AddTool(s, t, func(ctx context.Context, _ *mcp.CallToolRequest, in In) (res *mcp.CallToolResult, out Out, err error) {
-		started := time.Now()
 		defer func() {
 			if r := recover(); r != nil { // ツールの panic で接続ごと落とさない
 				logging.LogPanic(l.logger, "mcp:"+t.Name, r, debug.Stack())
 				err = apperr.New(apperr.Internal, "内部エラーが発生しました。")
 			}
-			l.log(t.Name, started, err)
+			if info, ok := ctx.Value(callInfoKey{}).(*callInfo); ok && err != nil {
+				info.errCode = errorCode(err)
+			}
 		}()
 		out, err = h(ctx, in)
 		if err != nil {

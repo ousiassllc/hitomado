@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ousiassllc/hitomado/internal/app"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/mcpserver"
@@ -57,8 +58,11 @@ func TestMCPStartHonorsSavedConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, cur.Listening)
 
-	m.Svc.Start(t.Context())
-	cur, err = m.Svc.GetMCPStatus(t.Context())
+	// アプリの再起動に当たる: 新しいサービスが保存済みの設定で待ち受ける。
+	restarted := app.NewServices(m.Deps).MCP
+	t.Cleanup(restarted.Shutdown)
+	restarted.Start(t.Context())
+	cur, err = restarted.GetMCPStatus(t.Context())
 	require.NoError(t, err)
 	assert.True(t, cur.Listening)
 	assert.Equal(t, st.Endpoint, cur.Endpoint)

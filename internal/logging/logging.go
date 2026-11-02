@@ -59,7 +59,7 @@ func NewWriter(w io.Writer, level slog.Level, meta Meta) *slog.Logger {
 	h := slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level: level,
 		ReplaceAttr: func(groups []string, a slog.Attr) slog.Attr {
-			if len(groups) == 0 && a.Key == slog.TimeKey {
+			if len(groups) == 0 && a.Key == slog.TimeKey && a.Value.Kind() == slog.KindTime {
 				a.Value = slog.StringValue(a.Value.Time().Format(timeLayout))
 			}
 			return a

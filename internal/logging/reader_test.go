@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -130,4 +131,52 @@ func messages(es []Entry) []string {
 		out[i] = e.Message
 	}
 	return out
+}
+
+// 1 行が上限を超えても、その行だけ飛ばして後ろの行を読む。
+func TestReadEntriesSkipsOversizedLineAndKeepsReading(t *testing.T) {
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
+	huge := `{"time":"` + base.Format(timeLayout) + `","level":"ERROR","msg":"huge","pad":"` + strings.Repeat("x", maxLineBytes+10) + `"}`
+	writeLines(t, filepath.Join(dir, FileName), line(base, "ERROR", "before"), huge, line(base.Add(time.Minute), "ERROR", "after"))
+	got, err := ReadEntries(dir, Query{})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"before", "after"}, messages(got))
+}
+
+// MinLevel の事前絞り込みが、WARN 以上・独自水準（ERROR+4）を取りこぼさない。
+func TestReadEntriesMinLevelPrefilter(t *testing.T) {
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
+	writeLines(t, filepath.Join(dir, FileName),
+		line(base, "INFO", "i"), line(base.Add(time.Second), "WARN", "w"), line(base.Add(2*time.Second), "ERROR", "e"),
+		line(base.Add(3*time.Second), "ERROR+4", "e4"))
+	for lvl, want := range map[slog.Level][]string{
+		slog.LevelWarn: {"w", "e", "e4"}, slog.LevelError: {"e", "e4"}, slog.LevelError + 4: {"e4"}, slog.LevelError + 8: {},
+	} {
+		got, err := ReadEntries(dir, Query{MinLevel: lvl})
+		require.NoError(t, err)
+		assert.Equal(t, want, messages(got), lvl.String())
+	}
+}
+
+// 書き出しでは、伏せ処理前の古い形式のログ行に混ざった秘密・アドレスも外へ出さない。
+func TestExportZipScrubsLegacyLines(t *testing.T) {
+	dir := t.TempDir()
+	writeLines(t, filepath.Join(dir, "hitomado-2026-10-01T00-00-00.000.log"),
+		`time=2026-10-01T00:00:00.000Z level=ERROR msg="oauth failed" err="refresh_token=EVADEX1 for alice@legacy.example"`,
+		`{"msg":"x","access_token":"EVADEX2"}`)
+	var buf bytes.Buffer
+	require.NoError(t, ExportZip(dir, &buf))
+	zr, err := zip.NewReader(bytes.NewReader(buf.Bytes()), int64(buf.Len()))
+	require.NoError(t, err)
+	rc, err := zr.File[0].Open()
+	require.NoError(t, err)
+	defer func() { _ = rc.Close() }()
+	var out bytes.Buffer
+	_, err = out.ReadFrom(rc)
+	require.NoError(t, err)
+	assert.NotContains(t, out.String(), "EVADEX")
+	assert.NotContains(t, out.String(), "alice@legacy.example")
+	assert.Contains(t, out.String(), "oauth failed")
 }

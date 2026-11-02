@@ -55,7 +55,8 @@ async function run(fn: () => Promise<void>): Promise<void> {
 }
 
 async function apply(enabled: boolean): Promise<void> {
-  const n = parsePort()
+  // オフにするときは入力欄を検証しない（不正な値が残っていても止められる。Go 側が保存済みの値を維持する）。
+  const n = enabled ? parsePort() : Number(port.value) || 0
   if (n === undefined) {
     portError.value = msg.mcp.portInvalid
     return

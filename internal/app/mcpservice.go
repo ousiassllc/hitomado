@@ -33,6 +33,10 @@ func NewMCPService(d *Deps, backend mcpserver.Backend) *MCPService {
 }
 
 // Start は保存済みの設定が有効なときだけ待ち受けを始める。失敗してもアプリは続ける（状態に理由が出る）。
+// 保存された値を信用せず、Manager.Apply が検証する（DB が書き換えられていても、許可の無い設定では待ち受けない）。
+// Start と Shutdown はアプリの起動・終了処理（run.go）用で、フロントには公開しない。
+//
+//wails:ignore
 func (s *MCPService) Start(ctx context.Context) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -47,6 +51,8 @@ func (s *MCPService) Start(ctx context.Context) {
 }
 
 // Shutdown は待ち受けを止める。
+//
+//wails:ignore
 func (s *MCPService) Shutdown() { s.mgr.Close() }
 
 // GetMCPStatus は設定と待ち受けの状態を返す。
@@ -61,9 +67,23 @@ func (s *MCPService) GetMCPStatus(ctx context.Context) (dto.MCPStatus, error) {
 // SetMCPConfig は設定を検証して保存し、待ち受けに反映する。待ち受けに失敗しても設定は保存し、状態の Error に理由を入れる。
 func (s *MCPService) SetMCPConfig(ctx context.Context, in dto.MCPConfig) (dto.MCPStatus, error) {
 	cfg := mcpserver.Config{Enabled: in.Enabled, Host: in.Host, Port: in.Port, AllowNonLoopback: in.AllowNonLoopback}.Normalize()
+	// 止めるときは検証しない（不正な値が残っていてもオフにできる）。値は保存済みのものを維持する。
+	if !cfg.Enabled {
+		saved, err := s.load(ctx)
+		if err != nil {
+			return dto.MCPStatus{}, apperr.FromInfra(err, "")
+		}
+		saved.Enabled = false
+		return s.save(ctx, saved)
+	}
 	if err := cfg.Validate(); err != nil {
 		return dto.MCPStatus{}, validation(err.Error())
 	}
+	return s.save(ctx, cfg)
+}
+
+// save は設定を保存して待ち受けに反映する。待ち受けに失敗しても設定は保存し、状態の Error に理由を入れる。
+func (s *MCPService) save(ctx context.Context, cfg mcpserver.Config) (dto.MCPStatus, error) {
 	b, err := json.Marshal(cfg)
 	if err != nil {
 		return dto.MCPStatus{}, apperr.FromInfra(err, "")
@@ -87,6 +107,7 @@ func (s *MCPService) IssueMCPToken(ctx context.Context) (dto.MCPTokenResult, err
 	if err != nil {
 		return dto.MCPTokenResult{}, apperr.Wrap(apperr.Internal, "トークンを発行できません。", err)
 	}
+	s.dropConnections(cfg)
 	logger(s.d).Info("mcp token issued")
 	return dto.MCPTokenResult{Token: token, Status: s.status(cfg)}, nil
 }
@@ -100,8 +121,19 @@ func (s *MCPService) RevokeMCPToken(ctx context.Context) (dto.MCPStatus, error) 
 	if err := s.tokens.Revoke(); err != nil {
 		return dto.MCPStatus{}, apperr.Wrap(apperr.Internal, "トークンを無効にできません。", err)
 	}
+	s.dropConnections(cfg)
 	logger(s.d).Info("mcp token revoked")
 	return s.status(cfg), nil
+}
+
+// dropConnections はトークンの再発行・無効化のあと、待ち受け中なら待ち受けを作り直して開いている接続・ストリームを切る
+// （各リクエストはトークンを検証されるが、確立済みの SSE ストリームは検証されないため）。
+func (s *MCPService) dropConnections(cfg mcpserver.Config) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.mgr.State().Listening {
+		_ = s.mgr.Apply(cfg)
+	}
 }
 
 // load は保存済みの設定を返す。未保存・壊れた値は既定（オフ）。

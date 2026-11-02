@@ -381,7 +381,8 @@ type AIConfig = {
 | `IssueMCPToken()` | — | `{ token: string; status: MCPStatus }` | Bearer トークンを（再）発行して資格情報ストア（`hitomado/mcp_token`）に保存する。古いトークンは無効になる。`token` を返すのはこの 1 回だけ |
 | `RevokeMCPToken()` | — | `MCPStatus` | トークンを削除する（以後すべての MCP 接続を拒否） |
 
-- MCP は待ち受けのみで、`Bearer` トークンの無い・合わない接続は `401`。MCP のツール（読み取りと `create_reply_draft`）に送信は無い。ツールの呼び出しは `LogService` と同じログに残る（本文・引数は残さない）
+- `Start`／`Shutdown`（起動・終了処理用）はフロントへ公開しない（`//wails:ignore`）。`SetMCPConfig` の `enabled=false` は検証せずに停止し、保存済みの host／port を維持する。起動時は保存された設定を検証してから待ち受ける
+- MCP は待ち受けのみで、`Bearer` トークンの無い・合わない接続は `401`、`Host`／`Origin` が不正なら `403`。MCP のツール（読み取りと `create_reply_draft`）に送信は無い。ツールの呼び出しは `LogService` と同じログに残る（本文・引数は残さない）
 
 ## 8. イベント（Go → フロント）
 

@@ -67,10 +67,11 @@ func (t *Tokens) Issue() (string, error) {
 func (t *Tokens) Revoke() error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+	// ストアの削除が失敗しても、このプロセスでは先に無効にする（再起動すると残ったトークンが復活するので、エラーも返す）。
+	t.has, t.loaded = false, true
 	if err := t.store.Delete(secrets.MCPTokenKey()); err != nil {
 		return fmt.Errorf("delete mcp token: %w", err)
 	}
-	t.has, t.loaded = false, true
 	return nil
 }
 

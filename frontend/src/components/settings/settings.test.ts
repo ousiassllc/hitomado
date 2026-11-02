@@ -188,4 +188,22 @@ describe('McpSettings', () => {
     expect(w.text()).toContain('1024〜65535')
     w.unmount()
   })
+
+  test('不正なポートが入っていても、オフにする操作は送れる（Go が保存済みの値を維持する）', async () => {
+    const pinia = setup()
+    const store = useSettingsStore()
+    store.loadMcp = async () => {}
+    store.mcp = status
+    const sent: boolean[] = []
+    store.setMcpConfig = async (cfg) => {
+      sent.push(cfg.enabled)
+    }
+    const w = mount(McpSettings, { global: { plugins: [pinia] } })
+    await w.vm.$nextTick()
+    await w.findAll('input')[1]?.setValue('80')
+    await w.get('[role="switch"]').trigger('click')
+    await flushPromises()
+    expect(sent).toEqual([false])
+    w.unmount()
+  })
 })

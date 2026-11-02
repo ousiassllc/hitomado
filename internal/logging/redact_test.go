@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"log/slog"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -108,4 +109,80 @@ func TestScrubKeepsOrdinaryText(t *testing.T) {
 	for _, s := range []string{"sync done", "rate limited, retry in 5s", "gmail: 404 not found", "code 404"} {
 		require.Equal(t, s, Scrub(s))
 	}
+}
+
+// キー・値の形をずらした回避形（区切り・大文字小文字・前置・URL エンコード・JSON のキー名）も伏せる。
+func TestRedactCatchesEvasiveForms(t *testing.T) {
+	cases := map[string]string{ //nolint:gosec // 伏せ処理の検証用の見本（実在しない値）
+		"underscore prefix":   "session_token=EVADE1 mcp_token=EVADE2 x_client_secret=EVADE3",
+		"mixed case":          "Session_Token=EVADE4 ACCESS_TOKEN=EVADE5",
+		"header colon":        "X-Auth-Token: EVADE6",
+		"token colon":         "token: EVADE7",
+		"basic authorization": "Authorization: Basic dXNlcjpFVkFERTg=",
+		"bearer encoded":      "Authorization=Bearer%20EVADE9",
+		"url encoded pair":    "https://x/cb?access_token%3DEVADE10&ok=1",
+		"json camel":          `{"accessToken":"EVADE11","refreshToken":"EVADE12","token":"EVADE13","secret":"EVADE14"}`,
+		"query code":          "GET /cb?code=EVADE15&state=EVADE16",
+		"google api key":      "https://x/?key=AIzaSyEVADE17EVADE17EVADE17EVADE17EVA",
+		"access key":          "access_key=EVADE18 secret_key=EVADE19",
+		"unicode email":       "failed for 山田@example.com",
+		"encoded email":       "to=alice%40evade20.example",
+	}
+	for name, in := range cases {
+		out := logOnce(t, func(l *slog.Logger) { l.Error("x", "detail", in) })
+		for i := 1; i <= 20; i++ {
+			assert.NotContains(t, out, "EVADE"+itoa(i)+"\"", name)
+			assert.NotRegexp(t, "EVADE"+itoa(i)+`\b`, out, name)
+		}
+		assert.NotContains(t, out, "山田@example.com", name)
+		assert.NotContains(t, out, "alice@evade20", name)
+		assert.NotContains(t, out, "alice%40evade20", name)
+		assert.NotContains(t, out, "dXNlcjpFVkFERTg", name)
+		assert.NotContains(t, out, "AIzaSy", name)
+	}
+}
+
+func itoa(i int) string { return strconv.Itoa(i) }
+
+// 秘密・メール内容の名前を持つキー（回避しやすい別名を含む）。
+func TestRedactMasksMoreKeyNames(t *testing.T) {
+	out := logOnce(t, func(l *slog.Logger) {
+		l.Info("x",
+			"emails", "EVADEK1", "fromAddress", "EVADEK2", "senderEmail", "EVADEK3", "htmlContent", "EVADEK4",
+			"quoteHtml", "EVADEK5", "signatureHtml", "EVADEK6", "q", "EVADEK7", "query", "EVADEK8", "preview", "EVADEK9",
+			"displayName", "EVADEK10", "pwd", "EVADEK11", "passphrase", "EVADEK12", "jwt", "EVADEK13", "sessionId", "EVADEK14",
+			"otp", "EVADEK15", "codeVerifier", "EVADEK16",
+		)
+	})
+	assert.NotContains(t, out, "EVADEK")
+}
+
+// 名前が秘密・メール内容のグループ（Group・WithGroup）は中身を丸ごと伏せる。
+func TestRedactMasksSensitiveGroupNames(t *testing.T) {
+	out := logOnce(t, func(l *slog.Logger) {
+		l.Info("x", slog.Group("subject", "x", "EVADEG1"), slog.Group("credentials", "value", "EVADEG2", slog.Group("inner", "v", "EVADEG3")))
+		l.WithGroup("password").Info("y", "value", "EVADEG4")
+		l.WithGroup("req").With("a", "keep-a").WithGroup("body").Info("z", "n", "EVADEG5")
+	})
+	assert.NotContains(t, out, "EVADEG")
+	assert.Contains(t, out, "keep-a")
+}
+
+// time という名前の文字列属性が ReplaceAttr で panic しない。Stringer の panic もロガーの外へ出さない。
+type panicStringer struct{}
+
+func (*panicStringer) String() string { panic("stringer boom") }
+
+func TestRedactSurvivesHostileValues(t *testing.T) {
+	var nilStringer *panicStringer
+	out := logOnce(t, func(l *slog.Logger) {
+		l.Info("x", "time", "not a time", "v", nilStringer)
+	})
+	assert.Contains(t, out, `"time":"not a time"`)
+	assert.Contains(t, out, `<*logging.panicStringer>`)
+}
+
+func TestScrubDoesNotOvermaskStatusCodes(t *testing.T) {
+	assert.Equal(t, "gmail: status code=404 for thread", Scrub("gmail: status code=404 for thread"))
+	assert.Equal(t, "a 100%% done", Scrub("a 100%% done"))
 }

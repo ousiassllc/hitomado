@@ -21,6 +21,7 @@ const (
 	clientErrorBurst   = 30
 	clientErrorMessage = 1000 // runes
 	clientErrorStack   = 8000 // runes
+	clientErrorShort   = 64   // code・accountId の上限（runes）
 )
 
 // LogsDirName はデータフォルダの下のログフォルダ名。
@@ -28,29 +29,30 @@ const LogsDirName = "logs"
 
 // LogService はフロントのエラーの記録・ログフォルダを開く・ログの書き出し（バインディング仕様 §8）。
 type LogService struct {
-	d       *Deps
-	mu      sync.Mutex
-	limiter *rate.Limiter
+	d  *Deps
+	mu sync.Mutex
+	// limiter は error／unhandledrejection／vue 用、bindingLimiter は binding 用。想定内の binding の警告が
+	// 続いても、本物のエラーの報告が捨てられないよう分ける。
+	limiter, bindingLimiter *rate.Limiter
 }
 
 // NewLogService は LogService を作る。
 func NewLogService(d *Deps) *LogService {
-	return &LogService{d: d, limiter: rate.NewLimiter(rate.Every(time.Second), clientErrorBurst)}
+	return &LogService{
+		d: d, limiter: rate.NewLimiter(rate.Every(time.Second), clientErrorBurst),
+		bindingLimiter: rate.NewLimiter(rate.Every(time.Second), clientErrorBurst),
+	}
 }
 
 // ReportClientError はフロントの未処理例外・Promise の reject・バインディング呼び出しの失敗を Go のログに記録する。
 // 値は logging の伏せ処理を通り、メッセージ・スタックは長さを切る。上限を超えた報告は黙って捨てる（エラーを返さない）。
 func (s *LogService) ReportClientError(_ context.Context, e dto.ClientError) error {
-	s.mu.Lock()
-	ok := s.limiter.AllowN(s.d.Clock.Now(), 1)
-	s.mu.Unlock()
-	if !ok {
-		return nil
-	}
 	level := slog.LevelError
+	lim := s.limiter
 	switch e.Kind {
 	case "error", "unhandledrejection", "vue":
 	case "binding":
+		lim = s.bindingLimiter
 		// 利用者の操作や通信で起きる想定内のエラー（OFFLINE など）は警告にする。
 		if e.Code != apperr.Internal {
 			level = slog.LevelWarn
@@ -58,14 +60,24 @@ func (s *LogService) ReportClientError(_ context.Context, e dto.ClientError) err
 	default:
 		return validation("kind が正しくありません。")
 	}
+	s.mu.Lock()
+	ok := lim.AllowN(s.d.Clock.Now(), 1)
+	s.mu.Unlock()
+	if !ok {
+		return nil
+	}
+	// 伏せ処理（Scrub）を先に通してから切る（アドレスやトークンの途中で切って断片が残らないように）。
 	logger(s.d).Log(context.Background(), level, "frontend error",
-		"source", "frontend", "kind", e.Kind, "code", e.Code, "accountId", e.AccountID,
-		"message", truncateRunes(e.Message, clientErrorMessage),
-		"origin", truncateRunes(e.Source, clientErrorMessage),
-		"stack", truncateRunes(e.Stack, clientErrorStack),
+		"source", "frontend", "kind", e.Kind,
+		"code", clip(e.Code, clientErrorShort), "accountId", clip(e.AccountID, clientErrorShort),
+		"message", clip(e.Message, clientErrorMessage),
+		"origin", clip(e.Source, clientErrorMessage),
+		"stack", clip(e.Stack, clientErrorStack),
 	)
 	return nil
 }
+
+func clip(s string, n int) string { return truncateRunes(logging.Scrub(s), n) }
 
 // OpenLogFolder はログフォルダを OS のファイルマネージャーで開く。
 func (s *LogService) OpenLogFolder(_ context.Context) error {
@@ -95,6 +107,7 @@ func (s *LogService) ExportLogs(ctx context.Context) (dto.ExportLogsResult, erro
 	}
 	if err := logging.ExportZip(logDir(s.d), f); err != nil {
 		_ = f.Close()
+		_ = os.Remove(path) // 途中までの zip を残さない
 		return dto.ExportLogsResult{}, apperr.Wrap(apperr.AttachmentIO, "ログを書き出せません。", err)
 	}
 	if err := f.Close(); err != nil {

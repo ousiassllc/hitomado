@@ -25,7 +25,7 @@ type Config struct {
 
 // Normalize は空の項目を既定で埋める。
 func (c Config) Normalize() Config {
-	c.Host = strings.TrimSpace(c.Host)
+	c.Host = strings.Trim(strings.TrimSpace(c.Host), "[]") // [::1] は net.JoinHostPort が括弧を付けるので外す
 	if c.Host == "" {
 		c.Host = DefaultHost
 	}
@@ -40,7 +40,7 @@ func IsLoopbackHost(host string) bool {
 	if strings.EqualFold(host, "localhost") {
 		return true
 	}
-	ip := net.ParseIP(strings.Trim(host, "[]"))
+	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
 }
 

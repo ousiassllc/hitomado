@@ -4,7 +4,7 @@
 import type { App } from 'vue'
 import { LogService } from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
 import type { ClientError } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { type AppError, setBindingErrorReporter } from './api'
+import { type AppError, isAppErrorLike, setBindingErrorReporter } from './api'
 
 /** 画面側で送る文字数の上限（Go 側でも切る）。 */
 const MAX_MESSAGE = 1000
@@ -48,7 +48,11 @@ export function createErrorReporter(send: SendClientError = defaultSend): ErrorR
       code: e.code,
       accountId: e.accountId,
     }
-    void send(payload).catch(() => {})
+    try {
+      void send(payload).catch(() => {})
+    } catch {
+      // send が同期的に投げても握りつぶす（ハンドラの中で再び例外を起こさない）。
+    }
   }
 
   function install(
@@ -62,7 +66,10 @@ export function createErrorReporter(send: SendClientError = defaultSend): ErrorR
       report({ kind: 'error', message: t.message || e.message, stack: t.stack, source })
     }
     const onRejection = (ev: Event): void => {
-      const t = describeThrown((ev as PromiseRejectionEvent).reason)
+      const reason = (ev as PromiseRejectionEvent).reason
+      // call() が投げ直した AppError は、その場で binding として報告済み。二重に報告しない。
+      if (isAppErrorLike(reason)) return
+      const t = describeThrown(reason)
       report({ kind: 'unhandledrejection', ...t })
     }
     target.addEventListener('error', onError)

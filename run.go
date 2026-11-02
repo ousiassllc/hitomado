@@ -53,7 +53,7 @@ func run() error {
 		// Wails が捕捉した panic（バインディングの呼び出しなど）を、スタックトレースつきでログに残す。
 		// 既定の処理は致命的終了だが、1 つの呼び出しの不具合でアプリごと落とさない（Wails の束縛メソッドと同じ方針）。
 		PanicHandler: func(p *application.PanicDetails) {
-			slog.Error("panic", "where", "wails", "panic", p.Error.Error(), "stack", p.StackTrace)
+			logging.LogPanic(slog.Default(), "wails", p.Error, []byte(p.StackTrace))
 		},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "jp.ousias.hitomado",

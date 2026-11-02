@@ -42,17 +42,3 @@ export function RevokeMCPToken(): $CancellablePromise<dto$0.MCPStatus> {
 export function SetMCPConfig($in: dto$0.MCPConfig): $CancellablePromise<dto$0.MCPStatus> {
     return $Call.ByID(1659555139, $in);
 }
-
-/**
- * Shutdown は待ち受けを止める。
- */
-export function Shutdown(): $CancellablePromise<void> {
-    return $Call.ByID(2602668683);
-}
-
-/**
- * Start は保存済みの設定が有効なときだけ待ち受けを始める。失敗してもアプリは続ける（状態に理由が出る）。
- */
-export function Start(): $CancellablePromise<void> {
-    return $Call.ByID(1526155295);
-}

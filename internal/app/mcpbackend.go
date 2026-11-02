@@ -135,6 +135,14 @@ func (b *mcpBackend) CreateReplyDraft(ctx context.Context, req mcpserver.ReplyDr
 	if trimmed(req.BodyText) == "" {
 		return mcpserver.ReplyDraft{}, validation("返信の本文を指定してください。")
 	}
+	// 同じスレッドに下書きがすでにあるときは作らない（エージェントの再試行で下書きが増え続けないように）。
+	// 既存の下書きの ID を返すので、利用者がアプリで開いて編集する。
+	if existing, ok, err := b.d.Gmail.FindDraftForThread(ctx, req.AccountID, req.ThreadID); err != nil {
+		return mcpserver.ReplyDraft{}, gmailErr(b.d, ctx, req.AccountID, err)
+	} else if ok {
+		return mcpserver.ReplyDraft{}, apperr.New(apperr.Validation,
+			"このスレッドにはすでに下書き（"+existing+"）があります。アプリで開いて編集してください。").ForAccount(req.AccountID)
+	}
 	mode := model.ModeReply
 	if req.ReplyAll {
 		mode = model.ModeReplyAll

@@ -48,6 +48,21 @@ describe('errorReporter', () => {
     expect(JSON.stringify(sent[1])).not.toContain('alice@example.com')
   })
 
+  test('call() が投げ直した AppError の未処理 reject は二重に報告しない', () => {
+    const { sent, win } = setup()
+    win.dispatch('unhandledrejection', {
+      reason: { code: 'GMAIL_ERROR', message: 'm', retryable: false },
+    })
+    expect(sent).toHaveLength(0)
+  })
+
+  test('send が同期的に投げても例外を外へ出さない', () => {
+    const reporter = createErrorReporter(() => {
+      throw new Error('sync failure')
+    })
+    expect(() => reporter.report({ kind: 'error', message: 'x' })).not.toThrow()
+  })
+
   test('Vue の描画エラーを送り、元のハンドラも呼ぶ', () => {
     const sent: ClientError[] = []
     const reporter = createErrorReporter(async (e) => {
