@@ -339,7 +339,7 @@ erDiagram
 | `messages` | `idx_messages_thread` ON `(account_id, thread_id, internal_date)` | スレッド内の集計・並び |
 | `message_labels` | `idx_message_labels_label` ON `(account_id, label_id, message_id)` | ラベルからの逆引き、`history` 反映 |
 | `contacts` | `idx_contacts_rank` ON `(account_id, last_used_at DESC)` | 候補の取得 |
-| `contacts` | 主キー `(account_id, email)` | メールアドレスの前方一致（`email LIKE 'q%'`）。表示名の前方一致は件数が小さいため全走査で許容する |
+| `contacts` | 主キー `(account_id, email)` | メールアドレスの前方一致。`email` は小文字正規化済みなので、`LIKE` ではなく範囲検索 `email >= :q AND email < :q_next`（`:q_next` は `:q` の最終文字を 1 つ進めた文字列）で PK インデックスを使う。SQLite の `LIKE` は既定で大文字小文字を区別しないため BINARY 照合の PK では使われない。表示名の前方一致は件数が小さいため全走査で許容する |
 
 ## 5. 整合性・運用ルール
 
@@ -354,3 +354,4 @@ erDiagram
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
+| 1.1 | 2026-11-02 | `contacts` の前方一致を範囲検索に変更 | `LIKE` が PK インデックスを使わないため |
