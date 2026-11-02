@@ -21,6 +21,7 @@ import {
   normalizeSession,
   snapshotOf,
   type ThreadTarget,
+  withDefaultSender,
 } from '../lib/composeModel'
 import { applyErrorEffects } from '../lib/errorEffects'
 import { compose as msg } from '../lib/messages'
@@ -162,13 +163,6 @@ export const useComposeStore = defineStore('compose', () => {
     )
   }
 
-  /** 新規作成の送信元の初期値（F-11）: 受信箱のアカウントフィルタが単一選択ならそのアカウント、それ以外は未選択。 */
-  function withDefaultSender(req: OpenComposeRequest): OpenComposeRequest {
-    const ids = inbox.filter.accountIds
-    if (req.mode !== 'new' || req.accountId || ids.length !== 1) return req
-    return { ...req, accountId: ids[0] }
-  }
-
   /** 作成セッションを開く。別セッションが開いていれば保存して閉じてから。開けたら（または同じものが開いていれば）true。 */
   async function open(req: OpenComposeRequest): Promise<boolean> {
     if (opening) return false
@@ -176,7 +170,9 @@ export const useComposeStore = defineStore('compose', () => {
     opening = true
     try {
       if (session.value && !(await close())) return false
-      const s = normalizeSession(await call(ComposeService.OpenCompose(withDefaultSender(req))))
+      const s = normalizeSession(
+        await call(ComposeService.OpenCompose(withDefaultSender(req, inbox.filter.accountIds))),
+      )
       silently(() => {
         session.value = s
         openRef.value = req.ref

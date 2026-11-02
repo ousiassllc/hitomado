@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
-import type { OpenComposeRequest } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { buildSignatureBlock, findSignature } from '../../lib/signature'
+import type { OpenComposeRequest } from '../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { buildSignatureBlock, findSignature } from '../src/lib/signature'
 import {
   calls,
   h,
@@ -11,7 +11,7 @@ import {
   session,
   setup,
   useInboxStore,
-} from './composeHarness'
+} from '../src/stores/__tests__/composeHarness'
 
 installMocks()
 afterAll(restoreMocks)
