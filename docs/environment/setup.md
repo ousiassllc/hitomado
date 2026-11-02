@@ -118,7 +118,7 @@ flowchart LR
 - トリガー: `main` への push（PR のマージ）。タグの push では動かさない。手でタグを打つ必要はない
 - 版番号: `.github/scripts/next-version.sh` が決める。最新の安定版タグ（`vX.Y.Z`。`-rc1` などハイフン付きは無視）から patch を 1 つ上げる（`v0.1.0` → `v0.1.1`）。安定版タグがまだ無ければ最初の版は `v0.1.0`。そのコミットに既に安定版タグがあれば（失敗した run の再実行）、それをそのまま使う。minor／major を上げる手順は定めていない（最新のタグを基準にするだけなので、より大きい版のタグがあれば次の patch はそこから上がる）。テストは `.github/scripts/next-version_test.sh`（CI の `test` ジョブ・ubuntu で実行）
 - 直列化: ワークフロー全体を `concurrency: release`（`cancel-in-progress: false`）で 1 本ずつ実行し、同時にマージされても版番号がぶつからない。待機中の run は最新の 1 本だけが残るため、間に挟まったコミットは単独のリリースにならず、次のリリースに含まれる
-- 内容: 同じコミットで `ci.yml`（lint・test・Windows ビルド）を呼んで通したうえで、windows-latest で `wails3 build VERSION=<タグから v を除いた値>`（`-X main.version` で実行ファイルに版を埋め込む。更新確認の比較に使う）→ zip と `SHA256SUMS.txt` を作り、`gh release create <タグ> --target <コミット>` でタグと GitHub Release を同時に作って添付する（[NF-D01](../requirements/non-functional.md#8-配布更新)）。CI が落ちたらリリースは作られない。ビルドは `contents: read`、タグ作成と公開だけ `contents: write`。コード署名は行わない（NF-D02）
+- 内容: 同じコミットで `ci.yml`（lint・test・Windows ビルド）を呼んで通したうえで、windows-latest で `wails3 build VERSION=<タグから v を除いた値>`（`-X main.version` で実行ファイルに版を埋め込む。更新確認の比較に使う）→ zip と `SHA256SUMS.txt` を作り、`gh release create <タグ> --target <コミット>` でタグと GitHub Release を成果物つきで同時に作る（[NF-D01](../requirements/non-functional.md#8-配布更新)）。Release が既にある場合（失敗した run の再実行）は、タグが同じコミットを指すときだけ成果物を上書きし、別のコミットなら失敗させる。CI が落ちたらリリースは作られない。ビルドは `contents: read`、タグ作成と公開だけ `contents: write`。コード署名は行わない（NF-D02）
 - `ci.yml` は `main` への push では動かさない（`release.yml` が同じ CI を呼ぶ。両方で動かすと同じ ref の `concurrency` で互いにキャンセルする）。PR では従来どおり動く
 - マージは squash／rebase せず、マージコミット方式（リポジトリ規約）
 

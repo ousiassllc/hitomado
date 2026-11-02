@@ -33,7 +33,10 @@ jobs:
           persist-credentials: false
       - name: Next release tag
         id: next
-        run: echo "tag=$(bash .github/scripts/next-version.sh "$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+        run: |
+          tag="$(bash .github/scripts/next-version.sh "$GITHUB_SHA")"
+          [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::invalid release tag: '$tag'" >&2; exit 1; }
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
   # このコミットでも CI（lint・test・Windows ビルド）を必ず通す。
   ci:
@@ -93,7 +96,19 @@ jobs:
           TAG: ${{ needs.version.outputs.tag }}
           REPO: ${{ github.repository }}
         run: |
-          # 再実行でも壊れないよう、Release が既にあれば作らず成果物だけ上書きする。
           # タグは --target のコミット（このワークフローを起動した main のコミット）に作られる。
-          gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1 || gh release create "$TAG" --repo "$REPO" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
-          gh release upload "$TAG" --repo "$REPO" --clobber hitomado-*-windows-amd64.zip SHA256SUMS.txt
+          # 新規作成時は成果物を同じコマンドで渡す（gh が下書き作成 → 添付 → 公開の順に処理するため、
+          # 成果物のない Release が releases/latest に出ない）。
+          # 既存の Release に添付するのは、タグが同じコミットを指すときだけ（失敗した run の再実行用。
+          # 版が別コミットに使われていたら、他コミットの成果物を上書きしない）。
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            tag_sha="$(gh api "repos/$REPO/commits/$TAG" --jq .sha)"
+            if [ "$tag_sha" != "$GITHUB_SHA" ]; then
+              echo "::error::$TAG は別のコミット ($tag_sha) の Release です。上書きしません" >&2
+              exit 1
+            fi
+            gh release upload "$TAG" --repo "$REPO" --clobber hitomado-*-windows-amd64.zip SHA256SUMS.txt
+          else
+            gh release create "$TAG" --repo "$REPO" --target "$GITHUB_SHA" --title "$TAG" --generate-notes \
+              hitomado-*-windows-amd64.zip SHA256SUMS.txt
+          fi

@@ -10,13 +10,16 @@ set -euo pipefail
 sha="$(git rev-parse --verify "${1:-HEAD}^{commit}")"
 stable='^v[0-9]+\.[0-9]+\.[0-9]+$'
 
-on_commit="$(git tag --points-at "$sha" --list 'v*' | grep -E "$stable" | sort -V | tail -n 1 || true)"
+# git の失敗は伝播させる（タグが取れていないのに v0.1.0 を出さない）。`|| true` は grep の「該当なし」だけに付ける。
+points_at="$(git tag --points-at "$sha" --list 'v*')"
+on_commit="$(grep -E "$stable" <<<"$points_at" | sort -V | tail -n 1 || true)"
 if [ -n "$on_commit" ]; then
   echo "$on_commit"
   exit 0
 fi
 
-latest="$(git tag --list 'v*' | grep -E "$stable" | sort -V | tail -n 1 || true)"
+all_tags="$(git tag --list 'v*')"
+latest="$(grep -E "$stable" <<<"$all_tags" | sort -V | tail -n 1 || true)"
 if [ -z "$latest" ]; then
   echo "v0.1.0"
   exit 0
