@@ -138,8 +138,12 @@ flowchart LR
 
 - ランナーは **`bun test`**。パッケージ管理・Taskfile・CI・Hooks をすべて bun に統一する
 - テストファイルは `frontend/src/**/*.test.ts`。DOM が必要なテストは `@happy-dom/global-registrator` を `bunfig.toml` の `[test] preload` で登録する
-- **実装時に最初に検証する項目**: (a) `.vue` の SFC を `bun test` で読み込むためのプラグイン（`bunfig.toml` の preload で `Bun.plugin` を登録）が成立するか、(b) Vue Test Utils が bun＋happy-dom 上で動くか。いずれも本書作成時点では**未検証**
-- 検証で成立しない場合の代替: コンポーネントのテストは薄く保ち、判断を伴うロジック（`lib/sanitize`、`lib/signature`、`lib/format`、ストア）を `.ts` に切り出して `bun test` でテストする。それでも SFC のテストが必要なら、そのとき改めて Vitest の併用を相談する
+- **実装時に最初に検証する項目**（本書作成時点ではいずれも**未検証**）:
+  1. `bunfig.toml` の `[test] preload` に、`@happy-dom/global-registrator`（DOM の登録）と、`Bun.plugin` で `@vue/compiler-sfc` を使って `.vue` をコンパイルするローダーを登録し、`bun test` で SFC を import できるか
+  2. Vue Test Utils が bun＋happy-dom 上で動くか
+- **成立しない場合の代替**:
+  1. コンポーネントのテストは薄く保ち、判断を伴うロジック（`lib/sanitize`、`lib/signature`、`lib/format`、ストア）を `.ts` に切り出して `bun test` でテストする
+  2. SFC のテストが必要なら、純 TS ロジックのみ `bun test`、SFC のみ Vitest という併用に切り替える（そのときはランナーが 2 つになるため、CI・Hooks・本書を直す）
 
 ## 6. Format
 
@@ -204,11 +208,14 @@ pre-push:
     bun-test:
       root: "frontend/"
       run: bun test
+    typecheck:
+      root: "frontend/"
+      run: bun run typecheck
 ```
 
 - pre-commit: lint＋format 検査＋Linterly（ステージ済みファイル対象）。Go の lint はパッケージ単位の解析が必要なため `golangci-lint run` を全体に対して実行する
-- pre-push: `go test ./...` と `bun test` を、変更の有無にかかわらず実行する。ビルド（Windows）は CI に任せる
-- 型検査（`vue-tsc`）と生成物の差分検査は CI で行う（ローカルでは `task check`）
+- pre-push: `go test ./...`、`bun test`、`vue-tsc --noEmit`（`bun run typecheck`）を、変更の有無にかかわらず実行する。ビルド（Windows）は CI に任せる
+- 生成物の差分検査は CI で行う（ローカルでは `task check`）
 
 ## 9. Swagger/OpenAPI
 
@@ -220,3 +227,4 @@ pre-push:
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | フロントのテストランナーを Vitest から `bun test` に変更（§3.3、§4.1、§8、§5.3 を新設） | bun への統一方針 |
+| 1.2 | 2026-11-02 | §5.3 に preload・SFC ローダーの検証項目と Vitest 併用の代替を明記。§8 の pre-push に `vue-tsc` を追加 | `bun test` の前提（DOM・.vue）が未検証であること、template の型エラーを検出するため |
