@@ -389,7 +389,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 外部 API | 用途 | 主なエンドポイント／スコープ |
 |----------|------|------------------------------|
 | Google OAuth 2.0 | 認可・更新・revoke | `https://accounts.google.com/o/oauth2/v2/auth`、`https://oauth2.googleapis.com/token`、`https://oauth2.googleapis.com/revoke`、`https://openidconnect.googleapis.com/v1/userinfo`。スコープ: `https://www.googleapis.com/auth/gmail.modify`、`openid`、`email`、`profile` |
-| Gmail API v1 | メール取得・操作・送信 | `users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.attachments.get`、`users.drafts.create／update／delete／list`、`users.labels.list／get` |
+| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`（いずれも `gmail.modify` スコープ内） |
 | AI プロバイダ | 下書き生成 | Anthropic Messages API／OpenAI 互換 Chat Completions（Base URL 指定可） |
 | GitHub Releases API | 更新確認 | `GET /repos/ousiassllc/hitomado/releases/latest`（未認証） |
 
@@ -408,3 +408,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.1 | 2026-11-02 | `AckBeforeQuit`、イベント `app:before-quit`／`files-dropped` を追加 | トレイ終了時の下書き保存（F-12）とファイルドロップのパス取得（Wails はパスを Go 側でのみ受け取る）のため |
 | 1.2 | 2026-11-03 | §1.2 のエラー受け渡し方式を `MarshalError`（`apperr.Marshal`）／`error.cause`／`INTERNAL` フォールバックに確定。未決の記述を削除 | 実装との整合（#31） |
 | 1.3 | 2026-11-03 | §8 `notify:open-thread` の契機を通知クリックのみに修正 | 実装（通知の応答のみで発行）・アーキテクチャ設計 §5 との整合（#30） |
+| 1.4 | 2026-11-03 | §10 の Gmail API 一覧に `users.getProfile`・`users.drafts.get` を追加 | `internal/gmail` の呼び出しとの整合（#33） |
