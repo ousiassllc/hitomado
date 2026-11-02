@@ -14,7 +14,7 @@
 
 | 領域 | 採用 | 理由 |
 |------|------|------|
-| デスクトップ基盤 | **Wails v3**（v3.0.0 正式版） | システムトレイ・ネイティブ通知（クリック応答つき）・単一インスタンス制御を標準 API で扱える（F-10）。Go バインディングの TypeScript 自動生成（`wails3 generate bindings`） |
+| デスクトップ基盤 | **Wails v3**（v3.1.0。版は `go.mod` で固定） | システムトレイ・ネイティブ通知（クリック応答つき）・単一インスタンス制御を標準 API で扱える（F-10）。Go バインディングの TypeScript 自動生成（`wails3 generate bindings`） |
 | バックエンド言語 | Go | Gmail API 公式クライアント・単一バイナリ配布 |
 | メール API | Gmail API（`google.golang.org/api/gmail/v1`） | `history` による差分同期、`threads`／`drafts`／`messages.send` を使う。IMAP は採用しない（OAuth スコープが粗く、スレッド・ラベル・下書きの対応が弱い） |
 | OAuth | `golang.org/x/oauth2`＋Google エンドポイント（PKCE・ループバック） | NF-S03 |
@@ -73,13 +73,16 @@ graph TD
 | **サービス層**（`internal/app`） | Wails に公開するバインディング。入力検証・DTO 変換・ドメインとインフラの調停 | ドメイン層、インフラ層（インターフェース越し） |
 | **ドメイン層**（`internal/domain`） | 返信宛先の決定、送信元ポリシー、署名挿入、引用生成、MIME 組立の入力モデル。**I/O を持たない純粋なロジック** | なし（標準ライブラリのみ） |
 | **同期層**（`internal/sync`） | アカウント別スケジューラ、`history` 差分の適用、リセット同期、新着検出 | ドメイン層、インフラ層 |
-| **インフラ層**（`internal/gmail`／`oauth`／`store`／`secrets`／`ai`／`notify`／`update`） | 外部との I/O。すべてインターフェースで抽象化し、テストではフェイクを注入する | 標準ライブラリ、外部ライブラリ |
+| **インフラ層**（`internal/gmail`／`oauth`／`store`／`secrets`／`ai`／`notify`／`update`／`platform`） | 外部との I/O。すべてインターフェースで抽象化し、テストではフェイクを注入する。`platform` は Wails の機能（ウィンドウ・トレイ・通知・ダイアログ・イベント発行）への接続層で、`notify` などのインターフェースの Wails 実装を持つ | 標準ライブラリ、外部ライブラリ |
+
+横断のパッケージ: `internal/events`（Go からフロントへ発行するイベントの名前とペイロード）、`internal/clock`（時刻の注入）、`internal/logging`（ログ出力の組み立て。機密を出さない）。いずれもレイヤーには属さず、各層から使う。
 
 ### ディレクトリ構成（目安）
 
 ```
 hitomado/
-├─ main.go                 # Wails アプリ起動・サービス登録・トレイ
+├─ main.go                 # エントリポイント（run() を呼び、失敗時は致命的エラーを表示して終了）
+├─ run.go                  # composition root（Wails アプリ作成・単一インスタンス・依存の組み立て・サービス登録・トレイ生成）
 ├─ internal/
 │  ├─ app/                 # バインディング（サービス層）
 │  ├─ domain/              # 純粋ロジック（replyto, signature, quote, sender policy）
@@ -89,7 +92,11 @@ hitomado/
 │  ├─ store/               # sqlc 生成コード・クエリ・goose マイグレーション
 │  ├─ secrets/             # 資格情報ストア（interface＋keyring 実装）
 │  ├─ ai/                  # Provider interface、anthropic、openai-compat
-│  ├─ notify/              # トースト・トレイ
+│  ├─ notify/              # 新着通知・トレイバッジの Notifier インターフェース（Wails 実装は platform）
+│  ├─ platform/            # Wails 接続層（メインウィンドウ・トレイ・トースト通知・ファイル／ブラウザのダイアログ・イベント発行・終了処理）
+│  ├─ events/              # フロントへ発行するイベントの名前とペイロード
+│  ├─ clock/               # 時刻の注入（System／Fake）
+│  ├─ logging/             # ログ出力（slog＋ローテーション。機密を出さない）
 │  └─ update/              # GitHub Releases 確認
 ├─ frontend/               # Vue 3 + TS（src/components, src/stores, src/lib）
 └─ docs/
@@ -101,7 +108,7 @@ hitomado/
 - **ウィンドウ**: メインウィンドウ 1 つ。エディタはメインウィンドウ内のペイン（返信・転送はスレッド下部、新規作成は右ペイン全面）として表示する。独立ウィンドウは v0 では設けない
 - **トレイ**: ウィンドウの × は非表示化（トレイへ格納）。トレイメニュー「開く」「終了」。「終了」でのみ同期スケジューラを停止してプロセスを終了する
 - **同期**: アカウントごとに 1 ゴルーチン。`time.Ticker`（60 秒）＋手動更新シグナル。`context` でキャンセル可能。アカウント追加・削除に応じて起動・停止する
-- **レート制限**: アカウントごとの `rate.Limiter`（クォータユニット単位）。429／5xx は指数バックオフ
+- **レート制限**: アカウントごとの `rate.Limiter`（クォータユニット単位）。429／5xx は指数バックオフ。ただし `messages.send`／`drafts.create` は二重実行を避けるため 5xx を再試行しない（429 は再試行する）
 - **フロントへの通知**: Go から Wails のイベントを発行し、フロントはイベント受信時にバインディングを再呼び出しして再描画する（イベントに本文等の機密は載せない）
 
 ### 発行イベント
@@ -253,8 +260,8 @@ sequenceDiagram
 
 ## 9. ビルド・CI
 
-- ローカル: `wails3 dev`（開発）、`wails3 build`（Windows 向け成果物）。`sqlc generate` と `wails3 generate bindings` の生成物はコミットする（差分が出ていないことを CI で検査する）
-- GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 build`）。`main` への push（PR のマージ）ごとに CI を通したうえで patch を 1 つ上げたタグを自動で作り、成果物を Releases に添付する。詳細は [環境構築 §4](../environment/setup.md)
+- ローカル: `wails3 dev`（開発）、`wails3 package VERSION=X.Y.Z`（NSIS インストーラー `bin/hitomado-vX.Y.Z-windows-amd64-setup.exe` を作る。`task package` も同じ）。`sqlc generate` と `wails3 generate bindings` の生成物はコミットする（差分が出ていないことを CI で検査する）
+- GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 package` によりインストーラーを作り、インストール・上書き・アンインストールを検証する）。`main` への push（PR のマージ）ごとに CI を通したうえで patch を 1 つ上げたタグを自動で作り、インストーラーを Releases に添付する。詳細は [環境構築 §4](../environment/setup.md)
 - マイグレーションは `internal/store/migrations/*.sql`（goose）を `embed` し、起動時に適用する。失敗時は起動中止（NF 可用性）
 
 ## 改訂履歴
@@ -265,3 +272,4 @@ sequenceDiagram
 | 1.1 | 2026-11-02 | §2 サニタイズ欄を NF-S04 の最終形に合わせた。§7.3 を `PrepareSend`→確認トークン→`Send` に書き換え。§8 の送信前確認を Go 側強制に変更、検索カーソルの記述を修正、作成セッションを追記 | バインディング仕様の確認トークン方式・作成セッション方式との整合 |
 | 1.2 | 2026-11-02 | §2 のフロントのテストを Vitest から `bun test` に変更。§9 の CI 記述を ubuntu／windows 構成に更新 | 環境構築（bun 統一・CI マトリクス）との整合 |
 | 1.3 | 2026-11-02 | 発行イベントに `app:before-quit`／`files-dropped` を追加 | バインディング仕様 1.1 との整合 |
+| 1.4 | 2026-11-03 | §2 の Wails を v3.1.0 に、§9 のビルド・CI を `wails3 package`（インストーラー）に更新。§4 のレイヤー表・ディレクトリ構成に `run.go`（composition root）、`internal/platform`、`events`／`clock`／`logging` を追加し、`notify` の説明を実装に合わせた | #34、#35 |

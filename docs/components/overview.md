@@ -26,6 +26,7 @@ graph TD
   SE[internal/secrets]
   AI[internal/ai]
   NT[internal/notify]
+  PF[internal/platform<br/>Wails 接続層（ウィンドウ・トレイ・通知）]
   UP[internal/update]
 
   APP --> DOM
@@ -43,9 +44,11 @@ graph TD
   SYNC --> NT
   GM --> SE
   OA --> SE
+  PF --> NT
 ```
 
-- `domain` は他の内部パッケージに依存しない。`app`／`sync` が `gmail`／`store` 等を**インターフェースとして**受け取る（具象は `main.go` で組み立てる）
+- `domain` は他の内部パッケージに依存しない。`app`／`sync` が `gmail`／`store` 等を**インターフェースとして**受け取る（具象は `run.go`（composition root）で組み立てる）
+- `platform` は Wails のウィンドウ・トレイ・トースト通知・ダイアログ・イベント発行を包み、`notify.Notifier` などの Wails 実装を持つ。`run.go` だけが生成し、`app`／`sync` にはインターフェース越しに渡す（`app`／`sync` は `platform` に依存しない）
 - `gmail` はアカウントごとの `TokenSource`（`secrets` のリフレッシュトークンから生成）と `rate.Limiter` を持つ
 
 ### 2.2 domain（純粋ロジック）
@@ -204,14 +207,13 @@ graph TD
 
 | コンポーネント | 責務 | 備考 |
 |----------------|------|------|
-| `BaseButton`／`BaseIconButton` | ボタン。`variant`: primary／secondary／danger／ghost。`loading` 状態 | アイコンのみは `aria-label` 必須 |
+| `BaseButton`／`BaseIconButton` | ボタン。`variant`: primary／secondary／danger／ghost。`loading` 状態 | アイコンのみは `aria-label` 必須。`BaseIconButton` は任意の `shortcut` を受け取り、指定時は `BaseTooltip` で「ラベル (キー)」を表示する（`title` は出さない） |
 | `BaseDialog` | モーダル。フォーカストラップ・Esc・スクロールロック | Reka UI `Dialog` |
-| `BaseMenu` | ドロップダウンメニュー（返信メニュー・ラベル付け替え等） | Reka UI `DropdownMenu` |
+| `BaseMenu` | ドロップダウンメニュー（返信メニュー・ラベル付け替え等）。項目に任意の `shortcut` を併記できる | Reka UI `DropdownMenu` |
 | `BaseSelect` | 選択（AI プロバイダ等） | Reka UI `Select` |
 | `BaseSwitch` | オン／オフ（通知・更新確認） | Reka UI `Switch` |
-| `BaseTooltip` | ツールチップ（ショートカット表示） | Reka UI `Tooltip` |
+| `BaseTooltip` | ツールチップ（ショートカット表示）。ボタンを包んでホバー／フォーカスで表示。キー表記は `lib/shortcuts` の `SHORTCUT_KEYS`、併記文言は `common.shortcutHint` | Reka UI `Tooltip` |
 | `BaseChip` | 小さなラベル | 色トークンを受け取る |
-| `BaseToast`／`ToastHost` | 通知トースト。成功・エラー・情報。再試行ボタン付きエラー | |
 | `Spinner` | 読み込み表示 | `prefers-reduced-motion` 対応 |
 
 ### 3.4 アカウント・共通（`components/account`、`components/shell`）
@@ -224,6 +226,7 @@ graph TD
 | `FilterBar` | 未読のみ切替、フィルタのクリア | emits: `change` | `inboxStore.filter`（`AppService.SetInboxFilter`） |
 | `AppShell` | 3 ペインのレイアウト。最小幅 960px。ペイン幅のリサイズ | — | `uiStore` |
 | `BannerStack` | オフライン、要再接続、更新あり、同期エラーのバナー（優先度順に最大 2 件） | — | `uiStore`、`accountsStore` |
+| `ToastHost` | 通知トースト（`uiStore.toasts`。成功・エラー・情報。エラーは `retry` 指定時に再試行ボタンを出し、自動では消えない） | — | `uiStore.pushToast`／`dismissToast` |
 | `AddAccountDialog` | OAuth クライアント選択（未登録なら登録へ誘導）→ ブラウザ認可待ち表示（キャンセル可）→ 表示名・色設定 | emits: `done(account)` | `AccountService.StartAddAccount／CancelAddAccount` |
 
 ### 3.5 受信箱（`components/inbox`）
@@ -317,9 +320,18 @@ graph TD
 | `lib/signature` | 署名ブロックの挿入・検出・差し替え |
 | `lib/format` | 日時（今日は時刻、今年は月日、それ以外は年月日）・サイズの整形（日本語） |
 | `lib/palette` | アカウント色パレット（キー→ライト／ダークの色値）。Go 側と共有する定数 |
+| `lib/errorEffects` | API エラーが共通状態に及ぼす影響（オフライン表示・要再接続）の判定。ストア間の循環参照を避けるため純関数 |
+| `lib/banners` | バナーの選択（優先度順に最大 2 件。§3.4 `BannerStack`） |
+| `lib/composeModel` | `composeStore` が使う型と、バインディング値の正規化（`null` → 空配列） |
+| `lib/dropFiles` | Wails のファイルドロップ。Go 側が発行する `files-dropped` のペイロードからパス一覧を取り出す。`AttachmentBar` が受けて `ComposeService.AddAttachments` を呼ぶ（F-14） |
+| `lib/messages/` | UI 文言の集約（領域ごとに `common`／`compose`／`settings`／`thread`。`index.ts` が再エクスポート） |
 | `composables/useShortcuts` | §4 のキーボードショートカット登録・コンテキスト判定 |
 | `composables/useWailsEvents` | `sync:updated` などのイベント購読と解除 |
 | `composables/useAutosave` | §3.7 の自動保存 |
+| `composables/useQuitFlush` | `app:before-quit`（トレイの「終了」）で未保存の下書きを保存（`SaveDraft`）してから `AppService.AckBeforeQuit` を呼ぶ。保存に失敗しても必ず Ack する（F-12） |
+| `composables/useAiDraft` | 「AI で下書き」の状態遷移（未設定→設定へ誘導、未同意→同意、本文入力済み→置換確認、生成中→キャンセル可。F-08） |
+| `composables/useContactSuggest` | 宛先オートコンプリート。入力が止まって 150ms で `SuggestContacts` を呼ぶ（F-13） |
+| `composables/useComposeLifecycle` | 作成セッションの保存・終了（`composeStore` の一部） |
 
 ## 4. キーボードショートカット
 
@@ -350,7 +362,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 - **アカウント色パレット**: 10 色を用意し、ライト／ダークの各背景に対して文字・帯のコントラスト比 4.5:1 を満たす値のみ採用する（NF §11）。**色だけで識別させない**（名前チップを常に併記）
 - **フォーカス**: すべての操作要素で可視フォーカスを表示する。ダイアログはフォーカストラップ（Reka UI）。スレッドリストは矢印キーでも移動できる（`role="listbox"`、`aria-activedescendant`）
 - **動き**: `prefers-reduced-motion` ではアニメーションを無効にする
-- **文字**: UI は日本語。文言は `lib/messages.ts` に集約する（将来の多言語化を妨げない。NF §7）
+- **文字**: UI は日本語。文言は `lib/messages/` に集約する（将来の多言語化を妨げない。NF §7）
 - **ダイアログの代替文**: アイコンのみのボタンには `aria-label` を付ける
 
 ## 6. 要件との対応
@@ -366,7 +378,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | F-07 署名 | `SignatureSettings`、`lib/signature` | `AccountService.SetSignature`、`domain/signature` |
 | F-08 AI 下書き | `AiDraftButton`、`AISettings` | `AIService`、`ai.Provider` |
 | F-09 検索 | `SearchBar`、`inboxStore.runSearch` | `InboxService.Search` |
-| F-10 通知・トレイ | `uiStore`（`notify:open-thread`）、`AccountsSettings`（通知切替） | `sync.detector`、`notify.Notifier`、`main.go`（トレイ・単一インスタンス） |
+| F-10 通知・トレイ | `uiStore`（`notify:open-thread`）、`AccountsSettings`（通知切替） | `sync.detector`、`notify.Notifier`、`platform.Notifier`／`platform.Tray`、`run.go`（トレイ生成・単一インスタンス） |
 | F-11 新規作成 | `ComposePane`、`SenderField`、`RecipientField`、`RichTextEditor` | `ComposeService` |
 | F-12 下書き保存 | `useAutosave`、`composeStore` | `ComposeService.SaveDraft`、`gmail.Client`（drafts） |
 | F-13 オートコンプリート | `RecipientField` | `ComposeService.SuggestContacts`、`domain/contacts`、`store` |
@@ -378,3 +390,5 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | §3.8 の「実装時の確認事項」を「最初に検証する項目」に改め、代替案（固定高＋内部スクロール、ナビゲーションフック）を追記 | WebView2 上での動作が未検証のため |
+| 1.2 | 2026-11-03 | §3.3 から `BaseToast` を外して `ToastHost` を §3.4 に追加し、文言の集約先を `lib/messages/` に修正、§3.11 に `useQuitFlush`・`dropFiles` ほかを追記 | 実装のファイル構成・責務との乖離（#36） |
+| 1.3 | 2026-11-03 | §2.1 に `internal/platform` を追加し、具象の組み立て場所を `main.go` から `run.go` に修正。§6 の F-10 の対応先を `run.go`／`internal/platform` に修正 | 実装のファイル構成との乖離（#34） |
