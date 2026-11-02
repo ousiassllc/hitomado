@@ -60,6 +60,8 @@ type Scheduler struct {
 	closed    bool
 	accounts  map[string]*account
 	refreshes map[string]*refreshCall
+
+	unreadMu sync.Mutex // updateUnread の「未読数の取得→トレイへの反映」を直列化する
 }
 
 var _ Engine = (*Scheduler)(nil)
