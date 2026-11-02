@@ -295,7 +295,7 @@ erDiagram
 | `receive_count` | INTEGER | NO | 既定 0。同期時に、取得したメッセージの差出人・宛先・Cc を加算（閲覧時は加算しない） |
 | `last_used_at` | INTEGER | NO | 最終観測時刻 |
 
-- 候補の順位: `send_count * 3 + receive_count` の降順、同点は `last_used_at` の降順
+- 候補の順位: `send_count * 3 + receive_count` の降順、同点は `last_used_at` の降順（`SuggestContacts` の SQL が唯一の実装）
 - 自アカウントのアドレス（`accounts.email`）は候補から除外する
 - スレッドの保持期間削除の影響を受けない。アカウント削除時にカスケード削除する
 
@@ -356,3 +356,4 @@ erDiagram
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | `contacts` の前方一致を範囲検索に変更 | `LIKE` が PK インデックスを使わないため |
 | 1.2 | 2026-11-03 | §3.9 の `ai.config`／`ai.consent` の値を実装の保存形式に合わせ、旧形式の扱いを追記 | 同意が送信先単位の配列になり、`baseUrl` は省略可のため（#29） |
+| 1.3 | 2026-11-03 | §3.8 の候補の順位規則の実装が `SuggestContacts` の SQL のみであることを明記 | `domain/contacts` の未使用の順位付けを削除したため（#47） |
