@@ -80,7 +80,7 @@ func run() error {
 	}
 	defer func() { _ = st.Close() }()
 
-	win := platform.NewMainWindow(wapp)
+	win, keeper := platform.NewMainWindow(wapp, loadWindowState(ctx, st, logger), windowStateSaver(st, logger))
 	mainWindow.set(win)
 	emitter := platform.NewEmitter(wapp)
 	notifSvc := notifications.New()
@@ -134,6 +134,7 @@ func run() error {
 		sched.Shutdown()
 	})
 	quitter = platform.NewQuitter(emitter, func() {
+		keeper.Flush() // 終了でウィンドウが壊れる前に位置・サイズを保存する
 		shutdown()
 		wapp.Quit()
 	}, nil)

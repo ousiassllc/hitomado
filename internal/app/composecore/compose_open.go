@@ -26,6 +26,7 @@ func (s *Service) OpenCompose(ctx context.Context, req dto.OpenComposeRequest) (
 	cs := &composeSession{id: store.NewID(), mode: model.Mode(req.Mode), io: newChanMutex()}
 	var (
 		content dto.ComposeContent
+		attErr  error
 		err     error
 	)
 	switch cs.mode {
@@ -43,7 +44,7 @@ func (s *Service) OpenCompose(ctx context.Context, req dto.OpenComposeRequest) (
 		if cs.accountID == "" {
 			return dto.ComposeSession{}, apperr.New(apperr.Validation, "下書きを開くには送信元アカウントが必要です。")
 		}
-		if content, err = s.restoreDraft(ctx, cs, req.DraftID); err != nil {
+		if content, attErr, err = s.restoreDraft(ctx, cs, req.DraftID); err != nil {
 			return dto.ComposeSession{}, err
 		}
 	}
@@ -55,6 +56,9 @@ func (s *Service) OpenCompose(ctx context.Context, req dto.OpenComposeRequest) (
 	s.sessions[cs.id] = cs
 	out := cs.toDTO(content)
 	s.mu.Unlock()
+	if attErr != nil {
+		out.AttachmentError = apperr.ToMap(attErr)
+	}
 	return out, nil
 }
 
@@ -129,23 +133,65 @@ func (s *Service) initThreaded(ctx context.Context, cs *composeSession, req dto.
 	return content, nil
 }
 
-// restoreDraft は Gmail 下書きの内容でセッションの入力内容を作る。
-// 下書きの添付は復元できないため引き継がない（再添付が必要）。Bcc は下書きのヘッダから復元する。
-func (s *Service) restoreDraft(ctx context.Context, cs *composeSession, draftID string) (dto.ComposeContent, error) {
+// restoreDraft は Gmail 下書きの内容でセッションの入力内容と添付を作る（F-12）。
+// 添付は下書きに保存されたものが正で、返信・転送の元から作った添付（転送元添付）は置き換える
+// （下書きで削除した転送元添付が復活しないように）。下書きの更新でメッセージ ID が変わるため、
+// 添付はこのとき取得してセッションのメモリに保持する。合計が上限を超えるとき（Gmail 上で作られた下書き等）は
+// 添付を復元せず、理由を attErr で返す（本文・宛先は復元する）。取得に失敗したときは err を返す
+// （添付を黙って落として再保存で失うことがないように、下書きを開かない）。
+func (s *Service) restoreDraft(ctx context.Context, cs *composeSession, draftID string) (content dto.ComposeContent, attErr, err error) {
 	d, err := s.d.Gmail.GetDraft(ctx, cs.accountID, draftID)
 	if err != nil {
-		return emptyContent(), apperr.FromInfra(err, cs.accountID)
+		return emptyContent(), nil, apperr.FromInfra(err, cs.accountID)
 	}
+	var declared int64
+	for _, a := range d.Attachments {
+		declared += a.Size
+	}
+	var restored []sessionAttachment
+	if declared > attachmentLimitBytes {
+		attErr = errAttachmentTooLarge()
+	} else if restored, err = s.fetchDraftAttachments(ctx, cs.accountID, d); err != nil {
+		return emptyContent(), nil, err
+	}
+	cs.attachments = restored
 	cs.draftID, cs.draftAcctID = draftID, cs.accountID
 	body := d.Message.BodyHTML
 	if body == "" {
 		body = bodyhtml.TextToHTML(d.Message.BodyText)
 	}
-	content := emptyContent()
+	content = emptyContent()
 	content.To, content.Cc, content.Bcc = cleanAddrs(d.Message.To), cleanAddrs(d.Message.Cc), cleanAddrs(d.Bcc)
 	content.Subject = foldLine(d.Message.Subject)
 	content.BodyHTML = body
-	return content, nil
+	return content, attErr, nil
+}
+
+// fetchDraftAttachments は下書きの添付の内容を取得して、セッションの添付にする。
+func (s *Service) fetchDraftAttachments(ctx context.Context, accountID string, d gmail.DraftFull) ([]sessionAttachment, error) {
+	out := make([]sessionAttachment, 0, len(d.Attachments))
+	var total int64
+	for _, a := range d.Attachments {
+		data, err := s.d.Gmail.GetAttachment(ctx, accountID, d.Message.ID, a.ID)
+		if err != nil {
+			return nil, apperr.FromInfra(err, accountID)
+		}
+		if total += int64(len(data)); total > attachmentLimitBytes {
+			return nil, errAttachmentTooLarge()
+		}
+		name := foldLine(a.Filename)
+		if name == "" {
+			name = "attachment"
+		}
+		mt := a.MimeType
+		if mt == "" {
+			mt = "application/octet-stream"
+		}
+		out = append(out, sessionAttachment{
+			ID: store.NewID(), Filename: name, MimeType: mt, Size: int64(len(data)), Source: attachmentDraft, Data: data,
+		})
+	}
+	return out, nil
 }
 
 // pickSource は返信・転送の元メッセージを選ぶ。下書きは除外する。wantID 省略時は、自分の送信

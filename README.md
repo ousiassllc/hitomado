@@ -68,6 +68,7 @@ OAuth 同意画面の公開ステータスが **外部かつ「テスト」** �
 
 - リフレッシュトークン・Client Secret・AI の API キーは **Windows 資格情報マネージャー**に保存します。ファイル・ログに平文では残りません。
 - ローカル DB（`%APPDATA%\Hitomado\hitomado.db`）には、**メール本文・添付は保存しません**。保存するのは差出人・件名・日時・スニペット・ラベル・同期状態・宛先候補のみです。件名とスニペットは暗号化されないため、**BitLocker などのディスク暗号化の利用を推奨**します。
+- 保存した添付ファイルには Windows の Mark-of-the-Web（`Zone.Identifier` の `ZoneId=3`）を付けます。開くときに SmartScreen／保護ビューが働きます（FAT/exFAT など代替データストリーム非対応のボリュームでは付かず、保存自体は成功します）。
 - ログ（`%APPDATA%\Hitomado\logs\`）にトークン・本文・件名・宛先は出力しません。
 - アプリが行う外部通信先は次の 4 種類だけです。公開者のサーバーへは一切通信しません。テレメトリもありません。
   - Google（`accounts.google.com`／`oauth2.googleapis.com`／`openidconnect.googleapis.com`／`gmail.googleapis.com`）

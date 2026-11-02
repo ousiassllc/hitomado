@@ -1,5 +1,5 @@
 // 作成・送信のエラーコード別の表示文言と、送信確認の扱い（バインディング仕様 §1.2、§5.2）。
-import type { AppError } from './api'
+import { type AppError, parseBindingError } from './api'
 import { formatSize } from './format'
 import { compose as msg } from './messages'
 
@@ -19,6 +19,20 @@ function emailsOf(details: Record<string, unknown> | undefined): string[] {
 function limitLabel(details: Record<string, unknown> | undefined): string {
   const v = details?.limitBytes
   return formatSize(typeof v === 'number' && v > 0 ? v : 25 * 1024 * 1024)
+}
+
+/**
+ * OpenCompose の結果に下書き添付の復元失敗（`attachmentError`）があれば、警告文言を返す。
+ * 本文・宛先は復元済みで attachments は空（Go 側の仕様）。
+ */
+// バインディング再生成前後どちらの ComposeSession 型でも渡せるよう、緩い型で受ける。
+export function draftAttachmentWarning(session: object): string | undefined {
+  const e = (session as { attachmentError?: unknown }).attachmentError
+  if (e === undefined || e === null) return undefined
+  const err = parseBindingError(e)
+  return err.code === 'ATTACHMENT_TOO_LARGE'
+    ? msg.toast.draftAttachmentsDropped(limitLabel(err.details))
+    : msg.toast.draftAttachmentsFailed
 }
 
 /**

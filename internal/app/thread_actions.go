@@ -3,8 +3,6 @@ package app
 import (
 	"context"
 	"net/url"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/ousiassllc/hitomado/internal/app/appcore"
@@ -14,6 +12,7 @@ import (
 
 // SaveAttachment はネイティブの保存ダイアログで選ばれた場所へ添付を書き込む。キャンセルは Saved=false。
 // 保存先と同じディレクトリの一時ファイルへ書いてから置き換える（失敗時は一時ファイルを削除し、既存ファイルは壊さない）。
+// Windows では保存したファイルに Mark-of-the-Web（ZoneId=3）を付ける。
 func (s *ThreadService) SaveAttachment(ctx context.Context, ref dto.MessageRef, attachmentID, suggestedName string) (dto.SaveAttachmentResult, error) {
 	if ref.MessageID == "" || attachmentID == "" {
 		return dto.SaveAttachmentResult{}, validation("添付ファイルの指定が正しくありません。")
@@ -36,8 +35,12 @@ func (s *ThreadService) SaveAttachment(ctx context.Context, ref dto.MessageRef, 
 		}
 		return dto.SaveAttachmentResult{}, ae
 	}
-	if err := writeFileReplacing(path, data); err != nil {
+	if err := appcore.WriteFileReplacing(path, data); err != nil {
 		return dto.SaveAttachmentResult{}, apperr.Wrap(apperr.AttachmentIO, "ファイルを保存できませんでした。", err)
+	}
+	// 置換後のファイルに Mark-of-the-Web を付ける（Windows のみ）。ADS 非対応のボリュームでも保存は成功扱い。
+	if err := appcore.MarkInternetZone(path); err != nil {
+		logger(s.d).Warn("Mark-of-the-Web を付けられなかった", "err", err) // ファイル名・パスは出さない
 	}
 	return dto.SaveAttachmentResult{Saved: true, Path: path}, nil
 }
@@ -64,37 +67,4 @@ func (s *ThreadService) OpenExternal(_ context.Context, rawURL string) error {
 		return apperr.Wrap(apperr.Internal, "リンクを開けませんでした。", err)
 	}
 	return nil
-}
-
-// writeFileReplacing は path と同じディレクトリの一時ファイルに書き、成功したら path へ置き換える。
-// どの失敗経路でも一時ファイルは残さず、path に元からあったファイルを壊さない。
-func writeFileReplacing(path string, data []byte) (err error) {
-	tmp, err := os.CreateTemp(filepath.Dir(path), ".hitomado-*.tmp")
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			_ = tmp.Close()
-			_ = os.Remove(tmp.Name())
-		}
-	}()
-	// CreateTemp は 0600 で作るので、既存ファイルの権限（無ければ 0644）に揃える。
-	mode := os.FileMode(0o644)
-	if fi, statErr := os.Stat(path); statErr == nil {
-		mode = fi.Mode().Perm()
-	}
-	if err = tmp.Chmod(mode); err != nil {
-		return err
-	}
-	if _, err = tmp.Write(data); err != nil {
-		return err
-	}
-	if err = tmp.Sync(); err != nil {
-		return err
-	}
-	if err = tmp.Close(); err != nil {
-		return err
-	}
-	return os.Rename(tmp.Name(), path)
 }

@@ -325,7 +325,7 @@ erDiagram
 | `ai.consent` | `{"provider":"anthropic","agreedAt":1730000000000}` | AI 送信の同意（F-08） |
 | `update.check_enabled` | `true` | 新バージョン確認の有効／無効（NF-D03） |
 | `update.last_checked_at` | `1730000000000` | 最終確認日時 |
-| `window.state` | `{"width":1280,"height":800,"maximized":false}` | ウィンドウ状態 |
+| `window.state` | `{"x":100,"y":60,"width":1280,"height":800,"maximized":false}` | ウィンドウ状態。位置・サイズは最大化していないときの DIP 値（`x`／`y` は省略可。省略時は位置を OS に任せる）。画面外の位置は起動時に捨てる（[F-10](../requirements/functional.md)） |
 
 ## 4. インデックス
 

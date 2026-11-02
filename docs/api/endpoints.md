@@ -193,7 +193,7 @@ type ThreadDetail = {
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
 | `GetThread(ref)` | `ThreadRef` | `ThreadDetail` | `threads.get(format=full)`。メモリ LRU に保持。**状態は変更しない**（既読化は、スレッドを開いて表示した後にフロントが `MarkRead` を呼ぶ。F-03） |
-| `SaveAttachment(ref, attachmentId, suggestedName)` | `MessageRef`, string ×2 | `{ saved: boolean; path?: string }` | ネイティブの保存ダイアログを開き、選択先に書き込む。キャンセルは `saved=false`。ファイル名は `suggestedName` を OS の禁止文字で正規化する |
+| `SaveAttachment(ref, attachmentId, suggestedName)` | `MessageRef`, string ×2 | `{ saved: boolean; path?: string }` | ネイティブの保存ダイアログを開き、選択先に書き込む。キャンセルは `saved=false`。ファイル名は `suggestedName` を OS の禁止文字で正規化する。保存先と同じディレクトリの一時ファイルへ書いて置き換え、置換後のファイルに Windows の Mark-of-the-Web（`Zone.Identifier` の `ZoneId=3`）を付ける（付けられなくても保存は成功） |
 | `OpenExternal(url)` | string | — | システムブラウザ／メーラーで開く。許可スキームは `http`／`https`／`mailto` のみ（それ以外は `VALIDATION`、NF-S07） |
 
 - 本文の取得は毎回 Gmail に問い合わせ、ディスクには保存しない（NF-S08／S09）。メモリ LRU にあれば再利用し、`history` で当該スレッドが変更されたら破棄する
@@ -229,15 +229,16 @@ type ComposeSession = {
   accountId?: string;
   senderLocked: boolean;     // reply / reply_all / forward は true
   content: ComposeContent;   // 宛先・件名・本文（署名＋引用込み）の初期値
-  attachments: ComposeAttachment[]; // 転送の元添付を含む
+  attachments: ComposeAttachment[]; // 転送の元添付・復元した下書きの添付を含む
   draftId?: string;
+  attachmentError?: AppError; // 下書きの添付が 25MB 超で復元できなかったとき（ATTACHMENT_TOO_LARGE）。本文・宛先は復元済みで attachments は空
 };
 
 type ComposeAttachment = {
   id: string;
   filename: string;
   size: number;
-  source: 'local' | 'forwarded';
+  source: 'local' | 'forwarded'; // 復元した下書きの添付は 'local'
 };
 
 type SendPreview = {
@@ -261,11 +262,11 @@ type SendResult = { messageId: string; threadId: string; archived: boolean; arch
 
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
-| `OpenCompose(req)` | `OpenComposeRequest` | `ComposeSession` | セッションを作成し、宛先・件名・本文（署名・引用込み）を計算して返す（§5.1）。`draftId` 指定時は Gmail 下書きの内容で上書き |
+| `OpenCompose(req)` | `OpenComposeRequest` | `ComposeSession` | セッションを作成し、宛先・件名・本文（署名・引用込み）を計算して返す（§5.1）。`draftId` 指定時は Gmail 下書きの内容（宛先・Cc・Bcc・件名・本文・**添付**）で上書きする。添付は復元時に取得して Go のメモリに保持する（下書きの更新でメッセージ ID が変わるため）。取得に失敗したときは `ATTACHMENT_IO` などで失敗し、合計が 25MB を超えるときは添付のみ復元せず `attachmentError` を返す |
 | `SetComposeSender(sessionId, accountId)` | string ×2 | `ComposeSession` | **`mode = new` のみ**。それ以外は `SENDER_LOCKED`。署名の差し替えはフロントが `Account.signatureHtml` で行う（F-07） |
 | `AddAttachments(sessionId, paths)` | string, `string[]` | `ComposeAttachment[]` | ローカルファイルを添付に追加（Go がパスを保持。内容は送信時に読む）。合計 25MB 超は `ATTACHMENT_TOO_LARGE`（追加分は全て不採用） |
 | `RemoveAttachment(sessionId, attachmentId)` | string ×2 | `ComposeAttachment[]` | 転送の元添付も削除可 |
-| `SaveDraft(sessionId, content)` | string, `ComposeContent` | `{ draftId: string; savedAt: number }` | Gmail の下書きを作成・更新（`drafts.create`／`update`）。送信元未選択は `SENDER_REQUIRED`（メモリのみで保持するため呼ばない） |
+| `SaveDraft(sessionId, content)` | string, `ComposeContent` | `{ draftId: string; savedAt: number }` | Gmail の下書きを作成・更新（`drafts.create`／`update`）。**添付（ローカル・転送元・復元済み）も下書きの MIME に含める**（取得・読み込みに失敗したら `ATTACHMENT_IO`。添付なしの下書きで上書きしない）。送信元未選択は `SENDER_REQUIRED`（メモリのみで保持するため呼ばない） |
 | `PrepareSend(sessionId, content, options)` | string, `ComposeContent`, `{ archiveAfterSend: boolean }` | `SendPreview` | 送信前検証（§5.2）を行い、確認ダイアログ用の内容と**確認トークン**を返す |
 | `Send(sessionId, confirmToken, content)` | string ×2, `ComposeContent` | `SendResult` | トークンを検証して送信する（§5.2）。成功時はセッションを閉じ、下書きを削除、連絡先候補を加算する |
 | `CloseCompose(sessionId)` | string | — | セッションを破棄（下書きは残す）。未保存の変更の保存はフロントが先に `SaveDraft` する |
@@ -337,7 +338,7 @@ type AIConfig = {
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
 | `GetAIConfig()` | — | `AIConfig` | |
-| `SetAIConfig(provider, model, baseUrl?)` | | `AIConfig` | `app_settings.ai.config` を更新 |
+| `SetAIConfig(provider, model, baseUrl?)` | | `AIConfig` | `app_settings.ai.config` を更新。`baseUrl` は `openai` のみ有効で、`https://` の URL か、ホストが `localhost`／`127.0.0.1`／`::1` に完全一致する `http://` の URL に限る。それ以外（外部ホストへの `http://`、userinfo・クエリ・フラグメント付き等）は `VALIDATION`（メッセージに URL は含めない）。Base URL が変わって送信先（scheme＋ホスト）が変わると、そのプロバイダの同意は無効になる |
 | `SetAIApiKey(provider, apiKey)` | string ×2 | `AIConfig` | 資格情報ストアへ保存 |
 | `ClearAIApiKey(provider)` | string | `AIConfig` | キーを削除 |
 | `RecordAIConsent(provider)` | string | `AIConfig` | 「スレッド内容が当該プロバイダへ送信される」ことの同意を保存（`app_settings.ai.consent`） |

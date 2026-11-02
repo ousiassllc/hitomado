@@ -38,6 +38,9 @@ type ComposeSession struct {
 	Content      ComposeContent      `json:"content"`
 	Attachments  []ComposeAttachment `json:"attachments"`
 	DraftID      string              `json:"draftId,omitempty"`
+	// AttachmentError は下書きの添付を復元できなかったとき（合計が 25MB を超える等）の理由（apperr JSON 形）。
+	// 本文・宛先などは復元済みで、添付だけが空になる。
+	AttachmentError map[string]any `json:"attachmentError,omitempty"`
 }
 
 // SaveDraftResult は下書き保存の結果。

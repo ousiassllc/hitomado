@@ -13,22 +13,26 @@ import (
 const composeSessionTTL = 24 * time.Hour
 
 // sessionAttachment は作成セッションが保持する添付。ローカル添付は Path、転送の元添付は
-// MessageID＋GmailAttID を持つ（内容は送信時に読む）。
+// MessageID＋GmailAttID を持つ（内容は送信・保存時に読む）。復元した下書きの添付は内容を Data に保持する。
 type sessionAttachment struct {
 	ID        string
 	Filename  string
 	MimeType  string
 	Size      int64
-	Source    string    // dto 側の "local" / "forwarded"
+	Source    string    // local / forwarded / draft
 	Path      string    // local のみ
 	ModTime   time.Time // local のみ（追加時の更新時刻。送信時に同一性を検査する）
 	MessageID string    // forwarded のみ（元メッセージの ID）
 	GmailAtt  string    // forwarded のみ（Gmail の attachmentId）
+	// Data は内容のメモリ保持。draft（復元した下書きの添付。下書きの更新でメッセージ ID が変わるため
+	// 復元時に取得して保持する）は常に持ち、forwarded は取得済みなら持つ（保存の度に再取得しない）。
+	Data []byte
 }
 
 const (
 	attachmentLocal     = "local"
 	attachmentForwarded = "forwarded"
+	attachmentDraft     = "draft" // 復元した Gmail 下書きの添付。フロントには local として返す
 )
 
 // composeSession は 1 つの作成セッション（メモリのみ）。フィールドは Service.mu で保護する。
@@ -85,7 +89,11 @@ func (cs *composeSession) clone() composeSession {
 func (cs *composeSession) attachmentDTOs() []dto.ComposeAttachment {
 	out := make([]dto.ComposeAttachment, 0, len(cs.attachments))
 	for _, a := range cs.attachments {
-		out = append(out, dto.ComposeAttachment{ID: a.ID, Filename: a.Filename, Size: a.Size, Source: a.Source})
+		src := a.Source
+		if src == attachmentDraft {
+			src = attachmentLocal
+		}
+		out = append(out, dto.ComposeAttachment{ID: a.ID, Filename: a.Filename, Size: a.Size, Source: src})
 	}
 	return out
 }

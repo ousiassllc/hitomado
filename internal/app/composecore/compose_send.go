@@ -120,7 +120,7 @@ func (s *Service) Send(ctx context.Context, sessionID, confirmToken string, cont
 	if err != nil {
 		return dto.SendResult{}, err
 	}
-	atts, err := s.outgoingAttachments(ctx, view)
+	atts, _, err := s.outgoingAttachments(ctx, view)
 	if err != nil {
 		return dto.SendResult{}, err
 	}

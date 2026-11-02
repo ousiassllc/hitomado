@@ -1,16 +1,13 @@
 package composecore_test
 
 import (
-	"bytes"
 	"context"
-	"net/mail"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/jhillyerd/enmime/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -22,29 +19,6 @@ import (
 	"github.com/ousiassllc/hitomado/internal/gmail"
 )
 
-// restoreFromRaw は FakeGmail に保存された下書きの MIME を GetDraft の結果（本文・宛先・Bcc）にして登録する。
-func restoreFromRaw(t *testing.T, f *composeFixture, draftID string) {
-	t.Helper()
-	k := apptest.Key(f.A.ID, draftID)
-	env, err := enmime.ReadEnvelope(bytes.NewReader(f.Gmail.DraftRaw[k]))
-	require.NoError(t, err)
-	addrs := func(h string) []model.Address {
-		out := []model.Address{}
-		if v := env.GetHeader(h); v != "" {
-			list, err := mail.ParseAddressList(v)
-			require.NoError(t, err)
-			for _, a := range list {
-				out = append(out, model.Address{Name: a.Name, Email: a.Address})
-			}
-		}
-		return out
-	}
-	d := f.Gmail.Drafts[k]
-	d.Message = gmail.MessageFull{MessageMeta: gmail.MessageMeta{To: addrs("To"), Cc: addrs("Cc"), Subject: env.GetHeader("Subject")}, BodyHTML: env.HTML}
-	d.Bcc = addrs("Bcc")
-	f.Gmail.Drafts[k] = d
-}
-
 func TestDraftRoundTripKeepsBcc(t *testing.T) {
 	f := newComposeFixture(t)
 	s := f.OpenNew(t, f.A.ID)
@@ -52,7 +26,6 @@ func TestDraftRoundTripKeepsBcc(t *testing.T) {
 	c.Bcc = []model.Address{addr("hidden@x.example")}
 	saved, err := f.Svc.SaveDraft(t.Context(), s.SessionID, c)
 	require.NoError(t, err)
-	restoreFromRaw(t, f, saved.DraftID)
 
 	got, err := f.Svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "new", AccountID: f.A.ID, DraftID: saved.DraftID})
 	require.NoError(t, err)

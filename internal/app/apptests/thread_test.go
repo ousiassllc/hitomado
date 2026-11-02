@@ -245,6 +245,9 @@ func TestSaveAttachmentReplacesExistingFileAtomically(t *testing.T) {
 
 func TestSaveAttachmentPermissions(t *testing.T) {
 	if runtime.GOOS == "windows" {
+		t.Skip("Windows のファイルモードは POSIX の権限ビットを持たない")
+	}
+	if runtime.GOOS == "windows" {
 		t.Skip("Windows には POSIX のパーミッションがない")
 	}
 	svc, e, a := saveSetup(t)

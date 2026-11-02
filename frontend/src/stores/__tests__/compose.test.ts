@@ -1,4 +1,5 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
+import type { ComposeSession } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { findSignature } from '../../lib/signature'
 import {
   appError,
@@ -18,6 +19,34 @@ afterAll(restoreMocks)
 beforeEach(reset)
 
 describe('open', () => {
+  test('下書きの添付が上限超過で復元できなかったら警告トーストを出し、本文・宛先は復元する', async () => {
+    const { compose, ui } = setup()
+    await openReply(compose, {
+      attachmentError: appError('ATTACHMENT_TOO_LARGE', { details: { limitBytes: 26214400 } }),
+    } as Partial<ComposeSession>)
+    expect(compose.session).toBeDefined()
+    expect(compose.content.to).toEqual([{ email: 'to@example.com' }])
+    expect(compose.attachments).toEqual([])
+    const toast = ui.toasts.at(-1)
+    expect(toast?.message).toContain('下書きの添付')
+    expect(toast?.message).toContain('25')
+    expect(compose.dirty).toBe(false)
+  })
+
+  test('添付が復元された下書きは警告を出さず、添付の追加・削除は自動保存の対象（dirty）', async () => {
+    const { compose, ui } = setup()
+    await openReply(compose, {
+      attachments: [{ id: 'f1', filename: 'a.txt', size: 3, source: 'local' }],
+    })
+    expect(compose.attachments).toHaveLength(1)
+    expect(ui.toasts).toHaveLength(0)
+    expect(compose.dirty).toBe(false)
+    h.responses.RemoveAttachment = []
+    await compose.removeAttachment('f1')
+    expect(compose.attachments).toEqual([])
+    expect(compose.dirty).toBe(true)
+  })
+
   test('セッションを開き、null の配列を空配列に正規化する。同じスレッドは再度開かない', async () => {
     const { compose } = setup()
     await openReply(compose)

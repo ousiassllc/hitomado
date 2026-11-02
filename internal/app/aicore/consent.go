@@ -3,10 +3,12 @@ package aicore
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/url"
 	"slices"
 	"strings"
 
+	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/store"
@@ -34,15 +36,17 @@ type storedAIConsent struct {
 	Providers []consentEntry `json:"providers,omitempty"`
 }
 
-// validateBaseURL は Base URL を検証する。http(s) で host があり、userinfo・query・fragment を含まないこと。
+// validateBaseURL は Base URL を検証する（ai.ValidateBaseURL と同じ規則。URL はメッセージに含めない）。
 func validateBaseURL(raw string) error {
-	u, err := url.Parse(raw)
-	bad := err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
-		u.User != nil || strings.ContainsAny(raw, "?#")
-	if bad {
-		return apperr.New(apperr.Validation, "Base URL は http:// または https:// で始まる、認証情報・クエリ・フラグメントを含まない URL を指定してください。")
+	err := ai.ValidateBaseURL(raw)
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, ai.ErrInsecureBaseURL):
+		return apperr.Wrap(apperr.Validation, "http:// は localhost／127.0.0.1／::1 のときだけ使えます。", err)
+	default:
+		return apperr.Wrap(apperr.Validation, "Base URL は http:// または https:// で始まる、認証情報・クエリ・フラグメントを含まない URL を指定してください。", err)
 	}
-	return nil
 }
 
 // hostKey は Base URL の送信先（scheme://ホスト。小文字・既定ポートと末尾のドットを除く。パスは含めない）。
@@ -87,8 +91,16 @@ func currentBaseURL(cfg storedAIConfig, provider string) string {
 }
 
 // valid は同意が現在の設定の送信先に対するものか。
+// 現在の Base URL が使えない（保存済みの旧設定の非 loopback http:// など）ときは無効とする。
 func (e consentEntry) valid(cfg storedAIConfig) bool {
-	return validProvider(e.Provider) && destination(e.Provider, e.BaseURL) == destination(e.Provider, currentBaseURL(cfg, e.Provider))
+	if !validProvider(e.Provider) {
+		return false
+	}
+	cur := currentBaseURL(cfg, e.Provider)
+	if cur != "" && ai.ValidateBaseURL(cur) != nil {
+		return false
+	}
+	return destination(e.Provider, e.BaseURL) == destination(e.Provider, cur)
 }
 
 // loadConsentEntries は保存済みの同意（プロバイダごとに 1 件・重複なし）を返す。

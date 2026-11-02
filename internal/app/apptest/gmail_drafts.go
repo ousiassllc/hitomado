@@ -20,8 +20,7 @@ func (f *FakeGmail) CreateDraft(_ context.Context, accountID string, raw []byte,
 	f.seq++
 	id := fmt.Sprintf("draft-%d", f.seq)
 	k := Key(accountID, id)
-	f.Drafts[k] = gmail.DraftFull{ID: id, ThreadID: threadID}
-	f.DraftRaw[k] = slices.Clone(raw)
+	f.storeDraft(accountID, k, id, threadID, raw)
 	return id, nil
 }
 
@@ -33,14 +32,17 @@ func (f *FakeGmail) UpdateDraft(_ context.Context, accountID, draftID string, ra
 		return err
 	}
 	k := Key(accountID, draftID)
-	if _, ok := f.Drafts[k]; !ok {
+	old, ok := f.Drafts[k]
+	if !ok {
 		return gmail.ErrNotFound
 	}
-	f.DraftRaw[k] = slices.Clone(raw)
+	// 実 Gmail と同じく、更新で下書きのメッセージ ID（と添付の attachmentId）は新しくなる。
+	f.dropDraftAttachments(accountID, old)
+	f.storeDraft(accountID, k, draftID, old.ThreadID, raw)
 	return nil
 }
 
-// GetDraft は Drafts を返す。無ければ ErrNotFound。
+// GetDraft は Drafts を返す（CreateDraft／UpdateDraft に渡された MIME を解析した内容）。無ければ ErrNotFound。
 func (f *FakeGmail) GetDraft(_ context.Context, accountID, draftID string) (gmail.DraftFull, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -62,9 +64,11 @@ func (f *FakeGmail) DeleteDraft(_ context.Context, accountID, draftID string) er
 		return err
 	}
 	k := Key(accountID, draftID)
-	if _, ok := f.Drafts[k]; !ok {
+	old, ok := f.Drafts[k]
+	if !ok {
 		return gmail.ErrNotFound
 	}
+	f.dropDraftAttachments(accountID, old)
 	delete(f.Drafts, k)
 	delete(f.DraftRaw, k)
 	return nil

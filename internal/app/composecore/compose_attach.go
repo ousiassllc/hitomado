@@ -83,35 +83,58 @@ func (s *Service) RemoveAttachment(_ context.Context, sessionID, attachmentID st
 	return out, err
 }
 
-// outgoingAttachments は送信用に添付の内容を読む（ローカルはファイル、転送の元添付は Gmail から）。
-// 確認時（追加時）のサイズ・更新時刻と異なるローカルファイル、サイズの異なる転送元添付、合計が上限を超える
-// 添付は送信しない（確認した内容と違うものを送らない）。
-func (s *Service) outgoingAttachments(ctx context.Context, cs composeSession) ([]model.OutgoingAttachment, error) {
-	out := make([]model.OutgoingAttachment, 0, len(cs.attachments))
+// outgoingAttachments は MIME 用に添付の内容を揃える（送信・下書き保存の両方で使う）。
+//   - local: ファイルを読む。追加時からサイズ・更新時刻が変わっていれば ATTACHMENT_IO。
+//   - forwarded: 保持済みならそれを、無ければ Gmail から取得する（取得できたものは fetched に返す。
+//     呼び出し側がセッションに保持して、保存の度の再取得を避ける）。サイズが違えば ATTACHMENT_IO。
+//   - draft: 復元時に保持したバイト列。
+//
+// 合計が上限を超える場合は ATTACHMENT_TOO_LARGE（確認した内容と違うものを送らない）。
+func (s *Service) outgoingAttachments(ctx context.Context, cs composeSession) (out []model.OutgoingAttachment, fetched map[string][]byte, err error) {
+	out = make([]model.OutgoingAttachment, 0, len(cs.attachments))
+	fetched = map[string][]byte{}
 	var total int64
 	for _, a := range cs.attachments {
-		var (
-			data []byte
-			err  error
-		)
-		if a.Source == attachmentForwarded {
-			data, err = s.d.Gmail.GetAttachment(ctx, cs.accountID, a.MessageID, a.GmailAtt)
-			if err != nil {
-				return nil, apperr.FromInfra(err, cs.accountID)
+		data := a.Data
+		switch {
+		case a.Source == attachmentLocal:
+			if data, err = readUnchanged(a); err != nil {
+				return nil, nil, err
+			}
+		case data == nil && a.Source == attachmentForwarded:
+			if data, err = s.d.Gmail.GetAttachment(ctx, cs.accountID, a.MessageID, a.GmailAtt); err != nil {
+				return nil, nil, apperr.FromInfra(err, cs.accountID)
 			}
 			if int64(len(data)) != a.Size {
-				return nil, errAttachmentIO(a.Filename)
+				return nil, nil, errAttachmentIO(a.Filename)
 			}
-		} else if data, err = readUnchanged(a); err != nil {
-			return nil, err
+			fetched[a.ID] = data
 		}
 		total += int64(len(data))
 		if total > attachmentLimitBytes {
-			return nil, errAttachmentTooLarge()
+			return nil, nil, errAttachmentTooLarge()
 		}
 		out = append(out, model.OutgoingAttachment{Filename: a.Filename, MimeType: a.MimeType, Data: data})
 	}
-	return out, nil
+	return out, fetched, nil
+}
+
+// keepFetched は取得済みの転送元添付をセッションに保持する（同じセッション内の再保存・送信で再取得しない）。
+func (s *Service) keepFetched(sessionID string, fetched map[string][]byte) {
+	if len(fetched) == 0 {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cs, ok := s.sessions[sessionID]
+	if !ok {
+		return
+	}
+	for i := range cs.attachments {
+		if data, ok := fetched[cs.attachments[i].ID]; ok {
+			cs.attachments[i].Data = data
+		}
+	}
 }
 
 // readUnchanged はローカル添付を読む。追加時からサイズ・更新時刻が変わっていれば ATTACHMENT_IO。

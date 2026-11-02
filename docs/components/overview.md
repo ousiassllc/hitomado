@@ -267,7 +267,7 @@ graph TD
 
 #### 自動保存（`composables/useAutosave`）
 
-- 編集停止後 3 秒でデバウンスして `SaveDraft`。送信元未選択・保存中は呼ばない。連続編集中に完了した古い保存結果で新しい内容を上書きしない（世代番号で最新のみ採用）
+- 編集停止後 3 秒でデバウンスして `SaveDraft`（添付の追加・削除も編集として扱い、下書きには添付も保存される。内容・添付が変わっていなければ保存しない）。送信元未選択・保存中は呼ばない。連続編集中に完了した古い保存結果で新しい内容を上書きしない（世代番号で最新のみ採用）
 - 閉じる／アプリ終了時は未保存があれば直ちにフラッシュして完了を待つ
 
 ### 3.8 本文の表示方針（`MessageBody`・`lib/sanitize`）
@@ -290,7 +290,7 @@ graph TD
 | `AccountsSettings` | アカウント一覧、表示名・色・通知オン／オフ、並べ替え、再接続、削除（確認つき） | `AccountService.UpdateAccount／ReorderAccounts／Reconnect／RemoveAccount` |
 | `OAuthClientsSettings` | クライアントの追加・編集・削除（使用中は削除不可を表示）、README（OAuth クライアント作成手順）へのリンク | `AccountService.*OAuthClient` |
 | `SignatureSettings` | アカウント選択＋リッチテキスト署名編集（`RichTextEditor` 共用） | `AccountService.SetSignature` |
-| `AISettings` | プロバイダ・モデル・Base URL・API キー（入力後は伏字、削除可）、同意状況、送信先の表示 | `AIService.*` |
+| `AISettings` | プロバイダ・モデル・Base URL（`https://`、または `localhost`／`127.0.0.1`／`::1` の `http://` のみ。それ以外は `VALIDATION` を表示）・API キー（入力後は伏字、削除可）、同意状況（送信先が変わると再同意）、送信先の表示 | `AIService.*` |
 | `GeneralSettings` | 更新確認オン／オフ、バージョン表示、データ保存先の表示 | `AppService.*` |
 
 ### 3.10 ストア（Pinia）

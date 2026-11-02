@@ -63,18 +63,45 @@ func NewWithClient(provider, model, baseURL, apiKey string, hc *http.Client) (Pr
 	}
 }
 
+// Base URL の検証エラー。メッセージに URL は含めない（認証情報・クエリを漏らさない）。
+var (
+	// ErrInvalidBaseURL は Base URL が不正（http(s) 以外・host なし・userinfo・query・fragment を含む）なこと。
+	ErrInvalidBaseURL = errors.New("ai: ベース URL が不正です")
+	// ErrInsecureBaseURL は http:// の Base URL が loopback 以外を指すこと（ErrInvalidBaseURL でもある）。
+	ErrInsecureBaseURL = fmt.Errorf("%w（http:// は localhost／127.0.0.1／::1 のときだけ使えます）", ErrInvalidBaseURL)
+)
+
+// ValidateBaseURL は openai 互換の Base URL を検証する（保存時と接続時で同じ規則を使う）。
+//   - http／https 以外・host なし・userinfo・query・fragment を含む URL は ErrInvalidBaseURL。
+//   - https:// は任意のホスト。http:// はホストが localhost／127.0.0.1／::1 に厳密一致するときだけ許可
+//     （大文字小文字違い・末尾ドット・localhost.evil.com・0.0.0.0・127.1・IPv4-mapped IPv6 などは ErrInsecureBaseURL）。
+//
+// raw は空でないこと（空＝既定の Base URL は呼び出し側で扱う）。
+func ValidateBaseURL(raw string) error {
+	u, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
+		u.User != nil || strings.ContainsAny(raw, "?#") {
+		return ErrInvalidBaseURL
+	}
+	if u.Scheme == "http" && !isLoopbackHost(u.Hostname()) {
+		return ErrInsecureBaseURL
+	}
+	return nil
+}
+
+// isLoopbackHost は host が localhost／127.0.0.1／::1 に厳密一致するか。
+func isLoopbackHost(host string) bool {
+	return host == "localhost" || host == "127.0.0.1" || host == "::1"
+}
+
 // normalizeBase はベース URL を検証し、末尾の / を除く。空なら def。
-// http(s) 以外・host なし・userinfo・query・fragment を含む URL は拒否する。
 func normalizeBase(raw, def string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return def, nil
 	}
-	u, err := url.Parse(raw)
-	// 認証情報・クエリ・フラグメントは拒否する（API キーを URL に埋め込ませない）。
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
-		u.User != nil || strings.ContainsAny(raw, "?#") {
-		return "", errors.New("ai: ベース URL が不正です")
+	if err := ValidateBaseURL(raw); err != nil {
+		return "", err
 	}
 	return strings.TrimRight(raw, "/"), nil
 }

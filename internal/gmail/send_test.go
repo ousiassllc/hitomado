@@ -158,6 +158,9 @@ func TestGetDraft(t *testing.T) {
 	assert.Equal(t, "b2@example.com", got.Bcc[1].Email)
 	require.Len(t, got.Attachments, 1)
 	assert.Equal(t, "att1", got.Attachments[0].ID)
+	assert.Equal(t, "m1", got.Message.ID)
+	a := got.Attachments[0]
+	assert.Equal(t, []any{"a.pdf", "application/pdf", int64(42)}, []any{a.Filename, a.MimeType, a.Size})
 	assert.Equal(t, "full", e.f.Requests("GET", apiBase+"/drafts/d1")[0].Query.Get("format"))
 }
 

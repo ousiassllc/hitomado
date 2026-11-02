@@ -106,6 +106,12 @@ export interface ComposeSession {
     "content": ComposeContent;
     "attachments": ComposeAttachment[] | null;
     "draftId"?: string;
+
+    /**
+     * AttachmentError は下書きの添付を復元できなかったとき（合計が 25MB を超える等）の理由（apperr JSON 形）。
+     * 本文・宛先などは復元済みで、添付だけが空になる。
+     */
+    "attachmentError"?: { [_ in string]?: any } | null;
 }
 
 /**

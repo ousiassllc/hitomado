@@ -13,7 +13,7 @@ import { useComposeLifecycle } from '../composables/useComposeLifecycle'
 import { useComposeSend } from '../composables/useComposeSend'
 import { useSignatureSwap } from '../composables/useSignatureSwap'
 import { call, list, parseBindingError } from '../lib/api'
-import { describeComposeError } from '../lib/composeErrors'
+import { describeComposeError, draftAttachmentWarning } from '../lib/composeErrors'
 import {
   type EditableContent,
   emptyContent,
@@ -177,6 +177,8 @@ export const useComposeStore = defineStore('compose', () => {
         attachments.value = list(s.attachments)
       })
       sigSwap.init()
+      const warning = draftAttachmentWarning(s)
+      if (warning) ui.pushToast('error', warning)
       return true
     } catch (e) {
       ui.pushToast('error', fail(e) || msg.openFailed)

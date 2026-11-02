@@ -12,7 +12,8 @@ import (
 )
 
 // SaveDraft は Gmail の下書きを作成・更新する（F-12）。送信元未選択は SENDER_REQUIRED。
-// 下書きには添付を含めない。宛先は形式が正しいアドレスだけを保存する（入力途中の値で保存を止めない）。
+// 添付（ローカル・転送元・復元した下書きの添付）も下書きに含める（F-12）。
+// 宛先は形式が正しいアドレスだけを保存する（入力途中の値で保存を止めない）。
 func (s *Service) SaveDraft(ctx context.Context, sessionID string, content dto.ComposeContent) (dto.SaveDraftResult, error) {
 	cs, view, err := s.snapshot(sessionID)
 	if err != nil {
@@ -35,12 +36,16 @@ func (s *Service) SaveDraft(ctx context.Context, sessionID string, content dto.C
 	if err != nil {
 		return dto.SaveDraftResult{}, err
 	}
+	atts, fetched, err := s.outgoingAttachments(ctx, view)
+	if err != nil {
+		return dto.SaveDraftResult{}, err
+	}
 	raw, err := gmail.BuildDraftMIME(model.OutgoingMessage{
 		From: model.Address{Name: foldLine(acct.DisplayName), Email: acct.Email},
 		To:   validAddrs(c.To), Cc: validAddrs(c.Cc), Bcc: validAddrs(c.Bcc),
 		Subject: c.Subject, BodyHTML: c.BodyHTML,
 		InReplyTo: view.inReplyTo, References: view.references,
-		Date: s.d.Clock.Now(),
+		Attachments: atts, Date: s.d.Clock.Now(),
 	})
 	if err != nil {
 		return dto.SaveDraftResult{}, apperr.Wrap(apperr.Validation, "下書きを作成できません。内容を確認してください。", err)
@@ -50,6 +55,7 @@ func (s *Service) SaveDraft(ctx context.Context, sessionID string, content dto.C
 	if err != nil {
 		return dto.SaveDraftResult{}, apperr.FromInfra(err, view.accountID)
 	}
+	s.keepFetched(sessionID, fetched)
 	if draftID != view.draftID || view.draftAcctID != view.accountID {
 		s.discardStaleDraft(ctx, view)
 	}

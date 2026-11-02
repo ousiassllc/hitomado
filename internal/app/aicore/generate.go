@@ -58,6 +58,9 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID s
 	}
 	provider, err := s.d.AI(cfg.Provider, cfg.Model, cfg.BaseURL, key)
 	if err != nil {
+		if errors.Is(err, ai.ErrInvalidBaseURL) {
+			return dto.ReplyDraft{}, apperr.Wrap(apperr.Validation, "Base URL が使えません。設定を確認してください。", err)
+		}
 		return dto.ReplyDraft{}, apperr.Wrap(apperr.AIFailed, "AI プロバイダを初期化できません。設定を確認してください。", err)
 	}
 	callCtx, stop := context.WithTimeout(runCtx, s.timeout)
@@ -84,6 +87,12 @@ func (s *Service) precheck(ctx context.Context) (storedAIConfig, string, error) 
 	}
 	if !ok || strings.TrimSpace(cfg.Model) == "" {
 		return cfg, "", apperr.New(apperr.AINotConfigured, "AI の API キーとモデルを設定画面で設定してください。")
+	}
+	if cfg.BaseURL != "" && cfg.Provider == providerOpenAI {
+		// 保存済みの旧設定（非 loopback の http:// など）は、接続前に分かりやすく拒否する。
+		if err := validateBaseURL(cfg.BaseURL); err != nil {
+			return cfg, "", apperr.Wrap(apperr.Validation, "保存済みの Base URL は使えません。設定画面で https:// の URL（または localhost の http://）に直してください。", err)
+		}
 	}
 	consented, err := s.loadConsent(ctx, cfg)
 	if err != nil {

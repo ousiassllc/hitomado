@@ -120,6 +120,9 @@ export const compose = {
   },
 
   toast: {
+    draftAttachmentsDropped: (limit: string) =>
+      `下書きの添付が上限（${limit}）を超えるため復元できませんでした。本文と宛先は復元しています`,
+    draftAttachmentsFailed: '下書きの添付を復元できませんでした。本文と宛先は復元しています',
     sent: '送信しました',
     sentArchived: '送信してアーカイブしました',
     archiveFailed: '送信しましたが、アーカイブできませんでした',

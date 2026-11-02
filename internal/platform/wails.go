@@ -88,19 +88,27 @@ const (
 )
 
 // NewMainWindow はメインウィンドウを作る。× で終了せずトレイへ格納する（フックで閉じるのを取り消して隠す）。
-func NewMainWindow(app *application.App) *application.WebviewWindow {
-	w := app.Window.NewWithOptions(application.WebviewWindowOptions{
+// saved の位置・サイズで開き、以後の変化を save へ渡す（window.state。呼び出し側は Flush を終了前に呼ぶ）。
+func NewMainWindow(app *application.App, saved WindowState, save func(WindowState)) (*application.WebviewWindow, *WindowKeeper) {
+	opts := application.WebviewWindowOptions{
 		Name:           "main",
 		Title:          "Hitomado",
-		Width:          1280,
-		Height:         800,
+		Width:          saved.Width,
+		Height:         saved.Height,
 		MinWidth:       MinWidth,
 		MinHeight:      MinHeight,
 		URL:            "/",
 		EnableFileDrop: true,
-	})
+	}
+	if r, ok := saved.Bounds(); ok {
+		opts.InitialPosition = application.WindowXY
+		opts.X, opts.Y = r.X, r.Y
+	}
+	w := app.Window.NewWithOptions(opts)
+	keeper := newWindowKeeper(app, w, saved, save)
 	w.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		e.Cancel()
+		keeper.Flush() // 隠す前に状態を読む
 		w.Hide()
 	})
 	// ファイルのドロップ先は data-file-drop-target 属性の要素のみ。パスは Go でしか得られないため、
@@ -110,7 +118,7 @@ func NewMainWindow(app *application.App) *application.WebviewWindow {
 			app.Event.Emit(appevents.FilesDropped, FilesDroppedPayload{Files: files})
 		}
 	})
-	return w
+	return w, keeper
 }
 
 // Tray はシステムトレイ（開く／終了。未読バッジ付きアイコン）。

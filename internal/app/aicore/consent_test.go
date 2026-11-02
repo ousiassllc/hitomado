@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
@@ -80,12 +81,19 @@ func TestConsentIsInvalidatedWhenBaseURLHostChanges(t *testing.T) {
 
 func TestConsentIsInvalidatedWhenSchemeDowngradesToHTTP(t *testing.T) {
 	f := newAIFixture(t)
-	f.ready(t) // https://llm.example/v1
-	s := f.open(t, "reply")
-
-	cfg, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "http://llm.example/v1")
+	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://localhost:8443/v1")
 	require.NoError(t, err)
-	assert.Empty(t, cfg.ConsentedProviders, "https→http（平文化）では同意は失効する")
+	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
+	require.NoError(t, err)
+	cfg, err := f.ai.RecordAIConsent(t.Context(), "openai")
+	require.NoError(t, err)
+	require.Equal(t, []string{"openai"}, cfg.ConsentedProviders)
+	s := f.open(t, "reply")
+	require.NoError(t, f.generate(t, s.SessionID))
+
+	cfg, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "http://localhost:8443/v1")
+	require.NoError(t, err)
+	assert.Empty(t, cfg.ConsentedProviders, "https→http では同意は失効する")
 	requireCode(t, "AI_CONSENT_REQUIRED", f.generate(t, s.SessionID))
 }
 
@@ -144,4 +152,54 @@ func TestConsentTimestampKeptOnRerecord(t *testing.T) {
 	v2, _, err := f.Store.GetSetting(t.Context(), store.SettingAIConsent)
 	require.NoError(t, err)
 	assert.Equal(t, v1, v2)
+}
+
+func TestBaseURLHTTPOnlyForLoopbackOnSet(t *testing.T) {
+	f := newAIFixture(t)
+	for _, u := range []string{"http://localhost", "http://127.0.0.1:11434/v1", "http://[::1]:8080", "https://llm.example/v1"} {
+		_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", u)
+		require.NoError(t, err, u)
+	}
+	for _, u := range []string{
+		"http://llm.example/v1", "http://192.168.0.5:11434/v1", "http://localhost.evil.com/v1",
+		"http://127.0.0.1.evil.com", "http://0.0.0.0:8080", "http://127.1", "http://[::ffff:127.0.0.1]:8080",
+		"http://localhost./v1", "http://user:pass@localhost:8080/v1",
+	} {
+		_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", u)
+		ae := requireError(t, "VALIDATION", err)
+		assert.NotContains(t, ae.Message, "evil")
+		assert.NotContains(t, ae.Message, "pass")
+		assert.NotContains(t, ae.Message, "192.168")
+	}
+	_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", "http://llm.example/v1")
+	ae := requireError(t, "VALIDATION", err)
+	assert.Equal(t, "http:// は localhost／127.0.0.1／::1 のときだけ使えます。", ae.Message)
+	_, err = f.ai.SetAIConfig(t.Context(), "anthropic", "m", "http://llm.example/v1")
+	require.NoError(t, err, "anthropic では Base URL を無視する")
+}
+
+func TestSavedInsecureBaseURLIsRejectedBeforeConnecting(t *testing.T) {
+	f := newAIFixture(t)
+	f.ready(t)
+	s := f.open(t, "reply")
+	// 旧バージョンが保存した非 loopback の http:// 設定（同意は旧形式で保存済み）。
+	require.NoError(t, f.Store.SetSetting(t.Context(), store.SettingAIConfig,
+		`{"provider":"openai","model":"gpt-test","baseUrl":"http://llm.example/v1"}`))
+	require.NoError(t, f.Store.SetSetting(t.Context(), store.SettingAIConsent,
+		`{"providers":[{"provider":"openai","baseUrl":"http://llm.example/v1","agreedAt":1}]}`))
+
+	assert.Empty(t, f.consented(t), "使えない Base URL への同意は有効にしない")
+	f.factory.provider = ""
+	ae := requireError(t, "VALIDATION", f.generate(t, s.SessionID))
+	assert.NotContains(t, ae.Message, "llm.example")
+	assert.Empty(t, f.factory.provider, "プロバイダを初期化（接続）しない")
+	assert.Empty(t, f.provider.inputs)
+}
+
+func TestFactoryInvalidBaseURLIsValidation(t *testing.T) {
+	f := newAIFixture(t)
+	f.ready(t)
+	f.Deps.AI = func(string, string, string, string) (ai.Provider, error) { return nil, ai.ErrInsecureBaseURL }
+	s := f.open(t, "reply")
+	requireCode(t, "VALIDATION", f.generate(t, s.SessionID))
 }
