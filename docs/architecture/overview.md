@@ -181,7 +181,7 @@ sequenceDiagram
   end
 ```
 
-### 7.3 返信送信（送信元強制）
+### 7.3 返信送信（送信元強制・確認トークン）
 
 ```mermaid
 sequenceDiagram
@@ -193,16 +193,19 @@ sequenceDiagram
   participant DB as store
 
   U->>FE: 返信を書いて送信
-  FE->>FE: 送信確認ダイアログ（送信元を大きく表示）
-  U->>FE: 「<送信元> から送信」を確定
-  FE->>CS: SendReply(ReplyRequest{accountId, threadId, sourceMessageId, body, ...})
+  FE->>CS: PrepareSend(sessionId, content, {archiveAfterSend})
   CS->>DB: スレッドの所有アカウントを取得
-  CS->>DM: 送信元ポリシー検証（accountId == スレッドのアカウント）
+  CS->>DM: 送信元ポリシー検証（session.accountId == スレッドのアカウント）
   alt 不一致
     DM-->>CS: ErrSenderMismatch
-    CS-->>FE: エラー（送信しない）
+    CS-->>FE: SENDER_MISMATCH（確認ダイアログも出さない）
   else 一致
-    CS->>DM: 宛先・件名・ヘッダ・引用・署名を決定
+    CS-->>FE: SendPreview（確認トークン・警告）
+    FE->>U: 送信確認ダイアログ（送信元を大きく表示）
+    U->>FE: 「<送信元> から送信」を確定
+    FE->>CS: Send(sessionId, confirmToken, content)
+    CS->>CS: トークン・内容ハッシュを検証
+    CS->>DM: 宛先・件名・ヘッダ・引用・署名を確定
     CS->>GM: messages.send(raw MIME, threadId)
     GM-->>CS: messageId
     opt 送信してアーカイブ
@@ -210,9 +213,11 @@ sequenceDiagram
     end
     CS->>GM: drafts.delete（下書きがあれば）
     CS->>DB: 連絡先候補を加算、スレッドを更新
-    CS-->>FE: 完了
+    CS-->>FE: SendResult
   end
 ```
+
+契約の詳細（トークン仕様・エラーコード）は [バインディング仕様 §5.2](../api/endpoints.md#52-送信前確認と送信確認トークン) を参照。
 
 ### 7.4 AI 下書き
 
@@ -238,7 +243,7 @@ sequenceDiagram
 | 受信箱の「続きを読む」 | アカウントごとに `threads.list` の `pageToken` を保持して追加取得 | ローカルキャッシュ外の古いスレッドも辿れる。`nextPageToken` の永続化が必要（ER 参照） |
 | 検索 | 結果を DB に保存せず DTO のみで返す（セッション内カーソルはメモリ） | ローカル全文検索を持たない方針（F-09）。結果への操作は Gmail に反映し、ローカルに行があれば更新する |
 | 下書き | Gmail 下書きのみ（ローカル保存なし） | 二重管理を避ける。編集中の異常終了は直近の自動保存分までとなる |
-| 送信前確認 | フロントで必ずダイアログを経由する。Go 側は確認済みトークンを検証しない | 確認は UX の安全装置。**送信元の整合性は Go 側で検証**（確認ダイアログの迂回で防げない誤りはここで止める） |
+| 送信前確認 | `PrepareSend` が確認トークンを発行し、`Send` がトークンと内容ハッシュを検証する（Go 側でも強制） | 確認ダイアログを経ない送信、確認後に宛先・本文を変えた送信をバックエンドで拒否できる。API は 2 段階になる。**送信元の整合性（`SENDER_MISMATCH`）も同時に検証**し、`From` は `accounts.email` のみから生成する |
 | 添付の受け渡し | ファイルパスをバインディングで渡し、Go が読む | 大きなデータをブリッジで往復しない。ドラッグ＆ドロップは Wails のファイルドロップイベントからパスを得る |
 | インライン画像（`cid:`） | Go が取得して `data:` URL に埋め込んで表示用 HTML を返す | CSP を `img-src data:` に限定できる。リモート画像は既定でブロック |
 | OAuth クライアント | 複数登録・アカウントごとに選択 | Workspace の「内部」アプリは他社アカウントで使えないため（F-01） |
