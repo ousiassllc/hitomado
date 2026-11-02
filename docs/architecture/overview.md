@@ -29,10 +29,10 @@
 | リッチテキスト | Tiptap（ProseMirror）。太字・リンク・箇条書き | F-11 |
 | 仮想スクロール | `@tanstack/vue-virtual` | NF-P04 |
 | サニタイズ | DOMPurify＋`sandbox` iframe（`srcdoc`、`allow-same-origin` のみ・スクリプト不可） | NF-S04 |
-| テスト | Go: 標準 `testing`／`testify`。フロント: **`bun test`**（DOM は happy-dom、コンポーネントは Vue Test Utils。`.vue` の読み込みは bun のプラグイン設定が必要で、実装時に検証する。[環境構築 §5.3](../environment/setup.md)） | NF §10 |
+| テスト | Go: 標準 `testing`／`testify`。フロント: **`bun test`**（DOM は happy-dom、コンポーネントは Vue Test Utils。`.vue` の読み込みは `frontend/bunfig.toml` の preload で行い、`bun test` で SFC を import できる。検証結果は [環境構築 §5.3](../environment/setup.md)） | NF §10 |
 | CI／配布 | GitHub Actions（Windows ランナーでビルド）、GitHub Releases | NF-D01〜D04 |
 
-> 補足: Wails v3 は正式版が出て間もない。API は公式ドキュメント（v3.wails.io）を一次情報とし、実装前にバージョンを固定（`go.mod`）する。
+> 補足: Wails v3 の API は公式ドキュメント（v3.wails.io）を一次情報とし、バージョンは `go.mod` で固定している。
 
 ## 3. システム構成
 
@@ -85,7 +85,7 @@ hitomado/
 ├─ run.go                  # composition root（Wails アプリ作成・単一インスタンス・依存の組み立て・サービス登録・トレイ生成）
 ├─ internal/
 │  ├─ app/                 # バインディング（サービス層）
-│  ├─ domain/              # 純粋ロジック（replyto, signature, quote, sender policy）
+│  ├─ domain/              # 純粋ロジック（reply, quote, signature, senderpolicy, confirm, contacts, palette, textconv, model）
 │  ├─ sync/                # 同期スケジューラ
 │  ├─ gmail/               # Gmail クライアント（interface＋実装）
 │  ├─ oauth/               # ループバック＋PKCE フロー
@@ -273,3 +273,6 @@ sequenceDiagram
 | 1.2 | 2026-11-02 | §2 のフロントのテストを Vitest から `bun test` に変更。§9 の CI 記述を ubuntu／windows 構成に更新 | 環境構築（bun 統一・CI マトリクス）との整合 |
 | 1.3 | 2026-11-02 | 発行イベントに `app:before-quit`／`files-dropped` を追加 | バインディング仕様 1.1 との整合 |
 | 1.4 | 2026-11-03 | §2 の Wails を v3.1.0 に、§9 のビルド・CI を `wails3 package`（インストーラー）に更新。§4 のレイヤー表・ディレクトリ構成に `run.go`（composition root）、`internal/platform`、`events`／`clock`／`logging` を追加し、`notify` の説明を実装に合わせた | #34、#35 |
+| 1.5 | 2026-11-03 | §5 のレート制限に `messages.send`／`drafts.create` が 5xx を再試行しない例外を追記（履歴に未記録だった分） | 二重送信・重複作成を避ける実装との整合（#46。記録漏れの補正 #53） |
+| 1.6 | 2026-11-03 | §2 のテスト行を `frontend/bunfig.toml` の preload による検証済みの記述に、補足を「バージョンは `go.mod` で固定している」に改めた | 環境構築 §5.3 の検証結果・`go.mod`（v3.1.0）との整合（#56） |
+| 1.7 | 2026-11-03 | §4 のディレクトリ構成の `domain/` の説明を実際のパッケージ名に直した（`replyto` → `reply`、`confirm`・`contacts`・`palette`・`textconv`・`model` を追加） | 実装（`internal/domain/*`）との整合（#59） |
