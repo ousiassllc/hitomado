@@ -56,6 +56,8 @@ tasks:
     cmds:
       # WebView2 ランタイムが無い PC 向けに、インストーラーへ Microsoft のブートストラッパーを同梱する（実行時に取得済みなら何もしない）。
       - wails3 generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"
+      # 取得に失敗して空（または無い）ままだと、WebView2 の無い PC で空のブートストラッパーを実行する installer になる。
+      - '[ -s MicrosoftEdgeWebview2Setup.exe ] || { echo "MicrosoftEdgeWebview2Setup.exe is missing or empty" >&2; exit 1; }'
       # NSIS の File は区切りが / と \ の混在だと Windows で見つけられないため、パスは OS の区切りにそろえる。
       - makensis -V2 -DVERSION={{.APP_VERSION}} -DARG_EXE="{{fromSlash (printf "%s/%s/%s.exe" .ROOT_DIR .BIN_DIR .APP_NAME)}}" -DOUTFILE="{{fromSlash (printf "%s/%s/%s-v%s-windows-amd64-setup.exe" .ROOT_DIR .BIN_DIR .APP_NAME .APP_VERSION)}}" project.nsi
 
