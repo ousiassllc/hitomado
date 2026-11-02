@@ -23,7 +23,7 @@ Hitomado は HTTP サーバーを持たない。フロントエンド（Vue）�
 
 ### 1.2 エラー
 
-エラーは Go の `error` を返し、フロントでは reject される。reject 値は**次の JSON として解釈できる文字列**にする（フロントは共通ラッパー `parseBindingError` で `AppError` に変換する）。Wails v3 のエラー整形（`MarshalError` オプション等）を使うか、`error.Error()` に JSON を載せる。実装時に Wails の API を確認して選ぶ。
+エラーは Go の `error` を返し、フロントでは reject される。Wails の `MarshalError` オプションに `apperr.Marshal` を指定しており（`run.go`）、`AppError` の JSON を返す。フロントでは reject 値の `error.cause` にその JSON 文字列が入る。フロントは共通ラッパー `parseBindingError`（`frontend/src/lib/api.ts`）で `cause` → `message` → 文字列そのものの順に JSON として解釈し、`AppError` に変換する。どれも `AppError` として読めないときは `INTERNAL`（`retryable: false`）にフォールバックする。なお `(*Error).Error()` の文字列は `"<code>: <message>"` で JSON ではない。
 
 ```ts
 type AppError = {
@@ -406,3 +406,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | `AckBeforeQuit`、イベント `app:before-quit`／`files-dropped` を追加 | トレイ終了時の下書き保存（F-12）とファイルドロップのパス取得（Wails はパスを Go 側でのみ受け取る）のため |
+| 1.2 | 2026-11-03 | §1.2 のエラー受け渡し方式を `MarshalError`（`apperr.Marshal`）／`error.cause`／`INTERNAL` フォールバックに確定。未決の記述を削除 | 実装との整合（#31） |
