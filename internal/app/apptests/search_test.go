@@ -210,3 +210,32 @@ func TestSearchMetadataFailureKeepsPageForRetry(t *testing.T) {
 	assert.Equal(t, []string{"hit2", "hit1"}, threadIDs(p.Items))
 	assert.Empty(t, p.NextCursor)
 }
+
+func TestSearchPermanentFailureIsNotKeptInCursor(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	b := e.AddAccount(t, "b@x.example")
+	e.PutRemoteThread(a.ID, "hit1", apptest.Msg("m1", "hit1", at(1), "INBOX"))
+	e.PutRemoteThread(b.ID, "hit2", apptest.Msg("m2", "hit2", at(2), "INBOX"))
+
+	e.Gmail.Err["ListThreads:"+b.ID] = gmail.ErrNeedsReauth
+	p, err := svc.Search(t.Context(), dto.SearchQuery{Q: "hit", Limit: 5})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hit1"}, threadIDs(p.Items))
+	require.Len(t, p.Failures, 1)
+	assert.Equal(t, b.ID, p.Failures[0].AccountID)
+	assert.Equal(t, apperr.NeedsReauth, p.Failures[0].Error["code"])
+	assert.Empty(t, p.NextCursor, "再試行しても直らない失敗は続きのカーソルに残さない")
+}
+
+func TestSearchOfflineFailureIsKeptInCursor(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	e.PutRemoteThread(a.ID, "hit1", apptest.Msg("m1", "hit1", at(1), "INBOX"))
+
+	e.Gmail.Err["ListThreads:"+a.ID] = gmail.ErrOffline
+	p, err := svc.Search(t.Context(), dto.SearchQuery{Q: "hit", Limit: 5})
+	require.NoError(t, err)
+	require.Len(t, p.Failures, 1)
+	assert.NotEmpty(t, p.NextCursor, "オフラインは回復し得るので再試行を続きのカーソルで表す")
+}
