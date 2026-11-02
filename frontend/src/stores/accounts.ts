@@ -56,11 +56,14 @@ export const useAccountsStore = defineStore('accounts', () => {
   function setAccounts(next: Account[]): void {
     accounts.value = next
     const st: Record<string, AccountStatus> = {}
+    const msgs: Record<string, string> = {}
     for (const a of next) {
-      // 'syncing' は一時状態。DB 由来の状態で上書きしない
-      st[a.id] = statuses.value[a.id] === 'syncing' ? 'syncing' : normalizeStatus(a.status)
+      st[a.id] = statuses.value[a.id] === 'syncing' ? 'syncing' : normalizeStatus(a.status) // 'syncing' は一時状態。DB 由来の値で上書きしない（理由も DB から取り込む: 再起動後は account:status が来ない）
+      const m = st[a.id] === 'syncing' ? statusMessages.value[a.id] : a.statusMessage
+      if (m) msgs[a.id] = m
     }
     statuses.value = st
+    statusMessages.value = msgs
   }
 
   function upsert(a: Account): void {
@@ -157,7 +160,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     setStatus(p.accountId, normalizeStatus(p.status), p.message)
     if (p.status !== 'syncing') {
       accounts.value = accounts.value.map((a) =>
-        a.id === p.accountId ? { ...a, status: p.status } : a,
+        a.id === p.accountId ? { ...a, status: p.status, statusMessage: p.message } : a,
       )
     }
   }

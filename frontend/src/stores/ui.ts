@@ -33,6 +33,7 @@ export const useUiStore = defineStore('ui', () => {
     addAccount: false,
     sendConfirm: false,
   })
+  const settingsTab = ref('accounts')
   const online = ref(true)
   let nextId = 1
 
@@ -62,8 +63,9 @@ export const useUiStore = defineStore('ui', () => {
     dialogs.value[name] = false
   }
 
-  /** 設定ダイアログを開く（AI キー未設定の誘導などから） */
-  function openSettings(): void {
+  /** 設定ダイアログを開く（AI キー未設定の誘導などから）。tab は SettingsDialog のタブ値（既定はアカウント）。 */
+  function openSettings(tab = 'accounts'): void {
+    settingsTab.value = tab
     openDialog('settings')
   }
 
@@ -81,6 +83,7 @@ export const useUiStore = defineStore('ui', () => {
     toasts,
     banners,
     dialogs,
+    settingsTab,
     online,
     pushToast,
     dismissToast,

@@ -12,6 +12,7 @@ export const common = {
   offlineBanner: 'オフラインです。取得済みの内容を表示しています。',
   needsReauthBanner: (name: string) => `${name} の接続が切れました。再接続してください。`,
   reconnect: '再接続',
+  checkOAuthClient: 'OAuth クライアントを確認',
   syncErrorBanner: (name: string) => `${name} の同期に失敗しました。次回の更新で再試行します。`,
   updateBanner: (version: string) => `新しいバージョン ${version} があります。`,
   unexpectedError: '予期しないエラーが発生しました。',

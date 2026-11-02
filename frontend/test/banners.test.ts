@@ -42,6 +42,7 @@ describe('deriveBanners', () => {
     statusMessages: {},
     extra: [],
     reconnect: () => {},
+    openOAuthClients: () => {},
   }
 
   test('正常時は何も出さない', () => {
@@ -65,5 +66,37 @@ describe('deriveBanners', () => {
     expect(reconnected).toEqual(['a1'])
     // 優先度順の最大 2 件はオフライン＋要再接続
     expect(selectBanners(r).map((x) => x.kind)).toEqual(['offline', 'needs_reauth'])
+  })
+
+  const rejected = 'OAuth クライアントの設定（Client ID／Secret）を確認してください'
+
+  test('クライアント拒否の要再接続は Go のメッセージと設定への導線を出す', () => {
+    let opened = 0
+    const r = deriveBanners({
+      ...base,
+      statuses: { a1: 'needs_reauth' },
+      statusMessages: { a1: rejected },
+      openOAuthClients: () => opened++,
+    })
+    expect(r).toHaveLength(1)
+    expect(r[0].message).toContain(rejected)
+    expect(r[0].message).not.toContain('接続が切れました')
+    expect(r[0].action?.label).toBe('OAuth クライアントを確認')
+    r[0].action?.run()
+    expect(opened).toBe(1)
+  })
+
+  test('通常の要再接続（invalid_grant）は従来の固定文言と再接続ボタンのまま', () => {
+    const reconnected: string[] = []
+    const r = deriveBanners({
+      ...base,
+      statuses: { a1: 'needs_reauth' },
+      statusMessages: { a1: '再接続が必要です' },
+      reconnect: (id) => reconnected.push(id),
+    })
+    expect(r[0].message).toContain('接続が切れました')
+    expect(r[0].action?.label).toBe('再接続')
+    r[0].action?.run()
+    expect(reconnected).toEqual(['a1'])
   })
 })

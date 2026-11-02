@@ -39,6 +39,7 @@ export const settings = {
     needsReauth: '再接続が必要です',
     statusError: '同期エラー',
     reconnect: '再接続',
+    checkOAuthClient: 'OAuth クライアントを確認',
     reconnecting: '再接続中…',
     reconnected: (name: string) => `${name} を再接続しました。`,
     remove: '削除',
