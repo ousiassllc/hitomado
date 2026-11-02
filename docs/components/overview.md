@@ -8,7 +8,7 @@ Go バックエンドとフロントエンド（Vue）それぞれのコンポ�
 
 - 依存方向は **UI → バインディング → サービス層 → ドメイン／インフラ** の一方向。ドメイン層は I/O を持たない
 - 外部との I/O（Gmail・資格情報・DB・AI・通知・GitHub・時刻）は**インターフェース越し**に注入し、テストではフェイクに差し替える（NF §10）
-- フロントエンドは**判断をしない**。送信元の決定・返信宛先の計算・MIME 生成・送信可否の検証は Go 側（[バインディング仕様 §5](../api/endpoints.md#5-composeservice)）
+- フロントエンドは**判断をしない**。送信元の決定・返信宛先の計算・MIME 生成・送信可否の検証は Go 側（[バインディング仕様 §5](../api/endpoints.md#5-composeservice)）。例外は、新規作成の送信元の**初期値の選択**のみ（受信箱のアカウントフィルタが単一選択ならそのアカウントを `OpenComposeRequest.accountId` に入れる。F-11）で、指定された `accountId` の検証は Go 側が行う
 - UI の見た目は自前の Vue SFC と CSS 変数で構成する。**ダイアログ・メニュー等のフォーカス管理が必要な部品のみ、ヘッドレス UI（Reka UI）を使う**
 
 ## 2. バックエンド（Go）
@@ -26,6 +26,7 @@ graph TD
   SE[internal/secrets]
   AI[internal/ai]
   NT[internal/notify]
+  PF[internal/platform<br/>Wails 接続層（ウィンドウ・トレイ・通知）]
   UP[internal/update]
 
   APP --> DOM
@@ -43,9 +44,11 @@ graph TD
   SYNC --> NT
   GM --> SE
   OA --> SE
+  PF --> NT
 ```
 
-- `domain` は他の内部パッケージに依存しない。`app`／`sync` が `gmail`／`store` 等を**インターフェースとして**受け取る（具象は `main.go` で組み立てる）
+- `domain` は他の内部パッケージに依存しない。`app`／`sync` が `gmail`／`store` 等を**インターフェースとして**受け取る（具象は `run.go`（composition root）で組み立てる）
+- `platform` は Wails のウィンドウ・トレイ・トースト通知・ダイアログ・イベント発行を包み、`notify.Notifier` などの Wails 実装を持つ。`run.go` だけが生成し、`app`／`sync` にはインターフェース越しに渡す（`app`／`sync` は `platform` に依存しない）
 - `gmail` はアカウントごとの `TokenSource`（`secrets` のリフレッシュトークンから生成）と `rate.Limiter` を持つ
 
 ### 2.2 domain（純粋ロジック）
@@ -54,10 +57,12 @@ graph TD
 |------|------|------------------------|
 | `reply` | 返信宛先の決定（返信・全員に返信・転送）、件名の `Re:`／`Fwd:` 付与、自アドレス除外 | `Resolve(mode, source SourceMessage, self string) Recipients` |
 | `quote` | 返信・転送の引用本文（HTML／テキスト）生成 | `Build(mode, source SourceMessage) (html, text string)` |
-| `signature` | 署名ブロック（`<div data-hitomado-signature>`）の挿入、許可タグでのサニタイズ | `Insert(bodyHTML, sigHTML string) string`、`Sanitize(html string) string` |
+| `signature` | 署名ブロック（`<div data-hitomado-signature data-account-id>`）の生成・挿入（`data-account-id` に署名の持ち主のアカウント ID を持たせ、同じアカウントの署名が既にあれば挿入しない）、許可タグでのサニタイズ | `Block(accountID, sigHTML string) string`、`Insert(bodyHTML, accountID, sigHTML string) string`、`Sanitize(html string) string` |
 | `senderpolicy` | 送信元の整合検証。`From` を `accounts.email` のみから決める | `Check(sessionAccountID, threadAccountID string) error` → `ErrSenderMismatch` |
-| `confirm` | 確認トークン発行・検証（内容ハッシュ・TTL 5 分・1 回限り）。時計は注入 | `Issue(sessionID string, h Hash) Token`、`Verify(sessionID string, t Token, h Hash) error` |
-| `contacts` | 候補の順位付け（`send_count*3 + receive_count`）、アドレス正規化・形式検証 | `Rank(...)`、`Normalize(email string) string` |
+| `confirm` | 確認トークン発行・検証（内容ハッシュ・TTL 5 分・1 回限り）。時計は注入 | `NewManager(c Clock, ttl time.Duration) *Manager`、`HashContent(in ContentInput) Hash`、`(*Manager).Issue(sessionID string, h Hash) (Token, time.Time)`（失効時刻は `SendPreview.expiresAt` 用）、`Verify(sessionID string, t Token, h Hash) error`、`Invalidate(sessionID string)` |
+| `contacts` | アドレス正規化・形式検証（候補の順位付けは `store` の SQL） | `Normalize(email string) string`、`IsValid(email string) bool` |
+| `palette` | アカウント色のパレットキー（フロントの `lib/palette` と同じキー・順序を保つ）。色の検証と未使用色の割り当て | `Keys() []string`、`IsValid(key string) bool`、`NextUnused(used []string) string` |
+| `textconv` | HTML のプレーンテキスト化と先頭の切り詰め（MIME の text 部・送信確認の本文プレビュー・AI へ渡すテキスト・空本文の判定） | `HTMLToText(src string) string`、`Preview(src string, maxRunes int) string` |
 | `model` | `Address`、`SourceMessage`、`Recipients`、`OutgoingMessage` 等の型 | — |
 
 ### 2.3 インフラ層インターフェース
@@ -128,6 +133,8 @@ type Checker interface {
 
 ### 2.5 同期スケジューラ（`internal/sync`）
 
+以下は概念上の部品で、実装の関数名とは一致しない。実装は `internal/sync`（`Scheduler.runWorker`／`ingest`／`collectNotice`／`runRetention`・`purge` など）を参照する。
+
 | 部品 | 責務 |
 |------|------|
 | `Scheduler` | アカウントごとの `worker` を起動・停止。`Start(accountID)`／`Stop(accountID)`／`Trigger(accountIDs)`（手動更新）／`Shutdown()` |
@@ -138,7 +145,7 @@ type Checker interface {
 
 ### 2.6 エラー変換
 
-`internal/app` に `apperr` を置き、インフラのエラーを [バインディング仕様 §1.2](../api/endpoints.md#12-エラー) の `AppError` に写像する。`invalid_grant`→`NEEDS_REAUTH`（アカウント状態の更新を伴う）、`net.Error`→`OFFLINE`、HTTP 429→`RATE_LIMITED`、その他の Gmail エラー→`GMAIL_ERROR`。機密（トークン・本文）はメッセージに含めない。
+`internal/app` に `apperr` を置き、インフラのエラーを [バインディング仕様 §1.2](../api/endpoints.md#12-エラー) の `AppError` に写像する。`invalid_grant`→`NEEDS_REAUTH`（アカウント状態の更新を伴う）、`invalid_client`／`unauthorized_client`→`OAUTH_CLIENT_REJECTED`、`net.Error`→`OFFLINE`、HTTP 429→`RATE_LIMITED`、その他の Gmail エラー→`GMAIL_ERROR`。機密（トークン・本文）はメッセージに含めない。
 
 ## 3. フロントエンド（Vue 3＋TypeScript）
 
@@ -204,14 +211,13 @@ graph TD
 
 | コンポーネント | 責務 | 備考 |
 |----------------|------|------|
-| `BaseButton`／`BaseIconButton` | ボタン。`variant`: primary／secondary／danger／ghost。`loading` 状態 | アイコンのみは `aria-label` 必須 |
+| `BaseButton`／`BaseIconButton` | ボタン。`variant`: primary／secondary／danger／ghost。`loading` 状態 | アイコンのみは `aria-label` 必須。`BaseIconButton` は任意の `shortcut` を受け取り、指定時は `BaseTooltip` で「ラベル (キー)」を表示する（`title` は出さない） |
 | `BaseDialog` | モーダル。フォーカストラップ・Esc・スクロールロック | Reka UI `Dialog` |
-| `BaseMenu` | ドロップダウンメニュー（返信メニュー・ラベル付け替え等） | Reka UI `DropdownMenu` |
+| `BaseMenu` | ドロップダウンメニュー（返信メニュー・ラベル付け替え等）。項目に任意の `shortcut` を併記できる | Reka UI `DropdownMenu` |
 | `BaseSelect` | 選択（AI プロバイダ等） | Reka UI `Select` |
 | `BaseSwitch` | オン／オフ（通知・更新確認） | Reka UI `Switch` |
-| `BaseTooltip` | ツールチップ（ショートカット表示） | Reka UI `Tooltip` |
+| `BaseTooltip` | ツールチップ（ショートカット表示）。ボタンを包んでホバー／フォーカスで表示。キー表記は `lib/shortcuts` の `SHORTCUT_KEYS`、併記文言は `common.shortcutHint` | Reka UI `Tooltip` |
 | `BaseChip` | 小さなラベル | 色トークンを受け取る |
-| `BaseToast`／`ToastHost` | 通知トースト。成功・エラー・情報。再試行ボタン付きエラー | |
 | `Spinner` | 読み込み表示 | `prefers-reduced-motion` 対応 |
 
 ### 3.4 アカウント・共通（`components/account`、`components/shell`）
@@ -223,7 +229,8 @@ graph TD
 | `AccountList`／`AccountItem` | アカウント一覧、選択（単一／複数／すべて）、未読件数、`needs_reauth` の警告アイコン | emits: `select(ids)`、`reconnect(id)` | `accountsStore`、`inboxStore.unreadCounts` |
 | `FilterBar` | 未読のみ切替、フィルタのクリア | emits: `change` | `inboxStore.filter`（`AppService.SetInboxFilter`） |
 | `AppShell` | 3 ペインのレイアウト。最小幅 960px。ペイン幅のリサイズ | — | `uiStore` |
-| `BannerStack` | オフライン、要再接続、更新あり、同期エラーのバナー（優先度順に最大 2 件） | — | `uiStore`、`accountsStore` |
+| `BannerStack` | オフライン、要再接続、更新あり、同期エラーのバナー（優先度順に最大 2 件）。OAuth クライアントの拒否（`needs_reauth` で `statusMessage` が Go の案内文「OAuth クライアントの設定（Client ID／Secret）…」）のアカウントは、再接続ではなく、その `statusMessage` と「OAuth クライアントを確認」ボタン（設定ダイアログの OAuth クライアントタブを開く）を出す | — | `uiStore`、`accountsStore`（`statuses`・`statusMessages`） |
+| `ToastHost` | 通知トースト（`uiStore.toasts`。成功・エラー・情報。エラーは `retry` 指定時に再試行ボタンを出し、自動では消えない） | — | `uiStore.pushToast`／`dismissToast` |
 | `AddAccountDialog` | OAuth クライアント選択（未登録なら登録へ誘導）→ ブラウザ認可待ち表示（キャンセル可）→ 表示名・色設定 | emits: `done(account)` | `AccountService.StartAddAccount／CancelAddAccount` |
 
 ### 3.5 受信箱（`components/inbox`）
@@ -258,6 +265,7 @@ graph TD
 | `AttachmentBar` | 添付の一覧・削除・追加ボタン・ドラッグ＆ドロップ。合計サイズ表示と上限エラー | | `ComposeService.AddAttachments／RemoveAttachment` |
 | `AiDraftButton` | 「AI で下書き」。キー未設定→設定へ誘導、未同意→同意ダイアログ、生成中→キャンセル可、本文入力済み→置換確認 | emits: `generated(bodyHtml)` | `AIService.GenerateReplyDraft／CancelGenerate／RecordAIConsent` |
 | `SendConfirmDialog` | `PrepareSend` の結果を表示。**送信元を最大文字で表示（`SenderBadge`）**、宛先・件名・添付数・本文冒頭、`warnings`（他の自アカウント宛・件名なし・本文なし）。確定ボタン「<アドレス> から送信」。ダイアログ表示中はエディタ操作不可 | props: `preview`, `busy` | `composeStore.confirmSend`（`ComposeService.Send`） |
+| `SignatureConflictDialog` | 新規作成で送信元を切り替えたとき、署名部分が編集済みなら差し替える前に確認する（F-07）。「編集した署名を残す」「差し替える」。`ComposePane` が配置する | — | `composeStore.signatureConflict`／`resolveSignatureConflict` |
 
 #### 署名の挿入・差し替え（`lib/signature`）
 
@@ -286,8 +294,8 @@ graph TD
 
 | コンポーネント | 責務 | バインディング |
 |----------------|------|----------------|
-| `SettingsDialog` | タブ（アカウント／OAuth クライアント／署名／AI／一般） | — |
-| `AccountsSettings` | アカウント一覧、表示名・色・通知オン／オフ、並べ替え、再接続、削除（確認つき） | `AccountService.UpdateAccount／ReorderAccounts／Reconnect／RemoveAccount` |
+| `SettingsDialog` | タブ（アカウント／OAuth クライアント／署名／AI／一般）。開くタブは `uiStore.settingsTab`（`openSettings(tab?)` で指定）に従う | `uiStore` |
+| `AccountsSettings` | アカウント一覧、表示名・色・通知オン／オフ、並べ替え、再接続、削除（確認つき）。OAuth クライアントの拒否で要再接続のアカウントの行には、`statusMessage` と「OAuth クライアントを確認」ボタン（OAuth クライアントタブへ切り替える）を再接続ボタンと並べて出す | `AccountService.UpdateAccount／ReorderAccounts／Reconnect／RemoveAccount` |
 | `OAuthClientsSettings` | クライアントの追加・編集・削除（使用中は削除不可を表示）、README（OAuth クライアント作成手順）へのリンク | `AccountService.*OAuthClient` |
 | `SignatureSettings` | アカウント選択＋リッチテキスト署名編集（`RichTextEditor` 共用） | `AccountService.SetSignature` |
 | `AISettings` | プロバイダ・モデル・Base URL（`https://`、または `localhost`／`127.0.0.1`／`::1` の `http://` のみ。それ以外は `VALIDATION` を表示）・API キー（入力後は伏字、削除可）、同意状況（送信先が変わると再同意）、送信先の表示 | `AIService.*` |
@@ -297,15 +305,15 @@ graph TD
 
 | ストア | 状態 | 主なアクション | イベント購読 |
 |--------|------|----------------|--------------|
-| `accountsStore` | `accounts`、`oauthClients`、`statuses`（一時状態を含む） | `load`、`add`、`remove`、`update`、`setSignature`、`reorder` | `account:status` |
+| `accountsStore` | `accounts`、`oauthClients`、`statuses`（一時状態を含む）、`statusMessages`（アカウントごとの状態の理由。`account:status` の `message` と `Account.statusMessage` から取り込む） | `load`、`add`、`remove`、`update`、`setSignature`、`reorder` | `account:status` |
 | `inboxStore` | `filter`、`mode`（`inbox`／`search`）、`items`、`nextCursor`、`unreadCounts`、`selection`、`loading`、`failures` | `load`、`loadMore`、`refresh`、`runSearch`、`clearSearch`、`archive`／`trash`／`markRead`（**楽観的更新、失敗時は元に戻してエラートースト**）、`setFilter` | `sync:updated`（先頭ページと未読件数を再取得し、スクロール位置・選択を維持） |
 | `threadStore` | `current`（`ThreadDetail`）、`loading`、`error` | `open(ref)`、`close`、`reload` | `sync:updated`（開いているスレッドが `changedThreadIds` に含まれたら `reload`） |
-| `composeStore` | `session`、`content`、`attachments`、`preview`、`dirty`、`saving`、`sending` | `open`、`setSender`、`save`、`prepareSend`、`confirmSend`、`close`、`discard` | — |
+| `composeStore` | `session`、`content`、`attachments`、`preview`、`dirty`、`saving`、`sending` | `open`（新規作成は `withDefaultSender` で、受信箱のフィルタが単一アカウントならその送信元を初期値にして `OpenCompose` を呼ぶ）、`setSender`、`save`、`prepareSend`、`confirmSend`、`close`、`discard` | — |
 | `settingsStore` | `aiConfig`、`appInfo`、`update` | `load`、`setAIConfig`、`checkUpdate` | `update:available` |
-| `uiStore` | `theme`、`banners`、`toasts`、`dialogs`、`online` | `pushToast`、`openSettings` 等 | `notify:open-thread`（スレッドを開いてウィンドウを前面へ） |
+| `uiStore` | `theme`、`banners`、`toasts`、`dialogs`、`settingsTab`、`online` | `pushToast`、`openSettings(tab?)`（開く設定タブを指定。既定はアカウント）等 | `notify:open-thread`（スレッドを開いてウィンドウを前面へ） |
 
 - ストアは**生成されたバインディングを `lib/api` のラッパー経由**で呼び、`AppError`（`parseBindingError`）に統一して扱う
-- `NEEDS_REAUTH` を受け取ったら `accountsStore.statuses` を更新し、`BannerStack` に「要再接続」を出す（他アカウントは通常動作）
+- `NEEDS_REAUTH` を受け取ったら `accountsStore.statuses` を更新し、`BannerStack` に「要再接続」を出す（他アカウントは通常動作）。OAuth クライアントの拒否（`account:status` が `needs_reauth` で、`message` が OAuth クライアント設定の案内）の場合は、`statusMessages` の理由と設定への導線を出す
 - `OFFLINE` を受け取ったら `uiStore.online = false`。次の成功呼び出し、または `sync:updated` で復帰する
 
 ### 3.11 lib・composables
@@ -317,9 +325,21 @@ graph TD
 | `lib/signature` | 署名ブロックの挿入・検出・差し替え |
 | `lib/format` | 日時（今日は時刻、今年は月日、それ以外は年月日）・サイズの整形（日本語） |
 | `lib/palette` | アカウント色パレット（キー→ライト／ダークの色値）。Go 側と共有する定数 |
+| `lib/errorEffects` | API エラーが共通状態に及ぼす影響（オフライン表示・要再接続）の判定。ストア間の循環参照を避けるため純関数 |
+| `lib/banners` | バナーの選択（優先度順に最大 2 件。§3.4 `BannerStack`） |
+| `lib/composeModel` | `composeStore` が使う型と、バインディング値の正規化（`null` → 空配列） |
+| `lib/dropFiles` | Wails のファイルドロップ。Go 側が発行する `files-dropped` のペイロードからパス一覧を取り出す。`AttachmentBar` が受けて `ComposeService.AddAttachments` を呼ぶ（F-14） |
+| `lib/messages/` | UI 文言の集約（領域ごとに `common`／`compose`／`settings`／`thread`。`index.ts` が再エクスポート） |
 | `composables/useShortcuts` | §4 のキーボードショートカット登録・コンテキスト判定 |
 | `composables/useWailsEvents` | `sync:updated` などのイベント購読と解除 |
 | `composables/useAutosave` | §3.7 の自動保存 |
+| `composables/useQuitFlush` | `app:before-quit`（トレイの「終了」）で未保存の下書きを保存（`SaveDraft`）してから `AppService.AckBeforeQuit` を呼ぶ。保存に失敗しても必ず Ack する（F-12） |
+| `composables/useAiDraft` | 「AI で下書き」の状態遷移（未設定→設定へ誘導、未同意→同意、本文入力済み→置換確認、生成中→キャンセル可。F-08） |
+| `composables/useContactSuggest` | 宛先オートコンプリート。入力が止まって 150ms で `SuggestContacts` を呼ぶ（F-13） |
+| `composables/useComposeLifecycle` | 作成セッションの保存・終了（`composeStore` の一部） |
+| `composables/useComposeSend` | 作成セッションの送信フローと添付の追加・削除（`composeStore` の一部）。`prepareSend`（`PrepareSend`）→ 確認ダイアログ → `confirmSend`（`Send`）の順で、確認のキャンセル（`cancelPreview`）でトークンを破棄する。送信が失敗してもセッション・本文・添付は保持し、再度 `prepareSend` から送れる |
+| `composables/useSignatureSwap` | 新規作成で送信元を切り替えたときの署名差し替え（F-07。`composeStore` の一部）。直前に挿入した署名と一致していれば差し替え、編集済みなら `conflict` に入れて `SignatureConflictDialog` の選択を待つ |
+| `composables/useTheme` | `prefers-color-scheme` に追従して `uiStore.theme` と `document.documentElement` の `color-scheme` を更新する（`App.vue` が呼ぶ。配色の切り替え自体は `styles/tokens.css`） |
 
 ## 4. キーボードショートカット
 
@@ -346,11 +366,11 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 
 ## 5. テーマ・アクセシビリティ
 
-- **テーマ**: ライトとダーク。`prefers-color-scheme` に追従する。配色は `styles/tokens.css` の CSS 変数（`--color-bg`、`--color-text`、`--color-border`、`--color-accent`、`--account-<key>` 等）で定義し、コンポーネントに色値を直書きしない
+- **テーマ**: ライトとダーク。`prefers-color-scheme` に追従する（`composables/useTheme`）。配色は `styles/tokens.css` の CSS 変数（`--color-bg`、`--color-text`、`--color-border`、`--color-accent`、`--account-<key>` 等）で定義し、コンポーネントに色値を直書きしない
 - **アカウント色パレット**: 10 色を用意し、ライト／ダークの各背景に対して文字・帯のコントラスト比 4.5:1 を満たす値のみ採用する（NF §11）。**色だけで識別させない**（名前チップを常に併記）
 - **フォーカス**: すべての操作要素で可視フォーカスを表示する。ダイアログはフォーカストラップ（Reka UI）。スレッドリストは矢印キーでも移動できる（`role="listbox"`、`aria-activedescendant`）
 - **動き**: `prefers-reduced-motion` ではアニメーションを無効にする
-- **文字**: UI は日本語。文言は `lib/messages.ts` に集約する（将来の多言語化を妨げない。NF §7）
+- **文字**: UI は日本語。文言は `lib/messages/` に集約する（将来の多言語化を妨げない。NF §7）
 - **ダイアログの代替文**: アイコンのみのボタンには `aria-label` を付ける
 
 ## 6. 要件との対応
@@ -366,7 +386,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | F-07 署名 | `SignatureSettings`、`lib/signature` | `AccountService.SetSignature`、`domain/signature` |
 | F-08 AI 下書き | `AiDraftButton`、`AISettings` | `AIService`、`ai.Provider` |
 | F-09 検索 | `SearchBar`、`inboxStore.runSearch` | `InboxService.Search` |
-| F-10 通知・トレイ | `uiStore`（`notify:open-thread`）、`AccountsSettings`（通知切替） | `sync.detector`、`notify.Notifier`、`main.go`（トレイ・単一インスタンス） |
+| F-10 通知・トレイ | `uiStore`（`notify:open-thread`）、`AccountsSettings`（通知切替） | `sync.detector`、`notify.Notifier`、`platform.Notifier`／`platform.Tray`、`run.go`（トレイ生成・単一インスタンス） |
 | F-11 新規作成 | `ComposePane`、`SenderField`、`RecipientField`、`RichTextEditor` | `ComposeService` |
 | F-12 下書き保存 | `useAutosave`、`composeStore` | `ComposeService.SaveDraft`、`gmail.Client`（drafts） |
 | F-13 オートコンプリート | `RecipientField` | `ComposeService.SuggestContacts`、`domain/contacts`、`store` |
@@ -378,3 +398,10 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | §3.8 の「実装時の確認事項」を「最初に検証する項目」に改め、代替案（固定高＋内部スクロール、ナビゲーションフック）を追記 | WebView2 上での動作が未検証のため |
+| 1.2 | 2026-11-03 | §3.3 から `BaseToast` を外して `ToastHost` を §3.4 に追加し、文言の集約先を `lib/messages/` に修正、§3.11 に `useQuitFlush`・`dropFiles` ほかを追記 | 実装のファイル構成・責務との乖離（#36） |
+| 1.3 | 2026-11-03 | §2.1 に `internal/platform` を追加し、具象の組み立て場所を `main.go` から `run.go` に修正。§6 の F-10 の対応先を `run.go`／`internal/platform` に修正 | 実装のファイル構成との乖離（#34） |
+| 1.4 | 2026-11-03 | §2.2 の `contacts` 行から候補の順位付け（`Rank`）を外し、順位付けは `store` の SQL とした | 本番で未使用の `Rank`／`Score`／`Candidate` を削除し、順位規則を SQL に一本化したため（#47） |
+| 1.5 | 2026-11-03 | §2.6 に `OAUTH_CLIENT_REJECTED` への写像を、§3.3 に `BaseIconButton`／`BaseMenu`／`BaseTooltip` の `shortcut` 表示を追記（履歴に未記録だった分） | 実装との整合（#43、#44。記録漏れの補正 #53） |
+| 1.6 | 2026-11-03 | §2.2 の `signature`・`confirm` のシグネチャを実装に合わせ、`palette`・`textconv` を追加。§2.5 の表に概念上の部品である旨を追記 | 実装（`internal/domain/*`、`internal/sync`）との整合（#59） |
+| 1.7 | 2026-11-03 | §3.7 に `SignatureConflictDialog` を、§3.11 に `useComposeSend`・`useSignatureSwap`・`useTheme` を追加し、§5 のテーマに `useTheme` を明記 | 実装（`frontend/src/composables`、`components/compose`）との整合（#60） |
+| 1.8 | 2026-11-03 | §1 の原則に新規作成の送信元の初期値の選択のみフロントが行う例外を、§3.4 `BannerStack`・§3.9 `SettingsDialog`／`AccountsSettings` に OAuth クライアント拒否の案内と設定への導線を、§3.10 に `accountsStore.statusMessages`・`uiStore.settingsTab`／`openSettings(tab?)`・`composeStore.open` の初期送信元を追記 | 実装（`lib/banners.ts`、`AccountRow.vue`、`stores/*`、`lib/composeModel.ts`）との整合（#61、#65。記録漏れの補正 #69） |

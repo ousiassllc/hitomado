@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { parseBindingError } from '../../lib/api'
 import { common } from '../../lib/messages'
+import { SHORTCUT_KEYS } from '../../lib/shortcuts'
 import { useAccountsStore } from '../../stores/accounts'
 import { useComposeStore } from '../../stores/compose'
 import { useInboxStore } from '../../stores/inbox'
@@ -9,6 +10,7 @@ import AccountList from '../account/AccountList.vue'
 import FilterBar from '../account/FilterBar.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseIconButton from '../ui/BaseIconButton.vue'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 
 const ui = useUiStore()
 const accounts = useAccountsStore()
@@ -32,9 +34,11 @@ async function reconnect(id: string): Promise<void> {
 <template>
   <aside class="sidebar" :aria-label="common.sidebar.label">
     <div class="top">
-      <BaseButton variant="primary" class="compose" @click="compose.open({ mode: 'new' })">
-        {{ common.sidebar.compose }}
-      </BaseButton>
+      <BaseTooltip :text="common.shortcutHint(common.sidebar.compose, SHORTCUT_KEYS.compose)">
+        <BaseButton variant="primary" class="compose" @click="compose.open({ mode: 'new' })">
+          {{ common.sidebar.compose }}
+        </BaseButton>
+      </BaseTooltip>
     </div>
     <div class="accounts">
       <AccountList @select="onSelect" @reconnect="reconnect" />

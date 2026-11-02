@@ -138,6 +138,28 @@ func TestConfirmTokenSingleUseEvenOnFailure(t *testing.T) {
 	assert.Len(t, f.Gmail.Sent, 1)
 }
 
+// 応答を受け取れず送信済みかも確認できないとき、OFFLINE ではなく SEND_UNCERTAIN を返し、
+// 後始末（下書き削除・アーカイブ）は行わない。確認トークンは使用済みのまま。
+func TestSendUncertainIsDistinctFromOffline(t *testing.T) {
+	f := newComposeFixture(t)
+	s, c := f.NewMail(t)
+	saved, err := f.Svc.SaveDraft(t.Context(), s.SessionID, c)
+	require.NoError(t, err)
+	p, err := f.Svc.PrepareSend(t.Context(), s.SessionID, c, dto.SendOptions{})
+	require.NoError(t, err)
+
+	f.Gmail.Err["Send"] = fmt.Errorf("gmail: messages.send: %w", gmail.ErrSendUncertain)
+	_, err = f.Svc.Send(t.Context(), s.SessionID, p.ConfirmToken, c)
+	ae := requireError(t, "SEND_UNCERTAIN", err)
+	assert.False(t, ae.Retryable)
+	assert.Contains(t, ae.Message, "送信済みの可能性")
+	assert.Contains(t, f.Gmail.Drafts, apptest.Key(f.A.ID, saved.DraftID), "送信済みか不明なので下書きは消さない")
+
+	delete(f.Gmail.Err, "Send")
+	_, err = f.Svc.Send(t.Context(), s.SessionID, p.ConfirmToken, c)
+	requireCode(t, "CONFIRM_EXPIRED", err)
+}
+
 func TestSendClosesSession(t *testing.T) {
 	f := newComposeFixture(t)
 	s, c := f.NewMail(t)

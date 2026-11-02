@@ -2,6 +2,7 @@ package tokenauth
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
@@ -74,4 +75,19 @@ func TestPersistsRotatedRefreshToken(t *testing.T) {
 	got, err := store.Get(secrets.RefreshTokenKey("a1"))
 	require.NoError(t, err)
 	assert.Equal(t, "rt-2", got)
+}
+
+func TestRefreshFailureIsMarkedAndKeepsCause(t *testing.T) {
+	tr, srv := newTransport(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"invalid_grant"}`))
+	}, secrets.NewMemory(), clock.NewFake(time.Now()))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, srv.URL+"/x", http.NoBody)
+	require.NoError(t, err)
+
+	_, err = tr.RoundTrip(req) //nolint:bodyclose // エラー時は応答が無い
+	require.ErrorIs(t, err, ErrRefresh, "リクエストを送る前の失敗と分かる")
+	var re *oauth2.RetrieveError
+	assert.True(t, errors.As(err, &re), "元の更新エラーも辿れる")
 }

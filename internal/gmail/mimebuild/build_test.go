@@ -49,6 +49,9 @@ func TestBuildHeadersAndBodies(t *testing.T) {
 	assert.Equal(t, "<r1@example.org> <orig@example.org>", env.GetHeader("References"))
 	assert.Equal(t, "Mon, 02 Nov 2026 10:00:00 +0900", env.GetHeader("Date"))
 	assert.Regexp(t, `^<[0-9A-Z]{26}@example\.com>$`, env.GetHeader("Message-ID"))
+	sendID := env.GetHeader(SendIDHeader)
+	assert.Regexp(t, `^[0-9A-Z]{26}$`, sendID, "送信済みの確認に使う識別子")
+	assert.Equal(t, "<"+sendID+"@example.com>", env.GetHeader("Message-ID"))
 
 	from, err := env.AddressList("From")
 	require.NoError(t, err)

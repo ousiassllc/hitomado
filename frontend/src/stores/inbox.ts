@@ -135,7 +135,8 @@ export const useInboxStore = defineStore('inbox', () => {
         items.value = [...items.value, ...more]
         nextCursor.value = page.nextCursor || undefined
         applyFailures(toFailures(page.failures))
-        if (more.length > 0) break
+        // 追加 0 件で失敗を含むページは 1 回で打ち切る（失敗するアカウントへ連続して再要求しない）。
+        if (more.length > 0 || list(page.failures).length > 0) break
       }
     } catch (e) {
       if ((e as AppError).code !== 'OFFLINE')

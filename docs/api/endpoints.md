@@ -23,7 +23,7 @@ Hitomado は HTTP サーバーを持たない。フロントエンド（Vue）�
 
 ### 1.2 エラー
 
-エラーは Go の `error` を返し、フロントでは reject される。reject 値は**次の JSON として解釈できる文字列**にする（フロントは共通ラッパー `parseBindingError` で `AppError` に変換する）。Wails v3 のエラー整形（`MarshalError` オプション等）を使うか、`error.Error()` に JSON を載せる。実装時に Wails の API を確認して選ぶ。
+エラーは Go の `error` を返し、フロントでは reject される。Wails の `MarshalError` オプションに `apperr.Marshal` を指定しており（`run.go`）、`AppError` の JSON を返す。フロントでは reject 値の `error.cause` にその JSON 文字列が入る。フロントは共通ラッパー `parseBindingError`（`frontend/src/lib/api.ts`）で `cause` → `message` → 文字列そのものの順に JSON として解釈し、`AppError` に変換する。どれも `AppError` として読めないときは `INTERNAL`（`retryable: false`）にフォールバックする。なお `(*Error).Error()` の文字列は `"<code>: <message>"` で JSON ではない。
 
 ```ts
 type AppError = {
@@ -42,6 +42,7 @@ type AppError = {
 | `SESSION_NOT_FOUND` | 作成セッションが存在しない・破棄済み | false | ComposeService, AIService |
 | `OFFLINE` | ネットワーク不通 | true | Gmail／AI／GitHub 呼び出し |
 | `RATE_LIMITED` | 429（バックオフで解消せず） | true | Gmail／AI |
+| `OAUTH_CLIENT_REJECTED` | OAuth クライアントの資格情報が Google に拒否された（`invalid_client`／`unauthorized_client`／トークン更新・認可コード交換の 401）。Client ID／Secret の設定を確認する | false | Gmail 呼び出し, StartAddAccount, Reconnect |
 | `GMAIL_ERROR` | Gmail API のその他のエラー | 状況による | Gmail 呼び出し |
 | `NEEDS_REAUTH` | トークン失効（`invalid_grant`）。当該アカウントを「要再接続」にする | false | Gmail 呼び出し |
 | `ACCOUNT_DUPLICATE` | 同じアドレスのアカウントが登録済み | false | StartAddAccount |
@@ -59,9 +60,10 @@ type AppError = {
 | `CONFIRM_REQUIRED` | 確認トークンがない・未知 | false | Send |
 | `CONFIRM_EXPIRED` | 確認トークンの期限切れ（5 分）または使用済み | false | Send |
 | `CONFIRM_MISMATCH` | 確認時と送信時で送信内容が異なる | false | Send |
+| `SEND_UNCERTAIN` | リクエストを送った後に `Send` の応答を受け取れず（切断・タイムアウト・期限切れ・呼び出し側のキャンセル）、Gmail 側の送信済みに同じ送信を確認できなかった。送信済みの可能性があるため、送信済みフォルダーを確認してから、必要な場合だけ再送する。接続前の失敗（名前解決・接続拒否・トークン更新の通信失敗）や、リクエストを送る前の期限切れは本文を送れていないので、これではなく `OFFLINE`（再試行可）。送る前のキャンセルは `CANCELLED` | false | Send |
 | `AI_NOT_CONFIGURED` | API キー・プロバイダ未設定 | false | AIService |
 | `AI_CONSENT_REQUIRED` | 当該プロバイダへの送信に未同意 | false | AIService |
-| `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト等） | 状況による | AIService |
+| `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト・リダイレクト応答（3xx。追従しない）等） | 状況による | AIService |
 | `CANCELLED` | 呼び出し側がキャンセルした | false | AIService |
 | `INTERNAL` | 想定外の内部エラー | false | 全般 |
 
@@ -114,8 +116,8 @@ type ThreadPage = {
 |----------|------|--------|------|
 | `ListOAuthClients()` | — | `OAuthClient[]` | 登録済みクライアント（Secret は返さない） |
 | `AddOAuthClient(name, clientId, clientSecret)` | string ×3 | `OAuthClient` | 登録。Secret は資格情報ストアへ。`client_id` 重複は `VALIDATION` |
-| `UpdateOAuthClient(id, name, clientId, clientSecret?)` | | `OAuthClient` | Secret は指定時のみ更新 |
-| `DeleteOAuthClient(id)` | string | — | 使用中は `OAUTH_CLIENT_IN_USE`。Secret も削除 |
+| `UpdateOAuthClient(id, name, clientId, clientSecret?)` | | `OAuthClient` | Secret は指定時のみ更新。保存に失敗しても Client ID と Secret の組は変わらない |
+| `DeleteOAuthClient(id)` | string | — | 使用中は `OAUTH_CLIENT_IN_USE`。Secret も削除（Secret の削除に失敗したらクライアントは残しエラーを返す） |
 | `ListAccounts()` | — | `Account[]` | `sortOrder` 昇順 |
 | `StartAddAccount(oauthClientId)` | string | `Account` | 認可フローを開始し、**完了またはキャンセル・タイムアウトまでブロック**する。システムブラウザを開く。完了後に初回同期を開始 |
 | `CancelAddAccount()` | — | — | 進行中の認可を中断（`StartAddAccount` は `OAUTH_CANCELLED` で reject） |
@@ -185,7 +187,7 @@ type ThreadDetail = {
   threadId: string;
   subject: string;
   messages: ThreadMessage[]; // 下書き（DRAFT ラベル）を除く。時系列昇順
-  draftId?: string;         // このスレッドの Gmail 下書き（あれば）
+  draftId?: string;         // このスレッドの Gmail 下書き（あれば）。スレッド内に DRAFT ラベルのメッセージがあるときだけ drafts.list で探す
   labels: Label[];
 };
 ```
@@ -271,7 +273,7 @@ type SendResult = { messageId: string; threadId: string; archived: boolean; arch
 | `Send(sessionId, confirmToken, content)` | string ×2, `ComposeContent` | `SendResult` | トークンを検証して送信する（§5.2）。成功時はセッションを閉じ、下書きを削除、連絡先候補を加算する |
 | `CloseCompose(sessionId)` | string | — | セッションを破棄（下書きは残す）。未保存の変更の保存はフロントが先に `SaveDraft` する |
 | `DiscardCompose(sessionId)` | string | — | セッションを破棄し、Gmail 下書きがあれば削除する |
-| `SuggestContacts(accountId, prefix, limit)` | string, string, number | `Address[]` | `contacts` から前方一致（メールアドレス）で候補を返す。順位は [ER §3.8](../architecture/er.md) |
+| `SuggestContacts(accountId, prefix, limit)` | string, string, number | `Address[]` | `contacts` から、メールアドレスまたは表示名の前方一致で候補を返す。順位は [ER §3.8](../architecture/er.md) |
 
 ### 5.1 OpenCompose の初期値
 
@@ -319,7 +321,11 @@ sequenceDiagram
 - 検証順序: 送信元（`SENDER_REQUIRED`）→ 宛先（`NO_RECIPIENTS`）→ アドレス形式（`INVALID_ADDRESS`）→ 送信元整合（`SENDER_MISMATCH`）。件名・本文が空のときは**エラーにせず警告**（`EMPTY_SUBJECT`／`EMPTY_BODY`）
 - 送信元の整合（`SENDER_MISMATCH`）: セッションのアカウントと、スレッドの所有アカウント（`threads.account_id`／セッション作成時の `ThreadRef.accountId`）が一致すること。`From` ヘッダは `accounts.email` から生成し、本文・ヘッダに由来する値を使わない
 - 送信は `archiveAfterSend` が真でも**送信成功後**にアーカイブする。アーカイブ失敗時は `SendResult.archived = false`、`archiveError` に理由を入れ、送信自体は成功として扱う
-- MIME: `multipart/alternative`（`text/plain`＋`text/html`）。添付があれば `multipart/mixed`。ヘッダは `From`、`To`、`Cc`、`Bcc`、`Subject`（RFC 2047）、`In-Reply-To`、`References`、`Date`、`Message-ID`
+- 送信が失敗したとき（`messages.send` は二重送信を避けるため 5xx を再試行しない）は、確認トークンは使用済みになるが、作成セッションと本文はそのまま残る。利用者は内容を保ったまま、`PrepareSend`（F-06 の確認）からやり直して再送できる
+- 送信の転送（`messages.send`・添付の取得）には総時間の上限を掛けず、呼び出し側 `ctx` の期限と応答ヘッダー待ちで打ち切る
+- `Send` がリクエストを送った後に応答を受け取れず失敗したとき（切断・タイムアウト・期限切れ・呼び出し側のキャンセル）は、再送を許す前に Gmail の送信済みを確認する。Gmail API は送信時に `Message-ID` を付け替えることがあるため、MIME に付ける独自ヘッダ `X-Hitomado-Send-Id`（送信ごとの ULID。`Message-ID` のローカル部と同じ値）を主な手掛かりにする。`users.messages.list`（`q=in:sent after:<送信開始の 10 分前の UNIX 秒>`、新しい順に最大 20 件）で候補を取り、各候補を `users.messages.get`（`format=metadata`、`metadataHeaders=X-Hitomado-Send-Id,Message-ID`）で見て、`X-Hitomado-Send-Id` か `Message-ID` が一致すれば成功として返す
+- 上記の確認で見つからなかった・確認自体に失敗したときは、**未送信とは決めつけず** `SEND_UNCERTAIN`（`OFFLINE` にしない）を返す。独自ヘッダが送信済みに残る保証も、検索インデックスが送信直後に追い付く保証も無く、「見つからない」は「送られていない」の根拠にならないため、再送を促さない（利用者が送信済みフォルダーを確認する）。`OFFLINE`（再送可）のままにするのは、リクエストを送れていないと言える接続前の失敗（名前解決失敗・接続拒否・アクセストークン更新の通信失敗）と、リクエストを送る前（レート制限の待ち中）に `ctx` の期限が切れた場合だけで、この場合は確認の検索もしない。リクエストを送る前に呼び出し側がキャンセルした場合は `OFFLINE` ではなく `CANCELLED`（`retryable: false`）を返す。リクエストを送った後のキャンセルは上記のとおり確認の対象で、確認は呼び出し側のキャンセルとは切り離して（最大 30 秒）行い、見つからなければ `SEND_UNCERTAIN` になる（`CANCELLED` にはならない）
+- MIME: `multipart/alternative`（`text/plain`＋`text/html`）。添付があれば `multipart/mixed`。ヘッダは `From`、`To`、`Cc`、`Bcc`、`Subject`（RFC 2047）、`In-Reply-To`、`References`、`Date`、`Message-ID`、`X-Hitomado-Send-Id`
 
 ## 6. AIService
 
@@ -345,7 +351,7 @@ type AIConfig = {
 | `GenerateReplyDraft(sessionId, requestId)` | string ×2 | `{ bodyHtml: string }` | 返信系セッション（`reply`／`reply_all`）のスレッドから下書きを生成する。署名・引用は含めない。`new`／`forward` は `VALIDATION` |
 | `CancelGenerate(requestId)` | string | — | 生成を中止（`GenerateReplyDraft` は `CANCELLED` で reject） |
 
-- `GenerateReplyDraft` の前提: キー設定済み（`AI_NOT_CONFIGURED`）・同意済み（`AI_CONSENT_REQUIRED`）。タイムアウトは 60 秒（`AI_FAILED`）
+- `GenerateReplyDraft` の前提: キー設定済み（`AI_NOT_CONFIGURED`）・同意済み（`AI_CONSENT_REQUIRED`）。タイムアウトは 60 秒（`AI_FAILED`）。プロバイダの応答が 3xx のときは、同意した送信先以外へ内容を再送しないよう追従せず `AI_FAILED` とする（Base URL にはリダイレクト後の最終的な URL を指定する）
 - 送信するコンテキスト: 直近 5 メッセージ・合計 20,000 文字以内（NF §12）。HTML はテキスト化して送る。機密のログ出力は禁止（NF-S10）
 - 自動送信・自動生成は行わない。本メソッドはボタン押下からのみ呼ばれる
 
@@ -368,7 +374,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 |-----------|------------|------|
 | `sync:updated` | `{ accountId: string; changedThreadIds: string[] }` | 差分同期・リセット同期でキャッシュが更新された |
 | `account:status` | `{ accountId: string; status: 'active' \| 'syncing' \| 'needs_reauth' \| 'error'; message?: string }` | アカウント状態の変化（`syncing` は一時状態で DB に保存しない） |
-| `notify:open-thread` | `{ accountId: string; threadId: string }` | 通知クリック、またはトレイから開く |
+| `notify:open-thread` | `{ accountId: string; threadId: string }` | 通知クリック（トレイ操作ではウィンドウを前面に出すだけで、このイベントは発行しない） |
 | `update:available` | `{ version: string; url: string }` | 新バージョン検出 |
 | `app:before-quit` | なし | トレイの「終了」。フロントは未保存の下書きを保存して `AckBeforeQuit` を呼ぶ |
 | `files-dropped` | `{ files: string[] }` | ウィンドウへのファイルドロップ（`data-file-drop-target` 属性の要素上のみ）。フロントは `AddAttachments` に渡す |
@@ -389,15 +395,16 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 外部 API | 用途 | 主なエンドポイント／スコープ |
 |----------|------|------------------------------|
 | Google OAuth 2.0 | 認可・更新・revoke | `https://accounts.google.com/o/oauth2/v2/auth`、`https://oauth2.googleapis.com/token`、`https://oauth2.googleapis.com/revoke`、`https://openidconnect.googleapis.com/v1/userinfo`。スコープ: `https://www.googleapis.com/auth/gmail.modify`、`openid`、`email`、`profile` |
-| Gmail API v1 | メール取得・操作・送信 | `users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.attachments.get`、`users.drafts.create／update／delete／list`、`users.labels.list／get` |
+| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ。§5.2）、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`（いずれも `gmail.modify` スコープ内） |
 | AI プロバイダ | 下書き生成 | Anthropic Messages API／OpenAI 互換 Chat Completions（Base URL 指定可） |
 | GitHub Releases API | 更新確認 | `GET /repos/ousiassllc/hitomado/releases/latest`（未認証） |
 
 ### Gmail API の呼び出し規則
 
 - `threads.get` は一覧同期で `format=metadata`（`metadataHeaders=From,To,Cc,Subject,Date`）、閲覧時は `format=full`
-- すべての Gmail 呼び出しはアカウントごとの `rate.Limiter`（クォータユニット単位）を通す。429／5xx は指数バックオフ（初回 1 秒、上限 60 秒、ジッタ付き）
+- すべての Gmail 呼び出しはアカウントごとの `rate.Limiter`（クォータユニット単位）を通す。429／5xx は指数バックオフ（初回 1 秒、上限 60 秒、ジッタ付き）。ただし二重実行になり得る `messages.send` と `drafts.create` は 5xx を再試行しない（429 は再試行する）
 - `invalid_grant` は `NEEDS_REAUTH` に変換し、`accounts.status = 'needs_reauth'` を更新して `account:status` を発行する
+- `invalid_client`／`unauthorized_client`／トークン更新の 401 は `OAUTH_CLIENT_REJECTED` に変換する。同期では `needs_reauth` と同様に自動再試行を止め、`message` に「OAuth クライアントの設定（Client ID／Secret）を確認してください」を載せる（設定を直したあと `Reconnect` で再開する）
 - ネットワーク不通は `OFFLINE` に変換する。取得済みのキャッシュ表示は維持する
 
 ## 改訂履歴
@@ -406,3 +413,13 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | `AckBeforeQuit`、イベント `app:before-quit`／`files-dropped` を追加 | トレイ終了時の下書き保存（F-12）とファイルドロップのパス取得（Wails はパスを Go 側でのみ受け取る）のため |
+| 1.2 | 2026-11-03 | §1.2 のエラー受け渡し方式を `MarshalError`（`apperr.Marshal`）／`error.cause`／`INTERNAL` フォールバックに確定。未決の記述を削除 | 実装との整合（#31） |
+| 1.3 | 2026-11-03 | §8 `notify:open-thread` の契機を通知クリックのみに修正 | 実装（通知の応答のみで発行）・アーキテクチャ設計 §5 との整合（#30） |
+| 1.4 | 2026-11-03 | §10 の Gmail API 一覧に `users.getProfile`・`users.drafts.get` を追加 | `internal/gmail` の呼び出しとの整合（#33） |
+| 1.5 | 2026-11-03 | `SuggestContacts` の一致対象にメールアドレスと表示名の前方一致を明記 | 実装（`SuggestContacts` クエリ）との整合（#32） |
+| 1.6 | 2026-11-03 | §5.2 に送信失敗時の動作を、§10 に `messages.send`／`drafts.create` が 5xx を再試行しない例外を追記 | `internal/gmail/call.go` との整合（#46） |
+| 1.7 | 2026-11-03 | §1.2 に `SEND_UNCERTAIN`・`OAUTH_CLIENT_REJECTED` を、§2 に `UpdateOAuthClient`／`DeleteOAuthClient` の失敗時の挙動を、§4 に `ThreadDetail.draftId` を DRAFT ラベルがあるときだけ探す注記を、§5.2 に送信の転送へ総時間上限を掛けない記述を追記（履歴に未記録だった分） | 実装との整合（#37、#43、#45、#42。記録漏れの補正 #53） |
+| 1.8 | 2026-11-03 | §1.2 の `AI_FAILED` と §6 に、AI プロバイダの 3xx を追従せず失敗とする挙動を追記 | 実装（`internal/ai/provider.go` の既定クライアント）との整合（#58） |
+| 1.9 | 2026-11-03 | §1.2・§5.2 の `SEND_UNCERTAIN` を、送信後に応答を受け取れず送信済みを確認できない場合に限定（接続前の失敗は `OFFLINE`）。送信済みの確認を独自ヘッダ `X-Hitomado-Send-Id` と `in:sent` 検索に変更し、確認できなければ `SEND_UNCERTAIN` とした。MIME ヘッダに `X-Hitomado-Send-Id` を追加 | Gmail API が `Message-ID` を付け替えるため `rfc822msgid:` 検索では送信済みを確認できないこと、接続前の失敗まで `SEND_UNCERTAIN` になる不具合の修正（#52、#54） |
+| 1.10 | 2026-11-03 | §10 の Gmail API 一覧に `users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ）を追加 | `internal/gmail` の呼び出しとの整合（#51） |
+| 1.11 | 2026-11-03 | §1.2・§5.2 の `OFFLINE`／`CANCELLED`／`SEND_UNCERTAIN` の振り分けを実装に合わせて修正。送信後の呼び出し側キャンセルも送信済みの確認の対象とし、送信前の失敗は期限切れが `OFFLINE`、キャンセルが `CANCELLED` と明記 | `internal/gmail/errors.go`・`call.go`・`send_confirm.go`・`apperr` との整合（#66） |

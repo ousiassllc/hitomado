@@ -28,15 +28,19 @@ const (
 	userID = "me"
 	// quotaPerSecond は Gmail API のユーザーあたりクォータ（units/秒）。
 	quotaPerSecond = 250
-	// defaultHTTPTimeout は HTTPClient 未指定時の 1 リクエストの上限（添付取得を含む）。
+	// defaultHTTPTimeout は HTTPClient 未指定時の、通常の API 呼び出し 1 回の総時間の上限。
+	// 添付の取得・アップロード（callSpec.transfer）にはこの総時間制限を掛けない。
 	defaultHTTPTimeout = 2 * time.Minute
+	// defaultResponseHeaderTimeout は HTTPClient 未指定時の、リクエスト送信完了から応答ヘッダーまでの待ち上限。
+	// 転送系の呼び出しは総時間ではなくこちらと呼び出し側 ctx の期限で打ち切る。
+	defaultResponseHeaderTimeout = 2 * time.Minute
 )
 
 // Options は NewClient の設定。HTTPClient・Endpoint・TokenURL・Sleep はテスト用の差し替え点。
 type Options struct {
 	Secrets    secrets.Store // リフレッシュトークンと Client Secret の取得元（必須）
 	Accounts   AccountLookup // アカウント → OAuth 資格情報の参照（必須）
-	HTTPClient *http.Client  // nil なら既定（タイムアウト付き）
+	HTTPClient *http.Client  // nil なら既定。Timeout は通常の API 呼び出しにだけ掛け、添付の転送系呼び出しには掛けない
 	Endpoint   string        // Gmail API のベース URL の上書き（空なら https://gmail.googleapis.com/）
 	TokenURL   string        // OAuth トークンエンドポイントの上書き（空なら Google の既定）
 	Clock      clock.Clock   // nil なら実時間
@@ -66,7 +70,8 @@ type client struct {
 
 // account はアカウントごとに保持する Gmail サービス・リミッタ・トークン管理。
 type account struct {
-	svc     *gmailapi.Service
+	svc     *gmailapi.Service // 通常の API 呼び出し（総時間の上限あり）
+	xfer    *gmailapi.Service // 添付・生 MIME の転送系呼び出し（総時間の上限なし。打ち切りは ctx と応答ヘッダー待ち）
 	limiter *rate.Limiter
 	auth    *tokenauth.Transport
 }
@@ -91,7 +96,7 @@ func NewClient(opts Options) (Client, error) {
 	}
 	c.base = opts.HTTPClient
 	if c.base == nil {
-		c.base = &http.Client{Timeout: defaultHTTPTimeout}
+		c.base = &http.Client{Timeout: defaultHTTPTimeout, Transport: defaultTransport()}
 	}
 	return c, nil
 }
@@ -153,7 +158,20 @@ func (c *client) newAccount(ctx context.Context, accountID string) (*account, er
 		Clock:        c.clock,
 		Logger:       c.logger,
 	})
-	svcOpts := []option.ClientOption{option.WithHTTPClient(&http.Client{Transport: auth, Timeout: c.base.Timeout})}
+	svc, err := c.newService(ctx, auth, c.base.Timeout)
+	if err != nil {
+		return nil, err
+	}
+	xfer, err := c.newService(ctx, auth, 0)
+	if err != nil {
+		return nil, err
+	}
+	return &account{svc: svc, xfer: xfer, limiter: rate.NewLimiter(quotaPerSecond, quotaPerSecond), auth: auth}, nil
+}
+
+// newService は auth 経由で Gmail API を呼ぶサービスを作る。timeout は http.Client.Timeout（0 なら総時間の上限なし）。
+func (c *client) newService(ctx context.Context, auth *tokenauth.Transport, timeout time.Duration) (*gmailapi.Service, error) {
+	svcOpts := []option.ClientOption{option.WithHTTPClient(&http.Client{Transport: auth, Timeout: timeout})}
 	if c.opts.Endpoint != "" {
 		svcOpts = append(svcOpts, option.WithEndpoint(c.opts.Endpoint))
 	}
@@ -161,5 +179,12 @@ func (c *client) newAccount(ctx context.Context, accountID string) (*account, er
 	if err != nil {
 		return nil, fmt.Errorf("gmail: サービスの初期化に失敗: %w", ErrGeneric)
 	}
-	return &account{svc: svc, limiter: rate.NewLimiter(quotaPerSecond, quotaPerSecond), auth: auth}, nil
+	return svc, nil
+}
+
+// defaultTransport は既定のトランスポートに応答ヘッダー待ちの上限を足したもの。
+func defaultTransport() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	t.ResponseHeaderTimeout = defaultResponseHeaderTimeout
+	return t
 }

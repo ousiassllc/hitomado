@@ -64,16 +64,27 @@ func (s *AccountService) UpdateOAuthClient(ctx context.Context, id, name, client
 	if name == "" || clientID == "" {
 		return dto.OAuthClient{}, validation("名前と Client ID を入力してください。")
 	}
+	// Client ID と Secret は組で扱う。Secret を先に保存し、DB 更新が失敗したら旧 Secret へ戻す。
+	secretKey := secrets.OAuthClientSecretKey(id)
+	newSecret := trimmed(clientSecret)
+	var prev savedSecret
+	if newSecret != "" {
+		var err error
+		if prev, err = s.saveSecret(secretKey); err != nil {
+			return dto.OAuthClient{}, err
+		}
+		if err := s.d.Secrets.Set(secretKey, newSecret); err != nil {
+			return dto.OAuthClient{}, apperr.FromInfra(err, "")
+		}
+	}
 	if _, err := s.d.Store.UpdateOAuthClient(ctx, id, name, clientID); err != nil {
+		if newSecret != "" {
+			s.restoreSecret(secretKey, prev)
+		}
 		if errors.Is(err, store.ErrDuplicate) {
 			return dto.OAuthClient{}, validation("この Client ID はすでに登録されています。")
 		}
 		return dto.OAuthClient{}, apperr.FromInfra(err, "")
-	}
-	if trimmed(clientSecret) != "" {
-		if err := s.d.Secrets.Set(secrets.OAuthClientSecretKey(id), trimmed(clientSecret)); err != nil {
-			return dto.OAuthClient{}, apperr.FromInfra(err, "")
-		}
 	}
 	// Client ID／Secret が変わると、このクライアントを使うアカウントの認証情報（キャッシュ済みトークン源）は古くなる。
 	if err := s.forgetClientAccounts(ctx, id); err != nil {
@@ -93,15 +104,62 @@ func (s *AccountService) UpdateOAuthClient(ctx context.Context, id, name, client
 }
 
 // DeleteOAuthClient は使用中でなければクライアントと Client Secret を削除する。
+// 使用中は Secret に触れず OAUTH_CLIENT_IN_USE を返す（削除できないと分かっている操作で、先に Secret を消さない）。
+// Secret の削除に失敗したときは DB 行を残してエラーを返し、DB の削除に失敗したときは Secret を元に戻す。
 func (s *AccountService) DeleteOAuthClient(ctx context.Context, id string) error {
-	// 削除できるのは使用中のアカウントが 0 件のときだけなので、認証情報キャッシュを破棄する対象はない。
-	if err := s.d.Store.DeleteOAuthClient(ctx, id); err != nil {
+	list, err := s.d.Store.ListOAuthClients(ctx)
+	if err != nil {
 		return apperr.FromInfra(err, "")
 	}
-	if err := s.d.Secrets.Delete(secrets.OAuthClientSecretKey(id)); err != nil {
-		logger(s.d).Warn("Client Secret の削除に失敗", "oauthClientId", id, "err", err)
+	for _, c := range list {
+		if c.ID == id && c.AccountCount > 0 {
+			return apperr.FromInfra(store.ErrOAuthClientUse, "")
+		}
+	}
+	// ここから先は使用中のアカウントが 0 件のはずなので、認証情報キャッシュを破棄する対象はない（確認後に使われ始めた場合は DB の外部キーが拒否し、Secret を復元する）。
+	secretKey := secrets.OAuthClientSecretKey(id)
+	prev, err := s.saveSecret(secretKey)
+	if err != nil {
+		return err
+	}
+	if err := s.d.Secrets.Delete(secretKey); err != nil {
+		return apperr.FromInfra(err, "")
+	}
+	if err := s.d.Store.DeleteOAuthClient(ctx, id); err != nil {
+		s.restoreSecret(secretKey, prev)
+		return apperr.FromInfra(err, "")
 	}
 	return nil
+}
+
+// savedSecret は資格情報ストアの Secret の退避値。found=false は元々存在しなかったことを表す。
+type savedSecret struct {
+	value string
+	found bool
+}
+
+func (s *AccountService) saveSecret(key string) (savedSecret, error) {
+	v, err := s.d.Secrets.Get(key)
+	if errors.Is(err, secrets.ErrNotFound) {
+		return savedSecret{}, nil
+	}
+	if err != nil {
+		return savedSecret{}, apperr.FromInfra(err, "")
+	}
+	return savedSecret{value: v, found: true}, nil
+}
+
+// restoreSecret は退避した Secret を書き戻す（元々無ければ削除する）。失敗は警告ログのみ。
+func (s *AccountService) restoreSecret(key string, prev savedSecret) {
+	var err error
+	if prev.found {
+		err = s.d.Secrets.Set(key, prev.value)
+	} else {
+		err = s.d.Secrets.Delete(key)
+	}
+	if err != nil {
+		logger(s.d).Warn("Client Secret の復元に失敗", "key", key, "err", err)
+	}
 }
 
 // forgetClientAccounts は OAuth クライアント id を使うすべてのアカウントの Gmail 認証情報キャッシュを破棄する。

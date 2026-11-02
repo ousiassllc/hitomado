@@ -15,6 +15,7 @@ import (
 // UI に出すステータスメッセージ。機密（トークン・本文・宛先）を含めない。
 const (
 	msgNeedsReauth = "再接続が必要です"
+	msgClientError = "OAuth クライアントの設定（Client ID／Secret）を確認してください"
 	msgOffline     = "ネットワークに接続できません"
 	msgRateLimited = "Gmail のリクエスト制限中です。次の周期で再試行します"
 	msgFailed      = "同期に失敗しました"
@@ -84,7 +85,7 @@ func (s *Scheduler) syncAccount(ctx context.Context, a *account) error {
 		s.log.Warn("save sync state failed", "account", a.id, "err", saveErr)
 	}
 	if status == store.StatusNeedsReauth {
-		a.paused.Store(true)
+		a.paused.Store(true) // 再接続（Start）まで自動再試行しない
 	}
 	s.publishStatus(ctx, a, acct, status, msg)
 	return err
@@ -110,6 +111,9 @@ func classify(err error) (status, msg string) {
 	switch {
 	case errors.Is(err, gmail.ErrNeedsReauth):
 		return store.StatusNeedsReauth, msgNeedsReauth
+	case errors.Is(err, gmail.ErrClientRejected):
+		// 同じ資格情報での再試行は無意味。設定を直して再接続できるよう needs_reauth と同じく止める。
+		return store.StatusNeedsReauth, msgClientError
 	case errors.Is(err, gmail.ErrOffline):
 		return store.StatusError, msgOffline
 	case errors.Is(err, gmail.ErrRateLimited):
@@ -169,7 +173,11 @@ func (s *Scheduler) flush(ctx context.Context, cyc *cycle) {
 }
 
 // updateUnread は全アカウント合計の未読有無をトレイに反映する。
+// アカウントごとのワーカーなどから並行に呼ばれるため、未読数の取得から反映までを unreadMu で 1 区間にする
+// （間に別の呼び出しが入ると、古い値でバッジを上書きしてしまう）。
 func (s *Scheduler) updateUnread(ctx context.Context) {
+	s.unreadMu.Lock()
+	defer s.unreadMu.Unlock()
 	counts, err := s.store.UnreadCounts(ctx)
 	if err != nil {
 		s.log.Warn("unread counts failed", "err", err)

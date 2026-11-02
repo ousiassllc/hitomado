@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { TooltipContent, TooltipPortal, TooltipProvider, TooltipRoot, TooltipTrigger } from 'reka-ui'
 
-defineProps<{ text: string }>()
+/** text 未指定ならツールチップなしでスロットをそのまま描画する */
+defineProps<{ text?: string }>()
 </script>
 
 <template>
-  <TooltipProvider :delay-duration="400">
+  <slot v-if="!text" />
+  <TooltipProvider v-else :delay-duration="400">
     <TooltipRoot>
       <TooltipTrigger as-child>
         <slot />

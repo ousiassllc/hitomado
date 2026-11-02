@@ -11,6 +11,8 @@ import (
 
 	"golang.org/x/oauth2"
 	"google.golang.org/api/googleapi"
+
+	"github.com/ousiassllc/hitomado/internal/gmail/tokenauth"
 )
 
 // retryClass は失敗の再試行方針。
@@ -42,6 +44,9 @@ func classify(err error) failure {
 		switch {
 		case re.ErrorCode == "invalid_grant":
 			return failure{kind: ErrNeedsReauth, status: status}
+		case re.ErrorCode == "invalid_client" || re.ErrorCode == "unauthorized_client" || status == http.StatusUnauthorized:
+			// Client Secret の無効化・ローテーションなど。再接続や再試行では直らず、OAuth クライアントの設定を直す必要がある。
+			return failure{kind: ErrClientRejected, status: status}
 		case status == http.StatusTooManyRequests:
 			return failure{kind: ErrRateLimited, retry: retryLimited, status: status}
 		case status >= 500:
@@ -89,6 +94,24 @@ func isNetworkError(err error) bool {
 	var ne net.Error
 	return errors.As(err, &ue) || errors.As(err, &ne) ||
 		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+}
+
+// notSent は、リクエストを Gmail へ送る前に失敗したと言える生のエラーか（トークン更新の失敗・名前解決失敗・接続確立失敗）。
+// これらは本文を送れていないので、ネットワーク不通（ErrOffline）のまま再試行してよい。
+func notSent(err error) bool {
+	var dns *net.DNSError
+	var op *net.OpError
+	return errors.Is(err, tokenauth.ErrRefresh) || errors.As(err, &dns) || (errors.As(err, &op) && op.Op == "dial")
+}
+
+// resultUnknown は、生のエラー（sentinel にする前）が、リクエストを送った後に応答を受け取れなかった
+// 可能性のある失敗（切断・タイムアウト・ctx の期限切れ）か。送る前の失敗（notSent）や、
+// 5xx など応答を受け取った失敗は含まない。
+func resultUnknown(raw error) bool {
+	if raw == nil || notSent(raw) {
+		return false
+	}
+	return errors.Is(classify(raw).kind, ErrOffline) || errors.Is(raw, context.DeadlineExceeded) || errors.Is(raw, context.Canceled)
 }
 
 // wrapFailure は sentinel を %w で包んだ公開用エラーを作る（元エラーの本文は含めない）。

@@ -200,6 +200,17 @@ describe('confirmSend', () => {
     expect(compose.preview).toBeUndefined()
   })
 
+  test('SEND_UNCERTAIN は「送信に失敗」と言わず、送信済みの確認を促す', async () => {
+    const { compose } = setup()
+    await openReply(compose)
+    await compose.prepareSend(false)
+    h.failures.Send = appError('SEND_UNCERTAIN')
+    expect(await compose.confirmSend()).toBe(false)
+    expect(compose.error).toContain('送信済みの可能性')
+    expect(compose.error).not.toContain('送信に失敗')
+    expect(compose.session).toBeDefined()
+  })
+
   test('送信中の二重送信を防ぐ', async () => {
     const { compose } = setup()
     await openReply(compose)

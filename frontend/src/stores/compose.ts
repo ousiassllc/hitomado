@@ -21,12 +21,14 @@ import {
   normalizeSession,
   snapshotOf,
   type ThreadTarget,
+  withDefaultSender,
 } from '../lib/composeModel'
 import { applyErrorEffects } from '../lib/errorEffects'
 import { compose as msg } from '../lib/messages'
 import { cleanRichHtml } from '../lib/richtext'
 import { replaceUserBody } from '../lib/signature'
 import { useAccountsStore } from './accounts'
+import { useInboxStore } from './inbox'
 import { useUiStore } from './ui'
 
 export type { EditableContent, ThreadTarget } from '../lib/composeModel'
@@ -34,6 +36,7 @@ export type { EditableContent, ThreadTarget } from '../lib/composeModel'
 export const useComposeStore = defineStore('compose', () => {
   const ui = useUiStore()
   const accounts = useAccountsStore()
+  const inbox = useInboxStore()
 
   const session = ref<ComposeSession>()
   const openRef = ref<ThreadTarget>()
@@ -167,7 +170,9 @@ export const useComposeStore = defineStore('compose', () => {
     opening = true
     try {
       if (session.value && !(await close())) return false
-      const s = normalizeSession(await call(ComposeService.OpenCompose(req)))
+      const s = normalizeSession(
+        await call(ComposeService.OpenCompose(withDefaultSender(req, inbox.filter.accountIds))),
+      )
       silently(() => {
         session.value = s
         openRef.value = req.ref

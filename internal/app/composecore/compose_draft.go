@@ -58,6 +58,8 @@ func (s *Service) SaveDraft(ctx context.Context, sessionID string, content dto.C
 	s.keepFetched(sessionID, fetched)
 	if draftID != view.draftID || view.draftAcctID != view.accountID {
 		s.discardStaleDraft(ctx, view)
+		// 下書きの作成を反映する。スレッド本文のキャッシュに DRAFT メッセージが無いと、開いたときに下書きの導線が出ない。
+		s.invalidateThread(view.accountID, view.sendThreadID)
 	}
 
 	s.mu.Lock()
@@ -66,6 +68,13 @@ func (s *Service) SaveDraft(ctx context.Context, sessionID string, content dto.C
 	}
 	s.mu.Unlock()
 	return dto.SaveDraftResult{DraftID: draftID, SavedAt: s.d.Clock.Now().UnixMilli()}, nil
+}
+
+// invalidateThread は当該スレッドの本文キャッシュを破棄する（threadID が空なら何もしない）。
+func (s *Service) invalidateThread(accountID, threadID string) {
+	if threadID != "" {
+		s.d.Threads.Invalidate(accountID, threadID)
+	}
 }
 
 // writeDraft は既存の下書きを更新し、無い（または別アカウントの）ときは新規作成する。

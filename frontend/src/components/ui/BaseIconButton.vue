@@ -1,7 +1,15 @@
 <script setup lang="ts">
+import { common } from '../../lib/messages'
+import BaseTooltip from './BaseTooltip.vue'
+
+// 属性（click・data-testid など）は BaseTooltip ではなくボタンへ渡す
+defineOptions({ inheritAttrs: false })
+
 withDefaults(
   defineProps<{
     label: string
+    /** 指定するとツールチップに「ラベル (キー)」を表示する（`title` は出さない） */
+    shortcut?: string
     variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
     disabled?: boolean
   }>(),
@@ -10,9 +18,19 @@ withDefaults(
 </script>
 
 <template>
-  <button class="icon-btn" :class="`icon-btn-${variant}`" type="button" :aria-label="label" :title="label" :disabled="disabled">
-    <slot />
-  </button>
+  <BaseTooltip :text="shortcut ? common.shortcutHint(label, shortcut) : undefined">
+    <button
+      v-bind="$attrs"
+      class="icon-btn"
+      :class="`icon-btn-${variant}`"
+      type="button"
+      :aria-label="label"
+      :title="shortcut ? undefined : label"
+      :disabled="disabled"
+    >
+      <slot />
+    </button>
+  </BaseTooltip>
 </template>
 
 <style scoped>
