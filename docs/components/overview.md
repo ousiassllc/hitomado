@@ -79,7 +79,7 @@ type Client interface {
     DeleteDraft(ctx context.Context, accountID, draftID string) error
     FindDraftForThread(ctx context.Context, accountID, threadID string) (draftID string, ok bool, err error)
     ListLabels(ctx context.Context, accountID string) ([]Label, error)
-    Profile(ctx context.Context, accountID string) (email string, err error)
+    Profile(ctx context.Context, accountID string) (Profile, error) // Profile{Email, HistoryID}
 }
 
 // internal/oauth
