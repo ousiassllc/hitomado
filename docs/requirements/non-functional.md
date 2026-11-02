@@ -11,7 +11,7 @@
 | NF-S01 | 必須 | OAuth のリフレッシュトークン、OAuth クライアントの Client Secret、AI の API キーは **OS の資格情報ストア（Windows 資格情報マネージャー）** に保存する。SQLite・設定ファイル・ログに平文で保存しない |
 | NF-S02 | 必須 | Gmail スコープは `gmail.modify` のみ（加えて `openid email profile`）。`mail.google.com`（完全削除）や連絡先スコープは要求しない |
 | NF-S03 | 必須 | OAuth は認可コードフロー＋PKCE、リダイレクトは `127.0.0.1` のループバック（一時ポート）。`state` を検証する。待受は認可完了またはタイムアウト（5 分）で閉じる |
-| NF-S04 | 必須 | HTML メールは DOMPurify 等でサニタイズした上、`sandbox` 属性付き iframe（`allow-scripts` なし・`allow-same-origin` なし）内に表示する。スクリプト・フォーム・外部 CSS・iframe・`<base>` は除去する |
+| NF-S04 | 必須 | HTML メールは DOMPurify 等でサニタイズした上、`sandbox` 属性付き iframe（`srcdoc`）内に表示する。`sandbox` は **`allow-scripts`・`allow-forms`・`allow-popups`・`allow-top-navigation` を付けない**（メール内スクリプトは実行されない）。ホストが高さ計測とリンク捕捉をするため `allow-same-origin` のみ付ける（スクリプト実行が不可能なことが前提。[コンポーネント設計 §3.8](../components/overview.md)）。iframe 内の CSP は `default-src 'none'`。スクリプト・フォーム・外部 CSS・iframe・`<base>` は除去する |
 | NF-S05 | 必須 | リモート画像（`http(s)` の `img`・CSS `url()`）はデフォルトでブロックする（[F-03](functional.md#f-03-スレッド閲覧)） |
 | NF-S06 | 必須 | WebView の Content Security Policy を厳格に設定し、外部オリジンの読み込み（スクリプト・接続）を許可しない。外部通信はすべて Go バックエンド経由で行う |
 | NF-S07 | 必須 | リンクを開く際は `http`／`https`／`mailto` のみ許可する。`file:`・`javascript:` 等は拒否する |
