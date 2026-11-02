@@ -79,7 +79,18 @@ func writeFileReplacing(path string, data []byte) (err error) {
 			_ = os.Remove(tmp.Name())
 		}
 	}()
+	// CreateTemp は 0600 で作るので、既存ファイルの権限（無ければ 0644）に揃える。
+	mode := os.FileMode(0o644)
+	if fi, statErr := os.Stat(path); statErr == nil {
+		mode = fi.Mode().Perm()
+	}
+	if err = tmp.Chmod(mode); err != nil {
+		return err
+	}
 	if _, err = tmp.Write(data); err != nil {
+		return err
+	}
+	if err = tmp.Sync(); err != nil {
 		return err
 	}
 	if err = tmp.Close(); err != nil {

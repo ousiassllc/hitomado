@@ -73,7 +73,7 @@ func (s *AccountService) StartAddAccount(ctx context.Context, oauthClientID stri
 
 	existing, err := s.d.Store.ListAccounts(ctx)
 	if err != nil {
-		s.revokeToken(ctx, res.RefreshToken)
+		// 既存アカウントと同じ認可を共有していないか確認できないため、失効させない（既存を巻き込まない）
 		return dto.Account{}, apperr.FromInfra(err, "")
 	}
 	used := make([]string, 0, len(existing))
@@ -182,12 +182,15 @@ func (s *AccountService) revokeToken(ctx context.Context, token string) {
 // 同じメールアドレスのアカウントが同じ OAuth クライアントで既に接続されているときは失効させない
 // （Google 側では同一ユーザー・同一クライアントの認可が共有されるため、失効すると既存アカウントまで切れる）。
 func (s *AccountService) revokeUnsaved(ctx context.Context, res oauth.Result, oauthClientID string) {
+	if res.Email == "" {
+		return // 誰の認可か特定できず、既存アカウントを巻き込まないとは言えない
+	}
 	list, err := s.d.Store.ListAccounts(context.WithoutCancel(ctx))
 	if err != nil {
 		return // 既存アカウントを巻き込まないことを優先する
 	}
 	for _, a := range list {
-		if res.Email != "" && a.Email == res.Email && a.OAuthClientID == oauthClientID {
+		if a.Email == res.Email && a.OAuthClientID == oauthClientID {
 			return
 		}
 	}

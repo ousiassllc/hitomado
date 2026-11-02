@@ -97,9 +97,10 @@ export function useInboxMutations(d: MutationDeps) {
       const failedRefs = failedRefsOf(err)
       const failed = failedRefs.length > 0 ? new Set(failedRefs.map(keyOf)) : undefined
       if (err.code === 'NOT_FOUND') {
-        // 存在しなかったスレッド（failedRefs、無ければ対象全件）は復元せず一覧から外す。成功分は除去のまま。
+        // NOT_FOUND は失敗が全件 NOT_FOUND のときだけ。failedRefs に無い ref は Go 側で成功済みなので何も復元しない。
+        // 存在しなかったスレッド（failedRefs、無ければ対象全件）は一覧から外す（読み取りだけの markRead 等で残っていても）。
         const gone = failed ?? keys
-        undo(new Set([...keys].filter((k) => !gone.has(k))))
+        undo(new Set())
         d.items.value = d.items.value.filter((t) => !gone.has(keyOf(t)))
         d.ui.pushToast('error', common.op.threadGone)
       } else {

@@ -50,7 +50,7 @@ func TestConsentIsInvalidatedWhenBaseURLHostChanges(t *testing.T) {
 	require.NoError(t, f.generate(t, s.SessionID))
 	assert.Equal(t, []string{"openai"}, f.consented(t))
 
-	// 同じホスト（パス・大文字小文字・既定ポート違い）なら同意は維持される。
+	// 同じ送信先（パス・大文字小文字・既定ポート違い）なら同意は維持される。
 	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://LLM.example:443/v2/")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"openai"}, f.consented(t))
@@ -76,6 +76,17 @@ func TestConsentIsInvalidatedWhenBaseURLHostChanges(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"openai"}, cfg.ConsentedProviders)
 	require.NoError(t, f.generate(t, s.SessionID))
+}
+
+func TestConsentIsInvalidatedWhenSchemeDowngradesToHTTP(t *testing.T) {
+	f := newAIFixture(t)
+	f.ready(t) // https://llm.example/v1
+	s := f.open(t, "reply")
+
+	cfg, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "http://llm.example/v1")
+	require.NoError(t, err)
+	assert.Empty(t, cfg.ConsentedProviders, "https→http（平文化）では同意は失効する")
+	requireCode(t, "AI_CONSENT_REQUIRED", f.generate(t, s.SessionID))
 }
 
 func TestConsentIsPerDestinationHost(t *testing.T) {

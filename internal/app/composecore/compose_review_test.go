@@ -202,3 +202,61 @@ func TestSendStripsInternalMarkersButDraftKeepsThem(t *testing.T) {
 	assert.Contains(t, env.HTML, "Sig A", "ブロック自体は残る")
 	assert.Contains(t, env.HTML, "<blockquote>")
 }
+
+// deleteGate は DeleteDraft を呼び出し側が解放するまで止める gmail.Client。
+type deleteGate struct {
+	gmail.Client
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (g *deleteGate) DeleteDraft(ctx context.Context, accountID, draftID string) error {
+	close(g.entered)
+	select {
+	case <-g.release:
+	case <-ctx.Done():
+	}
+	return g.Client.DeleteDraft(ctx, accountID, draftID)
+}
+
+func TestSendAbortsWhenSessionDiscardedWhileWaiting(t *testing.T) {
+	f := newComposeFixture(t)
+	svc := composecore.New((*deps.Deps)(f.Deps))
+	s, err := svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "new", AccountID: f.A.ID})
+	require.NoError(t, err)
+	c := toContent("s", "<p>b</p>", "dave@x.example")
+	_, err = svc.SaveDraft(t.Context(), s.SessionID, c)
+	require.NoError(t, err)
+	p, err := svc.PrepareSend(t.Context(), s.SessionID, c, dto.SendOptions{})
+	require.NoError(t, err)
+
+	g := &deleteGate{Client: f.Gmail, entered: make(chan struct{}), release: make(chan struct{})}
+	f.Deps.Gmail = g
+	discardDone, sendDone := make(chan error, 1), make(chan error, 1)
+	go func() { discardDone <- svc.DiscardCompose(t.Context(), s.SessionID) }()
+	<-g.entered // Discard は snapshot を通り、io ロックを持ったまま DeleteDraft で止まっている
+	go func() {
+		_, err := svc.Send(t.Context(), s.SessionID, p.ConfirmToken, c)
+		sendDone <- err
+	}()
+	require.Eventually(t, func() bool { return svc.SendingForTest(s.SessionID) }, 5*time.Second, time.Millisecond)
+	close(g.release)
+
+	require.NoError(t, <-discardDone)
+	requireCode(t, "SESSION_NOT_FOUND", <-sendDone)
+	assert.Empty(t, f.Gmail.Sent, "破棄済みのセッションからは送信しない")
+}
+
+func TestReplyHeadersFoldLineBreaks(t *testing.T) {
+	f := newComposeFixture(t)
+	m := f.Gmail.Threads[apptest.Key(f.A.ID, threadID)].Messages[0]
+	m.MessageID = "<m1@x.example>\r\nBcc: evil@x.example"
+	m.References = []string{"<root@x.example>\nX-Evil: 1"}
+	f.PutThread(t, f.A.ID, threadID, m)
+	s := f.Open(t, "reply")
+	_, err := f.PrepareAndSend(t, s.SessionID, contentOf(s), false)
+	require.NoError(t, err)
+	raw := string(f.Gmail.Sent[0].Raw)
+	assert.NotContains(t, raw, "\nBcc: evil")
+	assert.NotContains(t, raw, "\nX-Evil")
+}

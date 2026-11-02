@@ -12,13 +12,13 @@ import (
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
-// 既定の送信先ホスト（internal/ai の既定 Base URL と同じ）。
+// 既定の送信先（internal/ai の既定 Base URL と同じ scheme://ホスト）。
 const (
-	defaultAnthropicHost = "api.anthropic.com"
-	defaultOpenAIHost    = "api.openai.com"
+	defaultAnthropicHost = "https://api.anthropic.com"
+	defaultOpenAIHost    = "https://api.openai.com"
 )
 
-// consentEntry は同意 1 件。同意は「プロバイダ＋送信先（Base URL のホスト）」単位。
+// consentEntry は同意 1 件。同意は「プロバイダ＋送信先（Base URL の scheme とホスト）」単位。
 // BaseURL が空は、そのプロバイダの既定の送信先（旧形式の同意もこれとして読む）。
 type consentEntry struct {
 	Provider string `json:"provider"`
@@ -45,7 +45,8 @@ func validateBaseURL(raw string) error {
 	return nil
 }
 
-// hostKey は Base URL の送信先ホスト（小文字・既定ポートと末尾のドットを除く）。空は既定のホスト def。
+// hostKey は Base URL の送信先（scheme://ホスト。小文字・既定ポートと末尾のドットを除く。パスは含めない）。
+// 空は既定の送信先 def。scheme を含めるので https→http の変更（平文化）も別の送信先になる。
 func hostKey(raw, def string) string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -66,10 +67,10 @@ func hostKey(raw, def string) string {
 	if port != "" {
 		host += ":" + port
 	}
-	return host
+	return u.Scheme + "://" + host
 }
 
-// destination は同意の照合キー（プロバイダ＋送信先ホスト）。anthropic に Base URL は無い。
+// destination は同意の照合キー（プロバイダ＋送信先 scheme://ホスト）。anthropic に Base URL は無い。
 func destination(provider, baseURL string) string {
 	if provider == providerOpenAI {
 		return provider + "|" + hostKey(baseURL, defaultOpenAIHost)

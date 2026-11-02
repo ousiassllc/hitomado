@@ -1,13 +1,10 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import type {
-  Label,
   ThreadDetail,
   ThreadRef,
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import * as InboxService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
 import * as ThreadService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/threadservice'
-import type { AttachmentInfo } from '../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
 import { type AppError, call, list, parseBindingError } from '../lib/api'
 import { applyErrorEffects } from '../lib/errorEffects'
 import {
@@ -18,9 +15,9 @@ import {
 } from '../lib/events'
 import { threadKey } from '../lib/inboxItems'
 import { thread as msg } from '../lib/messages'
-import { isOpenableUrl } from '../lib/sanitize'
 import { useAccountsStore } from './accounts'
 import { useInboxStore } from './inbox'
+import { useThreadExtras } from './threadExtras'
 import { useUiStore } from './ui'
 
 /** null（Go の nil スライス）を空配列にして、画面側で `?? []` を不要にする。 */
@@ -48,24 +45,20 @@ export const useThreadStore = defineStore('thread', () => {
   const error = ref<AppError>()
   /** 表示中スレッドに未読があるか（自動既読化・操作の結果を即反映するため、messages とは別に持つ） */
   const unread = ref(false)
-  /** アカウントごとのユーザーラベル（ラベルメニューを開いたときに 1 度だけ取得） */
-  const labelsByAccount = ref<Record<string, Label[]>>({})
-  const labelsLoading = ref(false)
 
   let seq = 0
-  /** 既読化・未読化の呼び出し中のスレッドキー（スレッド単位。別スレッドの表示をブロックしない） */
-  const marking = new Set<string>()
+  /** 既読化・未読化の呼び出し中の件数（スレッドキー単位。別スレッドの表示をブロックしない） */
+  const marking = new Map<string, number>()
   /**
    * 表示中スレッドで自動既読化を済ませた（または既読だった）メッセージ ID。再取得で増えた未読だけを自動既読に
    * する（手動で「未読にする」を戻さない）。未読メッセージは既読化の確定後にだけ追加する。
    */
   const seenIds = new Set<string>()
+  /** 自動既読化に失敗したメッセージ ID。同じ ID の自動再試行を抑止する（手動の既読／未読操作でクリア）。 */
+  const failedIds = new Set<string>()
   let started = false
   let stops: (() => void)[] = []
 
-  const accountLabels = computed<Label[]>(
-    () => labelsByAccount.value[currentRef.value?.accountId ?? ''] ?? [],
-  )
   const currentKey = computed(() =>
     currentRef.value ? threadKey(currentRef.value.accountId, currentRef.value.threadId) : undefined,
   )
@@ -94,22 +87,58 @@ export const useThreadStore = defineStore('thread', () => {
     error.value = undefined
     unread.value = false
     seenIds.clear()
+    failedIds.clear()
   }
 
-  /** 表示後に未読があれば既読にする（inboxStore 経由。失敗時のトーストと復元は inboxStore が行う）。 */
+  function beginMark(key: string): void {
+    marking.set(key, (marking.get(key) ?? 0) + 1)
+  }
+
+  function endMark(key: string): void {
+    const n = (marking.get(key) ?? 1) - 1
+    if (n > 0) marking.set(key, n)
+    else marking.delete(key)
+  }
+
+  /** 表示中スレッドで、まだ既読化していない未読メッセージの ID。 */
+  function pendingIds(): string[] {
+    return list(current.value?.messages)
+      .filter((m) => m.isUnread && !seenIds.has(m.id))
+      .map((m) => m.id)
+  }
+
+  /** 未処理の未読に、まだ失敗していないもの（＝自動既読化を試みてよいもの）があるか。 */
+  function hasRetriable(ids: string[]): boolean {
+    return ids.some((id) => !failedIds.has(id))
+  }
+
+  /**
+   * 表示後に未読があれば既読にする（inboxStore 経由。失敗時のトーストと復元は inboxStore が行う）。
+   * 終了時（成功・失敗とも）に表示中の messages から未処理の未読を再評価して unread を正しく保つ。
+   * 実行中に届いた新着の未読は、確定後にあらためて既読化する。失敗した ID は再試行しない。
+   */
   async function autoMarkRead(ref: ThreadRef, ids: string[]): Promise<void> {
     const key = threadKey(ref.accountId, ref.threadId)
-    marking.add(key)
+    beginMark(key)
+    let ok = false
     try {
-      const ok = await inbox.markRead([ref], true)
-      // 表示が別スレッドに移っていたら（seenIds は表示中スレッドのもの）何も反映しない
-      if (ok && currentKey.value === key) {
-        for (const id of ids) seenIds.add(id)
-        unread.value = false
-      }
+      ok = await inbox.markRead([ref], true)
     } finally {
-      marking.delete(key)
+      endMark(key)
     }
+    // 表示が別スレッドに移っていたら（seenIds・failedIds は表示中スレッドのもの）何も反映しない
+    if (currentKey.value !== key) return
+    for (const id of ids) {
+      if (ok) {
+        seenIds.add(id)
+        failedIds.delete(id)
+      } else {
+        failedIds.add(id)
+      }
+    }
+    const pending = pendingIds()
+    unread.value = pending.length > 0
+    if (hasRetriable(pending) && !marking.has(key)) void autoMarkRead(ref, pending)
   }
 
   async function load(ref: ThreadRef): Promise<void> {
@@ -120,13 +149,18 @@ export const useThreadStore = defineStore('thread', () => {
       const d = normalize(await api(ThreadService.GetThread(ref)))
       if (my !== seq) return
       const msgs = list(d.messages)
-      for (const m of msgs) if (!m.isUnread) seenIds.add(m.id)
-      const fresh = msgs.filter((m) => m.isUnread && !seenIds.has(m.id)).map((m) => m.id)
-      const busy = marking.has(key)
+      for (const m of msgs) {
+        if (!m.isUnread) {
+          seenIds.add(m.id)
+          failedIds.delete(m.id)
+        }
+      }
       current.value = d
       error.value = undefined
+      const pending = pendingIds()
+      const busy = marking.has(key)
       if (!busy) unread.value = msgs.some((m) => m.isUnread)
-      if (fresh.length > 0 && !busy) void autoMarkRead(ref, fresh)
+      if (!busy && hasRetriable(pending)) void autoMarkRead(ref, pending)
     } catch (e) {
       if (my !== seq) return
       const err = e as AppError
@@ -160,6 +194,8 @@ export const useThreadStore = defineStore('thread', () => {
     if (currentRef.value) await load(currentRef.value)
   }
 
+  const extras = useThreadExtras({ currentRef, current, ui, inbox, api, reload })
+
   async function archive(): Promise<boolean> {
     return currentRef.value ? inbox.archive([currentRef.value]) : false
   }
@@ -174,61 +210,14 @@ export const useThreadStore = defineStore('thread', () => {
     if (!ref) return false
     const key = threadKey(ref.accountId, ref.threadId)
     const toRead = unread.value
-    marking.add(key)
+    failedIds.clear() // 手動操作で自動再試行の抑止を解除する
+    beginMark(key)
     try {
       const ok = await inbox.markRead([ref], toRead)
       if (ok && currentKey.value === key) unread.value = !toRead
       return ok
     } finally {
-      marking.delete(key)
-    }
-  }
-
-  /** ラベルメニュー用に、受信アカウントのラベル一覧を取得する。 */
-  async function loadLabels(): Promise<void> {
-    const ref = currentRef.value
-    if (!ref || labelsLoading.value || ref.accountId in labelsByAccount.value) return
-    labelsLoading.value = true
-    try {
-      const ls = list(await api(InboxService.ListLabels(ref.accountId)))
-      labelsByAccount.value = { ...labelsByAccount.value, [ref.accountId]: ls }
-    } catch {
-      ui.pushToast('error', msg.labelsLoadFailed)
-    } finally {
-      labelsLoading.value = false
-    }
-  }
-
-  /** ラベルの付与・除去を切り替える。一覧の行は inboxStore が差し替え、成功したら表示中のスレッドも更新する。 */
-  async function toggleLabel(labelId: string): Promise<boolean> {
-    const ref = currentRef.value
-    const d = current.value
-    if (!ref || !d) return false
-    const has = d.labels?.some((l) => l.id === labelId) ?? false
-    const ok = await inbox.modifyLabel([ref], labelId, !has)
-    if (ok) await reload()
-    return ok
-  }
-
-  /** 添付を保存する。保存先ダイアログのキャンセル（saved=false）は何もしない。 */
-  async function saveAttachment(messageId: string, a: AttachmentInfo): Promise<void> {
-    const ref = currentRef.value
-    if (!ref) return
-    try {
-      const r = await api(ThreadService.SaveAttachment({ ...ref, messageId }, a.id, a.filename))
-      if (r.saved) ui.pushToast('success', msg.attachmentSaved)
-    } catch (e) {
-      ui.pushToast('error', `${msg.attachmentFailed}${(e as AppError).message ?? ''}`)
-    }
-  }
-
-  /** 本文中のリンクをシステムブラウザ／メーラーで開く。許可スキーム（http／https／mailto）以外は呼ばない。 */
-  async function openExternal(url: string): Promise<void> {
-    if (!isOpenableUrl(url)) return
-    try {
-      await api(ThreadService.OpenExternal(url))
-    } catch (e) {
-      ui.pushToast('error', `${msg.openFailed}${(e as AppError).message ?? ''}`)
+      endMark(key)
     }
   }
 
@@ -273,18 +262,13 @@ export const useThreadStore = defineStore('thread', () => {
     loading,
     error,
     unread,
-    accountLabels,
-    labelsLoading,
+    ...extras,
     open,
     close,
     reload,
     archive,
     trash,
     toggleRead,
-    loadLabels,
-    toggleLabel,
-    saveAttachment,
-    openExternal,
     start,
     stop,
   }

@@ -21,7 +21,8 @@ var imageMIME = regexp.MustCompile(`^image/[a-z0-9.+-]+$`)
 const MaxInlineDataBytes = 10 << 20
 
 // InlineCIDImages は本文中の cid: 参照を、対応するインライン画像の data: URL に置換する。
-// 照合は収集側と同じ mimeparse.NormalizeCID（大文字小文字・山括弧・%エンコードを吸収）の完全一致。
+// parts のキーは収集側で NormalizeCID 済み（再正規化すると %25 を二重デコードする）。本文の参照だけを同じ
+// mimeparse.NormalizeCID（大文字小文字・山括弧・%エンコードを吸収）で正規化し、完全一致で引く。
 // 同じ cid は base64 を 1 回だけ作って使い回す。置換後の data: URL の合計（参照ごとに数える）が
 // MaxInlineDataBytes を超える分・画像以外の MIME・
 // 対応する部品が無い参照はそのまま残す（フロントのサニタイズが落とす）。
@@ -29,17 +30,13 @@ func InlineCIDImages(body string, parts map[string]gmail.InlinePart) string {
 	if len(parts) == 0 || !strings.Contains(strings.ToLower(body), "cid:") {
 		return body
 	}
-	byCID := make(map[string]gmail.InlinePart, len(parts))
-	for k, p := range parts {
-		byCID[mimeparse.NormalizeCID(k)] = p
-	}
 	urls := map[string]string{} // 正規化 cid → data URL（"" は置換しない）
 	used := 0
 	return cidRef.ReplaceAllStringFunc(body, func(m string) string {
 		id := mimeparse.NormalizeCID(m)
 		u, seen := urls[id]
 		if !seen {
-			u = dataURL(byCID[id])
+			u = dataURL(parts[id])
 			urls[id] = u
 		}
 		// 出力に含まれる分（参照のたびに本文へ埋め込まれる）を合計する。

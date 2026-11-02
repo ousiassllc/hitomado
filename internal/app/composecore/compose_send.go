@@ -140,9 +140,15 @@ func (s *Service) Send(ctx context.Context, sessionID, confirmToken string, cont
 	defer cs.io.unlock()
 	// ロック待ちの間に SaveDraft が下書きを作成・更新した可能性があるので、最新の値を読み直す
 	// （古い値のままだと送信済みの下書きが残る）。
+	// 同じ区間で、待機中に DiscardCompose などでセッションが破棄されていないことも確かめる
+	// （破棄済みなら送信しない。消費済みの確認トークンはそのまま）。
 	s.mu.Lock()
+	live := s.sessions[sessionID] == cs
 	view.draftID, view.draftAcctID = cs.draftID, cs.draftAcctID
 	s.mu.Unlock()
+	if !live {
+		return dto.SendResult{}, errSessionNotFound()
+	}
 
 	msg, err := s.d.Gmail.Send(ctx, view.accountID, raw, view.sendThreadID)
 	if err != nil {

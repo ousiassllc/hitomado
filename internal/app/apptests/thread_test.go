@@ -241,3 +241,24 @@ func TestSaveAttachmentReplacesExistingFileAtomically(t *testing.T) {
 	entries, _ := os.ReadDir(dir)
 	assert.Len(t, entries, 1, "一時ファイルを残さない")
 }
+
+func TestSaveAttachmentPermissions(t *testing.T) {
+	svc, e, a := saveSetup(t)
+	mref := dto.MessageRef{AccountID: a.ID, ThreadID: "t1", MessageID: "m1"}
+	dir := t.TempDir()
+
+	e.Files.Path = filepath.Join(dir, "new.pdf")
+	_, err := svc.SaveAttachment(t.Context(), mref, "att1", "a.pdf")
+	require.NoError(t, err)
+	fi, err := os.Stat(e.Files.Path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o644), fi.Mode().Perm(), "新規は 0644")
+
+	e.Files.Path = filepath.Join(dir, "existing.pdf")
+	require.NoError(t, os.WriteFile(e.Files.Path, []byte("OLD"), 0o600))
+	_, err = svc.SaveAttachment(t.Context(), mref, "att1", "a.pdf")
+	require.NoError(t, err)
+	fi, err = os.Stat(e.Files.Path)
+	require.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o600), fi.Mode().Perm(), "既存ファイルの権限を保つ（新規の既定 0644 とは異なる値）")
+}

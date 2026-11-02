@@ -82,7 +82,7 @@ describe('threadStore: 既読化はスレッド単位', () => {
     expect(callsOf('MarkRead')).toHaveLength(1)
   })
 
-  test('既読化に失敗しても未読メッセージは見たことにならず、再取得で再試行される', async () => {
+  test('既読化に失敗しても未読のまま。自動では再試行せず、手動の既読化で解除される', async () => {
     routeGetThread({ tA: threadOf(A, true) })
     ctl.failures.MarkRead = appError('GMAIL_ERROR', '失敗')
     const s = useThreadStore()
@@ -91,10 +91,12 @@ describe('threadStore: 既読化はスレッド単位', () => {
     await until(() => callsOf('ListInbox').length >= 1) // inboxStore の失敗処理（復元・再読込）が済む
     expect(s.unread).toBe(true)
 
-    delete ctl.failures.MarkRead
     await s.reload()
-    await until(() => callsOf('MarkRead').length === 2)
-    await until(() => !s.unread)
+    expect(callsOf('MarkRead')).toHaveLength(1)
+
+    delete ctl.failures.MarkRead
+    expect(await s.toggleRead()).toBe(true)
+    expect(s.unread).toBe(false)
   })
 
   test('既読化中の再取得で、同じスレッドの既読化を二重に呼ばない', async () => {

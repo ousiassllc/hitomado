@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { bindFrameDocument } from './bodyFrame'
+import { bindFrameDocument, MAX_HEIGHT } from './bodyFrame'
 
 function frameDoc(html: string, height: number): Document {
   const doc = document.implementation.createHTMLDocument('')
@@ -94,5 +94,31 @@ describe('bindFrameDocument', () => {
       },
     } as unknown as Document
     expect(bindFrameDocument(throwing, { onHeight() {}, onLink() {} })).toBeUndefined()
+  })
+})
+
+describe('高さの上限', () => {
+  test('上限以内はそのままの高さで、スクロールバーを出さない（overflow: hidden）', () => {
+    const { doc, heights } = setup('<p>x</p>', MAX_HEIGHT)
+    expect(heights).toEqual([MAX_HEIGHT])
+    expect(doc.documentElement.style.overflow).toBe('hidden')
+  })
+
+  test('上限を超えたら上限で止め、iframe 内部のスクロール（overflow: auto）にする', () => {
+    const { doc, heights, binding } = setup('<p>x</p>', 50000)
+    expect(heights).toEqual([MAX_HEIGHT])
+    expect(doc.documentElement.style.overflow).toBe('auto')
+    expect(binding?.measured).toBe(true)
+  })
+
+  test('内容が伸び続けても（min-height:100vh 等）通知は上限を超えない。縮んだら hidden に戻る', () => {
+    const { doc, heights } = setup('<a id="a" href="https://example.com/">x</a>', 9000)
+    for (const px of [20000, 1e9, 4000]) {
+      Object.defineProperty(doc.body, 'scrollHeight', { value: px, configurable: true })
+      doc.dispatchEvent(new Event('load'))
+    }
+    expect(Math.max(...heights)).toBe(MAX_HEIGHT)
+    expect(heights.at(-1)).toBe(4000)
+    expect(doc.documentElement.style.overflow).toBe('hidden')
   })
 })

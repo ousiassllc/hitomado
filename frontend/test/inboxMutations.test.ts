@@ -83,13 +83,18 @@ describe('楽観的更新', () => {
     const s = useInboxStore()
     const ui = useUiStore()
     await s.load()
-    gone.add('t3') // サーバー側には存在しない
+    const hold = deferred()
+    gates.ListInbox = hold.p // 操作後の再読込を保留し、操作直後の一覧を検査する
+    gone.add('t1') // t1 はサーバー側でアーカイブ成功済み（failedRefs に含まれない）
+    gone.add('t3') // t3 はサーバー側に存在しない
     expect(await s.archive([ref('a1', 't1'), ref('a2', 't3')])).toBe(false)
-    expect(ids(s)).not.toContain('t3')
+    // 再読込の前でも、成功した t1 は一覧へ戻らない（復元しない）
+    expect(ids(s)).toEqual(['t2', 't4'])
     expect(ids(s)).toContain('t2')
     expect(ui.toasts).toHaveLength(1)
     expect(ui.toasts[0].message).toContain('見つかりません')
     expect(ui.toasts[0].retry).toBeUndefined()
+    hold.resolve()
   })
 
   test('NOT_FOUND 以外の失敗は従来どおり復元＋再試行トースト', async () => {

@@ -109,7 +109,7 @@ func (s *Service) initThreaded(ctx context.Context, cs *composeSession, req dto.
 	if cs.mode != model.ModeForward {
 		// 転送は新しいスレッドとして送る（Gmail は件名が変わる転送を元スレッドに入れない）。
 		cs.sendThreadID = ref.ThreadID
-		cs.inReplyTo = src.MessageID
+		cs.inReplyTo = foldLine(src.MessageID)
 		cs.references = referencesFor(src)
 	} else {
 		for _, a := range src.Attachments {
@@ -189,9 +189,14 @@ func sourceMessage(m gmail.MessageFull) model.SourceMessage {
 
 // referencesFor は返信の References（元の References＋元の Message-ID。重複なし）。
 func referencesFor(src model.SourceMessage) []string {
-	refs := append([]string(nil), src.References...)
-	if src.MessageID != "" && !slices.Contains(refs, src.MessageID) {
-		refs = append(refs, src.MessageID)
+	refs := make([]string, 0, len(src.References)+1)
+	for _, r := range src.References {
+		if r = foldLine(r); r != "" {
+			refs = append(refs, r)
+		}
+	}
+	if id := foldLine(src.MessageID); id != "" && !slices.Contains(refs, id) {
+		refs = append(refs, id)
 	}
 	return refs
 }

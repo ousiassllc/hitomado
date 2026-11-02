@@ -85,3 +85,16 @@ func TestHasRemoteImages(t *testing.T) {
 	}
 	require.False(t, appcore.HasRemoteImages(""))
 }
+
+// InlineImages のキーは収集側で正規化済み。本文の %25 は 1 回だけデコードして完全一致で引く（二重デコードしない）。
+func TestInlineCIDImagesDoesNotDoubleDecode(t *testing.T) {
+	// 本文 "cid:foo%2541@x" → NormalizeCID で "foo%41@x"（%25 → %）。キーも同じ正規化済みの値。
+	parts := map[string]gmail.InlinePart{"foo%41@x": png("AAA"), "fooa@x": png("BBB")}
+	got := appcore.InlineCIDImages(`<img src="cid:foo%2541@x">`, parts)
+	assert.Equal(t, `<img src="data:image/png;base64,QUFB">`, got, "foo%41@x に一致し、二重デコードした fooa@x には一致しない")
+
+	// キーを再正規化すると "foo%41@x" が "fooa@x" に化けて別の画像に誤一致する。
+	only := map[string]gmail.InlinePart{"foo%41@x": png("AAA")}
+	assert.Equal(t, `<img src="data:image/png;base64,QUFB">`, appcore.InlineCIDImages(`<img src="cid:foo%2541@x">`, only))
+	assert.Equal(t, `<img src="cid:fooa@x">`, appcore.InlineCIDImages(`<img src="cid:fooa@x">`, only), "別の cid には誤一致しない")
+}

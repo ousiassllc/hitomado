@@ -8,6 +8,11 @@ import { isOpenableUrl } from '../../lib/sanitize'
 export const FALLBACK_HEIGHT = 480
 /** 計測した高さの下限（px）。 */
 const MIN_HEIGHT = 24
+/**
+ * iframe の高さの上限（px）。本文の `min-height:100vh` などは iframe を伸ばすほど内容も伸びて計測が回り続けるため、
+ * 超えたら上限で止めて iframe 内部のスクロールにする。
+ */
+export const MAX_HEIGHT = 10000
 
 export interface FrameHandlers {
   /** 計測した内容の高さ（px）。内容の変化（画像の読み込みなど）で繰り返し呼ばれる */
@@ -64,15 +69,15 @@ export function bindFrameDocument(
       try {
         const px = measureContentHeight(doc)
         if (px === undefined) return false
-        h.onHeight(px)
+        // 上限内はスクロールバーを出さず親側の iframe 高さで全体を見せる。超えたら上限で止めて内部スクロール。
+        doc.documentElement.style.overflow = px > MAX_HEIGHT ? 'auto' : 'hidden'
+        h.onHeight(Math.min(px, MAX_HEIGHT))
         return true
       } catch {
         return false
       }
     }
-    // スクロールバーを出さず、親側の iframe 高さで全体を見せる。
     const measured = measure()
-    if (measured) doc.documentElement.style.overflow = 'hidden'
 
     let observer: ResizeObserver | undefined
     try {

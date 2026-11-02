@@ -152,3 +152,18 @@ describe('CSS サニタイズは入力長に対して線形（ReDoS 回帰）', 
     expect(timeOf(() => sanitizeStyleSheet(css, { allowRemoteImages: true }))).toBeLessThan(500)
   })
 })
+
+describe('attr() を含む宣言は除去する', () => {
+  test('url を attr() で組み立てる回避を許さない', () => {
+    for (const allow of [false, true]) {
+      const out = sanitizeDeclarations(
+        'background: image-set(attr(data-u)); width: attr(data-w px); color: red',
+        {
+          allowRemoteImages: allow,
+        },
+      )
+      expect(out).toBe('color: red')
+      expect(sanitizeDeclarations('content: ATTR (data-x)', { allowRemoteImages: allow })).toBe('')
+    }
+  })
+})

@@ -10,16 +10,13 @@ import (
 // maxNoticeRunes はトーストの 1 行あたりの上限。長い件名で通知が崩れないようにする。
 const maxNoticeRunes = 120
 
-// plainText は通知に載せる文字列から制御文字を除き、シェルの展開に使われる `$` と “ ` “ を無害な文字に置き換えて
-// 長さを切り詰める。外部入力（件名・差出人名）がスクリプトとして解釈される経路への多層防御。
+// plainText は通知に載せる文字列から制御文字（空白に置換）と不可視の書式文字（除去）を取り除き、長さを切り詰める。
+// 外部入力（件名・差出人名）による表示の偽装・崩れへの対策。
 func plainText(s string) string {
 	var b strings.Builder
 	for _, r := range s {
 		switch {
-		case r == '$':
-			b.WriteRune('＄')
-		case r == '`':
-			b.WriteRune('\u2018')
+		case unicode.Is(unicode.Cf, r): // 双方向制御などの不可視文字は捨てる（差出人名の偽装対策）
 		case unicode.IsControl(r):
 			b.WriteRune(' ')
 		default:

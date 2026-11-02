@@ -11,7 +11,7 @@ const DATA_IMAGE = /^data:image\/(?:png|jpe?g|gif|webp|bmp|avif|x-icon);/i
 const HTTPS_URL = /^https:\/\//i
 // 実行・外部読み込み・ローダー系。見つかった宣言は丸ごと除去する。
 const BLOCKED =
-  /expression\s*\(|behaviou?r\s*:|-moz-binding|@import|javascript:|vbscript:|image-set\s*\(|\bsrc\s*\(|\bimage\s*\(|\belement\s*\(|\bpaint\s*\(/i
+  /expression\s*\(|behaviou?r\s*:|-moz-binding|@import|javascript:|vbscript:|image-set\s*\(|\battr\s*\(|\bsrc\s*\(|\bimage\s*\(|\belement\s*\(|\bpaint\s*\(/i
 // 入れ子のルールを持つ at-rule（本体をルールとして再帰処理する）
 const NESTED_AT = /^@(?:-\w+-)?(?:media|supports|layer|container|document|keyframes)\b/i
 // 本体を宣言として扱う at-rule

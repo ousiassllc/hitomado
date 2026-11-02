@@ -2,7 +2,6 @@ package main
 
 import (
 	"embed"
-	"errors"
 	"log/slog"
 	"os"
 
@@ -21,12 +20,7 @@ var version = "0.1.0"
 func main() {
 	if err := run(); err != nil {
 		slog.Error("fatal", "err", err.Error())
-		if !errors.Is(err, errQuiet) {
-			platform.ShowFatal("Hitomado を起動できません", err.Error())
-		}
+		platform.ShowFatal("Hitomado を起動できません", err.Error())
 		os.Exit(1)
 	}
 }
-
-// errQuiet は利用者に通知済み（または不要）のため、ダイアログを重ねて出さないエラー。
-var errQuiet = errors.New("quiet")

@@ -103,7 +103,7 @@ type ThreadSummary = ThreadRef & {
 
 type ThreadPage = {
   items: ThreadSummary[];
-  nextCursor?: string;      // 不透明文字列。undefined なら末尾
+  nextCursor?: string;      // 不透明文字列。undefined なら末尾。items が 0 件でも返ることがある（絞り込みで全件落ちても Gmail 側に続きがあるとき）
   failures: { accountId: string; error: AppError }[]; // 一部アカウントの取得失敗（他アカウントの結果は返す）
 };
 ```
@@ -148,7 +148,7 @@ type SearchQuery = {
 
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
-| `ListInbox(query)` | `InboxQuery` | `ThreadPage` | ローカル DB の `INBOX` スレッドを `last_message_at` 降順で返す（キーセットページング）。ローカルの行が尽き、かつ対象アカウントの `inbox_exhausted = 0` なら、`inbox_page_token` で Gmail から追加取得して保存し、続きを返す |
+| `ListInbox(query)` | `InboxQuery` | `ThreadPage` | ローカル DB の `INBOX` スレッドを `last_message_at` 降順で返す（キーセットページング）。ローカルの行が尽き、かつ対象アカウントの `inbox_exhausted = 0` なら、`inbox_page_token` で Gmail から追加取得して保存し、続きを返す。絞り込み（未読のみ等）で追加取得分がすべて落ちても Gmail 側に続きがあるときは、`items` が 0 件でも `nextCursor` を返す |
 | `Refresh(accountIds)` | `string[]`（空＝全） | `{ results: { accountId: string; ok: boolean; error?: AppError }[] }` | 差分同期を今すぐ実行し完了を待つ（直近の手動更新から 5 秒未満の呼び出しは直近の結果を返す） |
 | `GetUnreadCounts()` | — | `Record<accountId, number>` | `threads` の `in_inbox = 1 AND is_unread = 1` の件数 |
 | `Search(query)` | `SearchQuery` | `ThreadPage` | 各アカウントで `threads.list(q)`＋`threads.get(metadata)` を並列実行し、`lastMessageAt` 降順に統合する。結果は DB に保存しない。カーソルはアカウントごとの `pageToken` を含む不透明文字列。クエリが空文字は `VALIDATION` |
@@ -159,6 +159,7 @@ type SearchQuery = {
 | `ModifyLabels(ref, addLabelIds, removeLabelIds)` | | `ThreadSummary` | ユーザー作成ラベルの付与・除去（`threads.modify`）【Could】。システムラベルの指定は `VALIDATION` |
 
 - 複数 ref を渡す操作は、アカウントごとにまとめて実行する。**1 件でも失敗したら、失敗した ref を `details.failedRefs` に載せた `GMAIL_ERROR`（または `NEEDS_REAUTH`／`OFFLINE`）で reject する**。成功した分は Gmail・DB に反映済みなので、フロントは reject を受けたら `ListInbox` を再取得して画面を揃える
+- 操作時に Gmail が 404（スレッドが他端末で削除済み）を返した ref は DB から削除し、`NOT_FOUND`（「スレッドが見つかりません」）として `failedRefs` に含める。reject の `code` は、失敗がすべて `NOT_FOUND` のときだけ `NOT_FOUND`、他の失敗と混在するときは `NOT_FOUND` 以外（`RATE_LIMITED` 等）を優先する。`failedRefs` には失敗した ref だけが入り、成功した ref は含まれない
 - 操作後は DB を更新し、`threads` の集計値を再計算する（[ER §5](../architecture/er.md)）
 
 ## 4. ThreadService

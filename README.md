@@ -20,7 +20,7 @@
 
 ## インストール
 
-1. [Releases](https://github.com/ousiassllc/hitomado/releases) から最新の `hitomado-vX.Y.Z-windows-amd64.zip`（または `hitomado.exe`）をダウンロードして展開します。
+1. [Releases](https://github.com/ousiassllc/hitomado/releases) から最新の `hitomado-vX.Y.Z-windows-amd64.zip` をダウンロードして展開します（同じ Release の `SHA256SUMS.txt` でハッシュを確認できます）。
 2. `hitomado.exe` を実行します。インストーラーはありません。
 3. 初回は [OAuth クライアントを作成](#oauth-クライアントの作り方)し、アプリの設定 → OAuth クライアントに登録してから、アカウントを追加します。
 

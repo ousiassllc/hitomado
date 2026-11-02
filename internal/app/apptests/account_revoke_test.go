@@ -59,13 +59,13 @@ func TestStartAddAccountSecretsFailureRollsBackAndRevokes(t *testing.T) {
 	assert.Empty(t, e.Sync.StartedAccounts())
 }
 
-func TestStartAddAccountIncompleteResultRevokes(t *testing.T) {
+func TestStartAddAccountResultWithoutEmailIsRejectedWithoutRevoke(t *testing.T) {
 	svc, e := newAccountSvc(t)
 	a := e.AddAccount(t, "x@a.example")
 	e.Flow.Result = oauth.Result{RefreshToken: "rt-no-email"} //nolint:gosec // テスト用のダミー値
 	_, err := svc.StartAddAccount(t.Context(), a.OAuthClientID)
 	_ = requireCode(t, apperr.GmailError, err)
-	assert.Equal(t, []string{"rt-no-email"}, e.Flow.Revoked)
+	assert.Empty(t, e.Flow.Revoked, "誰の認可か特定できないため、既存アカウントの認可を巻き込まないよう失効させない")
 }
 
 func TestReconnectRevokesTokenItCannotKeep(t *testing.T) {

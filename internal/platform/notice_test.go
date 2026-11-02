@@ -18,12 +18,9 @@ func TestNoticeText(t *testing.T) {
 	assert.Equal(t, "(差出人不明)\n(件名なし)", body, "空の差出人・件名は代替表記にする")
 }
 
-func TestNoticeTextNeutralizesShellExpansionAndControlChars(t *testing.T) {
-	_, body := noticeText(notify.NewMailNotice{AccountName: "A", FromName: "x$(calc)", Subject: "a`b\nc\x00d"})
-	assert.NotContains(t, body, "$")
-	assert.NotContains(t, body, "`")
-	assert.NotContains(t, body, "\x00")
-	assert.Equal(t, "x＄(calc)\na‘b c d", body)
+func TestNoticeTextStripsControlAndInvisibleChars(t *testing.T) {
+	_, body := noticeText(notify.NewMailNotice{AccountName: "A", FromName: "x$100\u202Eevil", Subject: "a\nb\x00c"})
+	assert.Equal(t, "x$100evil\na b c", body, "制御文字・双方向制御文字は除き、$ などの通常文字は保つ")
 }
 
 func TestNoticeTextTruncatesLongSubject(t *testing.T) {
