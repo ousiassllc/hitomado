@@ -1,0 +1,75 @@
+/* デザイントークン。コンポーネントに色値を直書きしない（components/overview.md §5）。 */
+:root {
+  --color-bg: #ffffff;
+  --color-bg-subtle: #f6f7f9;
+  --color-bg-elevated: #ffffff;
+  --color-text: #1b1f24;
+  --color-text-muted: #4b5563;
+  --color-border: #d6dbe1;
+  --color-accent: #1a56db;
+  --color-accent-text: #ffffff;
+  --color-danger: #b42318;
+  --color-danger-text: #ffffff;
+  --color-warning-bg: #fff4d6;
+  --color-warning-text: #5c3d00;
+  --color-success: #12663a;
+  --color-focus: #1a56db;
+  --color-selected: #e6eefc;
+  --color-unread-bg: #f1f5ff;
+  --color-overlay: rgb(15 23 42 / 45%);
+
+  --font-sans: "Yu Gothic UI", "Meiryo UI", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, monospace;
+  --font-size-xs: 12px;
+  --font-size-sm: 13px;
+  --font-size-md: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-sender: 28px; /* 送信確認ダイアログの送信元（最大文字） */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --shadow-popup: 0 8px 24px rgb(15 23 42 / 18%);
+  --transition-fast: 120ms ease;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #14171c;
+    --color-bg-subtle: #1b1f26;
+    --color-bg-elevated: #20252d;
+    --color-text: #e8eaed;
+    --color-text-muted: #aab2bd;
+    --color-border: #343b46;
+    --color-accent: #8ab4ff;
+    --color-accent-text: #0b1b3a;
+    --color-danger: #ff8a80;
+    --color-danger-text: #3a0905;
+    --color-warning-bg: #4a3a0c;
+    --color-warning-text: #ffe9a8;
+    --color-success: #6fdc9b;
+    --color-focus: #8ab4ff;
+    --color-selected: #263248;
+    --color-unread-bg: #1c2433;
+    --color-overlay: rgb(0 0 0 / 60%);
+    --shadow-popup: 0 8px 24px rgb(0 0 0 / 50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --transition-fast: 0ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0ms !important;
+  }
+}

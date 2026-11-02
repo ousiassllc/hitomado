@@ -7,7 +7,10 @@ import (
 )
 
 // InboxService は統合受信箱・検索・未読件数・スレッド操作・ラベル（バインディング仕様 §3）。
-type InboxService struct{}
+type InboxService struct{ d *Deps }
+
+// NewInboxService は InboxService を作る。
+func NewInboxService(d *Deps) *InboxService { return &InboxService{d: d} }
 
 func (s *InboxService) ListInbox(ctx context.Context, q dto.InboxQuery) (dto.ThreadPage, error) {
 	return dto.ThreadPage{}, errNotImplemented

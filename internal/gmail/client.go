@@ -18,6 +18,7 @@ var (
 	ErrNotFound       = errors.New("gmail: not found")              // 404（スレッド・下書き等）
 	ErrHistoryExpired = errors.New("gmail: history id expired")     // history.list の 404
 	ErrAttachmentGone = errors.New("gmail: attachment unavailable") // 添付が取得できない
+	ErrGeneric        = errors.New("gmail: api error")              // 上記以外の Gmail API エラー（4xx／5xx）
 )
 
 // Profile は users.getProfile の結果。

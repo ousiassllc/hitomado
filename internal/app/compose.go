@@ -8,7 +8,10 @@ import (
 )
 
 // ComposeService は作成セッション・下書き・送信前確認・送信・宛先候補（バインディング仕様 §5）。
-type ComposeService struct{}
+type ComposeService struct{ d *Deps }
+
+// NewComposeService は ComposeService を作る。
+func NewComposeService(d *Deps) *ComposeService { return &ComposeService{d: d} }
 
 func (s *ComposeService) OpenCompose(ctx context.Context, req dto.OpenComposeRequest) (dto.ComposeSession, error) {
 	return dto.ComposeSession{}, errNotImplemented

@@ -7,7 +7,10 @@ import (
 )
 
 // ThreadService はスレッド詳細・添付保存・リンクを開く（バインディング仕様 §4）。
-type ThreadService struct{}
+type ThreadService struct{ d *Deps }
+
+// NewThreadService は ThreadService を作る。
+func NewThreadService(d *Deps) *ThreadService { return &ThreadService{d: d} }
 
 func (s *ThreadService) GetThread(ctx context.Context, ref dto.ThreadRef) (dto.ThreadDetail, error) {
 	return dto.ThreadDetail{}, errNotImplemented

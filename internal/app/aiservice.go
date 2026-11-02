@@ -7,7 +7,15 @@ import (
 )
 
 // AIService は AI 設定・同意・下書き生成（バインディング仕様 §6）。
-type AIService struct{}
+type AIService struct {
+	d       *Deps
+	compose *ComposeService
+}
+
+// NewAIService は AIService を作る。返信系セッションの参照に compose を使う。
+func NewAIService(d *Deps, compose *ComposeService) *AIService {
+	return &AIService{d: d, compose: compose}
+}
 
 func (s *AIService) GetAIConfig(ctx context.Context) (dto.AIConfig, error) {
 	return dto.AIConfig{}, errNotImplemented

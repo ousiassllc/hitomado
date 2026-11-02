@@ -7,7 +7,10 @@ import (
 )
 
 // AccountService は OAuth クライアント・アカウントの管理、署名、通知設定（バインディング仕様 §2）。
-type AccountService struct{}
+type AccountService struct{ d *Deps }
+
+// NewAccountService は AccountService を作る。
+func NewAccountService(d *Deps) *AccountService { return &AccountService{d: d} }
 
 func (s *AccountService) ListOAuthClients(ctx context.Context) ([]dto.OAuthClient, error) {
 	return nil, errNotImplemented
