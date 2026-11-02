@@ -104,9 +104,19 @@ func (s *AccountService) UpdateOAuthClient(ctx context.Context, id, name, client
 }
 
 // DeleteOAuthClient は使用中でなければクライアントと Client Secret を削除する。
+// 使用中は Secret に触れず OAUTH_CLIENT_IN_USE を返す（削除できないと分かっている操作で、先に Secret を消さない）。
 // Secret の削除に失敗したときは DB 行を残してエラーを返し、DB の削除に失敗したときは Secret を元に戻す。
 func (s *AccountService) DeleteOAuthClient(ctx context.Context, id string) error {
-	// 削除できるのは使用中のアカウントが 0 件のときだけなので、認証情報キャッシュを破棄する対象はない。
+	list, err := s.d.Store.ListOAuthClients(ctx)
+	if err != nil {
+		return apperr.FromInfra(err, "")
+	}
+	for _, c := range list {
+		if c.ID == id && c.AccountCount > 0 {
+			return apperr.FromInfra(store.ErrOAuthClientUse, "")
+		}
+	}
+	// ここから先は使用中のアカウントが 0 件のはずなので、認証情報キャッシュを破棄する対象はない（確認後に使われ始めた場合は DB の外部キーが拒否し、Secret を復元する）。
 	secretKey := secrets.OAuthClientSecretKey(id)
 	prev, err := s.saveSecret(secretKey)
 	if err != nil {

@@ -63,6 +63,11 @@ func TestOAuthClientCRUD(t *testing.T) {
 func TestDeleteOAuthClientInUse(t *testing.T) {
 	svc, e := newAccountSvc(t)
 	a := e.AddAccount(t, "me@a.example")
+	// 使用中の判定より先に Secret を削除しようとすると、この Delete の失敗（INTERNAL）が先に返る。
+	fs := &apptest.FailingSecrets{Store: e.Secrets}
+	fs.FailDelete(errors.New("keyring unavailable"))
+	e.Deps.Secrets = fs
+
 	err := svc.DeleteOAuthClient(t.Context(), a.OAuthClientID)
 	_ = requireCode(t, apperr.OAuthClientInUse, err)
 	_, err = e.Secrets.Get(secrets.OAuthClientSecretKey(a.OAuthClientID))
