@@ -59,6 +59,7 @@ type AppError = {
 | `CONFIRM_REQUIRED` | 確認トークンがない・未知 | false | Send |
 | `CONFIRM_EXPIRED` | 確認トークンの期限切れ（5 分）または使用済み | false | Send |
 | `CONFIRM_MISMATCH` | 確認時と送信時で送信内容が異なる | false | Send |
+| `SEND_UNCERTAIN` | `Send` の応答を受け取れず（切断・タイムアウト）、Gmail 側に送信済みのメッセージがあるかも確認できなかった。送信済みの可能性があるため、送信済みフォルダーを確認してから再送する | false | Send |
 | `AI_NOT_CONFIGURED` | API キー・プロバイダ未設定 | false | AIService |
 | `AI_CONSENT_REQUIRED` | 当該プロバイダへの送信に未同意 | false | AIService |
 | `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト等） | 状況による | AIService |
@@ -319,6 +320,7 @@ sequenceDiagram
 - 検証順序: 送信元（`SENDER_REQUIRED`）→ 宛先（`NO_RECIPIENTS`）→ アドレス形式（`INVALID_ADDRESS`）→ 送信元整合（`SENDER_MISMATCH`）。件名・本文が空のときは**エラーにせず警告**（`EMPTY_SUBJECT`／`EMPTY_BODY`）
 - 送信元の整合（`SENDER_MISMATCH`）: セッションのアカウントと、スレッドの所有アカウント（`threads.account_id`／セッション作成時の `ThreadRef.accountId`）が一致すること。`From` ヘッダは `accounts.email` から生成し、本文・ヘッダに由来する値を使わない
 - 送信は `archiveAfterSend` が真でも**送信成功後**にアーカイブする。アーカイブ失敗時は `SendResult.archived = false`、`archiveError` に理由を入れ、送信自体は成功として扱う
+- 送信の転送（`messages.send`・添付の取得）には総時間の上限を掛けず、呼び出し側 `ctx` の期限と応答ヘッダー待ちで打ち切る。`Send` が応答を受け取れず失敗したとき（切断・タイムアウト）は、再送を許す前に `rfc822msgid:<Message-ID>` で Gmail 側を検索し、あれば成功として返す。検索も失敗したら `SEND_UNCERTAIN`（`OFFLINE` にしない）で返す
 - MIME: `multipart/alternative`（`text/plain`＋`text/html`）。添付があれば `multipart/mixed`。ヘッダは `From`、`To`、`Cc`、`Bcc`、`Subject`（RFC 2047）、`In-Reply-To`、`References`、`Date`、`Message-ID`
 
 ## 6. AIService

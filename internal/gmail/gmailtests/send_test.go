@@ -1,4 +1,4 @@
-package gmail
+package gmailtests
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/gmail/gmailtest"
 )
 
@@ -25,11 +26,6 @@ type draftBody struct {
 	Message rawBody `json:"message"`
 }
 
-const (
-	sendUpload   = "/upload/gmail/v1/users/me/messages/send"
-	draftsUpload = "/upload/gmail/v1/users/me/drafts"
-)
-
 func TestSendUsesMediaUpload(t *testing.T) {
 	e := newTestEnv(t)
 	e.f.HandleJSON("POST "+sendUpload, 200, map[string]any{"id": "sent-1", "threadId": "t9"})
@@ -37,7 +33,7 @@ func TestSendUsesMediaUpload(t *testing.T) {
 	mime := []byte("From: a@example.com\r\n\r\n日本語 body\xff")
 	got, err := e.c.Send(context.Background(), testAccount, mime, "t9")
 	require.NoError(t, err)
-	assert.Equal(t, SentMessage{MessageID: "sent-1", ThreadID: "t9"}, got)
+	assert.Equal(t, gmail.SentMessage{MessageID: "sent-1", ThreadID: "t9"}, got)
 
 	reqs := e.f.Requests("POST", sendUpload)
 	require.Len(t, reqs, 1)
@@ -119,7 +115,7 @@ func TestUpdateDraftNotFound(t *testing.T) {
 	e := newTestEnv(t)
 	e.f.HandleJSON("PUT "+draftsUpload+"/nope", 404, apiError(404, "notFound", "nf"))
 	err := e.c.UpdateDraft(context.Background(), testAccount, "nope", []byte("x"))
-	require.ErrorIs(t, err, ErrNotFound)
+	require.ErrorIs(t, err, gmail.ErrNotFound)
 }
 
 func TestDeleteDraft(t *testing.T) {

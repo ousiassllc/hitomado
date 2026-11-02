@@ -18,6 +18,7 @@ const (
 	testAccount  = "acc-1"
 	testRowID    = "oc-1"
 	testClientID = "client-id.apps.googleusercontent.com"
+	sendUpload   = "/upload/gmail/v1/users/me/messages/send"
 )
 
 var (
@@ -71,15 +72,25 @@ type testEnv struct {
 // newTestEnv は偽サーバーに向けたクライアントを作る。ジッタは上限値を返す（待ち時間を決定的にする）。
 func newTestEnv(t *testing.T) *testEnv {
 	t.Helper()
+	return newTestEnvWith(t, nil)
+}
+
+// newTestEnvWith は newTestEnv の Options を customize で書き換えられる版（customize は nil 可）。
+func newTestEnvWith(t *testing.T, customize func(*Options)) *testEnv {
+	t.Helper()
 	f := gmailtest.New(t)
 	store := secrets.NewMemory()
 	require.NoError(t, store.Set(secrets.RefreshTokenKey(testAccount), "rt-1"))
 	require.NoError(t, store.Set(secrets.OAuthClientSecretKey(testRowID), "client-secret"))
 	sl := &sleeper{}
-	cl, err := NewClient(Options{
+	opts := Options{
 		Secrets: store, Accounts: fakeLookup{}, Endpoint: f.URL() + "/", TokenURL: f.URL() + "/token",
 		Clock: clock.NewFake(time.Now()), Sleep: sl.sleep,
-	})
+	}
+	if customize != nil {
+		customize(&opts)
+	}
+	cl, err := NewClient(opts)
 	require.NoError(t, err)
 	c := cl.(*client)
 	c.jitter = func(d time.Duration) time.Duration { return d }

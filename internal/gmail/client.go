@@ -19,6 +19,7 @@ var (
 	ErrHistoryExpired = errors.New("gmail: history id expired")     // history.list の 404
 	ErrAttachmentGone = errors.New("gmail: attachment unavailable") // 添付が取得できない
 	ErrGeneric        = errors.New("gmail: api error")              // 上記以外の Gmail API エラー（4xx／5xx）
+	ErrSendUncertain  = errors.New("gmail: send result unknown")    // Send の応答を受け取れず、送信済みかも確認できない（再送すると二重送信になり得る）
 )
 
 // Profile は users.getProfile の結果。

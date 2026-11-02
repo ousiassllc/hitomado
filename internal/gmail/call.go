@@ -18,6 +18,7 @@ const (
 	unitsLabels      = 1
 	unitsHistory     = 2
 	unitsAttachment  = 5
+	unitsMessageList = 5
 	unitsThread      = 10
 	unitsDraft       = 10
 	unitsMessageSend = 100
@@ -29,6 +30,9 @@ type callSpec struct {
 	units int    // 消費するクォータユニット
 	// retry5xx が偽なら 5xx を再試行しない（messages.send など、再送で二重実行になり得る呼び出し）。
 	retry5xx bool
+	// transfer が真なら、総時間の上限を持たない転送用サービスで呼ぶ（添付・生 MIME の大きな送受信）。
+	// 打ち切りは呼び出し側 ctx の期限と応答ヘッダー待ちに任せる。
+	transfer bool
 }
 
 // do はアカウントのレート制限を通して op を実行し、429／5xx を指数バックオフで再試行する。
@@ -43,7 +47,11 @@ func (c *client) do(ctx context.Context, accountID string, spec callSpec, op fun
 		if err := a.limiter.WaitN(ctx, spec.units); err != nil {
 			return ctxError(ctx, spec.name)
 		}
-		err := op(a.svc)
+		svc := a.svc
+		if spec.transfer {
+			svc = a.xfer
+		}
+		err := op(svc)
 		if err == nil {
 			return nil
 		}

@@ -38,6 +38,7 @@ const (
 	ConfirmRequired    = "CONFIRM_REQUIRED"
 	ConfirmExpired     = "CONFIRM_EXPIRED"
 	ConfirmMismatch    = "CONFIRM_MISMATCH"
+	SendUncertain      = "SEND_UNCERTAIN"
 	AINotConfigured    = "AI_NOT_CONFIGURED"
 	AIConsentRequired  = "AI_CONSENT_REQUIRED"
 	AIFailed           = "AI_FAILED"
@@ -114,6 +115,9 @@ func FromInfra(err error, accountID string) *Error {
 func classify(err error) *Error {
 	var netErr net.Error
 	switch {
+	case errors.Is(err, gmail.ErrSendUncertain):
+		// ErrOffline などより先に見る。OFFLINE のままだと再送へ誘導し、二重送信になり得る。
+		return Wrap(SendUncertain, "送信済みの可能性があります。送信済みを確認してから再送してください。", err)
 	case errors.Is(err, gmail.ErrNeedsReauth):
 		return Wrap(NeedsReauth, "アカウントの接続が切れました。再接続してください。", err)
 	case errors.Is(err, oauth.ErrCancelled), errors.Is(err, context.Canceled):

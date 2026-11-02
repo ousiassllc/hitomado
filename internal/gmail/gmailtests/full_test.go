@@ -1,4 +1,4 @@
-package gmail
+package gmailtests
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/gmail/mimeparse"
 )
 
@@ -82,7 +83,7 @@ func TestGetThreadFullAlternativeWithInlineAndAttachment(t *testing.T) {
 	assert.EqualValues(t, 2048, m.Attachments[0].Size)
 
 	require.Contains(t, m.InlineImages, "logo123")
-	assert.Equal(t, InlinePart{MimeType: "image/png", Data: png}, m.InlineImages["logo123"])
+	assert.Equal(t, gmail.InlinePart{MimeType: "image/png", Data: png}, m.InlineImages["logo123"])
 	assert.NotContains(t, m.InlineImages, "huge", "5MB 超はスキップ")
 	assert.NotContains(t, m.InlineImages, "gone", "取得不能な画像はスキップ")
 	assert.Empty(t, e.f.Requests("GET", apiBase+"/messages/m1/attachments/att-huge"), "5MB 超は取得もしない")
@@ -158,7 +159,7 @@ func TestGetThreadFullPropagatesNotFound(t *testing.T) {
 		writeJSON(w, 404, apiError(404, "notFound", "nf"))
 	})
 	_, err := e.c.GetThreadFull(context.Background(), testAccount, "zzz")
-	require.ErrorIs(t, err, ErrNotFound)
+	require.ErrorIs(t, err, gmail.ErrNotFound)
 }
 
 func TestGetThreadFullCIDMatchingIsExactAndNormalized(t *testing.T) {
