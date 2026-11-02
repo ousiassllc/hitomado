@@ -236,15 +236,19 @@ sequenceDiagram
 sequenceDiagram
   participant FE as フロント
   participant AI as AIService
+  participant CS as ComposeService
   participant GM as gmail.Client
   participant PV as ai.Provider
-  FE->>AI: GenerateReplyDraft(accountId, threadId)
+  FE->>AI: GenerateReplyDraft(sessionId, requestId)
+  AI->>CS: 作成セッションから送信元アカウントとスレッドを取得（返信・全員に返信のみ。new／forward は VALIDATION）
   AI->>AI: 同意済み・キー設定済みを確認
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>PV: 生成要求（直近 5 メッセージ・20,000 文字以内）
   PV-->>AI: 本文テキスト
   AI-->>FE: 下書き本文（フロントがエディタに挿入。送信は行わない）
 ```
+
+生成中の中止はフロントが `CancelGenerate(requestId)` を呼び、`GenerateReplyDraft` は `CANCELLED` で reject される。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
 
 ## 8. 主要な設計判断
 
@@ -280,3 +284,4 @@ sequenceDiagram
 | 1.7 | 2026-11-03 | §4 のディレクトリ構成の `domain/` の説明を実際のパッケージ名に直した（`replyto` → `reply`、`confirm`・`contacts`・`palette`・`textconv`・`model` を追加） | 実装（`internal/domain/*`）との整合（#59） |
 | 1.8 | 2026-11-03 | §7.3 に、応答を受け取れなかった送信の扱い（送信済みの確認→成功扱い／`SEND_UNCERTAIN`）への参照を追記 | バインディング仕様 §5.2 との整合（#55） |
 | 1.9 | 2026-11-03 | §7.3 の `SEND_UNCERTAIN` の要約に、送信前の期限切れは `OFFLINE`・送信前のキャンセルは `CANCELLED` を追記 | バインディング仕様 §5.2 の振り分けとの整合（#66） |
+| 1.10 | 2026-11-03 | §7.4 の AI 下書きのシーケンスを `GenerateReplyDraft(sessionId, requestId)` に直し、作成セッションから送信元とスレッドを引くこと・`CancelGenerate(requestId)` での中止を追記 | バインディング仕様 §6・実装（`internal/app/aicore`）との整合（#67） |
