@@ -5,7 +5,7 @@ import type {
   ThreadDetail,
   ThreadMessage,
 } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { bindFrameDocument, FALLBACK_HEIGHT } from './bodyFrame'
+import { FALLBACK_HEIGHT } from './bodyFrame'
 import MessageBody from './MessageBody.vue'
 import MessageCard from './MessageCard.vue'
 import ReplyBar from './ReplyBar.vue'
@@ -84,56 +84,6 @@ describe('MessageBody', () => {
   test('計測できない間（未ロード）は固定高をフォールバックとして使う', () => {
     const w = mount(MessageBody, { props: { html: '<p>x</p>', hasRemoteImages: false } })
     expect(w.get('iframe').attributes('style')).toContain(`height: ${FALLBACK_HEIGHT}px`)
-  })
-})
-
-describe('bindFrameDocument', () => {
-  function frameDoc(html: string, height: number): Document {
-    const doc = document.implementation.createHTMLDocument('')
-    doc.body.innerHTML = html
-    Object.defineProperty(doc.body, 'scrollHeight', { value: height, configurable: true })
-    return doc
-  }
-
-  test('高さを通知し、許可スキームのリンクだけ onLink に渡し、ナビゲーションは常に止める', () => {
-    const heights: number[] = []
-    const links: string[] = []
-    const doc = frameDoc(
-      '<a id="ok" href="https://example.com/x"><span id="in">x</span></a><a id="mail" href="mailto:a@example.com">m</a><a id="js" href="javascript:alert(1)">j</a><a id="file" href="file:///etc/passwd">f</a><a id="rel" href="/x">r</a>',
-      321,
-    )
-    const unbind = bindFrameDocument(doc, {
-      onHeight: (h) => heights.push(h),
-      onLink: (u) => links.push(u),
-    })
-    expect(unbind).toBeDefined()
-    expect(heights[0]).toBe(321)
-
-    const prevented: Record<string, boolean> = {}
-    for (const id of ['in', 'mail', 'js', 'file', 'rel']) {
-      const ev = new MouseEvent('click', { bubbles: true, cancelable: true })
-      doc.getElementById(id)?.dispatchEvent(ev)
-      prevented[id] = ev.defaultPrevented
-    }
-    expect(links).toEqual(['https://example.com/x', 'mailto:a@example.com'])
-    expect(Object.values(prevented).every(Boolean)).toBe(true)
-
-    unbind?.()
-    doc
-      .getElementById('ok')
-      ?.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
-    expect(links).toHaveLength(2)
-  })
-
-  test('高さが測れない・文書に触れない場合は undefined（フォールバックへ）', () => {
-    expect(bindFrameDocument(undefined, { onHeight() {}, onLink() {} })).toBeUndefined()
-    expect(bindFrameDocument(frameDoc('', 0), { onHeight() {}, onLink() {} })).toBeUndefined()
-    const throwing = {
-      get body(): never {
-        throw new Error('SecurityError')
-      },
-    } as unknown as Document
-    expect(bindFrameDocument(throwing, { onHeight() {}, onLink() {} })).toBeUndefined()
   })
 })
 

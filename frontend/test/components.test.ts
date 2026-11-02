@@ -45,7 +45,13 @@ describe('ThreadRow', () => {
   test('既読・添付なし・差出人名なしの表示、選択状態', () => {
     const w = mount(ThreadRow, {
       props: {
-        thread: { ...thread, isUnread: false, hasAttachment: false, lastFrom: { email: 'x@example.com' }, subject: '' },
+        thread: {
+          ...thread,
+          isUnread: false,
+          hasAttachment: false,
+          lastFrom: { email: 'x@example.com' },
+          subject: '',
+        },
         selected: true,
         account,
       },
@@ -59,14 +65,21 @@ describe('ThreadRow', () => {
   })
 
   test('needs_reauth のアカウントの行は淡色', () => {
-    const w = mount(ThreadRow, { props: { thread, selected: false, account: { ...account, status: 'needs_reauth' } } })
+    const w = mount(ThreadRow, {
+      props: { thread, selected: false, account: { ...account, status: 'needs_reauth' } },
+    })
     expect(w.classes()).toContain('faded')
   })
 })
 
 describe('AccountChip', () => {
   test('色だけに頼らず名前（任意でアドレス）を併記する', () => {
-    const w = mount(AccountChip, { props: { account: { displayName: '会社A', email: 'a@example.com', color: 'red' }, showEmail: true } })
+    const w = mount(AccountChip, {
+      props: {
+        account: { displayName: '会社A', email: 'a@example.com', color: 'red' },
+        showEmail: true,
+      },
+    })
     expect(w.text()).toContain('会社A')
     expect(w.text()).toContain('a@example.com')
     expect(w.attributes('style')).toContain('var(--account-red)')

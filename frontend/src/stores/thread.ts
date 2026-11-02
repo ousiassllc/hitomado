@@ -53,8 +53,12 @@ export const useThreadStore = defineStore('thread', () => {
   const labelsLoading = ref(false)
 
   let seq = 0
-  let marking = false
-  /** 表示済みのメッセージ ID。再取得で増えた未読だけを自動既読にする（手動で「未読にする」を戻さない） */
+  /** 既読化・未読化の呼び出し中のスレッドキー（スレッド単位。別スレッドの表示をブロックしない） */
+  const marking = new Set<string>()
+  /**
+   * 表示中スレッドで自動既読化を済ませた（または既読だった）メッセージ ID。再取得で増えた未読だけを自動既読に
+   * する（手動で「未読にする」を戻さない）。未読メッセージは既読化の確定後にだけ追加する。
+   */
   const seenIds = new Set<string>()
   let started = false
   let stops: (() => void)[] = []
@@ -93,29 +97,36 @@ export const useThreadStore = defineStore('thread', () => {
   }
 
   /** 表示後に未読があれば既読にする（inboxStore 経由。失敗時のトーストと復元は inboxStore が行う）。 */
-  async function autoMarkRead(ref: ThreadRef): Promise<void> {
-    marking = true
+  async function autoMarkRead(ref: ThreadRef, ids: string[]): Promise<void> {
+    const key = threadKey(ref.accountId, ref.threadId)
+    marking.add(key)
     try {
       const ok = await inbox.markRead([ref], true)
-      if (ok && currentKey.value === threadKey(ref.accountId, ref.threadId)) unread.value = false
+      // 表示が別スレッドに移っていたら（seenIds は表示中スレッドのもの）何も反映しない
+      if (ok && currentKey.value === key) {
+        for (const id of ids) seenIds.add(id)
+        unread.value = false
+      }
     } finally {
-      marking = false
+      marking.delete(key)
     }
   }
 
   async function load(ref: ThreadRef): Promise<void> {
     const my = ++seq
+    const key = threadKey(ref.accountId, ref.threadId)
     if (!current.value) loading.value = true
     try {
       const d = normalize(await api(ThreadService.GetThread(ref)))
       if (my !== seq) return
       const msgs = list(d.messages)
-      const fresh = msgs.filter((m) => m.isUnread && !seenIds.has(m.id))
-      for (const m of msgs) seenIds.add(m.id)
+      for (const m of msgs) if (!m.isUnread) seenIds.add(m.id)
+      const fresh = msgs.filter((m) => m.isUnread && !seenIds.has(m.id)).map((m) => m.id)
+      const busy = marking.has(key)
       current.value = d
       error.value = undefined
-      if (!marking) unread.value = msgs.some((m) => m.isUnread)
-      if (fresh.length > 0 && !marking) void autoMarkRead(ref)
+      if (!busy) unread.value = msgs.some((m) => m.isUnread)
+      if (fresh.length > 0 && !busy) void autoMarkRead(ref, fresh)
     } catch (e) {
       if (my !== seq) return
       const err = e as AppError
@@ -161,14 +172,15 @@ export const useThreadStore = defineStore('thread', () => {
   async function toggleRead(): Promise<boolean> {
     const ref = currentRef.value
     if (!ref) return false
+    const key = threadKey(ref.accountId, ref.threadId)
     const toRead = unread.value
-    marking = true
+    marking.add(key)
     try {
       const ok = await inbox.markRead([ref], toRead)
-      if (ok && currentKey.value === threadKey(ref.accountId, ref.threadId)) unread.value = !toRead
+      if (ok && currentKey.value === key) unread.value = !toRead
       return ok
     } finally {
-      marking = false
+      marking.delete(key)
     }
   }
 

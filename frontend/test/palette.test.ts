@@ -1,7 +1,12 @@
 import { describe, expect, test } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { contrastRatio, parseHex, relativeLuminance } from '../src/lib/contrast'
-import { ACCOUNT_COLOR_KEYS, accountColorVar, accountTextVar, isAccountColorKey } from '../src/lib/palette'
+import {
+  ACCOUNT_COLOR_KEYS,
+  accountColorVar,
+  accountTextVar,
+  isAccountColorKey,
+} from '../src/lib/palette'
 
 const css = readFileSync(new URL('../src/styles/tokens.css', import.meta.url), 'utf8')
 const darkStart = css.indexOf('@media (prefers-color-scheme: dark)')
@@ -17,7 +22,13 @@ const light = vars(css.slice(0, darkStart))
 const dark = { ...light, ...vars(css.slice(darkStart, darkEnd)) }
 
 // 帯・チップが載り得る背景。--color-bg は必須、それ以外は余裕の確認。
-const BACKGROUNDS = ['--color-bg', '--color-bg-subtle', '--color-bg-elevated', '--color-selected', '--color-unread-bg']
+const BACKGROUNDS = [
+  '--color-bg',
+  '--color-bg-subtle',
+  '--color-bg-elevated',
+  '--color-selected',
+  '--color-unread-bg',
+]
 
 describe('contrast', () => {
   test('白と黒は 21:1', () => {
@@ -37,6 +48,24 @@ describe('contrast', () => {
 
   test('不正な色は例外', () => {
     expect(() => parseHex('red')).toThrow()
+  })
+})
+
+describe('淡色トークン', () => {
+  test('--color-text-faded は行が載り得るすべての背景で 4.5:1 以上（ライト・ダーク）', () => {
+    for (const v of [light, dark]) {
+      for (const name of BACKGROUNDS) {
+        expect(contrastRatio(v['--color-text-faded'], v[name])).toBeGreaterThanOrEqual(4.5)
+      }
+    }
+  })
+
+  test('淡色は通常の文字色より薄い（区別できる）', () => {
+    for (const v of [light, dark]) {
+      expect(contrastRatio(v['--color-text-faded'], v['--color-bg'])).toBeLessThan(
+        contrastRatio(v['--color-text'], v['--color-bg']),
+      )
+    }
   })
 })
 

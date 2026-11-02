@@ -176,11 +176,59 @@ describe('settingsStore', () => {
     expect(callsOf('OpenExternal')[0]?.args).toEqual(['https://example.com/v0.3.0'])
   })
 
+  test('start は更新確認が ON ならイベント前でも一度確認し、更新ありならバナーを出す', async () => {
+    const s = useSettingsStore()
+    const ui = useUiStore()
+    await s.start()
+    expect(callsOf('CheckForUpdate')).toHaveLength(1)
+    expect(s.update?.version).toBe('0.2.0')
+    expect(ui.banners.find((b) => b.key === 'update')?.message).toContain('0.2.0')
+  })
+
+  test('start は更新確認が OFF なら確認しない', async () => {
+    responses.GetAppInfo = { ...baseInfo, updateCheckEnabled: false }
+    const s = useSettingsStore()
+    await s.start()
+    expect(callsOf('CheckForUpdate')).toHaveLength(0)
+    expect(s.update).toBeUndefined()
+  })
+
+  test('start 時の確認が更新なし・失敗でも、トーストを出さず既存の update を消さない', async () => {
+    const s = useSettingsStore()
+    const ui = useUiStore()
+    responses.CheckForUpdate = { available: false }
+    await s.start()
+    expect(s.update).toBeUndefined()
+    s.stop()
+    failures.CheckForUpdate = { code: 'OFFLINE', message: 'オフライン', retryable: true }
+    await s.start()
+    expect(ui.toasts).toHaveLength(0)
+    expect(ui.banners).toHaveLength(0)
+  })
+
+  test('setUpdateCheckEnabled(true) は即座に更新確認し、更新ありならバナーを出す', async () => {
+    responses.GetAppInfo = { ...baseInfo, updateCheckEnabled: false }
+    const s = useSettingsStore()
+    const ui = useUiStore()
+    await s.load()
+    await s.setUpdateCheckEnabled(true)
+    expect(callsOf('CheckForUpdate')).toHaveLength(1)
+    expect(s.appInfo?.updateCheckEnabled).toBe(true)
+    expect(ui.banners.some((b) => b.key === 'update')).toBe(true)
+  })
+
+  test('setUpdateCheckEnabled(false) は更新確認を呼ばない', async () => {
+    const s = useSettingsStore()
+    await s.setUpdateCheckEnabled(false)
+    expect(callsOf('CheckForUpdate')).toHaveLength(0)
+  })
+
   test('start は冪等で、stop で購読を解除する', async () => {
     const s = useSettingsStore()
     await s.start()
     await s.start()
     expect(callsOf('GetAIConfig')).toHaveLength(1)
+    expect(callsOf('CheckForUpdate')).toHaveLength(1)
     s.stop()
     expect(unsubscribed).toEqual(['update:available'])
   })

@@ -1,6 +1,6 @@
-import '../../test/domPurifyShim'
+import '../../../test/domPurifyShim'
 import { describe, expect, test } from 'bun:test'
-import { buildCsp, buildSrcdoc, isOpenableUrl, sanitizeEmailHtml } from './sanitize'
+import { buildCsp, buildSrcdoc, isOpenableUrl, sanitizeEmailHtml } from './index'
 
 const clean = (html: string, allowRemoteImages = false) =>
   sanitizeEmailHtml(html, { allowRemoteImages })

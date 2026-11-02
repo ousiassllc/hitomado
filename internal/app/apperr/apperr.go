@@ -46,6 +46,9 @@ const (
 )
 
 // Error は AppError。JSON は {code, message, retryable, accountId?, details?}。
+//
+// Details には機密に当たり得る値（宛先アドレス＝OTHER_OWN_ACCOUNT の emails、添付ファイル名、件名など）が入ることがある。
+// UI へ返すためのものなので、Details・Message をログに出さないこと（ログには Code と accountId だけを記録する）。
 type Error struct {
 	Code      string         `json:"code"`
 	Message   string         `json:"message"`
@@ -79,7 +82,8 @@ func (e *Error) ForAccount(accountID string) *Error {
 	return &c
 }
 
-// WithDetail は details にキーを追加したコピーを返す。
+// WithDetail は details にキーを追加したコピーを返す。値に機密（宛先・添付名・件名など）を入れる場合は、
+// ログに出さない前提で使うこと（Error() は Code と Message のみで Details を含まないが、Marshal／ToMap は含む）。
 func (e *Error) WithDetail(key string, value any) *Error {
 	c := *e
 	c.Details = make(map[string]any, len(e.Details)+1)
@@ -144,7 +148,7 @@ func classify(err error) *Error {
 	}
 }
 
-// Marshal は Wails の MarshalError 用。AppError の JSON を返す（フロントでは error.cause として読める）。
+// Marshal は Wails の MarshalError 用（UI 返却専用。details を含むためログに出さないこと）。AppError の JSON を返す（フロントでは error.cause として読める）。
 func Marshal(err error) []byte {
 	b, jerr := json.Marshal(FromInfra(err, ""))
 	if jerr != nil {
@@ -154,6 +158,7 @@ func Marshal(err error) []byte {
 }
 
 // ToMap は dto の Failures／ArchiveError など map[string]any で持つ箇所向けの変換。
+// details を含むため、結果をログに出さないこと（UI 返却専用）。
 func ToMap(err error) map[string]any {
 	e := FromInfra(err, "")
 	if e == nil {

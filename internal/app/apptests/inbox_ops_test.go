@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ousiassllc/hitomado/internal/app"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
@@ -88,7 +89,7 @@ func TestMarkReadNeedsReauthMarksAccount(t *testing.T) {
 	assert.Equal(t, store.StatusNeedsReauth, got.Status)
 }
 
-func TestOpsDeleteVanishedThreadsFromDB(t *testing.T) {
+func TestOpsVanishedThreadIsNotFoundAndRemovedFromDB(t *testing.T) {
 	svc, e := newInboxSvc(t)
 	a := e.AddAccount(t, "a@x.example")
 	e.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX"))
@@ -96,11 +97,63 @@ func TestOpsDeleteVanishedThreadsFromDB(t *testing.T) {
 	delete(e.Gmail.Threads, apptest.Key(a.ID, "t1")) // Gmail 側で消えた（ModifyThread が 404）
 
 	out, err := svc.Archive(t.Context(), []dto.ThreadRef{ref(a.ID, "t1"), ref(a.ID, "t2")})
-	require.NoError(t, err)
-	require.Len(t, out, 1)
-	assert.Equal(t, "t2", out[0].ThreadID)
+	assert.Nil(t, out)
+	ae := requireCode(t, apperr.NotFound, err)
+	assert.Equal(t, []map[string]string{{"accountId": a.ID, "threadId": "t1"}}, failedRefs(t, ae))
+	assert.Equal(t, "スレッドが見つかりません。", ae.Message)
 	_, err = e.Store.GetThread(t.Context(), a.ID, "t1")
-	assert.ErrorIs(t, err, store.ErrNotFound)
+	assert.ErrorIs(t, err, store.ErrNotFound, "リストから除去する")
+	row, err := e.Store.GetThread(t.Context(), a.ID, "t2")
+	require.NoError(t, err)
+	assert.False(t, row.InInbox, "成功分は反映済み")
+}
+
+func TestOpsPrefersNonNotFoundCode(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	e.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX"))
+	e.PutThread(t, a.ID, "t2", apptest.Msg("m2", "t2", at(2), "INBOX"))
+	delete(e.Gmail.Threads, apptest.Key(a.ID, "t1"))
+	e.Gmail.Err["ModifyThread:"+a.ID+":t2"] = gmail.ErrRateLimited
+	_, err := svc.Archive(t.Context(), []dto.ThreadRef{ref(a.ID, "t1"), ref(a.ID, "t2")})
+	ae := requireCode(t, apperr.RateLimited, err)
+	assert.Len(t, failedRefs(t, ae), 2)
+}
+
+func TestOpsInvalidateBodyCache(t *testing.T) {
+	e := apptest.NewEnv(t)
+	svc, threads := app.NewInboxService(e.Deps), app.NewThreadService(e.Deps)
+	a := e.AddAccount(t, "a@x.example")
+	e.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX", "UNREAD"))
+	e.Gmail.Labels[a.ID] = []gmail.Label{{ID: "Label_1", Name: "Work", Type: "user"}}
+	ctx := t.Context()
+	loads := func() int { return e.Gmail.CallCount("GetThreadFull") }
+
+	_, err := threads.GetThread(ctx, ref(a.ID, "t1"))
+	require.NoError(t, err)
+	_, err = threads.GetThread(ctx, ref(a.ID, "t1"))
+	require.NoError(t, err)
+	require.Equal(t, 1, loads(), "2 回目はキャッシュ")
+
+	steps := map[string]func() error{
+		"MarkRead": func() error { _, err := svc.MarkRead(ctx, []dto.ThreadRef{ref(a.ID, "t1")}, true); return err },
+		"Archive":  func() error { _, err := svc.Archive(ctx, []dto.ThreadRef{ref(a.ID, "t1")}); return err },
+		"Labels": func() error {
+			_, err := svc.ModifyLabels(ctx, ref(a.ID, "t1"), []string{"Label_1"}, nil)
+			return err
+		},
+		"Trash": func() error { _, err := svc.Trash(ctx, []dto.ThreadRef{ref(a.ID, "t1")}); return err },
+	}
+	for _, name := range []string{"MarkRead", "Archive", "Labels", "Trash"} {
+		before := loads()
+		require.NoError(t, steps[name](), name)
+		_, err = threads.GetThread(ctx, ref(a.ID, "t1"))
+		require.NoError(t, err)
+		assert.Equal(t, before+1, loads(), "%s の後の GetThread は再取得される", name)
+	}
+	d, err := threads.GetThread(ctx, ref(a.ID, "t1"))
+	require.NoError(t, err)
+	assert.False(t, d.Messages[0].IsUnread, "操作後の状態が見える")
 }
 
 func TestTrash(t *testing.T) {
@@ -168,4 +221,17 @@ func TestListLabelsOfflineUsesCache(t *testing.T) {
 func sortLabels(l []dto.Label) []dto.Label {
 	slices.SortFunc(l, func(a, b dto.Label) int { return cmp.Compare(b.Name, a.Name) })
 	return l
+}
+
+func TestModifyLabelsVanishedThread(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	e.Gmail.Labels[a.ID] = []gmail.Label{{ID: "Label_1", Name: "Work", Type: "user"}}
+	e.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX"))
+	delete(e.Gmail.Threads, apptest.Key(a.ID, "t1"))
+	_, err := svc.ModifyLabels(t.Context(), ref(a.ID, "t1"), []string{"Label_1"}, nil)
+	ae := requireCode(t, apperr.NotFound, err)
+	assert.Equal(t, a.ID, ae.AccountID)
+	_, err = e.Store.GetThread(t.Context(), a.ID, "t1")
+	assert.ErrorIs(t, err, store.ErrNotFound)
 }

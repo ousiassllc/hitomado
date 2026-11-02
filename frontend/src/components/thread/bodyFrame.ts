@@ -29,23 +29,29 @@ export function measureContentHeight(doc: Document): number | undefined {
 function hrefAt(target: EventTarget | null): string | undefined {
   const node = target as Node | null
   const el = node?.nodeType === 1 ? (node as Element) : (node?.parentElement ?? null)
-  return el?.closest('a[href]')?.getAttribute('href') ?? undefined
+  return el?.closest('a[href], area[href]')?.getAttribute('href') ?? undefined
+}
+
+export interface FrameBinding {
+  /** 初回の高さ計測に成功したか。false の間は固定高＋内部スクロールのまま（計測できたら onHeight が呼ばれる） */
+  measured: boolean
+  release(): void
 }
 
 /**
- * iframe の文書にリンク捕捉と高さ計測を取り付ける。成功したら解除関数を返し、失敗（文書に触れない・
- * 高さが測れない）なら undefined を返す。リンクは常にナビゲーションを止め、許可スキームのみ onLink へ渡す。
+ * iframe の文書にリンク捕捉と高さ計測を取り付ける。文書に触れない（SecurityError など）ときだけ undefined を
+ * 返す。リンク捕捉は高さ計測の成否と独立で、常に取り付ける: クリックは常にナビゲーションを止め、許可スキーム
+ * のみ onLink へ渡す。中クリック（auxclick の button===1）も同様に扱い、右クリックなど他のボタンは何もしない。
  */
 export function bindFrameDocument(
   doc: Document | null | undefined,
   h: FrameHandlers,
-): (() => void) | undefined {
+): FrameBinding | undefined {
   try {
-    if (!doc) return undefined
-    const first = measureContentHeight(doc)
-    if (first === undefined) return undefined
+    if (!doc?.documentElement) return undefined
 
     const onClick = (ev: Event): void => {
+      if (ev.type === 'auxclick' && (ev as MouseEvent).button !== 1) return
       const href = hrefAt(ev.target)
       if (href === undefined) return
       ev.preventDefault()
@@ -53,28 +59,42 @@ export function bindFrameDocument(
     }
     doc.addEventListener('click', onClick)
     doc.addEventListener('auxclick', onClick)
-    // スクロールバーを出さず、親側の iframe 高さで全体を見せる。
-    doc.documentElement.style.overflow = 'hidden'
-    h.onHeight(first)
 
-    const measure = (): void => {
-      const px = measureContentHeight(doc)
-      if (px !== undefined) h.onHeight(px)
+    const measure = (): boolean => {
+      try {
+        const px = measureContentHeight(doc)
+        if (px === undefined) return false
+        h.onHeight(px)
+        return true
+      } catch {
+        return false
+      }
     }
+    // スクロールバーを出さず、親側の iframe 高さで全体を見せる。
+    const measured = measure()
+    if (measured) doc.documentElement.style.overflow = 'hidden'
+
     let observer: ResizeObserver | undefined
-    if (typeof ResizeObserver === 'function') {
-      observer = new ResizeObserver(measure)
-      observer.observe(doc.documentElement)
-      if (doc.body) observer.observe(doc.body)
+    try {
+      if (typeof ResizeObserver === 'function') {
+        observer = new ResizeObserver(measure)
+        observer.observe(doc.documentElement)
+        if (doc.body) observer.observe(doc.body)
+      }
+    } catch {
+      observer = undefined
     }
     // 画像の遅延読み込みなど、ResizeObserver が拾えないケースの保険（load はバブルしないので capture）。
     doc.addEventListener('load', measure, true)
 
-    return () => {
-      doc.removeEventListener('click', onClick)
-      doc.removeEventListener('auxclick', onClick)
-      doc.removeEventListener('load', measure, true)
-      observer?.disconnect()
+    return {
+      measured,
+      release: () => {
+        doc.removeEventListener('click', onClick)
+        doc.removeEventListener('auxclick', onClick)
+        doc.removeEventListener('load', measure, true)
+        observer?.disconnect()
+      },
     }
   } catch {
     return undefined

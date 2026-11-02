@@ -84,7 +84,7 @@ type MessageFull struct {
 	BodyHTML     string
 	BodyText     string
 	Attachments  []model.AttachmentInfo
-	InlineImages map[string]InlinePart // key は Content-ID（山括弧なし）
+	InlineImages map[string]InlinePart // key は mimeparse.NormalizeCID 済みの Content-ID（山括弧・cid: なし、小文字、%デコード済み）
 }
 
 // ThreadFull は threads.get(format=full)。Messages は時系列昇順（下書きも含む。呼び出し側が DRAFT を除く）。
@@ -119,6 +119,7 @@ type DraftFull struct {
 	ID          string
 	ThreadID    string
 	Message     MessageFull
+	Bcc         []model.Address // Bcc ヘッダ（下書き復元用。MessageFull には持たない）
 	Attachments []model.AttachmentInfo
 }
 

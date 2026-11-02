@@ -63,6 +63,30 @@ describe('AISettings', () => {
   })
 })
 
+describe('AISettings モデル名', () => {
+  test('モデル名が空なら入力を促す注記を表示し、入力済みなら出さない', async () => {
+    const pinia = setup()
+    const settings = useSettingsStore()
+    settings.aiConfig = {
+      provider: 'anthropic',
+      model: '',
+      hasApiKey: false,
+      consentedProviders: [],
+    }
+    const w = mount(AISettings, { global: { plugins: [pinia] } })
+    expect(w.text()).toContain('モデルを入力してください')
+
+    settings.aiConfig = {
+      provider: 'anthropic',
+      model: 'm',
+      hasApiKey: false,
+      consentedProviders: [],
+    }
+    await w.vm.$nextTick()
+    expect(w.text()).not.toContain('モデルを入力してください')
+  })
+})
+
 describe('aiDestination', () => {
   test('openai は Base URL 未指定で既定、指定ありでその URL。anthropic は Base URL を無視する', () => {
     expect(aiDestination('openai', '').url).toBe('https://api.openai.com')

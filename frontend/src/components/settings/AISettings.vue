@@ -120,6 +120,7 @@ async function clearKey(): Promise<void> {
         :label="msg.ai.model"
         :placeholder="msg.ai.modelPlaceholder"
         :error="errors.model"
+        :hint="model.trim() === '' ? msg.ai.modelRequired : undefined"
         @enter="saveConfig"
       />
       <SettingsInput

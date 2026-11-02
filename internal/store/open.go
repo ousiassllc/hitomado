@@ -75,6 +75,7 @@ func dsn(path string) string {
 	q.Add("_pragma", "foreign_keys(1)")
 	q.Add("_pragma", "journal_mode(WAL)")
 	q.Add("_pragma", "busy_timeout(5000)")
+	q.Add("_pragma", "secure_delete(1)") // 削除した件名・スニペットを空きページに残さない
 	q.Set("_txlock", "immediate")
 	return path + "?" + q.Encode()
 }

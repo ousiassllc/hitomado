@@ -5,6 +5,7 @@
   --color-bg-elevated: #ffffff;
   --color-text: #1b1f24;
   --color-text-muted: #4b5563;
+  --color-text-faded: #5f6672; /* 要再接続アカウントの行など淡色表示の文字 */
   --color-border: #d6dbe1;
   --color-accent: #1a56db;
   --color-accent-text: #ffffff;
@@ -66,6 +67,7 @@
     --color-bg-elevated: #20252d;
     --color-text: #e8eaed;
     --color-text-muted: #aab2bd;
+    --color-text-faded: #9aa3b0;
     --color-border: #343b46;
     --color-accent: #8ab4ff;
     --color-accent-text: #0b1b3a;

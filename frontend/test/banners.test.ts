@@ -6,7 +6,10 @@ const b = (kind: BannerKind, key: string = kind): Banner => ({ key, kind, messag
 
 describe('selectBanners', () => {
   test('優先度順（オフライン → 要再接続 → 更新あり → 同期エラー）', () => {
-    const r = selectBanners([b('sync_error'), b('update'), b('needs_reauth', 'r1'), b('offline')], 10)
+    const r = selectBanners(
+      [b('sync_error'), b('update'), b('needs_reauth', 'r1'), b('offline')],
+      10,
+    )
     expect(r.map((x) => x.kind)).toEqual(['offline', 'needs_reauth', 'update', 'sync_error'])
   })
 
@@ -16,7 +19,10 @@ describe('selectBanners', () => {
   })
 
   test('同じ優先度は入力順、key 重複は 1 件にまとめる', () => {
-    const r = selectBanners([b('needs_reauth', 'r2'), b('needs_reauth', 'r1'), b('needs_reauth', 'r2')], 10)
+    const r = selectBanners(
+      [b('needs_reauth', 'r2'), b('needs_reauth', 'r1'), b('needs_reauth', 'r2')],
+      10,
+    )
     expect(r.map((x) => x.key)).toEqual(['r2', 'r1'])
   })
 

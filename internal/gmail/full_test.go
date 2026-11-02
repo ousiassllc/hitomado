@@ -160,3 +160,34 @@ func TestGetThreadFullPropagatesNotFound(t *testing.T) {
 	_, err := e.c.GetThreadFull(context.Background(), testAccount, "zzz")
 	require.ErrorIs(t, err, ErrNotFound)
 }
+
+func TestGetThreadFullCIDMatchingIsExactAndNormalized(t *testing.T) {
+	e := newTestEnv(t)
+	img := func(cid, att string) map[string]any {
+		return map[string]any{"mimeType": "image/png", "headers": []map[string]any{hdr("Content-ID", cid)}, "body": map[string]any{"attachmentId": att, "size": 3}}
+	}
+	e.f.HandleJSON("GET "+apiBase+"/threads/t1", 200, map[string]any{
+		"id": "t1",
+		"messages": []map[string]any{fullMessage("m1", map[string]any{
+			"mimeType": "multipart/related",
+			"parts": []map[string]any{
+				{"mimeType": "text/html", "body": map[string]any{"data": b64(`<img src="cid:UPPER"><img src="cid:at%40host"><img src="cid:abc">`)}},
+				img("<upper>", "att-upper"),
+				img("<at@host>", "att-at"),
+				img("<a>", "att-a"), // cid:abc の前方一致であってはならない
+			},
+		})},
+	})
+	for _, a := range []string{"att-upper", "att-at"} {
+		e.f.HandleJSON("GET "+apiBase+"/messages/m1/attachments/"+a, 200, map[string]any{"data": b64(a)})
+	}
+	got, err := e.c.GetThreadFull(context.Background(), testAccount, "t1")
+	require.NoError(t, err)
+	m := got.Messages[0]
+	assert.Equal(t, "att-upper", string(m.InlineImages["upper"].Data))
+	assert.Equal(t, "att-at", string(m.InlineImages["at@host"].Data))
+	assert.NotContains(t, m.InlineImages, "a")
+	assert.Empty(t, e.f.Requests("GET", apiBase+"/messages/m1/attachments/att-a"))
+	require.Len(t, m.Attachments, 1, "参照されない画像は添付一覧に回る")
+	assert.Equal(t, "att-a", m.Attachments[0].ID)
+}

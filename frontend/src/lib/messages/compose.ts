@@ -79,7 +79,7 @@ export const compose = {
     unavailableHint: '返信のみ利用できます',
     consentTitle: 'AI プロバイダへの送信に同意',
     consentBody: (provider: string, url: string) =>
-      `スレッドの内容（本文・送信者・宛先）が ${provider}（${url}）へ送信されます。同意しますか？`,
+      `スレッドの本文の一部・差出人・日時と、あなたの表示名・署名が ${provider}（${url}）へ送信されます。同意しますか？`,
     consentAgree: '同意して生成する',
     consentCancel: 'キャンセル',
     replaceTitle: '本文を置き換えますか？',

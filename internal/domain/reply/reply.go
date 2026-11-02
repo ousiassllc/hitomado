@@ -9,6 +9,7 @@ import (
 )
 
 var (
+	crlfRun   = regexp.MustCompile(`[\r\n]+`)
 	rePrefix  = regexp.MustCompile(`(?i)^\s*re\s*:`)
 	fwdPrefix = regexp.MustCompile(`(?i)^\s*(fwd|fw)\s*:`)
 )
@@ -74,7 +75,10 @@ func normalize(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
 // Subject は mode に応じて "Re: "／"Fwd: " を付けた件名を返す。
 // すでに同種の接頭辞（大文字小文字を区別しない。転送は "Fw:" も既存扱い）があれば重複させない。
+//
+// 元の件名の CR/LF は空白 1 つに畳む（ヘッダに改行を持ち込まない）。
 func Subject(mode model.Mode, orig string) string {
+	orig = foldLine(orig)
 	switch mode {
 	case model.ModeReply, model.ModeReplyAll:
 		return withPrefix("Re: ", rePrefix, orig)
@@ -83,6 +87,14 @@ func Subject(mode model.Mode, orig string) string {
 	default:
 		return orig
 	}
+}
+
+// foldLine は CR/LF の連続を空白 1 つに畳み、前後の空白を除く。
+func foldLine(s string) string {
+	if !strings.ContainsAny(s, "\r\n") {
+		return s
+	}
+	return strings.TrimSpace(crlfRun.ReplaceAllString(s, " "))
 }
 
 func withPrefix(prefix string, re *regexp.Regexp, orig string) string {

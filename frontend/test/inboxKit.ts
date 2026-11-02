@@ -59,13 +59,11 @@ export function installMocks(): void {
 
 /** 他のテストファイルへモックが漏れないよう、本物へ戻す。 */
 export function restoreMocks(): void {
-
   mock.module(`${B}/accountservice`, () => ({ ...realAccount }))
   mock.module(`${B}/appservice`, () => ({ ...realApp }))
   mock.module(`${B}/inboxservice`, () => ({ ...realInbox }))
   mock.module('../src/lib/events', () => ({ ...realEvents }))
 }
-
 
 export function thread(account: string, id: string, at: number, unread = true): ThreadSummary {
   return {
@@ -83,7 +81,11 @@ export function thread(account: string, id: string, at: number, unread = true): 
   } as ThreadSummary
 }
 
-export const page = (items: ThreadSummary[], nextCursor?: string) => ({ items, nextCursor, failures: [] })
+export const page = (items: ThreadSummary[], nextCursor?: string) => ({
+  items,
+  nextCursor,
+  failures: [],
+})
 export const ref = (a: string, t: string) => ({ accountId: a, threadId: t })
 export const callsOf = (name: string) => calls.filter((c) => c.name === name)
 export const ids = (s: { items: ThreadSummary[] }) => s.items.map((t) => t.threadId)
@@ -103,7 +105,12 @@ export async function until(cond: () => boolean): Promise<void> {
   expect(cond()).toBe(true)
 }
 
-export const base: ThreadSummary[] = [thread('a1', 't1', 500), thread('a1', 't2', 400), thread('a2', 't3', 300), thread('a2', 't4', 200)]
+export const base: ThreadSummary[] = [
+  thread('a1', 't1', 500),
+  thread('a1', 't2', 400),
+  thread('a2', 't3', 300),
+  thread('a2', 't4', 200),
+]
 
 export function markGone(refs: unknown) {
   for (const r of refs as { threadId: string }[]) gone.add(r.threadId)

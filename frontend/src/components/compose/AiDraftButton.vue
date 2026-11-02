@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { AIService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
 import { useAiDraft } from '../../composables/useAiDraft'
 import { call } from '../../lib/api'
@@ -42,6 +42,8 @@ const destination = computed(() => {
 const consentOpen = computed(() => ai.step.value === 'consent')
 const replaceOpen = computed(() => ai.step.value === 'replace')
 const generating = computed(() => ai.step.value === 'generating')
+watch(generating, (v) => (compose.aiGenerating = v), { immediate: true })
+onBeforeUnmount(() => (compose.aiGenerating = false))
 const busy = computed(() => compose.sending || compose.preview !== undefined)
 </script>
 

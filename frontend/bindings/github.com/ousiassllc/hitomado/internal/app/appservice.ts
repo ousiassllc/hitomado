@@ -44,14 +44,6 @@ export function GetInboxFilter(): $CancellablePromise<dto$0.InboxFilter> {
 }
 
 /**
- * RunUpdateLoop は起動時と 24 時間ごとに（有効なときだけ）更新を確認し、新版なら update:available を発行する。
- * ctx のキャンセルまでブロックする。失敗は記録して次の周期に任せる。main.go が goroutine で呼ぶ。
- */
-export function RunUpdateLoop(): $CancellablePromise<void> {
-    return $Call.ByID(3674361348);
-}
-
-/**
  * SetInboxFilter はフィルタを保存する。存在しないアカウント ID は除いて保存する。
  */
 export function SetInboxFilter(filter: dto$0.InboxFilter): $CancellablePromise<void> {

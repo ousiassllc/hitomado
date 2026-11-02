@@ -143,8 +143,7 @@ func (s *InboxService) loadAccount(ctx context.Context, w *accountSearch, query 
 		appcore.ParallelDo(len(tl.Threads), appcore.SearchParallelism, func(i int) {
 			var meta gmail.ThreadMeta
 			if meta, errs[i] = s.d.Gmail.GetThreadMetadata(ctx, w.acc.ID, tl.Threads[i].ID); errs[i] == nil {
-				sum := appcore.SummaryFromMeta(w.acc.ID, meta, w.labels)
-				if len(meta.Messages) > 0 {
+				if sum, ok := appcore.SummaryFromMeta(w.acc.ID, meta, w.labels); ok {
 					entries[i] = &searchEntry{AccountID: w.acc.ID, ThreadID: meta.ID, T: sum.LastMessageAt, Sum: &sum}
 				}
 			}
@@ -180,9 +179,7 @@ func (s *InboxService) hydratePicked(ctx context.Context, work []*accountSearch,
 		mu.Lock()
 		defer mu.Unlock()
 		switch {
-		case err == nil && len(meta.Messages) > 0:
-			sum := appcore.SummaryFromMeta(e.AccountID, meta, byID[e.AccountID].labels)
-			e.Sum = &sum
+		case err == nil && summaryOK(e, meta, byID[e.AccountID].labels):
 		case err == nil || errors.Is(err, gmail.ErrNotFound):
 			dropEntry(byID[e.AccountID], e.ThreadID)
 		case !failedAccounts[e.AccountID]:
@@ -195,4 +192,13 @@ func (s *InboxService) hydratePicked(ctx context.Context, work []*accountSearch,
 // dropEntry は消えたスレッドを作業キューから除く。
 func dropEntry(w *accountSearch, threadID string) {
 	w.queue = slices.DeleteFunc(w.queue, func(e searchEntry) bool { return e.ThreadID == threadID })
+}
+
+// summaryOK は meta から e.Sum を作る。下書きしか無いスレッドは false（呼び出し側が結果から除く）。
+func summaryOK(e *searchEntry, meta gmail.ThreadMeta, labels []store.Label) bool {
+	sum, ok := appcore.SummaryFromMeta(e.AccountID, meta, labels)
+	if ok {
+		e.Sum = &sum
+	}
+	return ok
 }

@@ -72,7 +72,11 @@ const baseName = Object.getOwnPropertyDescriptor(Node.prototype, 'nodeName')
 Object.defineProperty(Node.prototype, 'nodeName', {
   configurable: true,
   get(this: Node): string {
-    for (let p = Object.getPrototypeOf(this); p && p !== Node.prototype; p = Object.getPrototypeOf(p)) {
+    for (
+      let p = Object.getPrototypeOf(this);
+      p && p !== Node.prototype;
+      p = Object.getPrototypeOf(p)
+    ) {
       const d = Object.getOwnPropertyDescriptor(p, 'nodeName')
       if (d?.get) return d.get.call(this)
     }
@@ -85,6 +89,10 @@ Object.defineProperty(Node.prototype, 'nodeName', {
 const originalError = console.error.bind(console)
 console.error = (...args: unknown[]): void => {
   const first = args[0]
-  if (first instanceof Error && /^Failed to load (iframe page|external stylesheet)/.test(first.message)) return
+  if (
+    first instanceof Error &&
+    /^Failed to load (iframe page|external stylesheet)/.test(first.message)
+  )
+    return
   originalError(...args)
 }

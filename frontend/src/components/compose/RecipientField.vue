@@ -51,6 +51,9 @@ function commit(): void {
   reset()
 }
 
+/** 入力途中の文字列があればチップにする（送信前に呼ぶ）。 */
+defineExpose({ commitPending: commit })
+
 function pick(a: Address): void {
   add([a])
   reset()
@@ -58,10 +61,7 @@ function pick(a: Address): void {
 }
 
 function remove(index: number): void {
-  emit(
-    'update:modelValue',
-    props.modelValue.filter((_, i) => i !== index),
-  )
+  emit('update:modelValue', props.modelValue.toSpliced(index, 1))
 }
 
 function onInput(): void {

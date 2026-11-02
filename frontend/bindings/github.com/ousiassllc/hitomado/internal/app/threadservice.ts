@@ -31,7 +31,7 @@ export function OpenExternal(rawURL: string): $CancellablePromise<void> {
 
 /**
  * SaveAttachment はネイティブの保存ダイアログで選ばれた場所へ添付を書き込む。キャンセルは Saved=false。
- * 一時ファイルは作らず、保存先へ直接書く（失敗時は書きかけを削除する）。
+ * 保存先と同じディレクトリの一時ファイルへ書いてから置き換える（失敗時は一時ファイルを削除し、既存ファイルは壊さない）。
  */
 export function SaveAttachment(ref: dto$0.MessageRef, attachmentID: string, suggestedName: string): $CancellablePromise<dto$0.SaveAttachmentResult> {
     return $Call.ByID(4231123365, ref, attachmentID, suggestedName);

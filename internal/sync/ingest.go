@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -48,6 +49,7 @@ loop:
 			meta, err := s.gmail.GetThreadMetadata(ctx, accountID, id)
 			switch {
 			case err == nil:
+				meta.Messages = withoutDrafts(meta.Messages)
 				out[i] = fetched{id: id, meta: meta, gone: len(meta.Messages) == 0}
 			case errors.Is(err, gmail.ErrNotFound):
 				out[i] = fetched{id: id, gone: true}
@@ -67,6 +69,19 @@ loop:
 		return nil, err
 	}
 	return out, nil
+}
+
+// withoutDrafts は DRAFT ラベルのメッセージを除く。下書きは Gmail 側が正で、保存すると
+// スレッドの最新メッセージ・差出人が自分になり受信箱の先頭に上がってしまう。
+// 下書きしか無いスレッドは空になり、gone（存在しない）として扱う。
+func withoutDrafts(msgs []gmail.MessageMeta) []gmail.MessageMeta {
+	out := make([]gmail.MessageMeta, 0, len(msgs))
+	for _, m := range msgs {
+		if !slices.Contains(m.LabelIDs, labelDraft) {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // toSnapshot はメタデータを DB 反映用のスナップショットへ変換する。
@@ -126,6 +141,9 @@ func (s *Scheduler) ingest(ctx context.Context, cyc *cycle, fs []fetched) error 
 		}
 		cyc.markChanged(f.id)
 		cyc.recordNew(f.meta, res.NewMessageIDs)
+		if cyc.candidates != nil {
+			s.collectNotice(ctx, cyc, f.id, res.NewMessageIDs)
+		}
 	}
 	return nil
 }

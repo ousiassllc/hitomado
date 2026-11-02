@@ -21,12 +21,14 @@ func TestPragmasApplyToEveryConnection(t *testing.T) {
 		c, err := s.db.Conn(ctx)
 		require.NoError(t, err)
 		defer func() { _ = c.Close() }()
-		var fk, timeout int
+		var fk, timeout, secure int
 		var mode string
 		require.NoError(t, c.QueryRowContext(ctx, "PRAGMA foreign_keys").Scan(&fk))
 		require.NoError(t, c.QueryRowContext(ctx, "PRAGMA journal_mode").Scan(&mode))
 		require.NoError(t, c.QueryRowContext(ctx, "PRAGMA busy_timeout").Scan(&timeout))
+		require.NoError(t, c.QueryRowContext(ctx, "PRAGMA secure_delete").Scan(&secure))
 		assert.Equal(t, 1, fk)
+		assert.Equal(t, 1, secure)
 		assert.Equal(t, "wal", mode)
 		assert.Equal(t, 5000, timeout)
 	}

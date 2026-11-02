@@ -19,10 +19,11 @@ type sessionAttachment struct {
 	Filename  string
 	MimeType  string
 	Size      int64
-	Source    string // dto 側の "local" / "forwarded"
-	Path      string // local のみ
-	MessageID string // forwarded のみ（元メッセージの ID）
-	GmailAtt  string // forwarded のみ（Gmail の attachmentId）
+	Source    string    // dto 側の "local" / "forwarded"
+	Path      string    // local のみ
+	ModTime   time.Time // local のみ（追加時の更新時刻。送信時に同一性を検査する）
+	MessageID string    // forwarded のみ（元メッセージの ID）
+	GmailAtt  string    // forwarded のみ（Gmail の attachmentId）
 }
 
 const (

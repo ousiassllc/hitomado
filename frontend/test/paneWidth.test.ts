@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { clampList, clampSidebar, LIST, MIN_DETAIL, MIN_WINDOW_WIDTH, SIDEBAR } from '../src/lib/paneWidth'
+import {
+  clampList,
+  clampSidebar,
+  LIST,
+  MIN_DETAIL,
+  MIN_WINDOW_WIDTH,
+  SIDEBAR,
+} from '../src/lib/paneWidth'
 
 describe('paneWidth', () => {
   test('初期幅は最小ウィンドウ幅でも詳細ペインの最小幅を確保できる', () => {

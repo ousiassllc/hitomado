@@ -6,3 +6,11 @@ func (s *Service) ForceSenderForTest(sessionID, accountID string) {
 	defer s.mu.Unlock()
 	s.sessions[sessionID].accountID = accountID
 }
+
+// SendingForTest はセッションが送信処理中か（テスト専用。送信が io ロック待ちに入ったことの同期に使う）。
+func (s *Service) SendingForTest(sessionID string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cs, ok := s.sessions[sessionID]
+	return ok && cs.sending
+}

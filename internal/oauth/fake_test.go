@@ -36,6 +36,8 @@ type fakeGoogle struct {
 	challenge     string // 認可 URL から得た code_challenge
 	tokenForms    []url.Values
 	tokenStatus   int
+	tokenDelay    time.Duration // トークン応答の遅延
+	tokenBlock    bool          // 応答しない
 	scope         string
 	refreshToken  string
 	userinfoEmail string
@@ -76,6 +78,14 @@ func (g *fakeGoogle) flow(open func(string) error, timeout time.Duration) oauth.
 
 func (g *fakeGoogle) handleToken(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
+	g.mu.Lock()
+	delay, block := g.tokenDelay, g.tokenBlock
+	g.mu.Unlock()
+	if block {
+		<-r.Context().Done() // クライアントが諦めるまで応答しない
+		return
+	}
+	time.Sleep(delay) // 遅いサーバーの模擬（非同期完了の待ち合わせではない）
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	g.tokenForms = append(g.tokenForms, r.PostForm)

@@ -74,3 +74,25 @@ func TestWalkClassifiesParts(t *testing.T) {
 	assert.False(t, HasAttachment(&gmailapi.MessagePart{MimeType: "multipart/alternative"}))
 	assert.False(t, HasAttachment(nil))
 }
+
+func TestNormalizeCID(t *testing.T) {
+	cases := map[string]string{
+		"<Logo@Example.COM>": "logo@example.com",
+		"cid:Logo%40Example": "logo@example",
+		" <cid:A%20B> ":      "a b",
+		"CID:x":              "x",
+		"plain":              "plain",
+		"bad%zz":             "bad%zz",
+		"<>":                 "",
+	}
+	for in, want := range cases {
+		assert.Equal(t, want, NormalizeCID(in), in)
+	}
+}
+
+func TestCIDReferences(t *testing.T) {
+	refs := CIDReferences(`<img src="cid:Abc"><img src='CID:def%40x'> <div style="background:url(cid:ghi)"></div><img src=cid:jkl>`)
+	assert.Equal(t, map[string]bool{"abc": true, "def@x": true, "ghi": true, "jkl": true}, refs)
+	assert.False(t, refs["a"], "部分一致しない")
+	assert.Empty(t, CIDReferences("<p>no refs</p>"))
+}

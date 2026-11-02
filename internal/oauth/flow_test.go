@@ -218,3 +218,53 @@ func TestRevoke(t *testing.T) {
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), testRefresh)
 }
+
+func TestExchangeIsNotBoundByWaitTimeout(t *testing.T) {
+	g := newFakeGoogle(t)
+	g.tokenDelay = 300 * time.Millisecond // 待受の Timeout（50ms）を超えてもコード受領後の交換は成功する
+	b := &browser{g: g, t: t, behave: okCallback}
+
+	f := oauth.NewFlow(oauth.Options{
+		OpenBrowser: b.open,
+		AuthURL:     g.srv.URL + "/auth",
+		TokenURL:    g.srv.URL + "/token",
+		UserinfoURL: g.srv.URL + "/userinfo",
+		HTTPClient:  g.srv.Client(),
+		Timeout:     50 * time.Millisecond,
+	})
+	res, err := f.Authorize(context.Background(), cfg)
+	require.NoError(t, err)
+	assert.Equal(t, testRefresh, res.RefreshToken)
+}
+
+func TestExchangeTimeout(t *testing.T) {
+	g := newFakeGoogle(t)
+	g.tokenBlock = true
+	b := &browser{g: g, t: t, behave: okCallback}
+
+	f := oauth.NewFlow(oauth.Options{
+		OpenBrowser:     b.open,
+		AuthURL:         g.srv.URL + "/auth",
+		TokenURL:        g.srv.URL + "/token",
+		UserinfoURL:     g.srv.URL + "/userinfo",
+		HTTPClient:      g.srv.Client(),
+		Timeout:         time.Minute,
+		ExchangeTimeout: 50 * time.Millisecond,
+	})
+	_, err := f.Authorize(context.Background(), cfg)
+	require.ErrorIs(t, err, oauth.ErrTimeout)
+}
+
+func TestExchangeCancelled(t *testing.T) {
+	g := newFakeGoogle(t)
+	g.tokenBlock = true
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	b := &browser{g: g, t: t, behave: func(t *testing.T, p authParams) {
+		okCallback(t, p)
+		cancel()
+	}}
+
+	_, err := g.flow(b.open, time.Minute).Authorize(ctx, cfg)
+	require.ErrorIs(t, err, oauth.ErrCancelled)
+}

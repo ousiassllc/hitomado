@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
@@ -56,6 +57,7 @@ func (s *AccountService) authorize(ctx context.Context, oauthClientID string) (o
 	}
 	res.Email = strings.ToLower(trimmed(res.Email))
 	if res.Email == "" || res.RefreshToken == "" {
+		s.revokeUnsaved(ctx, res, oauthClientID)
 		return oauth.Result{}, apperr.New(apperr.GmailError, "Google から必要な情報を取得できませんでした。")
 	}
 	return res, nil
@@ -71,11 +73,13 @@ func (s *AccountService) StartAddAccount(ctx context.Context, oauthClientID stri
 
 	existing, err := s.d.Store.ListAccounts(ctx)
 	if err != nil {
+		s.revokeToken(ctx, res.RefreshToken)
 		return dto.Account{}, apperr.FromInfra(err, "")
 	}
 	used := make([]string, 0, len(existing))
 	for _, a := range existing {
 		if a.Email == res.Email {
+			s.revokeUnsaved(ctx, res, oauthClientID)
 			return dto.Account{}, duplicateAccount()
 		}
 		used = append(used, a.Color)
@@ -90,6 +94,7 @@ func (s *AccountService) StartAddAccount(ctx context.Context, oauthClientID stri
 		Color: palette.NextUnused(used), NotifyEnabled: true, Status: store.StatusActive, CreatedAt: now, UpdatedAt: now,
 	}
 	if err := s.d.Store.CreateAccount(ctx, acc); err != nil {
+		s.revokeUnsaved(ctx, res, oauthClientID)
 		if errors.Is(err, store.ErrDuplicate) {
 			return dto.Account{}, duplicateAccount()
 		}
@@ -99,6 +104,7 @@ func (s *AccountService) StartAddAccount(ctx context.Context, oauthClientID stri
 		if derr := s.d.Store.DeleteAccount(ctx, acc.ID); derr != nil {
 			logger(s.d).Warn("アカウント追加のロールバックに失敗", "accountId", acc.ID, "err", derr)
 		}
+		s.revokeToken(ctx, res.RefreshToken)
 		return dto.Account{}, apperr.FromInfra(err, "")
 	}
 	s.d.Sync.Start(acc.ID)
@@ -137,17 +143,17 @@ func (s *AccountService) Reconnect(ctx context.Context, accountID string) (dto.A
 	}
 	ctx = context.WithoutCancel(ctx)
 	if res.Email != acc.Email {
+		s.revokeUnsaved(ctx, res, acc.OAuthClientID)
 		return dto.Account{}, validation("認可されたアドレスがこのアカウントと異なります。同じアドレスで認可してください。").ForAccount(accountID)
 	}
 	if err := s.d.Secrets.Set(secrets.RefreshTokenKey(accountID), res.RefreshToken); err != nil {
+		s.revokeToken(ctx, res.RefreshToken)
 		return dto.Account{}, apperr.FromInfra(err, accountID)
 	}
 	if err := s.d.Store.SetAccountStatus(ctx, accountID, store.StatusActive, ""); err != nil {
 		return dto.Account{}, apperr.FromInfra(err, accountID)
 	}
-	if f, ok := s.d.Gmail.(tokenForgetter); ok {
-		f.Forget(accountID)
-	}
+	forgetAccounts(s.d, accountID)
 	s.d.Sync.Start(accountID)
 	s.d.Events.Emit(events.AccountStatus, events.AccountStatusPayload{AccountID: accountID, Status: store.StatusActive})
 	saved, err := s.d.Store.GetAccount(ctx, accountID)
@@ -155,4 +161,35 @@ func (s *AccountService) Reconnect(ctx context.Context, accountID string) (dto.A
 		return dto.Account{}, apperr.FromInfra(err, accountID)
 	}
 	return accountDTO(saved), nil
+}
+
+// revokeTimeout は保存できなかったトークンの revoke（best-effort）の待ち時間の上限。
+const revokeTimeout = 10 * time.Second
+
+// revokeToken は保存しないことにしたリフレッシュトークンを Google 側で失効させる（失敗は無視。トークンはログに出さない）。
+func (s *AccountService) revokeToken(ctx context.Context, token string) {
+	if token == "" {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), revokeTimeout)
+	defer cancel()
+	if err := s.d.OAuth.Revoke(ctx, token); err != nil {
+		logger(s.d).Info("保存しないトークンの revoke に失敗（無視）", "err", err)
+	}
+}
+
+// revokeUnsaved は認可結果 res を保存できないとき、そのトークンを失効させる。
+// 同じメールアドレスのアカウントが同じ OAuth クライアントで既に接続されているときは失効させない
+// （Google 側では同一ユーザー・同一クライアントの認可が共有されるため、失効すると既存アカウントまで切れる）。
+func (s *AccountService) revokeUnsaved(ctx context.Context, res oauth.Result, oauthClientID string) {
+	list, err := s.d.Store.ListAccounts(context.WithoutCancel(ctx))
+	if err != nil {
+		return // 既存アカウントを巻き込まないことを優先する
+	}
+	for _, a := range list {
+		if res.Email != "" && a.Email == res.Email && a.OAuthClientID == oauthClientID {
+			return
+		}
+	}
+	s.revokeToken(ctx, res.RefreshToken)
 }

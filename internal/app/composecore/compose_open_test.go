@@ -15,10 +15,10 @@ import (
 
 func TestReplyInitialValuesAndHeaders(t *testing.T) {
 	f := newComposeFixture(t)
-	s := f.open(t, "reply")
+	s := f.Open(t, "reply")
 
 	assert.True(t, s.SenderLocked)
-	assert.Equal(t, f.a.ID, s.AccountID)
+	assert.Equal(t, f.A.ID, s.AccountID)
 	require.NotNil(t, s.From)
 	assert.Equal(t, "me@a.example", s.From.Email)
 	assert.Equal(t, []model.Address{{Name: "Alice", Email: "alice@x.example"}}, s.Content.To)
@@ -31,10 +31,10 @@ func TestReplyInitialValuesAndHeaders(t *testing.T) {
 	assert.Less(t, sig, quote, "署名は引用より前")
 	assert.Contains(t, body, "Sig A")
 
-	_, err := f.prepareAndSend(t, s.SessionID, contentOf(s), false)
+	_, err := f.PrepareAndSend(t, s.SessionID, contentOf(s), false)
 	require.NoError(t, err)
-	env, rec := f.lastSent(t)
-	assert.Equal(t, f.a.ID, rec.AccountID)
+	env, rec := f.LastSent(t)
+	assert.Equal(t, f.A.ID, rec.AccountID)
 	assert.Equal(t, threadID, rec.ThreadID)
 	assert.Equal(t, "<m1@x.example>", env.GetHeader("In-Reply-To"))
 	assert.Equal(t, "<root@x.example> <m1@x.example>", env.GetHeader("References"))
@@ -44,7 +44,7 @@ func TestReplyInitialValuesAndHeaders(t *testing.T) {
 
 func TestReplyAllExcludesSelf(t *testing.T) {
 	f := newComposeFixture(t)
-	s := f.open(t, "reply_all")
+	s := f.Open(t, "reply_all")
 	assert.Equal(t, []model.Address{{Name: "Alice", Email: "alice@x.example"}}, s.Content.To)
 	emails := []string{}
 	for _, a := range s.Content.Cc {
@@ -61,107 +61,107 @@ func TestSourceSelectionSkipsOwnAndDrafts(t *testing.T) {
 	own.Subject = "Re: Hello"
 	draft := apptest.Msg("m3", threadID, apptest.Epoch.Add(2*time.Hour), "DRAFT")
 	draft.From = model.Address{Email: "me@a.example"}
-	first := f.Gmail.Threads[apptest.Key(f.a.ID, threadID)].Messages[0]
-	f.PutThread(t, f.a.ID, threadID, first, own, draft)
+	first := f.Gmail.Threads[apptest.Key(f.A.ID, threadID)].Messages[0]
+	f.PutThread(t, f.A.ID, threadID, first, own, draft)
 
-	s := f.open(t, "reply")
+	s := f.Open(t, "reply")
 	assert.Equal(t, "alice@x.example", s.Content.To[0].Email, "自分の送信と下書きを除く最新（alice）")
 
-	got, err := f.svc.OpenCompose(t.Context(), dto.OpenComposeRequest{
-		Mode: "reply", Ref: &dto.ThreadRef{AccountID: f.a.ID, ThreadID: threadID}, SourceMessageID: "m2",
+	got, err := f.Svc.OpenCompose(t.Context(), dto.OpenComposeRequest{
+		Mode: "reply", Ref: &dto.ThreadRef{AccountID: f.A.ID, ThreadID: threadID}, SourceMessageID: "m2",
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "alice@x.example", got.Content.To[0].Email, "自分の送信への返信は元の To")
 
-	f.PutThread(t, f.a.ID, threadID, own, draft)
-	s = f.open(t, "reply")
+	f.PutThread(t, f.A.ID, threadID, own, draft)
+	s = f.Open(t, "reply")
 	assert.Equal(t, "alice@x.example", s.Content.To[0].Email, "全部自分なら最後（自分の送信）の To")
 }
 
 func TestOpenValidation(t *testing.T) {
 	f := newComposeFixture(t)
-	_, err := f.svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "bogus"})
+	_, err := f.Svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "bogus"})
 	requireCode(t, "VALIDATION", err)
-	_, err = f.svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "reply"})
+	_, err = f.Svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "reply"})
 	requireCode(t, "VALIDATION", err)
-	_, err = f.svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "reply", Ref: &dto.ThreadRef{AccountID: f.a.ID, ThreadID: "nope"}})
+	_, err = f.Svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "reply", Ref: &dto.ThreadRef{AccountID: f.A.ID, ThreadID: "nope"}})
 	requireCode(t, "NOT_FOUND", err)
-	_, err = f.svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "new", AccountID: "missing"})
+	_, err = f.Svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "new", AccountID: "missing"})
 	requireCode(t, "NOT_FOUND", err)
 }
 
 func TestNewComposeSender(t *testing.T) {
 	f := newComposeFixture(t)
-	s := f.openNew(t, "")
+	s := f.OpenNew(t, "")
 	assert.False(t, s.SenderLocked)
 	assert.Nil(t, s.From)
 	assert.Empty(t, s.AccountID)
 
-	s2 := f.openNew(t, f.a.ID)
+	s2 := f.OpenNew(t, f.A.ID)
 	assert.Contains(t, s2.Content.BodyHTML, "Sig A")
 	assert.Equal(t, "me@a.example", s2.From.Email)
 
-	got, err := f.svc.SetComposeSender(t.Context(), s.SessionID, f.b.ID)
+	got, err := f.Svc.SetComposeSender(t.Context(), s.SessionID, f.B.ID)
 	require.NoError(t, err)
-	assert.Equal(t, f.b.ID, got.AccountID)
+	assert.Equal(t, f.B.ID, got.AccountID)
 	assert.Equal(t, "me@b.example", got.From.Email)
 
-	_, err = f.svc.SetComposeSender(t.Context(), s.SessionID, "missing")
+	_, err = f.Svc.SetComposeSender(t.Context(), s.SessionID, "missing")
 	requireCode(t, "NOT_FOUND", err)
 }
 
 func TestSenderLockedForRepliesAndForward(t *testing.T) {
 	f := newComposeFixture(t)
 	for _, mode := range []string{"reply", "reply_all", "forward"} {
-		s := f.open(t, mode)
-		_, err := f.svc.SetComposeSender(t.Context(), s.SessionID, f.b.ID)
+		s := f.Open(t, mode)
+		_, err := f.Svc.SetComposeSender(t.Context(), s.SessionID, f.B.ID)
 		requireCode(t, "SENDER_LOCKED", err)
 	}
 }
 
 func TestSenderMismatchDetectedOnPrepareAndSend(t *testing.T) {
 	f := newComposeFixture(t)
-	s := f.open(t, "reply")
-	p, err := f.svc.PrepareSend(t.Context(), s.SessionID, contentOf(s), dto.SendOptions{})
+	s := f.Open(t, "reply")
+	p, err := f.Svc.PrepareSend(t.Context(), s.SessionID, contentOf(s), dto.SendOptions{})
 	require.NoError(t, err)
 
-	f.svc.ForceSenderForTest(s.SessionID, f.b.ID)
-	_, err = f.svc.PrepareSend(t.Context(), s.SessionID, contentOf(s), dto.SendOptions{})
+	f.Svc.ForceSenderForTest(s.SessionID, f.B.ID)
+	_, err = f.Svc.PrepareSend(t.Context(), s.SessionID, contentOf(s), dto.SendOptions{})
 	requireCode(t, "SENDER_MISMATCH", err)
-	_, err = f.svc.Send(t.Context(), s.SessionID, p.ConfirmToken, contentOf(s))
+	_, err = f.Svc.Send(t.Context(), s.SessionID, p.ConfirmToken, contentOf(s))
 	requireCode(t, "SENDER_MISMATCH", err)
 	assert.Empty(t, f.Gmail.Sent)
 }
 
 func TestForwardAttachmentsCarriedAndRemovable(t *testing.T) {
 	f := newComposeFixture(t)
-	m := f.Gmail.Threads[apptest.Key(f.a.ID, threadID)].Messages[0]
+	m := f.Gmail.Threads[apptest.Key(f.A.ID, threadID)].Messages[0]
 	m.Attachments = []model.AttachmentInfo{
 		{ID: "att1", Filename: "a.txt", MimeType: "text/plain", Size: 5},
 		{ID: "att2", Filename: "b.txt", MimeType: "text/plain", Size: 5},
 	}
-	f.PutThread(t, f.a.ID, threadID, m)
-	f.Gmail.Attachments[apptest.Key(f.a.ID, aliceMsg, "att1")] = []byte("hello")
-	f.Gmail.Attachments[apptest.Key(f.a.ID, aliceMsg, "att2")] = []byte("world")
+	f.PutThread(t, f.A.ID, threadID, m)
+	f.Gmail.Attachments[apptest.Key(f.A.ID, aliceMsg, "att1")] = []byte("hello")
+	f.Gmail.Attachments[apptest.Key(f.A.ID, aliceMsg, "att2")] = []byte("world")
 
-	s := f.open(t, "forward")
+	s := f.Open(t, "forward")
 	require.Len(t, s.Attachments, 2)
 	assert.Equal(t, "forwarded", s.Attachments[0].Source)
 	assert.Empty(t, s.Content.To)
 	assert.Equal(t, "Fwd: Hello", s.Content.Subject)
 	assert.Contains(t, s.Content.BodyHTML, "転送されたメッセージ")
 
-	left, err := f.svc.RemoveAttachment(t.Context(), s.SessionID, s.Attachments[1].ID)
+	left, err := f.Svc.RemoveAttachment(t.Context(), s.SessionID, s.Attachments[1].ID)
 	require.NoError(t, err)
 	require.Len(t, left, 1)
-	_, err = f.svc.RemoveAttachment(t.Context(), s.SessionID, "nope")
+	_, err = f.Svc.RemoveAttachment(t.Context(), s.SessionID, "nope")
 	requireCode(t, "NOT_FOUND", err)
 
 	c := contentOf(s)
 	c.To = []model.Address{addr("dave@x.example")}
-	_, err = f.prepareAndSend(t, s.SessionID, c, false)
+	_, err = f.PrepareAndSend(t, s.SessionID, c, false)
 	require.NoError(t, err)
-	env, rec := f.lastSent(t)
+	env, rec := f.LastSent(t)
 	assert.Empty(t, rec.ThreadID, "転送は新しいスレッド")
 	assert.Empty(t, env.GetHeader("In-Reply-To"))
 	require.Len(t, env.Attachments, 1)
@@ -171,13 +171,13 @@ func TestForwardAttachmentsCarriedAndRemovable(t *testing.T) {
 
 func TestForwardAttachmentGone(t *testing.T) {
 	f := newComposeFixture(t)
-	m := f.Gmail.Threads[apptest.Key(f.a.ID, threadID)].Messages[0]
+	m := f.Gmail.Threads[apptest.Key(f.A.ID, threadID)].Messages[0]
 	m.Attachments = []model.AttachmentInfo{{ID: "att1", Filename: "a.txt", MimeType: "text/plain", Size: 5}}
-	f.PutThread(t, f.a.ID, threadID, m)
-	s := f.open(t, "forward")
+	f.PutThread(t, f.A.ID, threadID, m)
+	s := f.Open(t, "forward")
 	c := contentOf(s)
 	c.To = []model.Address{addr("dave@x.example")}
-	_, err := f.prepareAndSend(t, s.SessionID, c, false)
+	_, err := f.PrepareAndSend(t, s.SessionID, c, false)
 	requireCode(t, "ATTACHMENT_IO", err)
 	assert.Empty(t, f.Gmail.Sent)
 }

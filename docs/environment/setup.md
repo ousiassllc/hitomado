@@ -105,7 +105,7 @@ flowchart LR
 
 | ジョブ | 実行環境 | 内容 |
 |--------|----------|------|
-| `lint` | ubuntu-latest | `golangci-lint run`、`bunx biome ci`、`vue-tsc --noEmit`、`bunx linterly check`、**生成物の差分検査**（`sqlc generate` と `wails3 generate bindings` のあと `git diff --exit-code`） |
+| `lint` | ubuntu-latest | `go mod tidy -diff`、`golangci-lint run`、`bunx biome ci`、`vue-tsc --noEmit`、`bunx linterly check`、**生成物の差分検査**（`sqlc generate` と `wails3 generate bindings` のあと `git diff --exit-code`） |
 | `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため） |
 | `build` | windows-latest | `needs: [lint, test]`。`wails3 build` を実行し、成果物を Actions のアーティファクトに保存 |
 
@@ -115,7 +115,7 @@ flowchart LR
 ### 4.2 `release.yml`
 
 - トリガー: タグ `v*` の push
-- 内容: windows-latest で `wails3 build` → 成果物（exe または zip）を GitHub Releases に添付（[NF-D01](../requirements/non-functional.md#8-配布更新)）。コード署名は行わない（NF-D02）
+- 内容: 同じタグのコミットで `ci.yml`（lint・test・Windows ビルド）を呼んで通したうえで、windows-latest で `wails3 build VERSION=<タグから v を除いた値>`（`-X main.version` で実行ファイルに版を埋め込む。更新確認の比較に使う）→ zip と `SHA256SUMS.txt` を GitHub Releases に添付（[NF-D01](../requirements/non-functional.md#8-配布更新)）。ビルドは `contents: read`、公開だけ `contents: write`。`v*-rc1` のようにハイフンを含むタグはプレリリースとして公開する。コード署名は行わない（NF-D02）
 - マージは squash／rebase せず、マージコミット方式（リポジトリ規約）
 
 ## 5. Lint
@@ -196,9 +196,9 @@ pre-commit:
       run: golangci-lint run
     biome:
       glob: "*.{ts,vue,json,css}"
-      run: bunx biome check --staged --no-errors-on-unmatched
+      run: frontend/node_modules/.bin/biome check --staged --no-errors-on-unmatched
     linterly:
-      run: bunx linterly check {staged_files}
+      run: frontend/node_modules/.bin/linterly check {staged_files}
 
 pre-push:
   commands:

@@ -120,3 +120,19 @@ func targetAccounts(list []store.Account, ids []string) []store.Account {
 }
 
 func trimmed(s string) string { return strings.TrimSpace(s) }
+
+// threadGone は操作対象のスレッドが Gmail に無い（404）ときのエラー。
+func threadGone(accountID string) *apperr.Error {
+	return apperr.New(apperr.NotFound, "スレッドが見つかりません。").ForAccount(accountID)
+}
+
+// forgetAccounts は gmail.Client の任意メソッド Forget（認証情報キャッシュの破棄）があれば各アカウントに呼ぶ。
+func forgetAccounts(d *Deps, accountIDs ...string) {
+	f, ok := d.Gmail.(tokenForgetter)
+	if !ok {
+		return
+	}
+	for _, id := range accountIDs {
+		f.Forget(id)
+	}
+}

@@ -113,6 +113,92 @@ describe('ComposePane', () => {
   })
 })
 
+const SIGNED_QUOTED =
+  '<p></p><div data-hitomado-signature data-account-id="a1">-- <br>署名</div><blockquote data-hitomado-quote><p>引用</p></blockquote>'
+
+describe('ComposePane の凍結', () => {
+  test('署名・引用付きの未編集の返信でも、確認表示（凍結）後に preview が残る', async () => {
+    const { w, store } = await mountPane({ ...newSession('a1'), mode: 'reply', senderLocked: true })
+    store.content.bodyHtml = SIGNED_QUOTED
+    await flushPromises()
+    store.preview = preview()
+    await flushPromises()
+    expect(store.preview).toBeDefined()
+    expect(w.find('[role="toolbar"]').exists()).toBe(false) // 凍結されている
+    w.unmount()
+  })
+
+  test('本文が空の新規作成でも凍結後に preview が残る', async () => {
+    const { w, store } = await mountPane(newSession('a1'))
+    store.content.bodyHtml = ''
+    await flushPromises()
+    store.preview = preview()
+    await flushPromises()
+    expect(store.preview).toBeDefined()
+    w.unmount()
+  })
+
+  test('AI 生成中は本文エディタが読み取り専用になる（確認なしの置換を防ぐ）', async () => {
+    const { w, store } = await mountPane({ ...newSession('a1'), mode: 'reply', senderLocked: true })
+    expect(w.find('[role="toolbar"]').exists()).toBe(true)
+    store.aiGenerating = true
+    await flushPromises()
+    expect(w.find('[role="toolbar"]').exists()).toBe(false)
+    expect(w.find('.editor-content').attributes('contenteditable')).toBe('false')
+    store.aiGenerating = false
+    await flushPromises()
+    expect(w.find('[role="toolbar"]').exists()).toBe(true)
+    w.unmount()
+  })
+})
+
+describe('入力途中の宛先の確定', () => {
+  async function typeInTo(w: Awaited<ReturnType<typeof mountPane>>['w'], text: string) {
+    const input = w.find('input[role="combobox"]')
+    ;(input.element as HTMLInputElement).value = text
+    await input.trigger('input')
+    return input
+  }
+
+  test('送信ボタンで、未確定の宛先がチップになってから確認を取得する', async () => {
+    const { w, store } = await mountPane(newSession('a1'))
+    await typeInTo(w, 'typed@example.com')
+    expect(store.content.to.map((a) => a.email)).toEqual(['to@example.com'])
+    const send = w.findAll('button').find((b) => b.text() === '送信')
+    await send?.trigger('click')
+    expect(store.content.to.map((a) => a.email)).toEqual(['to@example.com', 'typed@example.com'])
+    w.unmount()
+  })
+
+  test('Ctrl+Enter でも同様に確定する', async () => {
+    const { w, store } = await mountPane(newSession('a1'))
+    const input = await typeInTo(w, 'typed@example.com')
+    await input.trigger('keydown', { key: 'Enter', ctrlKey: true })
+    expect(store.content.to.map((a) => a.email)).toEqual(['to@example.com', 'typed@example.com'])
+    w.unmount()
+  })
+
+  test('Cc／Bcc の入力途中も確定する', async () => {
+    const { w, store } = await mountPane(newSession('a1'))
+    for (const label of ['Cc', 'Bcc']) {
+      await w
+        .findAll('button.toggle')
+        .find((b) => b.text() === label)
+        ?.trigger('click')
+    }
+    const inputs = w.findAll('input[role="combobox"]')
+    expect(inputs).toHaveLength(3)
+    ;(inputs[1].element as HTMLInputElement).value = 'cc@example.com'
+    await inputs[1].trigger('input')
+    ;(inputs[2].element as HTMLInputElement).value = 'bcc@example.com'
+    await inputs[2].trigger('input')
+    await inputs[2].trigger('keydown', { key: 'Enter', ctrlKey: true })
+    expect(store.content.cc.map((a) => a.email)).toEqual(['cc@example.com'])
+    expect(store.content.bcc.map((a) => a.email)).toEqual(['bcc@example.com'])
+    w.unmount()
+  })
+})
+
 function preview(over: Partial<SendPreview> = {}): SendPreview {
   return {
     confirmToken: 't',

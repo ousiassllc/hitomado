@@ -59,7 +59,8 @@ watch(
 
 watch(
   () => props.editable,
-  (v) => editor.value?.setEditable(v),
+  // emitUpdate=false: 凍結（送信確認中など）の切替で本文が正規化されて update:html が発火し、確認が破棄されるのを防ぐ
+  (v) => editor.value?.setEditable(v, false),
 )
 
 const linkOpen = ref(false)

@@ -115,10 +115,9 @@ func dispositionOf(headers []*gmailapi.MessagePartHeader) string {
 	return strings.ToLower(strings.TrimSpace(d))
 }
 
-// contentID は Content-ID から山括弧を除いた値を返す。
+// contentID は Content-ID を NormalizeCID で正規化した値を返す。
 func contentID(headers []*gmailapi.MessagePartHeader) string {
-	v := strings.TrimSpace(HeaderValue(headers, "Content-ID"))
-	return strings.TrimSpace(strings.TrimSuffix(strings.TrimPrefix(v, "<"), ">"))
+	return NormalizeCID(HeaderValue(headers, "Content-ID"))
 }
 
 // charsetOf は Content-Type の charset パラメータを返す（無ければ空）。

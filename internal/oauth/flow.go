@@ -25,6 +25,9 @@ const (
 
 	gmailModifyScope = "https://www.googleapis.com/auth/gmail.modify"
 	httpTimeout      = 30 * time.Second
+
+	// DefaultExchangeTimeout はコード受領後のトークン交換・userinfo 取得の期限。
+	DefaultExchangeTimeout = 30 * time.Second
 )
 
 // Options は Flow の構成。ゼロ値のフィールドは既定値になる（OpenBrowser のみ必須）。
@@ -36,7 +39,10 @@ type Options struct {
 	UserinfoURL string
 	RevokeURL   string
 	HTTPClient  *http.Client
-	Timeout     time.Duration
+	// Timeout は認可待ち（ブラウザでの承認まで）の上限。既定 5 分。
+	Timeout time.Duration
+	// ExchangeTimeout はコード受領後のトークン交換と userinfo 取得に与える期限。既定 30 秒。
+	ExchangeTimeout time.Duration
 }
 
 type flow struct {
@@ -62,6 +68,9 @@ func NewFlow(opts Options) Flow {
 	}
 	if opts.Timeout <= 0 {
 		opts.Timeout = DefaultTimeout
+	}
+	if opts.ExchangeTimeout <= 0 {
+		opts.ExchangeTimeout = DefaultExchangeTimeout
 	}
 	return &flow{opts: opts}
 }
@@ -108,10 +117,13 @@ func (f *flow) Authorize(parent context.Context, cfg ClientConfig) (Result, erro
 		return Result{}, cb.err
 	}
 
-	res, err := f.complete(ctx, cfg, cb.code, verifier, srv.redirectURI())
+	// 認可待ちの期限（Timeout）とは別に、交換と userinfo には新しい期限（ExchangeTimeout）を与える。
+	xctx, xcancel := context.WithTimeout(parent, f.opts.ExchangeTimeout)
+	defer xcancel()
+	res, err := f.complete(xctx, cfg, cb.code, verifier, srv.redirectURI())
 	if err != nil {
-		if ctx.Err() != nil {
-			return Result{}, ctxError(parent, ctx)
+		if xctx.Err() != nil {
+			return Result{}, ctxError(parent, xctx)
 		}
 		return Result{}, err
 	}

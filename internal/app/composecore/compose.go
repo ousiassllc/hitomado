@@ -71,7 +71,7 @@ func (s *Service) SetComposeSender(ctx context.Context, sessionID, accountID str
 	var out dto.ComposeSession
 	err = s.mutate(sessionID, func(cs *composeSession) error {
 		cs.accountID = acct.ID
-		cs.from = model.Address{Name: acct.DisplayName, Email: acct.Email}
+		cs.from = model.Address{Name: foldLine(acct.DisplayName), Email: acct.Email}
 		out = cs.toDTO(cs.lastContent)
 		return nil
 	})

@@ -1,13 +1,15 @@
 package gmail
 
 import (
+	"bytes"
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 
 	gmailapi "google.golang.org/api/gmail/v1"
+	"google.golang.org/api/googleapi"
 
+	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/gmail/mimeparse"
 )
 
@@ -49,16 +51,19 @@ func (c *client) GetAttachment(ctx context.Context, accountID, messageID, attach
 	return data, nil
 }
 
-// encodeRaw は生 MIME を Gmail の raw（base64url）にする。
-func encodeRaw(raw []byte) string { return base64.URLEncoding.EncodeToString(raw) }
+// uploadOptions は生 MIME のアップロード用オプション。Content-Type を message/rfc822 に固定し、
+// チャンク分割（再開可能アップロード）を無効にして 1 リクエストで送る（リクエストごとに本文を作り直せるので再試行しやすい）。
+var uploadOptions = []googleapi.MediaOption{googleapi.ContentType("message/rfc822"), googleapi.ChunkSize(0)}
 
-// Send は生 MIME を送信する（messages.send）。5xx は二重送信を避けるため再試行しない。
+// Send は生 MIME を送信する（messages.send）。raw を JSON に埋め込むと大きな添付で
+// リクエスト上限（413）に当たり得るので、メディアアップロード経路で送る。
+// 5xx は二重送信を避けるため再試行しない。
 func (c *client) Send(ctx context.Context, accountID string, raw []byte, threadID string) (SentMessage, error) {
-	msg := &gmailapi.Message{Raw: encodeRaw(raw), ThreadId: threadID}
+	msg := &gmailapi.Message{ThreadId: threadID}
 	var sent *gmailapi.Message
 	err := c.do(ctx, accountID, callSpec{name: "messages.send", units: unitsMessageSend}, func(s *gmailapi.Service) error {
 		var err error
-		sent, err = s.Users.Messages.Send(userID, msg).Context(ctx).Do()
+		sent, err = s.Users.Messages.Send(userID, msg).Media(bytes.NewReader(raw), uploadOptions...).Context(ctx).Do()
 		return err
 	})
 	if err != nil {
@@ -67,13 +72,13 @@ func (c *client) Send(ctx context.Context, accountID string, raw []byte, threadI
 	return SentMessage{MessageID: sent.Id, ThreadID: sent.ThreadId}, nil
 }
 
-// CreateDraft は下書きを作成する（drafts.create）。5xx は重複作成を避けるため再試行しない。
+// CreateDraft は下書きを作成する（drafts.create。メディアアップロード経路）。5xx は重複作成を避けるため再試行しない。
 func (c *client) CreateDraft(ctx context.Context, accountID string, raw []byte, threadID string) (string, error) {
-	draft := &gmailapi.Draft{Message: &gmailapi.Message{Raw: encodeRaw(raw), ThreadId: threadID}}
+	draft := &gmailapi.Draft{Message: &gmailapi.Message{ThreadId: threadID}}
 	var created *gmailapi.Draft
 	err := c.do(ctx, accountID, callSpec{name: "drafts.create", units: unitsDraft}, func(s *gmailapi.Service) error {
 		var err error
-		created, err = s.Users.Drafts.Create(userID, draft).Context(ctx).Do()
+		created, err = s.Users.Drafts.Create(userID, draft).Media(bytes.NewReader(raw), uploadOptions...).Context(ctx).Do()
 		return err
 	})
 	if err != nil {
@@ -82,11 +87,11 @@ func (c *client) CreateDraft(ctx context.Context, accountID string, raw []byte, 
 	return created.Id, nil
 }
 
-// UpdateDraft は下書きの内容を置き換える（drafts.update）。
+// UpdateDraft は下書きの内容を置き換える（drafts.update。メディアアップロード経路）。
 func (c *client) UpdateDraft(ctx context.Context, accountID, draftID string, raw []byte) error {
-	draft := &gmailapi.Draft{Message: &gmailapi.Message{Raw: encodeRaw(raw)}}
+	draft := &gmailapi.Draft{Message: &gmailapi.Message{}}
 	return c.do(ctx, accountID, callSpec{name: "drafts.update", units: unitsDraft, retry5xx: true}, func(s *gmailapi.Service) error {
-		_, err := s.Users.Drafts.Update(userID, draftID, draft).Context(ctx).Do()
+		_, err := s.Users.Drafts.Update(userID, draftID, draft).Media(bytes.NewReader(raw), uploadOptions...).Context(ctx).Do()
 		return err
 	})
 }
@@ -109,7 +114,11 @@ func (c *client) GetDraft(ctx context.Context, accountID, draftID string) (Draft
 	if err != nil {
 		return DraftFull{}, err
 	}
-	return DraftFull{ID: d.Id, ThreadID: d.Message.ThreadId, Message: mf, Attachments: mf.Attachments}, nil
+	bcc := []model.Address{}
+	if d.Message.Payload != nil {
+		bcc = mimeparse.ParseAddressList(mimeparse.HeaderValue(d.Message.Payload.Headers, "Bcc"))
+	}
+	return DraftFull{ID: d.Id, ThreadID: d.Message.ThreadId, Message: mf, Bcc: bcc, Attachments: mf.Attachments}, nil
 }
 
 // DeleteDraft は下書きを削除する（drafts.delete）。

@@ -85,7 +85,7 @@ func (s *Service) precheck(ctx context.Context) (storedAIConfig, string, error) 
 	if !ok || strings.TrimSpace(cfg.Model) == "" {
 		return cfg, "", apperr.New(apperr.AINotConfigured, "AI の API キーとモデルを設定画面で設定してください。")
 	}
-	consented, err := s.loadConsent(ctx)
+	consented, err := s.loadConsent(ctx, cfg)
 	if err != nil {
 		return cfg, "", err
 	}

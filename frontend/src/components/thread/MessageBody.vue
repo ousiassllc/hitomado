@@ -43,7 +43,7 @@ function onLoad(): void {
       height.value = px
     },
     onLink: (url) => emit('link', url),
-  })
+  })?.release
 }
 
 watch(srcdoc, () => {

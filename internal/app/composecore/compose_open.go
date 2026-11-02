@@ -2,6 +2,7 @@ package composecore
 
 import (
 	"context"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -59,7 +60,7 @@ func (s *Service) OpenCompose(ctx context.Context, req dto.OpenComposeRequest) (
 
 func (cs *composeSession) setSender(a store.Account) {
 	cs.accountID = a.ID
-	cs.from = model.Address{Name: a.DisplayName, Email: a.Email}
+	cs.from = model.Address{Name: foldLine(a.DisplayName), Email: a.Email}
 }
 
 func emptyContent() dto.ComposeContent {
@@ -122,14 +123,14 @@ func (s *Service) initThreaded(ctx context.Context, cs *composeSession, req dto.
 	rcpt := reply.Resolve(cs.mode, src, strings.ToLower(acct.Email))
 	quoteHTML, _ := quote.Build(cs.mode, src)
 	content := emptyContent()
-	content.To, content.Cc = nonNilAddrs(rcpt.To), nonNilAddrs(rcpt.Cc)
+	content.To, content.Cc = cleanAddrs(rcpt.To), cleanAddrs(rcpt.Cc)
 	content.Subject = reply.Subject(cs.mode, src.Subject)
 	content.BodyHTML = signature.Insert(quoteHTML, acct.ID, acct.SignatureHTML)
 	return content, nil
 }
 
 // restoreDraft は Gmail 下書きの内容でセッションの入力内容を作る。
-// 下書きの添付と Bcc は gmail.DraftFull から復元できないため引き継がない。
+// 下書きの添付は復元できないため引き継がない（再添付が必要）。Bcc は下書きのヘッダから復元する。
 func (s *Service) restoreDraft(ctx context.Context, cs *composeSession, draftID string) (dto.ComposeContent, error) {
 	d, err := s.d.Gmail.GetDraft(ctx, cs.accountID, draftID)
 	if err != nil {
@@ -141,8 +142,8 @@ func (s *Service) restoreDraft(ctx context.Context, cs *composeSession, draftID 
 		body = bodyhtml.TextToHTML(d.Message.BodyText)
 	}
 	content := emptyContent()
-	content.To, content.Cc = nonNilAddrs(d.Message.To), nonNilAddrs(d.Message.Cc)
-	content.Subject = d.Message.Subject
+	content.To, content.Cc, content.Bcc = cleanAddrs(d.Message.To), cleanAddrs(d.Message.Cc), cleanAddrs(d.Bcc)
+	content.Subject = foldLine(d.Message.Subject)
 	content.BodyHTML = body
 	return content, nil
 }
@@ -175,11 +176,13 @@ func pickSource(msgs []gmail.MessageFull, selfEmail, wantID string) (gmail.Messa
 	return live[len(live)-1], true
 }
 
+// sourceMessage は元メッセージを返信・転送の入力にする。ヘッダ由来の件名・表示名は CR/LF を畳む。
 func sourceMessage(m gmail.MessageFull) model.SourceMessage {
+	from := cleanAddrs([]model.Address{m.From})[0]
 	return model.SourceMessage{
 		ID: m.ID, ThreadID: m.ThreadID, MessageID: m.MessageID, References: m.References,
-		From: m.From, ReplyTo: m.ReplyTo, To: m.To, Cc: m.Cc,
-		Subject: m.Subject, Date: m.InternalDate,
+		From: from, ReplyTo: cleanAddrs(m.ReplyTo), To: cleanAddrs(m.To), Cc: cleanAddrs(m.Cc),
+		Subject: foldLine(m.Subject), Date: m.InternalDate,
 		BodyHTML: m.BodyHTML, BodyText: m.BodyText, Attachments: m.Attachments,
 	}
 }
@@ -193,7 +196,22 @@ func referencesFor(src model.SourceMessage) []string {
 	return refs
 }
 
-// nonNilAddrs は nil を空スライスにし、キャッシュ上のスライスを共有しないよう複製する（thread.go とも共用）。
-func nonNilAddrs(a []model.Address) []model.Address {
-	return append([]model.Address{}, a...)
+// foldLine は CR/LF（連続は 1 つ）を空白 1 つに畳んで前後の空白を除く。メッセージのヘッダ由来の値
+// （件名・表示名）が、作成画面の初期値や MIME ヘッダで改行を持ち込まないようにする。
+func foldLine(s string) string {
+	if !strings.ContainsAny(s, "\r\n") {
+		return s
+	}
+	return strings.TrimSpace(crlfRun.ReplaceAllString(s, " "))
+}
+
+var crlfRun = regexp.MustCompile(`[\r\n]+`)
+
+// cleanAddrs は nil を空スライスにし、キャッシュ上のスライスを共有しないよう複製して、名前・アドレスの CR/LF を畳む。
+func cleanAddrs(a []model.Address) []model.Address {
+	out := make([]model.Address, 0, len(a))
+	for _, x := range a {
+		out = append(out, model.Address{Name: foldLine(x.Name), Email: foldLine(x.Email)})
+	}
+	return out
 }

@@ -61,6 +61,7 @@ func (s *InboxService) ListInbox(ctx context.Context, q dto.InboxQuery) (dto.Thr
 
 	failed := map[string]bool{}
 	var rows []store.ThreadRow
+	canFetch := true // Gmail からの追加取得でまだ進める見込みがあるか
 	for round := 0; ; round++ {
 		if rows, err = s.d.Store.ListInbox(ctx, filter); err != nil {
 			return dto.ThreadPage{}, apperr.FromInfra(err, "")
@@ -69,6 +70,7 @@ func (s *InboxService) ListInbox(ctx context.Context, q dto.InboxQuery) (dto.Thr
 			break
 		}
 		if !s.fetchMore(ctx, ids, failed, &page) {
+			canFetch = false
 			break
 		}
 	}
@@ -79,35 +81,45 @@ func (s *InboxService) ListInbox(ctx context.Context, q dto.InboxQuery) (dto.Thr
 	for _, r := range rows {
 		page.Items = append(page.Items, summaryFromRow(r))
 	}
-	// 続きがある: ローカルに余り、または未取得のアカウントが残っている。
-	if len(rows) > 0 && (more || s.hasRemote(ctx, ids, failed)) {
-		last := rows[len(rows)-1]
-		page.NextCursor = appcore.EncodeInboxCursor(store.InboxCursor{LastMessageAt: last.LastMessageAt, AccountID: last.AccountID, ThreadID: last.ThreadID})
+	// 続きがある: ローカルに余りがある、または Gmail 側に未取得の受信箱が残っている。
+	// 条件に合う行が 0 件でも後者なら、同じ位置（カーソルなしなら先頭）を指すカーソルを返して続きを取れるようにする。
+	if more || (canFetch && s.hasRemote(ctx, ids, failed)) {
+		next := after
+		if len(rows) > 0 {
+			last := rows[len(rows)-1]
+			next = &store.InboxCursor{LastMessageAt: last.LastMessageAt, AccountID: last.AccountID, ThreadID: last.ThreadID}
+		}
+		page.NextCursor = appcore.EncodeInboxCursor(next)
 	}
 	return page, nil
 }
 
-// fetchMore は未取得分のあるアカウントすべてから 1 ページ追加取得する。1 件でも進んだら true。
+// fetchMore は未取得分のあるアカウントすべてから 1 ページ追加取得する。
+// 1 件でも進んだ（新規スレッドを保存した、または取得位置のトークンが進んだ・末尾に達した）なら true。
 func (s *InboxService) fetchMore(ctx context.Context, ids []string, failed map[string]bool, page *dto.ThreadPage) bool {
 	progressed := false
 	for _, id := range ids {
 		if failed[id] {
 			continue
 		}
-		state, err := s.d.Store.GetSyncState(ctx, id)
-		if err == nil && state.InboxExhausted {
+		before, err := s.d.Store.GetSyncState(ctx, id)
+		if err == nil && before.InboxExhausted {
 			continue
 		}
 		added := 0
 		if err == nil {
 			added, err = s.d.Sync.FetchMore(ctx, id)
 		}
+		var after store.SyncState
+		if err == nil {
+			after, err = s.d.Store.GetSyncState(ctx, id)
+		}
 		if err != nil {
 			failed[id] = true
 			page.Failures = append(page.Failures, dto.AccountFailure{AccountID: id, Error: apperr.ToMap(gmailErr(s.d, ctx, id, err))})
 			continue
 		}
-		progressed = progressed || added > 0
+		progressed = progressed || added > 0 || after.InboxExhausted || after.InboxPageToken != before.InboxPageToken
 	}
 	return progressed
 }

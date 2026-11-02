@@ -4,18 +4,14 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"math/rand/v2"
-	"time"
 
 	gmailapi "google.golang.org/api/gmail/v1"
+
+	"github.com/ousiassllc/hitomado/internal/gmail/backoff"
 )
 
-const (
-	backoffBase = time.Second
-	backoffMax  = 60 * time.Second
-	// maxRetries は 429／5xx の再試行回数の上限（初回を除く）。
-	maxRetries = 6
-)
+// maxRetries は 429／5xx の再試行回数の上限（初回を除く）。
+const maxRetries = 6
 
 // クォータユニット（Gmail API のクォータ計算。ユーザーあたり 250 units/秒）。
 const (
@@ -65,7 +61,7 @@ func (c *client) do(ctx context.Context, accountID string, spec callSpec, op fun
 			c.Forget(accountID) // 再接続で保存し直されたトークンを次回読み直す
 		case f.retry == retryLimited || (f.retry == retryServer && spec.retry5xx):
 			if attempt < maxRetries {
-				wait := c.jitter(backoffDelay(attempt))
+				wait := c.jitter(backoff.Delay(attempt))
 				c.logger.Debug("Gmail API を再試行", slog.String("account_id", accountID),
 					slog.String("op", spec.name), slog.Int("attempt", attempt+1), slog.Int("status", f.status))
 				if err := c.sleep(ctx, wait); err != nil {
@@ -75,31 +71,5 @@ func (c *client) do(ctx context.Context, accountID string, spec callSpec, op fun
 			}
 		}
 		return wrapFailure(spec.name, f)
-	}
-}
-
-// backoffDelay は attempt 回目（0 始まり）の再試行前の待ち時間の上限（1 秒から倍々、最大 60 秒）。
-func backoffDelay(attempt int) time.Duration {
-	d := backoffBase << attempt
-	if d <= 0 || d > backoffMax {
-		return backoffMax
-	}
-	return d
-}
-
-// fullJitter は [0, d] の一様乱数（フルジッタ）。
-func fullJitter(d time.Duration) time.Duration {
-	return time.Duration(rand.Int64N(int64(d) + 1)) //nolint:gosec // バックオフのジッタに暗号論的乱数は不要
-}
-
-// sleepCtx は d だけ待つ。ctx がキャンセルされたら即座にそのエラーを返す。
-func sleepCtx(ctx context.Context, d time.Duration) error {
-	t := time.NewTimer(d)
-	defer t.Stop()
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-t.C:
-		return nil
 	}
 }

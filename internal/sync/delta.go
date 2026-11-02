@@ -9,7 +9,10 @@ import (
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
-const labelUnread = "UNREAD"
+const (
+	labelUnread = "UNREAD"
+	labelDraft  = "DRAFT"
+)
 
 // deltaSync は history.list の差分を反映する。途中で失敗したら history_id は進めない（呼び出し側が保存しない）。
 func (s *Scheduler) deltaSync(ctx context.Context, cyc *cycle, st store.SyncState) (store.SyncState, error) {
@@ -22,11 +25,11 @@ func (s *Scheduler) deltaSync(ctx context.Context, cyc *cycle, st store.SyncStat
 	if err != nil {
 		return st, err
 	}
+	if cyc.acct.NotifyEnabled {
+		cyc.candidates = candidatesOf(hp.Added)
+	}
 	if err := s.ingest(ctx, cyc, fs); err != nil {
 		return st, err
-	}
-	if cyc.acct.NotifyEnabled {
-		s.detectNew(ctx, cyc, hp.Added)
 	}
 	if hp.LatestHistoryID != "" {
 		st.HistoryID = hp.LatestHistoryID
@@ -45,40 +48,47 @@ func changedThreads(hp gmail.HistoryPage) []string {
 	return dedupe(ids)
 }
 
-// detectNew は新着通知を cyc.notices に集める。messagesAdded かつ INBOX＋UNREAD かつ新規メッセージのスレッドを
-// 1 スレッド 1 通知にする。差出人・件名は DB 行から取る。
-func (s *Scheduler) detectNew(ctx context.Context, cyc *cycle, added []gmail.HistoryAdded) {
-	notified := map[string]struct{}{}
+// candidatesOf は通知候補（messagesAdded かつ INBOX＋UNREAD。DRAFT は除く）をメッセージ ID で引ける形にする。
+func candidatesOf(added []gmail.HistoryAdded) map[string]gmail.HistoryAdded {
+	out := map[string]gmail.HistoryAdded{}
 	for _, ad := range added {
-		if _, done := notified[ad.ThreadID]; done {
-			continue
+		if slices.Contains(ad.LabelIDs, labelInbox) && slices.Contains(ad.LabelIDs, labelUnread) &&
+			!slices.Contains(ad.LabelIDs, labelDraft) {
+			out[ad.MessageID] = ad
 		}
-		if !slices.Contains(ad.LabelIDs, labelInbox) || !slices.Contains(ad.LabelIDs, labelUnread) {
-			continue
-		}
-		if !cyc.isNew(ad.ThreadID, ad.MessageID) {
-			continue
-		}
-		row, err := s.store.GetThread(ctx, cyc.acct.ID, ad.ThreadID)
-		if err != nil {
-			s.log.Warn("get thread for notice failed", "account", cyc.acct.ID, "err", err)
-			continue
-		}
-		notified[ad.ThreadID] = struct{}{}
-		from := row.LastFrom.Name
-		if from == "" {
-			from = row.LastFrom.Email
-		}
-		name := cyc.acct.DisplayName
-		if name == "" {
-			name = cyc.acct.Email
-		}
-		cyc.notices = append(cyc.notices, notify.NewMailNotice{
-			AccountID:   cyc.acct.ID,
-			AccountName: name,
-			ThreadID:    ad.ThreadID,
-			FromName:    from,
-			Subject:     row.Subject,
-		})
 	}
+	return out
+}
+
+// collectNotice は ApplyThread 直後に呼び、新規メッセージが通知候補なら通知を集める。
+// スレッドを反映するたびに集めるので、後続のスレッドで周期が失敗しても通知は失われない。
+// 1 スレッド 1 通知にし、差出人・件名は DB 行から取る。
+func (s *Scheduler) collectNotice(ctx context.Context, cyc *cycle, threadID string, newIDs []string) {
+	if _, done := cyc.notified[threadID]; done {
+		return
+	}
+	if !slices.ContainsFunc(newIDs, func(id string) bool { _, ok := cyc.candidates[id]; return ok }) {
+		return
+	}
+	row, err := s.store.GetThread(ctx, cyc.acct.ID, threadID)
+	if err != nil {
+		s.log.Warn("get thread for notice failed", "account", cyc.acct.ID)
+		return
+	}
+	cyc.notified[threadID] = struct{}{}
+	from := row.LastFrom.Name
+	if from == "" {
+		from = row.LastFrom.Email
+	}
+	name := cyc.acct.DisplayName
+	if name == "" {
+		name = cyc.acct.Email
+	}
+	cyc.notices = append(cyc.notices, notify.NewMailNotice{
+		AccountID:   cyc.acct.ID,
+		AccountName: name,
+		ThreadID:    threadID,
+		FromName:    from,
+		Subject:     row.Subject,
+	})
 }

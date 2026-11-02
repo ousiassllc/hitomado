@@ -2,36 +2,62 @@ package appcore
 
 import (
 	"encoding/base64"
-	"net/url"
 	"regexp"
 	"strings"
 
 	"golang.org/x/net/html"
 
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/gmail/mimeparse"
 )
 
-var cidRef = regexp.MustCompile(`(?i)\bcid:([^"'\s)<>]+)`)
+var cidRef = regexp.MustCompile(`(?i)\bcid:([^"'\s()<>]+)`)
+
+// imageMIME は data: URL に埋め込んでよい MIME（image/* のみ。パラメータ・空白・大文字は不可）。
+var imageMIME = regexp.MustCompile(`^image/[a-z0-9.+-]+$`)
+
+// MaxInlineDataBytes は 1 メッセージで data: URL に置換する base64 の合計上限。超えた分は置換せず cid: のまま残す
+// （表示側で読み込めない＝ブロックされる）。
+const MaxInlineDataBytes = 10 << 20
 
 // InlineCIDImages は本文中の cid: 参照を、対応するインライン画像の data: URL に置換する。
-// 画像以外の MIME・対応する部品が無い参照はそのまま残す（フロントのサニタイズが落とす）。
+// 照合は収集側と同じ mimeparse.NormalizeCID（大文字小文字・山括弧・%エンコードを吸収）の完全一致。
+// 同じ cid は base64 を 1 回だけ作って使い回す。置換後の data: URL の合計（参照ごとに数える）が
+// MaxInlineDataBytes を超える分・画像以外の MIME・
+// 対応する部品が無い参照はそのまま残す（フロントのサニタイズが落とす）。
 func InlineCIDImages(body string, parts map[string]gmail.InlinePart) string {
 	if len(parts) == 0 || !strings.Contains(strings.ToLower(body), "cid:") {
 		return body
 	}
+	byCID := make(map[string]gmail.InlinePart, len(parts))
+	for k, p := range parts {
+		byCID[mimeparse.NormalizeCID(k)] = p
+	}
+	urls := map[string]string{} // 正規化 cid → data URL（"" は置換しない）
+	used := 0
 	return cidRef.ReplaceAllStringFunc(body, func(m string) string {
-		id := m[len("cid:"):]
-		part, ok := parts[id]
-		if !ok {
-			if dec, err := url.PathUnescape(id); err == nil {
-				part, ok = parts[dec]
-			}
+		id := mimeparse.NormalizeCID(m)
+		u, seen := urls[id]
+		if !seen {
+			u = dataURL(byCID[id])
+			urls[id] = u
 		}
-		if !ok || !strings.HasPrefix(strings.ToLower(part.MimeType), "image/") {
+		// 出力に含まれる分（参照のたびに本文へ埋め込まれる）を合計する。
+		if u == "" || used+len(u) > MaxInlineDataBytes {
 			return m
 		}
-		return "data:" + part.MimeType + ";base64," + base64.StdEncoding.EncodeToString(part.Data)
+		used += len(u)
+		return u
 	})
+}
+
+// dataURL は画像部品の data: URL を返す。画像でない・MIME が不正・データが空なら "" を返す。
+func dataURL(p gmail.InlinePart) string {
+	mime := strings.ToLower(p.MimeType)
+	if len(p.Data) == 0 || !imageMIME.MatchString(mime) {
+		return ""
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(p.Data)
 }
 
 var cssURL = regexp.MustCompile(`(?i)url\(\s*["']?\s*(https?:)?//`)

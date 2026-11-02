@@ -53,7 +53,7 @@ type Deps struct {
 	// QuitAck は AppService.AckBeforeQuit から呼ばれる（フロントの未保存下書き保存の完了通知。nil 可）。
 	QuitAck func()
 
-	// UpdateTicker は RunUpdateLoop の定期確認の間隔を供給する（返す stop は終了時に呼ぶ）。
+	// UpdateTicker は UpdateLoop の定期確認の間隔を供給する（返す stop は終了時に呼ぶ）。
 	// nil なら 24 時間ごと（NF-D03）。テストが差し替える。
 	UpdateTicker func() (tick <-chan time.Time, stop func())
 

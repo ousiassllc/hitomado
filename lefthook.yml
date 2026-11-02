@@ -6,9 +6,9 @@ pre-commit:
       run: golangci-lint run
     biome:
       glob: "*.{ts,vue,json,css}"
-      run: cd frontend && bunx biome check --staged --no-errors-on-unmatched
+      run: frontend/node_modules/.bin/biome check --staged --no-errors-on-unmatched
     linterly:
-      run: cd frontend && bunx linterly check {staged_files}
+      run: frontend/node_modules/.bin/linterly check {staged_files}
 
 pre-push:
   commands:

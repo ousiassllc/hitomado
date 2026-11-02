@@ -9,6 +9,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
@@ -96,4 +97,27 @@ func TestSearchValidation(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotNil(t, p.Items)
 	assert.NotNil(t, p.Failures)
+}
+
+func TestSearchIgnoresDraftsInSummary(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	m1 := apptest.Msg("m1", "hit1", at(1), "INBOX")
+	m2 := apptest.Msg("m2", "hit1", at(2), "INBOX", "UNREAD")
+	draft := apptest.Msg("md", "hit1", at(9), "DRAFT", "UNREAD")
+	draft.From = model.Address{Email: "a@x.example"}
+	draft.Snippet = "draft text"
+	e.PutRemoteThread(a.ID, "hit1", m1, m2, draft)
+	onlyDraft := apptest.Msg("md2", "hit2", at(10), "DRAFT")
+	e.PutRemoteThread(a.ID, "hit2", onlyDraft)
+
+	p, err := svc.Search(t.Context(), dto.SearchQuery{Q: "hit"})
+	require.NoError(t, err)
+	require.Len(t, p.Items, 1, "下書きだけのスレッドは結果に出さない")
+	it := p.Items[0]
+	assert.Equal(t, 2, it.MessageCount)
+	assert.Equal(t, at(2).UnixMilli(), it.LastMessageAt)
+	assert.Equal(t, "snippet m2", it.Snippet)
+	assert.Equal(t, "sender@example.com", it.LastFrom.Email)
+	assert.True(t, it.IsUnread)
 }

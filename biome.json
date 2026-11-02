@@ -3,6 +3,7 @@
   "files": {
     "includes": [
       "frontend/src/**",
+      "frontend/test/**",
       "frontend/*.ts",
       "frontend/package.json",
       "frontend/tsconfig.json",

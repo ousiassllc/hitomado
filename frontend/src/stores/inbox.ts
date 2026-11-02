@@ -20,6 +20,8 @@ import { useInboxSelection } from './inboxSelection'
 import { useUiStore } from './ui'
 
 const PAGE_SIZE = 50
+/** 行が 0 件のページが続いても 1 回の読み込みで辿る最大ページ数 */
+const MAX_EMPTY_PAGES = 10
 
 export const useInboxStore = defineStore('inbox', () => {
   const ui = useUiStore()
@@ -41,8 +43,8 @@ export const useInboxStore = defineStore('inbox', () => {
 
   let started = false
   let generation = 0
-  let stopEvents: (() => void) | undefined
-  let stopWatch: (() => void) | undefined
+  let countsSeq = 0
+  let unsubscribers: Array<() => void> = []
   let reloading = false
   let reloadDirty = false
   /** サーバー反映待ちで楽観的に除去した行。先頭ページの再取得で復活させない。 */
@@ -72,25 +74,16 @@ export const useInboxStore = defineStore('inbox', () => {
   }
 
   function fetchPage(cursor?: string): Promise<ThreadPage> {
-    const accountIds = [...filter.value.accountIds]
-    if (mode.value === 'search') {
-      return api(
-        InboxService.Search({ q: searchQuery.value, accountIds, limit: PAGE_SIZE, cursor }),
-      )
-    }
-    return api(
-      InboxService.ListInbox({
-        accountIds,
-        unreadOnly: filter.value.unreadOnly,
-        limit: PAGE_SIZE,
-        cursor,
-      }),
-    )
+    const base = { accountIds: [...filter.value.accountIds], limit: PAGE_SIZE, cursor }
+    if (mode.value === 'search') return api(InboxService.Search({ q: searchQuery.value, ...base }))
+    return api(InboxService.ListInbox({ unreadOnly: filter.value.unreadOnly, ...base }))
   }
 
   async function fetchUnreadCounts(): Promise<void> {
+    const seq = ++countsSeq
     try {
       const c = await api(InboxService.GetUnreadCounts())
+      if (seq !== countsSeq) return // より新しい取得が始まっている。古い応答で上書きしない
       unreadCounts.value = Object.fromEntries(Object.entries(c ?? {}).map(([k, v]) => [k, v ?? 0]))
     } catch {
       // 件数は補助表示。失敗は api() が共通状態に反映済み。
@@ -101,6 +94,7 @@ export const useInboxStore = defineStore('inbox', () => {
   async function load(): Promise<void> {
     const gen = ++generation
     loading.value = true
+    loadingMore.value = false // 進行中の loadMore は破棄される（その finally は世代違いで触らない）
     try {
       const page = await fetchPage()
       if (gen !== generation) return
@@ -121,6 +115,7 @@ export const useInboxStore = defineStore('inbox', () => {
     } finally {
       if (gen === generation) loading.value = false
     }
+    if (gen === generation && items.value.length === 0 && hasMore.value) await loadMore()
     if (mode.value === 'inbox') await fetchUnreadCounts()
   }
 
@@ -129,20 +124,24 @@ export const useInboxStore = defineStore('inbox', () => {
     const gen = generation
     loadingMore.value = true
     try {
-      const page = await fetchPage(nextCursor.value)
-      if (gen !== generation) return
-      const have = new Set(items.value.map(keyOf))
-      const more = list(page.items).filter(
-        (t) => !have.has(keyOf(t)) && !pendingRemoval.has(keyOf(t)),
-      )
-      items.value = [...items.value, ...more]
-      nextCursor.value = page.nextCursor || undefined
-      applyFailures(toFailures(page.failures))
+      // 条件に合う行が 0 件でも Gmail 側に続きがあれば NextCursor が返る。追加できるまで（上限付きで）続ける。
+      for (let i = 0; i < MAX_EMPTY_PAGES && hasMore.value; i++) {
+        const page = await fetchPage(nextCursor.value)
+        if (gen !== generation) return
+        const have = new Set(items.value.map(keyOf))
+        const more = list(page.items).filter(
+          (t) => !have.has(keyOf(t)) && !pendingRemoval.has(keyOf(t)),
+        )
+        items.value = [...items.value, ...more]
+        nextCursor.value = page.nextCursor || undefined
+        applyFailures(toFailures(page.failures))
+        if (more.length > 0) break
+      }
     } catch (e) {
       if ((e as AppError).code !== 'OFFLINE')
         ui.pushToast('error', common.op.loadFailed, () => void loadMore())
     } finally {
-      loadingMore.value = false
+      if (gen === generation) loadingMore.value = false
     }
   }
 
@@ -239,8 +238,6 @@ export const useInboxStore = defineStore('inbox', () => {
     await load()
   }
 
-  // ---- 起動・購読 ----
-
   function onSyncUpdated(_p: SyncUpdatedPayload): void {
     if (!ui.online) ui.setOnline(true)
     void reloadHead()
@@ -250,8 +247,10 @@ export const useInboxStore = defineStore('inbox', () => {
   async function start(): Promise<void> {
     if (started) return
     started = true
-    stopEvents = onEvent<SyncUpdatedPayload>(EVENTS.SYNC_UPDATED, onSyncUpdated)
-    stopWatch = watchRemovedAccounts(accounts, filter, setFilter)
+    unsubscribers = [
+      onEvent<SyncUpdatedPayload>(EVENTS.SYNC_UPDATED, onSyncUpdated),
+      watchRemovedAccounts(accounts, filter, setFilter),
+    ]
     try {
       const f = await api(AppService.GetInboxFilter())
       filter.value = { accountIds: list(f.accountIds), unreadOnly: f.unreadOnly === true }
@@ -262,10 +261,8 @@ export const useInboxStore = defineStore('inbox', () => {
   }
 
   function stop(): void {
-    stopEvents?.()
-    stopWatch?.()
-    stopEvents = undefined
-    stopWatch = undefined
+    for (const off of unsubscribers) off()
+    unsubscribers = []
     started = false
   }
 

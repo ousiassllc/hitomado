@@ -68,19 +68,6 @@ func TestUnknownAccountIsGenericError(t *testing.T) {
 	require.ErrorIs(t, err, ErrGeneric)
 }
 
-func TestRotatedRefreshTokenIsPersisted(t *testing.T) {
-	e := newTestEnv(t)
-	e.f.Token = func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, 200, map[string]any{"access_token": "at", "token_type": "Bearer", "expires_in": 3600, "refresh_token": "rt-rotated"})
-	}
-	e.f.HandleJSON("GET "+apiBase+"/profile", 200, profileOK())
-	_, err := e.c.Profile(context.Background(), testAccount)
-	require.NoError(t, err)
-	got, err := e.store.Get(secrets.RefreshTokenKey(testAccount))
-	require.NoError(t, err)
-	assert.Equal(t, "rt-rotated", got)
-}
-
 func TestForgetRereadsCredentials(t *testing.T) {
 	e := newTestEnv(t)
 	var seen []string
@@ -133,21 +120,6 @@ func TestRateLimitBackoffGrowsThenGivesUp(t *testing.T) {
 	assert.Len(t, e.f.Requests("GET", apiBase+"/profile"), maxRetries+1)
 }
 
-func TestBackoffCapsAtSixtySeconds(t *testing.T) {
-	assert.Equal(t, time.Second, backoffDelay(0))
-	assert.Equal(t, 32*time.Second, backoffDelay(5))
-	assert.Equal(t, 60*time.Second, backoffDelay(6))
-	assert.Equal(t, 60*time.Second, backoffDelay(80))
-}
-
-func TestFullJitterStaysWithinBound(t *testing.T) {
-	for range 200 {
-		d := fullJitter(4 * time.Second)
-		assert.GreaterOrEqual(t, d, time.Duration(0))
-		assert.LessOrEqual(t, d, 4*time.Second)
-	}
-}
-
 func TestRateLimitRecoversAfterRetry(t *testing.T) {
 	e := newTestEnv(t)
 	var calls atomic.Int32
@@ -192,17 +164,17 @@ func TestClientErrorIsGenericWithoutRetry(t *testing.T) {
 
 func TestSendDoesNotRetryServerErrors(t *testing.T) {
 	e := newTestEnv(t)
-	e.f.HandleJSON("POST "+apiBase+"/messages/send", 500, apiError(500, "backendError", "oops"))
+	e.f.HandleJSON("POST "+sendUpload, 500, apiError(500, "backendError", "oops"))
 	_, err := e.c.Send(context.Background(), testAccount, []byte("x"), "")
 	require.ErrorIs(t, err, ErrGeneric)
 	assert.Empty(t, e.sleeper.recorded())
-	assert.Len(t, e.f.Requests("POST", apiBase+"/messages/send"), 1)
+	assert.Len(t, e.f.Requests("POST", sendUpload), 1)
 }
 
 func TestSendRetriesRateLimit(t *testing.T) {
 	e := newTestEnv(t)
 	var calls atomic.Int32
-	e.f.Handle("POST "+apiBase+"/messages/send", func(w http.ResponseWriter, _ *http.Request) {
+	e.f.Handle("POST "+sendUpload, func(w http.ResponseWriter, _ *http.Request) {
 		if calls.Add(1) == 1 {
 			writeJSON(w, 429, apiError(429, "rateLimitExceeded", "slow"))
 			return

@@ -30,10 +30,14 @@ type cycle struct {
 	newMsgs  map[string]map[string]struct{}
 	contacts []model.Address
 	notices  []notify.NewMailNotice
+
+	// 新着通知の候補（messagesAdded のうち INBOX＋UNREAD。メッセージ ID → 追加情報）。通知しないときは nil。
+	candidates map[string]gmail.HistoryAdded
+	notified   map[string]struct{} // 通知済みスレッド（1 周期 1 スレッド 1 通知）
 }
 
 func newCycle(acct store.Account) *cycle {
-	return &cycle{acct: acct, newMsgs: map[string]map[string]struct{}{}}
+	return &cycle{acct: acct, newMsgs: map[string]map[string]struct{}{}, notified: map[string]struct{}{}}
 }
 
 func (c *cycle) markChanged(threadID string) {
@@ -43,11 +47,6 @@ func (c *cycle) markChanged(threadID string) {
 		}
 	}
 	c.changed = append(c.changed, threadID)
-}
-
-func (c *cycle) isNew(threadID, messageID string) bool {
-	_, ok := c.newMsgs[threadID][messageID]
-	return ok
 }
 
 // syncAccount は 1 周期（状態 syncing→active／needs_reauth／error）を実行する。呼び出し側が a.syncMu を保持する。
@@ -120,6 +119,18 @@ func classify(err error) (status, msg string) {
 	}
 }
 
+// errKind は機密を含み得るエラーを、ログに出せる固定の種別へ丸める。
+func errKind(err error) string {
+	switch {
+	case errors.Is(err, context.Canceled):
+		return "canceled"
+	case errors.Is(err, context.DeadlineExceeded):
+		return "timeout"
+	default:
+		return "other"
+	}
+}
+
 func (s *Scheduler) emitStatus(accountID, status, msg string) {
 	s.events.Emit(events.AccountStatus, events.AccountStatusPayload{AccountID: accountID, Status: status, Message: msg})
 }
@@ -136,11 +147,14 @@ func (s *Scheduler) publishStatus(ctx context.Context, a *account, cur store.Acc
 }
 
 // flush は 1 周期の最後に、新着通知・連絡先・トレイの未読・sync:updated を出す。
+// 周期が途中で失敗しても、反映済みスレッドの分は出す。通知は at-most-once:
+// 反映済みスレッドは次周期の再適用で「新規」にならないため、この周期で出さなければ二度と出ない。
 func (s *Scheduler) flush(ctx context.Context, cyc *cycle) {
 	ctx = context.WithoutCancel(ctx)
 	for _, n := range cyc.notices {
 		if err := s.notifier.NewMail(ctx, n); err != nil {
-			s.log.Warn("notify failed", "account", n.AccountID, "err", err)
+			// トースト基盤のエラーには件名・差出人が含まれ得るため、内容は記録せず種別だけ残す（NF-S10）。
+			s.log.Warn("notify failed", "account", n.AccountID, "kind", errKind(err))
 		}
 	}
 	if len(cyc.contacts) > 0 {

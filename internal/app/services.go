@@ -12,9 +12,12 @@ type Services struct {
 	App     *AppService
 }
 
-// NewServices は共有状態（スレッド本文 LRU）を作り、各サービスを組み立てる。
+// NewServices は各サービスを組み立てる。共有のスレッド本文 LRU（d.Threads）が未設定なら作る
+// （同期のイベントで無効化するため、main は先に作って Emitter を包んでから渡す）。
 func NewServices(d *Deps) *Services {
-	d.Threads = threadcache.New(d.Gmail, threadcache.DefaultCapacity)
+	if d.Threads == nil {
+		d.Threads = threadcache.New(d.Gmail, threadcache.DefaultCapacity)
+	}
 	compose := NewComposeService(d)
 	return &Services{
 		Account: NewAccountService(d),

@@ -16,6 +16,7 @@ import (
 	"google.golang.org/api/option"
 
 	"github.com/ousiassllc/hitomado/internal/clock"
+	"github.com/ousiassllc/hitomado/internal/gmail/backoff"
 	"github.com/ousiassllc/hitomado/internal/gmail/tokenauth"
 	"github.com/ousiassllc/hitomado/internal/secrets"
 )
@@ -78,7 +79,7 @@ func NewClient(opts Options) (Client, error) {
 	if opts.Accounts == nil {
 		return nil, errors.New("gmail: Options.Accounts は必須です")
 	}
-	c := &client{opts: opts, clock: opts.Clock, logger: opts.Logger, sleep: opts.Sleep, jitter: fullJitter, accts: map[string]*account{}}
+	c := &client{opts: opts, clock: opts.Clock, logger: opts.Logger, sleep: opts.Sleep, jitter: backoff.FullJitter, accts: map[string]*account{}}
 	if c.clock == nil {
 		c.clock = clock.System{}
 	}
@@ -86,7 +87,7 @@ func NewClient(opts Options) (Client, error) {
 		c.logger = slog.New(slog.DiscardHandler)
 	}
 	if c.sleep == nil {
-		c.sleep = sleepCtx
+		c.sleep = backoff.Sleep
 	}
 	c.base = opts.HTTPClient
 	if c.base == nil {

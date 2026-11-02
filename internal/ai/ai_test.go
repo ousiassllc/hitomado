@@ -246,3 +246,24 @@ func TestDefaultEndpoints(t *testing.T) {
 type roundTripFunc func(*http.Request) (*http.Response, error)
 
 func (f roundTripFunc) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func TestNewRejectsUnsafeBaseURL(t *testing.T) {
+	bad := []string{
+		"https://user:pass@llm.example.com/v1",
+		"https://user@llm.example.com/v1",
+		"https://llm.example.com/v1?key=secret",
+		"https://llm.example.com/v1?",
+		"https://llm.example.com/v1#frag",
+		"https://llm.example.com/v1#",
+	}
+	for _, u := range bad {
+		_, err := ai.New("openai", "m", u, "k")
+		require.Error(t, err, u)
+		assert.NotContains(t, err.Error(), "secret")
+		assert.NotContains(t, err.Error(), "pass")
+	}
+	for _, u := range []string{"http://192.168.0.5:11434/v1", "http://localhost:1234/v1", "https://llm.example.com/v1/"} {
+		_, err := ai.New("openai", "m", u, "k")
+		require.NoError(t, err, u)
+	}
+}

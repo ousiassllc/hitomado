@@ -12,7 +12,6 @@ const HTTPS_URL = /^https:\/\//i
 // 実行・外部読み込み・ローダー系。見つかった宣言は丸ごと除去する。
 const BLOCKED =
   /expression\s*\(|behaviou?r\s*:|-moz-binding|@import|javascript:|vbscript:|image-set\s*\(|\bsrc\s*\(|\bimage\s*\(|\belement\s*\(|\bpaint\s*\(/i
-const URL_FN = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/gi
 // 入れ子のルールを持つ at-rule（本体をルールとして再帰処理する）
 const NESTED_AT = /^@(?:-\w+-)?(?:media|supports|layer|container|document|keyframes)\b/i
 // 本体を宣言として扱う at-rule
@@ -44,6 +43,46 @@ function isAllowedUrl(raw: string, policy: CssPolicy): boolean {
   return policy.allowRemoteImages && HTTPS_URL.test(v)
 }
 
+const WS = /[\s]/
+
+function skipWs(s: string, from: number): number {
+  let i = from
+  while (i < s.length && WS.test(s[i] as string)) i++
+  return i
+}
+
+/**
+ * 宣言中の `url(` をすべて手書きでスキャンして検査する（線形時間。正規表現の入れ子量指定子は使わない）。
+ * `)` で閉じない `url(`・引用符が閉じない／閉じ括弧の前に余計な文字がある `url(` が 1 つでもあれば false。
+ * 失敗したら即座に打ち切るので、不正な入力でも全体で O(n)。
+ */
+function urlsAllowed(decoded: string, policy: CssPolicy): boolean {
+  const re = /url\(/gi
+  let from = 0
+  for (;;) {
+    re.lastIndex = from
+    const m = re.exec(decoded)
+    if (!m) return true
+    let i = skipWs(decoded, m.index + 4)
+    let value: string
+    const q = decoded[i]
+    if (q === '"' || q === "'") {
+      const end = decoded.indexOf(q, i + 1)
+      if (end < 0) return false
+      value = decoded.slice(i + 1, end)
+      i = skipWs(decoded, end + 1)
+      if (decoded[i] !== ')') return false
+    } else {
+      const end = decoded.indexOf(')', i)
+      if (end < 0) return false
+      value = decoded.slice(i, end)
+      i = end
+    }
+    if (!isAllowedUrl(value, policy)) return false
+    from = i + 1
+  }
+}
+
 function isSafeDeclaration(decl: string, policy: CssPolicy): boolean {
   const decoded = decodeEscapes(decl)
   if (BLOCKED.test(decoded)) return false
@@ -51,10 +90,7 @@ function isSafeDeclaration(decl: string, policy: CssPolicy): boolean {
   if (n === 0) return true
   // エスケープで url( を隠した宣言は除去する
   if (urlCount(decl) !== n) return false
-  for (const m of decoded.matchAll(URL_FN)) {
-    if (!isAllowedUrl(m[1] ?? m[2] ?? m[3] ?? '', policy)) return false
-  }
-  return true
+  return urlsAllowed(decoded, policy)
 }
 
 /** 引用符・括弧の外にある sep で分割する。 */

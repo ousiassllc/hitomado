@@ -60,7 +60,7 @@ func (s *Service) PrepareSend(ctx context.Context, sessionID string, content dto
 	return dto.SendPreview{
 		ConfirmToken:    string(tok),
 		ExpiresAt:       exp.UnixMilli(),
-		From:            dto.PreviewFrom{Address: model.Address{Name: acct.DisplayName, Email: acct.Email}, AccountID: acct.ID, Color: acct.Color},
+		From:            dto.PreviewFrom{Address: model.Address{Name: foldLine(acct.DisplayName), Email: acct.Email}, AccountID: acct.ID, Color: acct.Color},
 		To:              c.To,
 		Cc:              c.Cc,
 		Bcc:             c.Bcc,
@@ -125,9 +125,9 @@ func (s *Service) Send(ctx context.Context, sessionID, confirmToken string, cont
 		return dto.SendResult{}, err
 	}
 	raw, err := gmail.BuildMIME(model.OutgoingMessage{
-		From: model.Address{Name: acct.DisplayName, Email: acct.Email},
+		From: model.Address{Name: foldLine(acct.DisplayName), Email: acct.Email},
 		To:   c.To, Cc: c.Cc, Bcc: c.Bcc,
-		Subject: c.Subject, BodyHTML: c.BodyHTML,
+		Subject: c.Subject, BodyHTML: bodyhtml.StripMarkers(c.BodyHTML), // 宛先に内部マーカーを届けない
 		InReplyTo: view.inReplyTo, References: view.references,
 		Attachments: atts, Date: s.d.Clock.Now(),
 	})
@@ -138,6 +138,11 @@ func (s *Service) Send(ctx context.Context, sessionID, confirmToken string, cont
 		return dto.SendResult{}, apperr.FromInfra(ctx.Err(), view.accountID)
 	}
 	defer cs.io.unlock()
+	// ロック待ちの間に SaveDraft が下書きを作成・更新した可能性があるので、最新の値を読み直す
+	// （古い値のままだと送信済みの下書きが残る）。
+	s.mu.Lock()
+	view.draftID, view.draftAcctID = cs.draftID, cs.draftAcctID
+	s.mu.Unlock()
 
 	msg, err := s.d.Gmail.Send(ctx, view.accountID, raw, view.sendThreadID)
 	if err != nil {

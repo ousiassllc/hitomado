@@ -15,27 +15,38 @@ var errBadCursor = apperr.New(apperr.Validation, "cursor が正しくありま�
 
 // inboxCursorJSON はキーセットカーソルの中身。クライアントには base64url の不透明文字列として渡す。
 type inboxCursorJSON struct {
-	T int64  `json:"t"` // last_message_at（Unix ミリ秒）
-	A string `json:"a"`
-	I string `json:"i"`
+	T int64  `json:"t,omitempty"` // last_message_at（Unix ミリ秒）
+	A string `json:"a,omitempty"`
+	I string `json:"i,omitempty"`
+	Z bool   `json:"z,omitempty"` // 先頭（キーなし）を指す。条件に合う行が無いまま Gmail 側に続きがあるときの継続用
 }
 
-// EncodeInboxCursor は受信箱のキーセットカーソルを不透明文字列にする。
-func EncodeInboxCursor(c store.InboxCursor) string {
-	b, err := json.Marshal(inboxCursorJSON{T: c.LastMessageAt.UnixMilli(), A: c.AccountID, I: c.ThreadID})
+// EncodeInboxCursor は受信箱のキーセットカーソルを不透明文字列にする。nil は先頭を指すカーソル。
+func EncodeInboxCursor(c *store.InboxCursor) string {
+	j := inboxCursorJSON{Z: true}
+	if c != nil {
+		j = inboxCursorJSON{T: c.LastMessageAt.UnixMilli(), A: c.AccountID, I: c.ThreadID}
+	}
+	b, err := json.Marshal(j)
 	if err != nil {
 		return "" // 文字列と整数のみのため発生しない
 	}
 	return base64.RawURLEncoding.EncodeToString(b)
 }
 
-// DecodeInboxCursor は空文字なら nil を返す。不正なカーソルは VALIDATION。
+// DecodeInboxCursor は空文字・先頭を指すカーソルなら nil を返す。不正なカーソルは VALIDATION。
 func DecodeInboxCursor(s string) (*store.InboxCursor, error) {
 	if s == "" {
 		return nil, nil
 	}
 	var c inboxCursorJSON
-	if err := decodeCursor(s, &c); err != nil || c.A == "" || c.I == "" {
+	if err := decodeCursor(s, &c); err != nil {
+		return nil, errBadCursor
+	}
+	if c.Z {
+		return nil, nil
+	}
+	if c.A == "" || c.I == "" {
 		return nil, errBadCursor
 	}
 	return &store.InboxCursor{LastMessageAt: time.UnixMilli(c.T), AccountID: c.A, ThreadID: c.I}, nil

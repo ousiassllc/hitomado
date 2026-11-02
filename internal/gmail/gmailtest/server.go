@@ -6,9 +6,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -120,3 +123,46 @@ func (f *Server) URL() string { return f.srv.URL }
 
 // Close はサーバーを止める（ネットワーク不通のテスト用）。
 func (f *Server) Close() { f.srv.Close() }
+
+// Upload は media アップロード経路（/upload/…）で受けたリクエストの内容。
+type Upload struct {
+	UploadType string          // multipart または media
+	Metadata   json.RawMessage // multipart の JSON パート（media なら nil）
+	Media      []byte          // メディア本体（生 MIME）
+	MediaType  string          // メディア本体の Content-Type
+}
+
+// ParseUpload は記録済みリクエストを Upload として解釈する。
+func ParseUpload(t *testing.T, r Request) Upload {
+	t.Helper()
+	up := Upload{UploadType: r.Query.Get("uploadType")}
+	mt, params, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil {
+		t.Fatalf("Content-Type を解釈できない: %v", err)
+	}
+	if up.UploadType == "media" {
+		up.Media, up.MediaType = r.Body, mt
+		return up
+	}
+	if !strings.HasPrefix(mt, "multipart/") {
+		t.Fatalf("multipart でない Content-Type: %s", mt)
+	}
+	mr := multipart.NewReader(bytes.NewReader(r.Body), params["boundary"])
+	for i := 0; ; i++ {
+		p, err := mr.NextPart()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("multipart の解釈に失敗: %v", err)
+		}
+		data, _ := io.ReadAll(p)
+		switch i {
+		case 0:
+			up.Metadata = data
+		case 1:
+			up.Media, up.MediaType = data, p.Header.Get("Content-Type")
+		}
+	}
+	return up
+}

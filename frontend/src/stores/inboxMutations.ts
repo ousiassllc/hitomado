@@ -97,7 +97,11 @@ export function useInboxMutations(d: MutationDeps) {
       const failedRefs = failedRefsOf(err)
       const failed = failedRefs.length > 0 ? new Set(failedRefs.map(keyOf)) : undefined
       if (err.code === 'NOT_FOUND') {
-        d.ui.pushToast('info', common.op.threadGone)
+        // 存在しなかったスレッド（failedRefs、無ければ対象全件）は復元せず一覧から外す。成功分は除去のまま。
+        const gone = failed ?? keys
+        undo(new Set([...keys].filter((k) => !gone.has(k))))
+        d.items.value = d.items.value.filter((t) => !gone.has(keyOf(t)))
+        d.ui.pushToast('error', common.op.threadGone)
       } else {
         undo(failed)
         const retryRefs = failed ? failedRefs : refs

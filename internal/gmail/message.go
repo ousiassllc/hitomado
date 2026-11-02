@@ -94,9 +94,9 @@ func (c *client) joinSegments(ctx context.Context, accountID, messageID string, 
 // collectInlines は本文（HTML）が cid: で参照するインライン画像を取得して mf.InlineImages に入れる。
 // 参照されない画像と Content-Disposition: attachment の画像は添付一覧に回す。
 func (c *client) collectInlines(ctx context.Context, accountID, messageID string, inlines []mimeparse.InlineRef, mf *MessageFull) error {
-	lowerHTML := strings.ToLower(mf.BodyHTML)
+	refs := mimeparse.CIDReferences(mf.BodyHTML)
 	for _, in := range inlines {
-		referenced := strings.Contains(lowerHTML, "cid:"+strings.ToLower(in.CID))
+		referenced := refs[in.CID]
 		if (in.AsAttach || !referenced) && in.AttID != "" {
 			mf.Attachments = append(mf.Attachments, in.Info)
 		}

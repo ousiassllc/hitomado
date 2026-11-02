@@ -1,5 +1,14 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
-import { appError, base, failures, installMocks, ref, resetKit, responses, restoreMocks } from './inboxKit'
+import {
+  appError,
+  base,
+  failures,
+  installMocks,
+  ref,
+  resetKit,
+  responses,
+  restoreMocks,
+} from './inboxKit'
 
 installMocks()
 afterAll(restoreMocks)
@@ -37,7 +46,9 @@ describe('オフライン・要再接続', () => {
   test('ページの部分失敗（NEEDS_REAUTH）でもアカウント状態を更新する', async () => {
     responses.ListInbox = {
       items: base,
-      failures: [{ accountId: 'a2', error: { code: 'NEEDS_REAUTH', message: 'x', retryable: false } }],
+      failures: [
+        { accountId: 'a2', error: { code: 'NEEDS_REAUTH', message: 'x', retryable: false } },
+      ],
     }
     const s = useInboxStore()
     const accounts = useAccountsStore()

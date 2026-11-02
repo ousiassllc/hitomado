@@ -60,7 +60,7 @@ export function Reconnect(accountID: string): $CancellablePromise<dto$0.Account>
 
 /**
  * RemoveAccount はアカウントのデータ（DB・資格情報）を削除し、可能なら Google 側のトークンも失効させる。
- * revoke の失敗は無視する（削除は成功扱い）。
+ * DB の削除に成功してから同期ワーカーを止める（DB 削除に失敗したときは同期を続ける）。revoke の失敗は無視する。
  */
 export function RemoveAccount(accountID: string): $CancellablePromise<void> {
     return $Call.ByID(781556185, accountID);

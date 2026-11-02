@@ -75,6 +75,10 @@ func (s *AccountService) UpdateOAuthClient(ctx context.Context, id, name, client
 			return dto.OAuthClient{}, apperr.FromInfra(err, "")
 		}
 	}
+	// Client ID／Secret が変わると、このクライアントを使うアカウントの認証情報（キャッシュ済みトークン源）は古くなる。
+	if err := s.forgetClientAccounts(ctx, id); err != nil {
+		return dto.OAuthClient{}, err
+	}
 	// AccountCount を含む最新の行を一覧から引く。
 	list, err := s.d.Store.ListOAuthClients(ctx)
 	if err != nil {
@@ -90,11 +94,26 @@ func (s *AccountService) UpdateOAuthClient(ctx context.Context, id, name, client
 
 // DeleteOAuthClient は使用中でなければクライアントと Client Secret を削除する。
 func (s *AccountService) DeleteOAuthClient(ctx context.Context, id string) error {
+	// 削除できるのは使用中のアカウントが 0 件のときだけなので、認証情報キャッシュを破棄する対象はない。
 	if err := s.d.Store.DeleteOAuthClient(ctx, id); err != nil {
 		return apperr.FromInfra(err, "")
 	}
 	if err := s.d.Secrets.Delete(secrets.OAuthClientSecretKey(id)); err != nil {
 		logger(s.d).Warn("Client Secret の削除に失敗", "oauthClientId", id, "err", err)
+	}
+	return nil
+}
+
+// forgetClientAccounts は OAuth クライアント id を使うすべてのアカウントの Gmail 認証情報キャッシュを破棄する。
+func (s *AccountService) forgetClientAccounts(ctx context.Context, clientID string) error {
+	list, err := s.d.Store.ListAccounts(ctx)
+	if err != nil {
+		return apperr.FromInfra(err, "")
+	}
+	for _, a := range list {
+		if a.OAuthClientID == clientID {
+			forgetAccounts(s.d, a.ID)
+		}
 	}
 	return nil
 }

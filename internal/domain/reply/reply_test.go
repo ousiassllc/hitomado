@@ -180,3 +180,10 @@ func TestSubject(t *testing.T) {
 		})
 	}
 }
+
+func TestSubjectFoldsLineBreaks(t *testing.T) {
+	assert.Equal(t, "Re: a Bcc: x@y.example", Subject(model.ModeReply, "a\r\nBcc: x@y.example"))
+	assert.Equal(t, "Fwd: a b", Subject(model.ModeForward, "\na\n\nb\r"))
+	assert.Equal(t, "Re: x", Subject(model.ModeReply, "Re:\r\nx"), "接頭辞があれば重複させず、改行だけ畳む")
+	assert.Equal(t, "a b", Subject(model.ModeNew, "a\nb"))
+}

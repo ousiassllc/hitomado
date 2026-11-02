@@ -30,6 +30,8 @@ const title = computed(() => {
 const canAi = computed(() => session.value?.mode === 'reply' || session.value?.mode === 'reply_all')
 /** 送信確認の表示中・送信中はエディタを操作できない。 */
 const frozen = computed(() => compose.sending || compose.preview !== undefined)
+/** 本文エディタ: 送信確認中・送信中に加え、AI 生成中も読み取り専用（生成のキャンセルは可能）。 */
+const bodyFrozen = computed(() => frozen.value || compose.aiGenerating)
 
 const ccOpen = ref(false)
 const bccOpen = ref(false)
@@ -40,8 +42,19 @@ function onKeydown(e: KeyboardEvent): void {
   // Ctrl+Enter は送信確認を開く（確認なしの送信はできない）
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) {
     e.preventDefault()
-    if (compose.canSend && !frozen.value) void compose.prepareSend(false)
+    send(false)
   }
+}
+
+const toField = ref<InstanceType<typeof RecipientField>>()
+const ccField = ref<InstanceType<typeof RecipientField>>()
+const bccField = ref<InstanceType<typeof RecipientField>>()
+
+/** 入力途中の宛先を確定してから送信確認を開く（確定後の content を使う）。 */
+function send(archive: boolean): void {
+  if (!compose.canSend || frozen.value) return
+  for (const f of [toField, ccField, bccField]) f.value?.commitPending()
+  void compose.prepareSend(archive)
 }
 </script>
 
@@ -72,6 +85,7 @@ function onKeydown(e: KeyboardEvent): void {
       />
       <div class="to-row">
         <RecipientField
+          ref="toField"
           v-model="compose.content.to"
           class="to-field"
           :label="msg.fields.to"
@@ -85,6 +99,7 @@ function onKeydown(e: KeyboardEvent): void {
       </div>
       <RecipientField
         v-if="showCc"
+        ref="ccField"
         v-model="compose.content.cc"
         :label="msg.fields.cc"
         :account-id="session.accountId"
@@ -92,6 +107,7 @@ function onKeydown(e: KeyboardEvent): void {
       />
       <RecipientField
         v-if="showBcc"
+        ref="bccField"
         v-model="compose.content.bcc"
         :label="msg.fields.bcc"
         :account-id="session.accountId"
@@ -118,7 +134,7 @@ function onKeydown(e: KeyboardEvent): void {
     <RichTextEditor
       class="compose-editor"
       :html="compose.content.bodyHtml"
-      :editable="!frozen"
+      :editable="!bodyFrozen"
       @update:html="compose.content.bodyHtml = $event"
     />
 
@@ -138,7 +154,7 @@ function onKeydown(e: KeyboardEvent): void {
         variant="secondary"
         :disabled="!compose.canSend || frozen"
         :loading="compose.preparing || compose.sending"
-        @click="compose.prepareSend(true)"
+        @click="send(true)"
       >
         {{ msg.sendAndArchive }}
       </BaseButton>
@@ -146,7 +162,7 @@ function onKeydown(e: KeyboardEvent): void {
         variant="primary"
         :disabled="!compose.canSend || frozen"
         :loading="compose.preparing || compose.sending"
-        @click="compose.prepareSend(false)"
+        @click="send(false)"
       >
         {{ compose.sending ? msg.sending : msg.send }}
       </BaseButton>

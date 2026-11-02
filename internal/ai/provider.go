@@ -64,13 +64,16 @@ func NewWithClient(provider, model, baseURL, apiKey string, hc *http.Client) (Pr
 }
 
 // normalizeBase はベース URL を検証し、末尾の / を除く。空なら def。
+// http(s) 以外・host なし・userinfo・query・fragment を含む URL は拒否する。
 func normalizeBase(raw, def string) (string, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return def, nil
 	}
 	u, err := url.Parse(raw)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+	// 認証情報・クエリ・フラグメントは拒否する（API キーを URL に埋め込ませない）。
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" ||
+		u.User != nil || strings.ContainsAny(raw, "?#") {
 		return "", errors.New("ai: ベース URL が不正です")
 	}
 	return strings.TrimRight(raw, "/"), nil

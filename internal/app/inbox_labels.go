@@ -69,9 +69,7 @@ func (s *InboxService) ModifyLabels(ctx context.Context, ref dto.ThreadRef, addL
 	}
 	if err := s.d.Gmail.ModifyThread(ctx, ref.AccountID, ref.ThreadID, addLabelIDs, removeLabelIDs); err != nil {
 		if errors.Is(err, gmail.ErrNotFound) {
-			if derr := s.d.Store.DeleteThread(ctx, ref.AccountID, ref.ThreadID); derr != nil {
-				return dto.ThreadSummary{}, apperr.FromInfra(derr, ref.AccountID)
-			}
+			return dto.ThreadSummary{}, s.dropGone(ctx, ref.AccountID, ref.ThreadID)
 		}
 		return dto.ThreadSummary{}, gmailErr(s.d, ctx, ref.AccountID, err)
 	}
@@ -81,7 +79,7 @@ func (s *InboxService) ModifyLabels(ctx context.Context, ref dto.ThreadRef, addL
 		return dto.ThreadSummary{}, gmailErr(s.d, ctx, ref.AccountID, err)
 	}
 	if !found {
-		return dto.ThreadSummary{}, apperr.New(apperr.NotFound, "スレッドが見つかりません。").ForAccount(ref.AccountID)
+		return dto.ThreadSummary{}, threadGone(ref.AccountID)
 	}
 	return summaryFromRow(row), nil
 }

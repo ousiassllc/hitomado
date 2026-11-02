@@ -5,17 +5,12 @@ import (
 	"encoding/json"
 	"slices"
 	"strconv"
-	"time"
 
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/events"
 	"github.com/ousiassllc/hitomado/internal/store"
 	"github.com/ousiassllc/hitomado/internal/update"
 )
-
-// updateCheckInterval は定期的な新バージョン確認の間隔（NF-D03）。
-const updateCheckInterval = 24 * time.Hour
 
 // AppService はアプリ設定（受信箱フィルタ等）・バージョン・更新確認（バインディング仕様 §7）。
 type AppService struct{ d *Deps }
@@ -127,42 +122,6 @@ func updateInfo(current string, rel update.Release) dto.UpdateInfo {
 		return dto.UpdateInfo{}
 	}
 	return dto.UpdateInfo{Available: true, Version: rel.Version, URL: rel.URL}
-}
-
-// RunUpdateLoop は起動時と 24 時間ごとに（有効なときだけ）更新を確認し、新版なら update:available を発行する。
-// ctx のキャンセルまでブロックする。失敗は記録して次の周期に任せる。main.go が goroutine で呼ぶ。
-func (s *AppService) RunUpdateLoop(ctx context.Context) {
-	var tick <-chan time.Time
-	if s.d.UpdateTicker != nil {
-		var stop func()
-		tick, stop = s.d.UpdateTicker()
-		defer stop()
-	} else {
-		t := time.NewTicker(updateCheckInterval)
-		defer t.Stop()
-		tick = t.C
-	}
-	for {
-		s.checkAndEmit(ctx)
-		select {
-		case <-ctx.Done():
-			return
-		case <-tick:
-		}
-	}
-}
-
-func (s *AppService) checkAndEmit(ctx context.Context) {
-	info, err := s.CheckForUpdate(ctx)
-	if err != nil {
-		if ctx.Err() == nil {
-			logger(s.d).Info("更新確認に失敗", "err", err)
-		}
-		return
-	}
-	if info.Available {
-		s.d.Events.Emit(events.UpdateAvailable, events.UpdateAvailablePayload{Version: info.Version, URL: info.URL})
-	}
 }
 
 // AckBeforeQuit は終了前の保存が済んだことをトレイの終了処理（platform.Quitter）へ知らせる。

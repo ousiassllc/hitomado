@@ -182,3 +182,35 @@ func TestBuildDraftAllowsNoRecipients(t *testing.T) {
 	_, err = BuildDraft(m)
 	require.ErrorIs(t, err, ErrInvalid)
 }
+
+func TestBuildBccOnly(t *testing.T) {
+	for name, build := range map[string]func(model.OutgoingMessage) ([]byte, error){"Build": Build, "BuildDraft": BuildDraft} {
+		t.Run(name, func(t *testing.T) {
+			m := sampleOutgoing()
+			m.To, m.Cc = nil, nil
+			raw, err := build(m)
+			require.NoError(t, err)
+			head, _, _ := strings.Cut(string(raw), "\r\n\r\n")
+			assert.NotContains(t, head, "\r\nTo:")
+			assert.NotContains(t, head, "taro@example.com\r\nTo")
+			env := parseMIME(t, raw)
+			assert.Empty(t, env.GetHeader("To"))
+			assert.Empty(t, env.GetHeader("Cc"))
+			bcc, err := env.AddressList("Bcc")
+			require.NoError(t, err)
+			require.Len(t, bcc, 1)
+			assert.Equal(t, "bcc@example.org", bcc[0].Address)
+			assert.Equal(t, 1, strings.Count(head, "From:"))
+		})
+	}
+}
+
+func TestBuildCcOnlyKeepsCcWithoutTo(t *testing.T) {
+	m := sampleOutgoing()
+	m.To = nil
+	raw, err := Build(m)
+	require.NoError(t, err)
+	env := parseMIME(t, raw)
+	assert.Empty(t, env.GetHeader("To"))
+	assert.Equal(t, "cc@example.org", func() string { a, _ := env.AddressList("Cc"); return a[0].Address }())
+}

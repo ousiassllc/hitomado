@@ -7,7 +7,6 @@ tasks:
   build:
     summary: Builds the Windows executable (native Go cross-compilation, CGO off)
     deps:
-      - task: common:go:mod:tidy
       - task: common:build:frontend
         vars:
           BUILD_FLAGS:
@@ -24,7 +23,7 @@ tasks:
       - cmd: rm -f *.syso
         platforms: [linux, darwin]
     vars:
-      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui"{{end}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui{{if .VERSION}} -X main.version={{.VERSION}}{{end}}"{{end}}'
     env:
       GOOS: windows
       CGO_ENABLED: "0"

@@ -1,12 +1,26 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
-import { appError, callsOf, deferred, failures, gates, ids, installMocks, markGone, ref, resetKit, responses, restoreMocks, until, gone } from './inboxKit'
+import {
+  appError,
+  callsOf,
+  deferred,
+  failures,
+  gates,
+  gone,
+  ids,
+  installMocks,
+  markGone,
+  ref,
+  resetKit,
+  responses,
+  restoreMocks,
+  until,
+} from './inboxKit'
 
 installMocks()
 afterAll(restoreMocks)
 
 const { useInboxStore } = await import('../src/stores/inbox')
 const { useUiStore } = await import('../src/stores/ui')
-const { useAccountsStore } = await import('../src/stores/accounts')
 
 beforeEach(resetKit)
 
@@ -62,6 +76,30 @@ describe('楽観的更新', () => {
     gone.add('t1') // t1 はサーバー側で成功済み
     await s.trash([ref('a1', 't1'), ref('a2', 't3')])
     expect(ids(s)).toEqual(['t2', 't3', 't4'])
+  })
+
+  test('NOT_FOUND は failedRefs の行を復元せず一覧から除去し、「見つかりません」トーストを出す', async () => {
+    failures.Archive = appError('NOT_FOUND', { details: { failedRefs: [ref('a2', 't3')] } })
+    const s = useInboxStore()
+    const ui = useUiStore()
+    await s.load()
+    gone.add('t3') // サーバー側には存在しない
+    expect(await s.archive([ref('a1', 't1'), ref('a2', 't3')])).toBe(false)
+    expect(ids(s)).not.toContain('t3')
+    expect(ids(s)).toContain('t2')
+    expect(ui.toasts).toHaveLength(1)
+    expect(ui.toasts[0].message).toContain('見つかりません')
+    expect(ui.toasts[0].retry).toBeUndefined()
+  })
+
+  test('NOT_FOUND 以外の失敗は従来どおり復元＋再試行トースト', async () => {
+    failures.Archive = appError('GMAIL_ERROR')
+    const s = useInboxStore()
+    const ui = useUiStore()
+    await s.load()
+    await s.archive([ref('a2', 't3')])
+    expect(ids(s)).toContain('t3')
+    expect(typeof ui.toasts[0].retry).toBe('function')
   })
 
   test('markRead は即時に既読表示になり、失敗時は未読に戻る', async () => {
@@ -130,4 +168,3 @@ describe('楽観的更新', () => {
     expect(callsOf('Archive')).toHaveLength(0)
   })
 })
-

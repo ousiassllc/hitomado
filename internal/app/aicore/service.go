@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"net/url"
-	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -56,19 +54,6 @@ type storedAIConfig struct {
 	BaseURL  string `json:"baseUrl,omitempty"`
 }
 
-// consentEntry は同意 1 件。旧形式（単一プロバイダのオブジェクト）も読めるよう Provider/AgreedAt を持つ。
-type consentEntry struct {
-	Provider string `json:"provider"`
-	AgreedAt int64  `json:"agreedAt"`
-}
-
-// storedAIConsent は app_settings の ai.consent。複数プロバイダ分を Providers に持つ。
-type storedAIConsent struct {
-	Provider  string         `json:"provider,omitempty"`
-	AgreedAt  int64          `json:"agreedAt,omitempty"`
-	Providers []consentEntry `json:"providers,omitempty"`
-}
-
 func validProvider(p string) bool { return p == providerAnthropic || p == providerOpenAI }
 
 func (s *Service) loadConfig(ctx context.Context) (storedAIConfig, error) {
@@ -88,40 +73,6 @@ func (s *Service) loadConfig(ctx context.Context) (storedAIConfig, error) {
 	return cfg, nil
 }
 
-// loadConsentEntries は保存済みの同意（プロバイダごとに 1 件・重複なし）を返す。
-func (s *Service) loadConsentEntries(ctx context.Context) ([]consentEntry, error) {
-	out := []consentEntry{}
-	v, ok, err := s.d.Store.GetSetting(ctx, store.SettingAIConsent)
-	if err != nil {
-		return out, apperr.FromInfra(err, "")
-	}
-	if !ok {
-		return out, nil
-	}
-	var c storedAIConsent
-	if err := json.Unmarshal([]byte(v), &c); err != nil {
-		return out, apperr.Wrap(apperr.Internal, "AI の同意状態を読み込めません。", err)
-	}
-	for _, e := range append([]consentEntry{{Provider: c.Provider, AgreedAt: c.AgreedAt}}, c.Providers...) {
-		if validProvider(e.Provider) && !slices.ContainsFunc(out, func(o consentEntry) bool { return o.Provider == e.Provider }) {
-			out = append(out, e)
-		}
-	}
-	return out, nil
-}
-
-func (s *Service) loadConsent(ctx context.Context) ([]string, error) {
-	entries, err := s.loadConsentEntries(ctx)
-	if err != nil {
-		return []string{}, err
-	}
-	out := make([]string, 0, len(entries))
-	for _, e := range entries {
-		out = append(out, e.Provider)
-	}
-	return out, nil
-}
-
 // apiKey は資格情報ストアの API キー。未設定は ok=false。
 func (s *Service) apiKey(provider string) (key string, ok bool, err error) {
 	key, err = s.d.Secrets.Get(secrets.AIAPIKeyKey(provider))
@@ -139,7 +90,7 @@ func (s *Service) config(ctx context.Context) (dto.AIConfig, error) {
 	if err != nil {
 		return dto.AIConfig{}, err
 	}
-	consented, err := s.loadConsent(ctx)
+	consented, err := s.loadConsent(ctx, cfg)
 	if err != nil {
 		return dto.AIConfig{}, err
 	}
@@ -158,7 +109,7 @@ func errBadProvider() error {
 }
 
 // SetAIConfig は AI 設定を更新する。baseUrl は openai のみ有効で、http(s) の URL を要する
-// （anthropic のときは無視して保存しない）。
+// （userinfo・query・fragment は拒否。anthropic のときは無視して保存しない）。
 func (s *Service) SetAIConfig(ctx context.Context, provider, model, baseURL string) (dto.AIConfig, error) {
 	if !validProvider(provider) {
 		return dto.AIConfig{}, errBadProvider()
@@ -168,9 +119,8 @@ func (s *Service) SetAIConfig(ctx context.Context, provider, model, baseURL stri
 		baseURL = ""
 	}
 	if baseURL != "" {
-		u, err := url.Parse(baseURL)
-		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-			return dto.AIConfig{}, apperr.New(apperr.Validation, "Base URL は http:// または https:// で始まる URL を指定してください。")
+		if err := validateBaseURL(baseURL); err != nil {
+			return dto.AIConfig{}, err
 		}
 	}
 	b, err := json.Marshal(storedAIConfig{Provider: provider, Model: strings.TrimSpace(model), BaseURL: baseURL})
@@ -179,6 +129,10 @@ func (s *Service) SetAIConfig(ctx context.Context, provider, model, baseURL stri
 	}
 	if err := s.d.Store.SetSetting(ctx, store.SettingAIConfig, string(b)); err != nil {
 		return dto.AIConfig{}, apperr.FromInfra(err, "")
+	}
+	// 送信先（Base URL のホスト）が変わったプロバイダの同意は無効にする。API キーは維持する。
+	if err := s.pruneConsent(ctx, storedAIConfig{Provider: provider, Model: model, BaseURL: baseURL}); err != nil {
+		return dto.AIConfig{}, err
 	}
 	return s.config(ctx)
 }
@@ -205,28 +159,6 @@ func (s *Service) ClearAIApiKey(ctx context.Context, provider string) (dto.AICon
 	}
 	if err := s.d.Secrets.Delete(secrets.AIAPIKeyKey(provider)); err != nil {
 		return dto.AIConfig{}, apperr.Wrap(apperr.Internal, "API キーを削除できません。", err)
-	}
-	return s.config(ctx)
-}
-
-// RecordAIConsent は「スレッド内容が当該プロバイダへ送信される」ことへの同意を保存する（F-08）。
-func (s *Service) RecordAIConsent(ctx context.Context, provider string) (dto.AIConfig, error) {
-	if !validProvider(provider) {
-		return dto.AIConfig{}, errBadProvider()
-	}
-	entries, err := s.loadConsentEntries(ctx)
-	if err != nil {
-		return dto.AIConfig{}, err
-	}
-	if !slices.ContainsFunc(entries, func(e consentEntry) bool { return e.Provider == provider }) {
-		entries = append(entries, consentEntry{Provider: provider, AgreedAt: s.d.Clock.Now().UnixMilli()})
-	}
-	b, err := json.Marshal(storedAIConsent{Providers: entries})
-	if err != nil {
-		return dto.AIConfig{}, apperr.Wrap(apperr.Internal, "同意を保存できません。", err)
-	}
-	if err := s.d.Store.SetSetting(ctx, store.SettingAIConsent, string(b)); err != nil {
-		return dto.AIConfig{}, apperr.FromInfra(err, "")
 	}
 	return s.config(ctx)
 }

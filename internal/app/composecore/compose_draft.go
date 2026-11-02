@@ -36,7 +36,7 @@ func (s *Service) SaveDraft(ctx context.Context, sessionID string, content dto.C
 		return dto.SaveDraftResult{}, err
 	}
 	raw, err := gmail.BuildDraftMIME(model.OutgoingMessage{
-		From: model.Address{Name: acct.DisplayName, Email: acct.Email},
+		From: model.Address{Name: foldLine(acct.DisplayName), Email: acct.Email},
 		To:   validAddrs(c.To), Cc: validAddrs(c.Cc), Bcc: validAddrs(c.Bcc),
 		Subject: c.Subject, BodyHTML: c.BodyHTML,
 		InReplyTo: view.inReplyTo, References: view.references,

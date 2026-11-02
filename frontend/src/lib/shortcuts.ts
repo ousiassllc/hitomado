@@ -22,6 +22,8 @@ export interface KeyInfo {
   ctrlKey: boolean
   metaKey: boolean
   altKey: boolean
+  /** キーの押しっぱなしによる自動リピート */
+  repeat: boolean
   /** input / textarea / select / contenteditable（エディタ）上のイベント */
   inEditable: boolean
   /** Enter が本来の動作を持つ要素（ボタン・リンク・メニュー項目など）上のイベント */
@@ -57,11 +59,30 @@ const SIMPLE: Record<string, ShortcutAction> = {
   '/': 'search',
 }
 
+/** 自動リピートを無視するアクション（j/k の移動・Esc などは許可）。 */
+const NO_REPEAT: ReadonlySet<ShortcutAction> = new Set([
+  'archive',
+  'trash',
+  'markRead',
+  'markUnread',
+  'compose',
+  'reply',
+  'replyAll',
+  'forward',
+])
+
 /**
  * キー入力をアクションに変換する。入力要素・ダイアログ表示中・Ctrl/Alt/Meta 併用は常に無効。
  * 単独キーのうち `Shift+i`／`Shift+u` と `#`（Shift を伴う記号）だけ Shift を許す。
  */
 export function resolveShortcut(ev: KeyInfo, ctx: ShortcutContext): ShortcutResult {
+  const r = resolveKey(ev, ctx)
+  // 押しっぱなしで操作が連発しないよう、状態を変える操作・作成は自動リピートを無視する
+  if (ev.repeat && r.action !== undefined && NO_REPEAT.has(r.action)) return { pendingG: false }
+  return r
+}
+
+function resolveKey(ev: KeyInfo, ctx: ShortcutContext): ShortcutResult {
   const none: ShortcutResult = { pendingG: false }
   if (ev.inEditable || ctx.dialogOpen || ev.ctrlKey || ev.metaKey || ev.altKey) return none
 
@@ -106,6 +127,7 @@ export function keyInfoOf(ev: KeyboardEvent): KeyInfo {
     ctrlKey: ev.ctrlKey,
     metaKey: ev.metaKey,
     altKey: ev.altKey,
+    repeat: ev.repeat,
     inEditable: isEditableElement(ev.target),
     onInteractive: isInteractiveElement(ev.target),
   }

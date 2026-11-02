@@ -47,8 +47,6 @@ tasks:
   generate:bindings:
     summary: Generates the TypeScript bindings (frontend/bindings)
     run: once
-    deps:
-      - task: go:mod:tidy
     cmds:
       - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true -ts -i
 

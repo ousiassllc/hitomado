@@ -35,17 +35,17 @@ func (s *AccountService) ListAccounts(ctx context.Context) ([]dto.Account, error
 }
 
 // RemoveAccount はアカウントのデータ（DB・資格情報）を削除し、可能なら Google 側のトークンも失効させる。
-// revoke の失敗は無視する（削除は成功扱い）。
+// DB の削除に成功してから同期ワーカーを止める（DB 削除に失敗したときは同期を続ける）。revoke の失敗は無視する。
 func (s *AccountService) RemoveAccount(ctx context.Context, accountID string) error {
 	if _, err := s.d.Store.GetAccount(ctx, accountID); err != nil {
 		return apperr.FromInfra(err, accountID)
 	}
 	token, _ := s.d.Secrets.Get(secrets.RefreshTokenKey(accountID)) // 無ければ revoke を省くだけ
 
-	s.d.Sync.Stop(accountID)
 	if err := s.d.Store.DeleteAccount(ctx, accountID); err != nil {
 		return apperr.FromInfra(err, accountID)
 	}
+	s.d.Sync.Stop(accountID)
 	if err := s.d.Secrets.Delete(secrets.RefreshTokenKey(accountID)); err != nil {
 		logger(s.d).Warn("リフレッシュトークンの削除に失敗", "accountId", accountID, "err", err)
 	}
@@ -54,6 +54,7 @@ func (s *AccountService) RemoveAccount(ctx context.Context, accountID string) er
 			logger(s.d).Info("トークンの revoke に失敗（無視）", "accountId", accountID, "err", err)
 		}
 	}
+	forgetAccounts(s.d, accountID)
 	if s.d.Threads != nil {
 		s.d.Threads.InvalidateAccount(accountID)
 	}

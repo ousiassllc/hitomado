@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 const (
 	labelInbox  = "INBOX"
 	labelUnread = "UNREAD"
+	labelDraft  = "DRAFT" // 下書きは保存せず、集計にも含めない（下書きは Gmail 側）
 )
 
 // ApplyThread は 1 スレッド分のスナップショットを 1 トランザクションで反映する。
@@ -70,6 +72,17 @@ func (s *sqlStore) ReplaceInbox(ctx context.Context, accountID string, snaps []T
 	})
 }
 
+// withoutDrafts は DRAFT ラベルを持つメッセージを除いた新しいスライスを返す。
+func withoutDrafts(msgs []MessageSnapshot) []MessageSnapshot {
+	out := make([]MessageSnapshot, 0, len(msgs))
+	for _, m := range msgs {
+		if !slices.Contains(m.LabelIDs, labelDraft) {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
 // threadAggregate は messages／message_labels（スナップショット）から導出する threads の集計値。
 type threadAggregate struct {
 	latest   MessageSnapshot
@@ -100,6 +113,15 @@ func aggregate(msgs []MessageSnapshot) threadAggregate {
 func applyThread(ctx context.Context, q *db.Queries, snap ThreadSnapshot, now time.Time) ([]string, error) {
 	if len(snap.Messages) == 0 {
 		return nil, errors.New("store: apply thread: snapshot has no messages")
+	}
+	// 呼び出し側の除外に頼らず、DRAFT のメッセージはここでも取り除く。
+	snap.Messages = withoutDrafts(snap.Messages)
+	if len(snap.Messages) == 0 {
+		// 下書きだけのスレッドは保存しない（既存の行があれば削除する）。
+		if _, err := q.DeleteThread(ctx, db.DeleteThreadParams{AccountID: snap.AccountID, ID: snap.ThreadID}); err != nil {
+			return nil, fmt.Errorf("store: apply thread: %w", err)
+		}
+		return []string{}, nil
 	}
 	agg := aggregate(snap.Messages)
 

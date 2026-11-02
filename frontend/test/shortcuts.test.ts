@@ -17,6 +17,7 @@ function key(k: string, extra: Partial<KeyInfo> = {}): KeyInfo {
     ctrlKey: false,
     metaKey: false,
     altKey: false,
+    repeat: false,
     inEditable: false,
     onInteractive: false,
     ...extra,
@@ -91,7 +92,26 @@ describe('resolveShortcut', () => {
   })
 
   test('g 待ち中にダイアログが開けば無効になり待ちも解除される', () => {
-    expect(resolveShortcut(key('i'), { dialogOpen: true, pendingG: true })).toEqual({ pendingG: false })
+    expect(resolveShortcut(key('i'), { dialogOpen: true, pendingG: true })).toEqual({
+      pendingG: false,
+    })
+  })
+})
+
+describe('自動リピート', () => {
+  test('操作系・作成系は無視し、j/k などの移動は許可する', () => {
+    for (const k of ['e', '#', 'r', 'a', 'f', 'c']) {
+      expect(resolveShortcut(key(k, { repeat: true }), idle)).toEqual({ pendingG: false })
+    }
+    expect(resolveShortcut(key('I', { shiftKey: true, repeat: true }), idle).action).toBeUndefined()
+    expect(resolveShortcut(key('U', { shiftKey: true, repeat: true }), idle).action).toBeUndefined()
+    expect(resolveShortcut(key('j', { repeat: true }), idle).action).toBe('next')
+    expect(resolveShortcut(key('k', { repeat: true }), idle).action).toBe('prev')
+    expect(resolveShortcut(key('Escape', { repeat: true }), idle).action).toBe('escape')
+  })
+
+  test('リピートでない最初の押下は通常どおり', () => {
+    expect(resolveShortcut(key('e'), idle).action).toBe('archive')
   })
 })
 

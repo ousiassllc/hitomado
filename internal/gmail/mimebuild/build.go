@@ -38,7 +38,9 @@ func buildMIME(m model.OutgoingMessage, requireRecipients bool) ([]byte, error) 
 	if err := validateOutgoing(m, requireRecipients); err != nil {
 		return nil, err
 	}
-	noRecipients := len(m.To)+len(m.Cc)+len(m.Bcc) == 0
+	// enmime は To／Cc のどちらも無いメッセージを組み立てられない（Bcc は宛先に数えない）。
+	// その場合は仮の To で組み立て、出力前に To ヘッダごと取り除く。
+	noVisibleTo := len(m.To)+len(m.Cc) == 0
 	text := m.BodyText
 	if text == "" {
 		text = textconv.HTMLToText(m.BodyHTML)
@@ -56,8 +58,7 @@ func buildMIME(m model.OutgoingMessage, requireRecipients bool) ([]byte, error) 
 		Text([]byte(text)).
 		HTML([]byte(m.BodyHTML)).
 		Header("Message-ID", newMessageID(m.From.Email))
-	if noRecipients {
-		// enmime は宛先ゼロを拒否するので、仮の宛先で組み立てて To ヘッダを取り除く。
+	if noVisibleTo {
 		b = b.To("", m.From.Email)
 	}
 	if len(m.Bcc) > 0 {
@@ -80,7 +81,7 @@ func buildMIME(m model.OutgoingMessage, requireRecipients bool) ([]byte, error) 
 	if err != nil {
 		return nil, fmt.Errorf("%w: MIME の構築に失敗しました", ErrInvalid)
 	}
-	if noRecipients {
+	if noVisibleTo {
 		root.Header.Del("To")
 	}
 	var buf bytes.Buffer

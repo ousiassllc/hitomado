@@ -219,3 +219,25 @@ func TestSaveAttachmentFilenameSanitizing(t *testing.T) {
 		assert.Equal(t, want, e.Files.Suggested[len(e.Files.Suggested)-1], "入力 %q", in)
 	}
 }
+
+func TestSaveAttachmentReplacesExistingFileAtomically(t *testing.T) {
+	svc, e, a := saveSetup(t)
+	dir := t.TempDir()
+	e.Files.Path = filepath.Join(dir, "out.pdf")
+	require.NoError(t, os.WriteFile(e.Files.Path, []byte("OLD"), 0o600)) // 上書き確認済みの既存ファイル
+	mref := dto.MessageRef{AccountID: a.ID, ThreadID: "t1", MessageID: "m1"}
+
+	// 取得に失敗しても、既存ファイルは壊さず・消さない。
+	_, err := svc.SaveAttachment(t.Context(), mref, "missing", "a.pdf")
+	_ = requireCode(t, apperr.AttachmentIO, err)
+	b, err := os.ReadFile(e.Files.Path)
+	require.NoError(t, err)
+	assert.Equal(t, "OLD", string(b))
+
+	_, err = svc.SaveAttachment(t.Context(), mref, "att1", "a.pdf")
+	require.NoError(t, err)
+	b, _ = os.ReadFile(e.Files.Path)
+	assert.Equal(t, "PDFDATA", string(b))
+	entries, _ := os.ReadDir(dir)
+	assert.Len(t, entries, 1, "一時ファイルを残さない")
+}

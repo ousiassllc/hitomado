@@ -44,7 +44,7 @@ func (s *InboxService) Trash(ctx context.Context, refs []dto.ThreadRef) ([]dto.T
 }
 
 // apply は refs をアカウントごとにまとめて op を実行し、Sync.RefreshThread で DB を更新して更新後サマリを返す。
-// Gmail で 404（すでに無い）のスレッドは DB から削除し、結果には含めない。
+// Gmail で 404 のスレッドは DB から削除し、NOT_FOUND として failedRefs に含める。
 // 1 件でも失敗したら、失敗した ref を details.failedRefs に載せた AppError で reject する（成功分は反映済み）。
 func (s *InboxService) apply(ctx context.Context, refs []dto.ThreadRef, op threadOp) ([]dto.ThreadSummary, error) {
 	out := make([]dto.ThreadSummary, 0, len(refs))
@@ -90,12 +90,12 @@ func (s *InboxService) apply(ctx context.Context, refs []dto.ThreadRef, op threa
 	}
 
 	var failed []map[string]string
-	var first error
-	for _, o := range outcomes {
+	var first *opOutcome // 代表エラー: NOT_FOUND 以外を優先する（NOT_FOUND は DB から除去済みで再試行不要）
+	for i, o := range outcomes {
 		switch {
 		case o.err != nil:
-			if first == nil {
-				first = o.err
+			if first == nil || (isNotFound(first.err) && !isNotFound(o.err)) {
+				first = &outcomes[i]
 			}
 			failed = append(failed, map[string]string{"accountId": o.ref.AccountID, "threadId": o.ref.ThreadID})
 		case o.sum != nil:
@@ -103,36 +103,40 @@ func (s *InboxService) apply(ctx context.Context, refs []dto.ThreadRef, op threa
 		}
 	}
 	if first != nil {
-		return nil, gmailErr(s.d, ctx, failedAccount(refs, outcomes), first).WithDetail("failedRefs", failed)
+		return nil, gmailErr(s.d, ctx, first.ref.AccountID, first.err).WithDetail("failedRefs", failed)
 	}
 	return out, nil
 }
 
-// failedAccount は最初に失敗した ref のアカウント ID。
-func failedAccount(refs []dto.ThreadRef, outcomes []opOutcome) string {
-	for i, o := range outcomes {
-		if o.err != nil {
-			return refs[i].AccountID
-		}
-	}
-	return ""
+func isNotFound(err error) bool {
+	var ae *apperr.Error
+	return errors.As(err, &ae) && ae.Code == apperr.NotFound
 }
 
-// applyOne は 1 スレッドに op を実行して DB を更新する。スレッドが Gmail に無ければ DB から削除して nil を返す。
+// applyOne は 1 スレッドに op を実行して DB を更新する。スレッドが Gmail に無ければ（404）DB から削除したうえで
+// NOT_FOUND を返す（F-04: 操作時の 404 は「スレッドが見つかりません」としてリストから除去する）。
 func (s *InboxService) applyOne(ctx context.Context, accountID, threadID string, op threadOp) (*dto.ThreadSummary, error) {
 	if err := op(ctx, accountID, threadID); err != nil {
-		if !errors.Is(err, gmail.ErrNotFound) {
-			return nil, err
+		if errors.Is(err, gmail.ErrNotFound) {
+			return nil, s.dropGone(ctx, accountID, threadID)
 		}
-		return nil, s.d.Store.DeleteThread(ctx, accountID, threadID)
+		return nil, err
 	}
 	row, found, err := s.d.Sync.RefreshThread(ctx, accountID, threadID)
 	if err != nil {
 		return nil, err
 	}
-	if !found {
-		return nil, nil
+	if !found { // 同期エンジンが DB からも削除済み
+		return nil, threadGone(accountID)
 	}
 	sum := summaryFromRow(row)
 	return &sum, nil
+}
+
+// dropGone は Gmail に無くなったスレッドを DB から削除し、NOT_FOUND を返す（削除に失敗したらそのエラーを返す）。
+func (s *InboxService) dropGone(ctx context.Context, accountID, threadID string) error {
+	if err := s.d.Store.DeleteThread(ctx, accountID, threadID); err != nil {
+		return apperr.FromInfra(err, accountID)
+	}
+	return threadGone(accountID)
 }

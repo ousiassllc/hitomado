@@ -1,7 +1,7 @@
 // メール本文のサニタイズと iframe 表示用の srcdoc 生成（components/overview.md §3.8、NF-S04/S05/S07）。
 // 純 TS。DOM は DOMPurify が使う window（ブラウザ／テストでは happy-dom）に依存する。
 import createPurify, { type Config, type DOMPurify } from 'dompurify'
-import { type CssPolicy, sanitizeDeclarations, sanitizeStyleSheet } from './sanitizeCss'
+import { type CssPolicy, sanitizeDeclarations, sanitizeStyleSheet } from './css'
 
 export interface SanitizeOptions {
   /**
@@ -45,10 +45,12 @@ const CONFIG: Config = {
     'canvas',
     'dialog',
     'template',
+    'map',
+    'area',
   ],
-  FORBID_ATTR: ['srcset', 'poster', 'action', 'formaction', 'ping', 'target'],
-  // リンクは http／https／mailto のみ（相対・フラグメント・tel・javascript・file などは href ごと除去）
-  ALLOWED_URI_REGEXP: /^(?:https?|mailto):/i,
+  FORBID_ATTR: ['srcset', 'poster', 'action', 'formaction', 'ping', 'target', 'usemap'],
+  // リンク（a[href]・area[href]）の制限は ALLOWED_URI_REGEXP ではなくフックで行う
+  // （ALLOWED_URI_REGEXP は width・align など URI 以外の属性値にも適用され、全部消えてしまう）。
   ALLOW_DATA_ATTR: false,
   ALLOW_ARIA_ATTR: false,
 }
@@ -58,10 +60,17 @@ let purify: DOMPurify | undefined
 let policy: CssPolicy = { allowRemoteImages: false }
 
 function isAllowedImageUrl(raw: string): boolean {
-  // biome-ignore lint/suspicious/noControlCharactersInRegex: 制御文字・空白を除いて検査する
-  const v = raw.replace(/[\u0000-\u0020\u007f]/g, '')
+  const v = stripUrl(raw)
   return DATA_IMAGE.test(v) || (policy.allowRemoteImages && HTTPS_URL.test(v))
 }
+
+// 制御文字・空白を除いて検査する（"jav\tascript:" 等の回避を許さない）
+function stripUrl(raw: string): string {
+  // biome-ignore lint/suspicious/noControlCharactersInRegex: 制御文字・空白を除いて検査する
+  return raw.replace(/[\u0000-\u0020\u007f]/g, '')
+}
+
+const OPENABLE_HREF = /^(?:https?|mailto):/i
 
 function cleanElement(el: Element): void {
   const style = el.getAttribute('style')
@@ -74,8 +83,11 @@ function cleanElement(el: Element): void {
     const v = el.getAttribute(name)
     if (v !== null && !isAllowedImageUrl(v)) el.removeAttribute(name)
   }
-  if (el.localName === 'a' && el.hasAttribute('href')) {
-    el.setAttribute('rel', 'noopener noreferrer')
+  // リンクは http／https／mailto のみ（相対・フラグメント・tel・javascript・file などは href ごと除去）
+  if ((el.localName === 'a' || el.localName === 'area') && el.hasAttribute('href')) {
+    if (OPENABLE_HREF.test(stripUrl(el.getAttribute('href') ?? '')))
+      el.setAttribute('rel', 'noopener noreferrer')
+    else el.removeAttribute('href')
   }
 }
 

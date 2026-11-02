@@ -82,6 +82,8 @@ export const useSettingsStore = defineStore('settings', () => {
       applyUpdate({ available: true, version: p.version, url: p.url })
     })
     await load()
+    // Go の起動時確認の `update:available` は購読前に発行され得る（再送なし）ため、ここで一度確認する。
+    if (appInfo.value?.updateCheckEnabled) await checkUpdateQuietly()
   }
 
   /** テスト・HMR 用の購読解除。 */
@@ -113,6 +115,21 @@ export const useSettingsStore = defineStore('settings', () => {
     if (!enabled) {
       update.value = undefined
       ui.clearBanner(UPDATE_BANNER_KEY)
+      return
+    }
+    await checkUpdateQuietly()
+  }
+
+  /**
+   * 背景での更新確認（起動時・ON 復帰時）。更新があるときだけ反映し、失敗（オフライン等）は通知しない。
+   * 手動確認は `checkUpdate` が結果とエラーを呼び出し側へ返す。
+   */
+  async function checkUpdateQuietly(): Promise<void> {
+    try {
+      const info = await call(AppService.CheckForUpdate())
+      if (info.available) applyUpdate(info)
+    } catch {
+      // 設定の変更・起動自体は成功している。次回の確認で再試行される。
     }
   }
 

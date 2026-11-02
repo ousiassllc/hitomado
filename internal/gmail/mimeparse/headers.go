@@ -5,6 +5,8 @@ import (
 	"io"
 	"mime"
 	"net/mail"
+	"net/url"
+	"regexp"
 	"strings"
 
 	"golang.org/x/net/html/charset"
@@ -100,4 +102,31 @@ func splitOutsideQuotes(v string) []string {
 		}
 	}
 	return append(out, v[start:])
+}
+
+// NormalizeCID は Content-ID と本文中の cid: 参照を同じ形に正規化する。
+// 前後の空白・山括弧・cid: 接頭辞を除き、パーセントデコードして小文字にする。
+func NormalizeCID(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.TrimSuffix(strings.TrimPrefix(s, "<"), ">")
+	if len(s) >= 4 && strings.EqualFold(s[:4], "cid:") {
+		s = s[4:]
+	}
+	s = strings.TrimSpace(s)
+	if d, err := url.PathUnescape(s); err == nil {
+		s = d
+	}
+	return strings.ToLower(s)
+}
+
+// cidRef は HTML 中の cid: 参照（属性値・CSS の url()）を切り出す。終端は引用符・空白・括弧・山括弧。
+var cidRef = regexp.MustCompile(`(?i)\bcid:([^"'\s()<>]+)`)
+
+// CIDReferences は HTML 中で cid: 参照されている Content-ID の集合を NormalizeCID 済みで返す。
+func CIDReferences(html string) map[string]bool {
+	out := map[string]bool{}
+	for _, m := range cidRef.FindAllStringSubmatch(html, -1) {
+		out[NormalizeCID(m[1])] = true
+	}
+	return out
 }

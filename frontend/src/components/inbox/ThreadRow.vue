@@ -128,10 +128,6 @@ const label = computed(
   overflow: hidden;
 }
 
-.row.faded .main {
-  opacity: 0.55;
-}
-
 .sender {
   flex: 1;
   min-width: 0;
@@ -188,5 +184,14 @@ const label = computed(
 .unread .sender,
 .unread .subject {
   font-weight: 700;
+}
+
+.row.faded .sender,
+.row.faded .subject,
+.row.faded .snippet,
+.row.faded .date,
+.row.faded .count {
+  color: var(--color-text-faded);
+  font-weight: 400;
 }
 </style>

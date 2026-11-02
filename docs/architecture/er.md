@@ -16,7 +16,7 @@
 
 - **ID**: ローカルで採番するテーブルの主キーは **ULID（TEXT）**。Gmail 由来の ID（スレッド・メッセージ・ラベル）は Gmail の文字列 ID を使い、アカウントをまたいで一意でないため **`account_id` との複合主キー**にする
 - **日時**: UTC の Unix ミリ秒（`INTEGER`）。**真偽値**: `INTEGER`（0／1、`CHECK (x IN (0,1))`）
-- **接続時 PRAGMA**: `foreign_keys = ON`、`journal_mode = WAL`、`busy_timeout = 5000`
+- **接続時 PRAGMA**: `foreign_keys = ON`、`journal_mode = WAL`、`busy_timeout = 5000`、`secure_delete = ON`（アカウント削除で消した件名・スニペットが空きページに残らないようにする）
 - **削除**: アカウント削除は子テーブルへ `ON DELETE CASCADE`（トークンは資格情報ストア側を別途削除）
 
 ## 2. 全体 ER 図
