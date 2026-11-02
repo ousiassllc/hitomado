@@ -81,8 +81,8 @@
 
 | ID | 区分 | 要件 |
 |----|------|------|
-| NF-D01 | 必須 | GitHub Releases に Windows 向けビルド成果物（exe または zip）を公開する |
-| NF-D02 | 必須 | コード署名は行わない。SmartScreen の警告が出ることを README に明記し、実行手順を案内する |
+| NF-D01 | 必須 | GitHub Releases に Windows 向けインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）と `SHA256SUMS.txt` を公開する。インストールは利用者ごと（管理者権限なし）で、スタートメニューへ登録し、「アプリと機能」からアンインストールでき、上書きインストールで更新できる。アンインストールは利用者のデータ（`%APPDATA%\Hitomado`・資格情報マネージャーの秘密）を消さない（[setup.md §4.3](../environment/setup.md#43-windows-インストーラー)）。版番号はインストーラー・アプリ・exe のプロパティで一致させる |
+| NF-D02 | 必須 | コード署名は行わない（インストーラーも）。SmartScreen の警告が出ることを README に明記し、実行手順と `SHA256SUMS.txt` での確認を案内する |
 | NF-D03 | 必須 | 起動時と 24 時間ごとに GitHub Releases API（`api.github.com/repos/ousiassllc/hitomado/releases/latest`）で最新版を確認し、新しければ設定画面・通知領域にリンクを表示する。自動ダウンロード・自動インストールは行わない。設定でオフにできる |
 | NF-D04 | 必須 | ビルドは GitHub Actions で再現可能にする |
 
@@ -119,3 +119,4 @@
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | NF-S04 の iframe `sandbox` を `allow-same-origin` のみ（スクリプト不可）に変更。§12 の AI プロバイダは未選択のため暫定採用と明記 | コンポーネント設計 §3.8 との整合、AI プロバイダ未確定の明示 |
 | 1.2 | 2026-11-02 | §12 の AI プロバイダを確定（Anthropic＋OpenAI 互換、既定は OpenAI）。「暫定・要レビュー」の表記と仮採用の説明を削除 | AI プロバイダの確定 |
+| 1.3 | 2026-11-02 | NF-D01・NF-D02 を zip／exe からインストーラー配布に変更（利用者ごと・上書き更新・アンインストールでデータを残す） | #10 |

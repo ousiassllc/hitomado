@@ -80,6 +80,25 @@ func TestLatest(t *testing.T) {
 	assert.Empty(t, gotCookie)
 }
 
+// 配布物がインストーラー（hitomado-vX.Y.Z-windows-amd64-setup.exe）と SHA256SUMS.txt になっても、
+// 更新確認はタグとリリースページだけで判定する（配布物名に依存しない）。
+func TestLatestIgnoresAssetNames(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"tag_name":"v0.1.2","html_url":"https://github.com/ousiassllc/hitomado/releases/tag/v0.1.2",
+			"assets":[
+				{"name":"hitomado-v0.1.2-windows-amd64-setup.exe","browser_download_url":"https://example.invalid/setup.exe"},
+				{"name":"SHA256SUMS.txt","browser_download_url":"https://example.invalid/SHA256SUMS.txt"}]}`))
+	}))
+	t.Cleanup(srv.Close)
+
+	rel, err := update.NewGitHub(update.Options{HTTPClient: srv.Client(), BaseURL: srv.URL}).Latest(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "0.1.2", rel.Version)
+	assert.Equal(t, "https://github.com/ousiassllc/hitomado/releases/tag/v0.1.2", rel.URL)
+	assert.True(t, update.IsNewer("0.1.1", rel.Version), "インストーラーが入れた版（0.1.1）より新しい")
+	assert.False(t, update.IsNewer("0.1.2", rel.Version), "同じ版では通知しない")
+}
+
 func TestLatestCustomRepoAndTagWithoutV(t *testing.T) {
 	var gotPath string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

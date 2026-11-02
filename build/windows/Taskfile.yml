@@ -3,6 +3,9 @@ version: '3'
 includes:
   common: ../Taskfile.yml
 
+# 版番号は、リリースではタグから v を除いた値を VERSION で渡す（例: wails3 package VERSION=0.1.1。既定は 0.0.0）。
+# exe の -X main.version、exe のファイルプロパティ、インストーラーの表示（DisplayVersion）が同じ値になる。
+# コマンドラインの VERSION はファイル先頭の vars からは見えないため、APP_VERSION は各タスクの vars に置く。
 tasks:
   build:
     summary: Builds the Windows executable (native Go cross-compilation, CGO off)
@@ -13,6 +16,9 @@ tasks:
             ref: .BUILD_FLAGS
           DEV:
             ref: .DEV
+    preconditions:
+      - sh: '{{if regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+$" .APP_VERSION}}true{{else}}false{{end}}'
+        msg: "VERSION must look like X.Y.Z (no leading v), got '{{.APP_VERSION}}'"
     cmds:
       - task: generate:syso
         vars:
@@ -23,17 +29,57 @@ tasks:
       - cmd: rm -f *.syso
         platforms: [linux, darwin]
     vars:
-      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui{{if .VERSION}} -X main.version={{.VERSION}}{{end}}"{{end}}'
+      APP_VERSION: '{{.VERSION | default "0.0.0"}}'
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui -X main.version={{.APP_VERSION}}"{{end}}'
     env:
       GOOS: windows
       CGO_ENABLED: "0"
       GOARCH: '{{.ARCH | default ARCH}}'
 
+  package:
+    summary: Builds the executable and the NSIS installer (bin/hitomado-vX.Y.Z-windows-amd64-setup.exe)
+    cmds:
+      - task: build
+        vars:
+          ARCH: amd64
+          DEV: '{{.DEV}}'
+      - task: installer:nsis
+
+  installer:nsis:
+    summary: Packs the already built bin/hitomado.exe into the per-user NSIS installer (needs makensis)
+    dir: build/windows/nsis
+    vars:
+      APP_VERSION: '{{.VERSION | default "0.0.0"}}'
+    preconditions:
+      - sh: '{{if regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+$" .APP_VERSION}}true{{else}}false{{end}}'
+        msg: "VERSION must look like X.Y.Z (no leading v), got '{{.APP_VERSION}}'"
+    cmds:
+      # WebView2 ランタイムが無い PC 向けに、インストーラーへ Microsoft のブートストラッパーを同梱する（実行時に取得済みなら何もしない）。
+      - wails3 generate webview2bootstrapper -dir "{{.ROOT_DIR}}/build/windows/nsis"
+      # 取得に失敗して空（または無い）ままだと、WebView2 の無い PC で空のブートストラッパーを実行する installer になる。
+      - '[ -s MicrosoftEdgeWebview2Setup.exe ] || { echo "MicrosoftEdgeWebview2Setup.exe is missing or empty" >&2; exit 1; }'
+      # NSIS の File は区切りが / と \ の混在だと Windows で見つけられないため、パスは OS の区切りにそろえる。
+      - makensis -V2 -DVERSION={{.APP_VERSION}} -DARG_EXE="{{fromSlash (printf "%s/%s/%s.exe" .ROOT_DIR .BIN_DIR .APP_NAME)}}" -DOUTFILE="{{fromSlash (printf "%s/%s/%s-v%s-windows-amd64-setup.exe" .ROOT_DIR .BIN_DIR .APP_NAME .APP_VERSION)}}" project.nsi
+
+  generate:info:
+    summary: Writes the Windows version resource (info.generated.json) with the release version
+    dir: build/windows
+    vars:
+      APP_VERSION: '{{.VERSION | default "0.0.0"}}'
+    cmds:
+      # Windows の task には cat などの外部コマンドが無いので、組み込みの printf だけで書く。
+      - >-
+        printf '{"fixed":{"file_version":"%s","product_version":"%s"},"info":{"0409":{"FileVersion":"%s","ProductVersion":"%s","CompanyName":"Ousias","FileDescription":"Hitomado - multi-account Gmail inbox","LegalCopyright":"Hitomado contributors, AGPL-3.0","ProductName":"Hitomado","Comments":"https://github.com/ousiassllc/hitomado"}}}\n'
+        '{{.APP_VERSION}}' '{{.APP_VERSION}}' '{{.APP_VERSION}}' '{{.APP_VERSION}}'
+        > info.generated.json
+
   generate:syso:
     summary: Generates Windows `.syso` file
     dir: build
+    deps:
+      - task: generate:info
     cmds:
-      - wails3 generate syso -arch {{.ARCH}} -icon windows/icon.ico -manifest windows/wails.exe.manifest -info windows/info.json -out ../wails_windows_{{.ARCH}}.syso
+      - wails3 generate syso -arch {{.ARCH}} -icon windows/icon.ico -manifest windows/wails.exe.manifest -info windows/info.generated.json -out ../wails_windows_{{.ARCH}}.syso
     vars:
       ARCH: '{{.ARCH | default ARCH}}'
 

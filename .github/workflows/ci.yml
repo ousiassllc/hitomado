@@ -95,26 +95,35 @@ jobs:
         name: Release version script
         run: bash .github/scripts/next-version_test.sh
 
+  # インストーラーまで作り、旧版 → 上書き → アンインストールを実機（windows-latest）で通す。
+  # 版は 0.99.1（旧）と 0.99.2（新）の固定値で、リリースの版とは無関係。exe に埋め込まれた版を
+  # 照合するため、他の文字列に現れにくい値にしている。
   build:
     needs: [lint, test]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Build the installer (old version)
+        uses: ./.github/actions/build-installer
         with:
-          go-version-file: go.mod
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
-      - name: Install tools
+          version: 0.99.1
+      - name: Keep the old build
         shell: bash
         run: |
-          go install github.com/wailsapp/wails/v3/cmd/wails3@"${WAILS_VERSION}"
-      - name: Build
+          mv bin/hitomado-v0.99.1-windows-amd64-setup.exe old-setup.exe
+          mv bin/hitomado.exe old-hitomado.exe
+      - name: Build the installer (new version)
         shell: bash
-        run: wails3 build
+        run: wails3 package VERSION=0.99.2
+      - name: Installer lifecycle (install, refuse while running, overwrite, uninstall)
+        shell: pwsh
+        run: >-
+          .github/scripts/test-installer.ps1 -Force
+          -OldInstaller "$PWD\old-setup.exe" -OldVersion 0.99.1 -OldExe "$PWD\old-hitomado.exe"
+          -NewInstaller "$PWD\bin\hitomado-v0.99.2-windows-amd64-setup.exe" -NewVersion 0.99.2
+          -Exe "$PWD\bin\hitomado.exe"
       - uses: actions/upload-artifact@v4
         with:
-          name: hitomado-windows-amd64
-          path: bin/hitomado.exe
+          name: hitomado-windows-amd64-setup
+          path: bin/hitomado-v0.99.2-windows-amd64-setup.exe
           if-no-files-found: error

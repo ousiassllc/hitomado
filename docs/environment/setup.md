@@ -27,8 +27,10 @@
 
 ```
 hitomado/
-├─ .github/scripts/          # next-version.sh（リリースのタグ決定）とそのテスト
+├─ .github/actions/build-installer/  # exe とインストーラーを作る共通手順（CI・リリースで共用）
+├─ .github/scripts/          # next-version.sh（リリースのタグ決定）とそのテスト、test-installer.ps1（インストーラーの検証）
 ├─ .github/workflows/        # ci.yml, release.yml
+├─ build/windows/nsis/       # project.nsi（NSIS インストーラー定義）
 ├─ .golangci.yml
 ├─ .linterly.yml
 ├─ .editorconfig
@@ -49,12 +51,13 @@ hitomado/
 |--------|------|------|
 | Go（1.26 系） | ビルド・テスト | https://go.dev/dl/ |
 | bun | フロントのパッケージ管理・スクリプト実行・テスト（`bun test`） | https://bun.sh |
-| Wails v3 CLI（`wails3`） | 開発サーバー・ビルド・バインディング生成 | `go install github.com/wailsapp/wails/v3/cmd/wails3@<固定バージョン>` |
+| Wails v3 CLI（`wails3`） | 開発サーバー・ビルド・パッケージ・バインディング生成 | `go install github.com/wailsapp/wails/v3/cmd/wails3@<固定バージョン>` |
 | sqlc | クエリのコード生成 | `go install github.com/sqlc-dev/sqlc/cmd/sqlc@<固定バージョン>` |
 | golangci-lint | Go の lint／format | 公式インストール手順に従う |
 | Lefthook | Git Hooks | `go install github.com/evilmartians/lefthook@<固定バージョン>` |
 | Task | タスクランナー | `go install github.com/go-task/task/v3/cmd/task@<固定バージョン>` |
 | Linterly | 行数チェック | `bun add -D @linterly/cli`（`bunx linterly` で実行） |
+| NSIS（`makensis`） | Windows インストーラーの作成（`task package`）。CI の windows-latest ではイメージに入っていればそれを使い、無ければ `choco install nsis --version=3.11`。使った版はビルドログの `makensis -VERSION` に出る | https://nsis.sourceforge.io/ |
 
 - goose はマイグレーションを `embed` してアプリ起動時に適用するため、**開発には CLI を必須としない**（SQL の雛形作成に使う場合のみ任意で導入）
 - Windows では WebView2 ランタイムが必要（Windows 11 は標準搭載）
@@ -77,7 +80,8 @@ task dev                        # 開発サーバー（wails3 dev）
 | タスク | 内容 |
 |--------|------|
 | `task dev` | `wails3 dev`（フロントは `bun run dev`） |
-| `task build` | `wails3 build`（Windows 向け成果物） |
+| `task build` | `wails3 build`（Windows 向け成果物。`VERSION=X.Y.Z` で版を埋め込む。既定は `0.0.0`） |
+| `task package` | `wails3 package VERSION=X.Y.Z`（`build` のあと NSIS で `bin/hitomado-vX.Y.Z-windows-amd64-setup.exe` を作る。§4.3） |
 | `task generate` | `sqlc generate` と `wails3 generate bindings` |
 | `task lint` | `golangci-lint run`、`bunx biome ci`、`bun run typecheck`、`bunx linterly check` |
 | `task fmt` | `golangci-lint fmt`、`bunx biome format --write` |
@@ -108,7 +112,7 @@ flowchart LR
 |--------|----------|------|
 | `lint` | ubuntu-latest | `go mod tidy -diff`、`golangci-lint run`、`bunx biome ci`、`vue-tsc --noEmit`、`bunx linterly check`、**生成物の差分検査**（`sqlc generate` と `wails3 generate bindings` のあと `git diff --exit-code`） |
 | `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため） |
-| `build` | windows-latest | `needs: [lint, test]`。`wails3 build` を実行し、成果物を Actions のアーティファクトに保存 |
+| `build` | windows-latest | `needs: [lint, test]`。`wails3 package` でインストーラーを作り（版 `0.99.1` と `0.99.2` の 2 つ）、`.github/scripts/test-installer.ps1` で **インストール → 起動中の上書き拒否 → 上書き → アンインストール** を実機で検証する（§4.3）。新しい方のインストーラーを Actions のアーティファクトに保存 |
 
 - セットアップ: `actions/setup-go`（`go.mod` のバージョン）、`oven-sh/setup-bun`、Go とフロントの依存キャッシュ
 - 生成物の差分検査: `wails3 generate bindings` は Linux でも動く。ただし GTK ヘッダが無い環境では cgo を使う既定の Linux バックエンドをビルドできないため、`CGO_ENABLED=0` と `-tags purego`（Wails v3.1.0 の CGO なし Linux バックエンド）を付ける。Go の lint・vet・test も ubuntu では同じ設定で実行する（Windows 向けビルドには影響しない）。
@@ -118,9 +122,41 @@ flowchart LR
 - トリガー: `main` への push（PR のマージ）。タグの push では動かさない。手でタグを打つ必要はない
 - 版番号: `.github/scripts/next-version.sh` が決める。最新の安定版タグ（`vX.Y.Z`。`-rc1` などハイフン付きは無視）から patch を 1 つ上げる（`v0.1.0` → `v0.1.1`）。安定版タグがまだ無ければ最初の版は `v0.1.0`。そのコミットに既に安定版タグがあれば（失敗した run の再実行）、それをそのまま使う。minor／major を上げる手順は定めていない（最新のタグを基準にするだけなので、より大きい版のタグがあれば次の patch はそこから上がる）。テストは `.github/scripts/next-version_test.sh`（CI の `test` ジョブ・ubuntu で実行）
 - 直列化: ワークフロー全体を `concurrency: release`（`cancel-in-progress: false`）で 1 本ずつ実行し、同時にマージされても版番号がぶつからない。待機中の run は最新の 1 本だけが残るため、間に挟まったコミットは単独のリリースにならず、次のリリースに含まれる
-- 内容: 同じコミットで `ci.yml`（lint・test・Windows ビルド）を呼んで通したうえで、windows-latest で `wails3 build VERSION=<タグから v を除いた値>`（`-X main.version` で実行ファイルに版を埋め込む。更新確認の比較に使う）→ zip と `SHA256SUMS.txt` を作り、`gh release create <タグ> --target <コミット>` でタグと GitHub Release を成果物つきで同時に作る（[NF-D01](../requirements/non-functional.md#8-配布更新)）。Release が既にある場合（失敗した run の再実行）は、タグが同じコミットを指すときだけ成果物を上書きし、別のコミットなら失敗させる。CI が落ちたらリリースは作られない。ビルドは `contents: read`、タグ作成と公開だけ `contents: write`。コード署名は行わない（NF-D02）
+- 内容: 同じコミットで `ci.yml`（lint・test・Windows ビルドとインストーラーの検証）を呼んで通したうえで、windows-latest で `wails3 package VERSION=<タグから v を除いた値>`（§4.3。`-X main.version`・exe のファイルバージョン・インストーラーの表示が同じ値になる。更新確認の比較に使う）→ インストーラー `hitomado-<タグ>-windows-amd64-setup.exe` と `SHA256SUMS.txt` を作り、`gh release create <タグ> --target <コミット>` でタグと GitHub Release を成果物つきで同時に作る（[NF-D01](../requirements/non-functional.md#8-配布更新)）。Release が既にある場合（失敗した run の再実行）は、タグが同じコミットを指すときだけ成果物を上書きし、別のコミットなら失敗させる。CI が落ちたらリリースは作られない。ビルドは `contents: read`、タグ作成と公開だけ `contents: write`。コード署名は行わない（NF-D02）
 - `ci.yml` は `main` への push では動かさない（`release.yml` が同じ CI を呼ぶ。両方で動かすと同じ ref の `concurrency` で互いにキャンセルする）。PR では従来どおり動く
 - マージは squash／rebase せず、マージコミット方式（リポジトリ規約）
+
+### 4.3 Windows インストーラー
+
+配布物は NSIS（`build/windows/nsis/project.nsi`）で作る単一のインストーラー。Wails v3 が標準で提供する方式（`wails3 package` の既定）で、WebView2 ブートストラッパーの同梱もテンプレートに揃っている。MSIX は署名（証明書）が前提で、署名しない方針（NF-D02）と合わないため採らない。
+
+| 項目 | 内容 |
+|------|------|
+| ファイル名 | `hitomado-vX.Y.Z-windows-amd64-setup.exe`（`SHA256SUMS.txt` を同じ Release に添付） |
+| 権限・場所 | 利用者ごと（`RequestExecutionLevel user`）。既定 `%LOCALAPPDATA%\Programs\Hitomado`。UAC は出ない |
+| ショートカット | スタートメニュー（必須）。デスクトップは任意（インストーラーのコンポーネント選択。既定はオフ、サイレントでも作らない） |
+| 「アプリと機能」 | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\jp.ousias.hitomado`（表示名・版・発行元・`InstallLocation`・`UninstallString`）。このキー名を変えると別アプリ扱いになり、上書き更新できなくなる |
+| 上書き更新 | 新しい版のインストーラーを実行するだけ。前回の `InstallLocation` に入り、exe と登録内容を置き換える。起動中の `hitomado.exe` は置き換えられないため（実行中の exe を書き込みで開けるかで判定）、画面ありなら終了を促して再試行させ、サイレント（`/S`）なら何も変えずエラーコード 5 を設定して中止する（CI で終了コード 5 を確認。ウイルス対策ソフトが exe を一時的に掴んでいる間も同じ扱いになるため、少し待って再実行する） |
+| 版番号 | `VERSION=X.Y.Z` 1 つから、`-X main.version`（アプリの表示・更新確認）、exe のファイルバージョン（`build/windows/info.generated.json` を `generate:syso` の前に書く。git 管理外）、インストーラーの表示と「アプリと機能」の `DisplayVersion` を作る。X.Y.Z 以外はビルドを失敗させる |
+| WebView2 | 無い PC ではインストーラーに同梱したブートストラッパー（Microsoft 配布。ビルド時に `wails3 generate webview2bootstrapper` で取得）で入れる |
+| 対応 | Windows 10 以降の x64 のみ。ARM64 は対象外（x64 エミュレーションで動くかは未確認のため、インストーラーは中止する。サイレントはエラーコード 64） |
+
+#### アンインストール時のデータの扱い
+
+**利用者のデータは消さない**（#10 で決定。変える場合はここと README を直す）。理由: リフレッシュトークンなどの秘密は資格情報マネージャーにあり、消すと再認証が必要になる。誤って消す・更新のためにいったん消す、といった操作でデータを失わせない。完全に消したい利用者向けの手順は README に書く。
+
+| 対象 | 場所 | アンインストールで |
+|------|------|--------------------|
+| プログラム本体・`uninstall.exe`・スタートメニュー／デスクトップのショートカット・「アプリと機能」の登録 | インストール先、スタートメニュー、HKCU | 消す |
+| インストール先フォルダ | `InstallLocation` | 空のときだけ消す（利用者が選んだフォルダの他のファイルを再帰削除しない） |
+| 通知用の登録（Wails の通知サービスが起動時に書く） | `HKCU\Software\Classes\AppUserModelId\Hitomado`、その `CustomActivator` の GUID の `HKCU\Software\Classes\CLSID\{GUID}`、`HKCU\Software\Hitomado\NotificationCategories`（と空になった `HKCU\Software\Hitomado`） | 消す（次の起動で作り直される） |
+| WebView2 のキャッシュ | `%APPDATA%\hitomado.exe`（Wails の既定。アプリは Web ストレージを使わないため、利用者のデータは入らない） | 消す |
+| DB・設定・ログ | `%APPDATA%\Hitomado\` | **残す** |
+| 資格情報（リフレッシュトークン・OAuth クライアントシークレット・AI の API キー） | Windows 資格情報マネージャー（ターゲット名 `Hitomado:hitomado/<種別>/<ID>`） | **残す** |
+
+#### 検証
+
+`.github/scripts/test-installer.ps1`（CI の `build` ジョブ、windows-latest）が、旧版（`0.99.1`）を入れる → 起動中（実行中の exe がある状態）の上書きが拒否され登録が変わらない → 新版（`0.99.2`）で上書きして `DisplayVersion`・exe の置き換え・exe のファイルバージョンと埋め込まれた `main.version`（exe 内の文字列。`-X` が効いていること）が新版になる → アンインストールでプログラム・ショートカット・登録が消え、`%APPDATA%\Hitomado` のデータは残る、を確認する。ローカルで実行するときは、実機のアプリと登録キー・`%APPDATA%\Hitomado` を共有するため、既に Hitomado が入っている PC では `-Force` を付けない限り動かない（使い捨ての環境で `-Force` を付ける。スクリプトが消すのは自分が作ったマーカーだけ）。GUI のウィザード（コンポーネント選択・完了ページ）は自動検証していない。
 
 ## 5. Lint
 
@@ -233,3 +269,4 @@ pre-push:
 | 1.2 | 2026-11-02 | §5.3 に preload・SFC ローダーの検証項目と Vitest 併用の代替を明記。§8 の pre-push に `vue-tsc` を追加 | `bun test` の前提（DOM・.vue）が未検証であること、template の型エラーを検出するため |
 | 1.3 | 2026-11-02 | §5.2・§5.3 の検証結果、ubuntu での purego 実行を反映。Linterly の除外を `.linterly.yml` の `ignore` に一本化（`.linterlyignore` は削除） | 実装（#1）での検証 |
 | 1.4 | 2026-11-02 | §4.1 の `ci.yml` から `main` への push トリガーを外し、§4.2 の `release.yml` を「`main` への push で patch を自動で上げて公開」に変更。タグ決定スクリプトとそのテストを追加 | 自動リリース（#8） |
+| 1.5 | 2026-11-02 | §4.3（Windows インストーラー: NSIS・利用者ごと・上書き更新・アンインストール時にデータを残す方針）を追加。§4.1 の `build` と §4.2 の成果物を zip からインストーラーに変更。`task package`・版番号の一元化（`VERSION`） | #10 |

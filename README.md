@@ -20,20 +20,41 @@
 
 ## インストール
 
-1. [Releases](https://github.com/ousiassllc/hitomado/releases) から最新の `hitomado-vX.Y.Z-windows-amd64.zip` をダウンロードして展開します（同じ Release の `SHA256SUMS.txt` でハッシュを確認できます）。
-2. `hitomado.exe` を実行します。インストーラーはありません。
-3. 初回は [OAuth クライアントを作成](#oauth-クライアントの作り方)し、アプリの設定 → OAuth クライアントに登録してから、アカウントを追加します。
+1. [Releases](https://github.com/ousiassllc/hitomado/releases) から最新の `hitomado-vX.Y.Z-windows-amd64-setup.exe` をダウンロードします。同じ Release の `SHA256SUMS.txt` でハッシュを確認できます（PowerShell: `Get-FileHash .\hitomado-vX.Y.Z-windows-amd64-setup.exe -Algorithm SHA256`）。
+2. ダウンロードしたインストーラーを実行します。**管理者権限は要りません**。利用者ごとに `%LOCALAPPDATA%\Programs\Hitomado` へ入ります（インストール先は画面で変えられます）。初回は [SmartScreen の警告](#smartscreen-の警告について)が出ることがあります。
+   - スタートメニューに「Hitomado」が登録されます。デスクトップのショートカットは、インストール時に選んだときだけ作られます。
+   - WebView2 ランタイムが無い PC では、インストーラーが一緒に入れます。
+3. スタートメニューの「Hitomado」から起動します。初回は [OAuth クライアントを作成](#oauth-クライアントの作り方)し、アプリの設定 → OAuth クライアントに登録してから、アカウントを追加します。
 
-動作環境: Windows 10（1809 以降）／Windows 11（x64）。WebView2 ランタイムが必要です（Windows 11 は標準搭載。未導入なら [Microsoft の配布ページ](https://developer.microsoft.com/microsoft-edge/webview2/) から入れてください）。
+動作環境: Windows 10（1809 以降）／Windows 11（x64。ARM64 は対象外）。WebView2 ランタイムが必要です（Windows 11 は標準搭載。未導入ならインストーラーが入れます）。
+
+### 更新
+
+- アプリは起動時と 24 時間ごとに新しい版を確認し、あれば設定画面などにリンクを出します（設定でオフにできます。自動ダウンロード・自動インストールはしません）。
+- 更新するには、新しい版のインストーラーをそのまま実行します（**上書きインストール**）。前回の場所に入り、データ・アカウント・設定はそのまま残ります。Hitomado が起動中なら、タスクトレイのアイコンから「終了」してから実行してください（起動中はインストーラーが先へ進めません）。
+- 版番号は、インストーラー・アプリの設定画面・「アプリと機能」・`hitomado.exe` のプロパティで同じ値です。
+
+### アンインストール
+
+「設定 → アプリ → インストールされているアプリ」（Windows 10 は「アプリと機能」）の「Hitomado」からアンインストールできます。Hitomado を終了してから実行してください。
+
+アンインストールで消えるのは、プログラム本体・ショートカット・登録情報だけです。**利用者のデータは消しません**。再インストールすればアカウントを登録し直さずに使えます。
+
+| 残るもの | 場所 | 内容 |
+|----------|------|------|
+| DB・設定・ログ | `%APPDATA%\Hitomado\` | メタデータのキャッシュ、アカウント・設定、ログ |
+| 資格情報 | Windows 資格情報マネージャー（「Windows 資格情報」の `Hitomado:` で始まる項目） | リフレッシュトークン、OAuth クライアントシークレット、AI の API キー |
+
+完全に消したいときは、先にアプリの設定でアカウントを削除し（Google 側のトークンも失効します）、アンインストール後に `%APPDATA%\Hitomado\` を削除し、資格情報マネージャーに `Hitomado:` で始まる項目が残っていれば削除してください。
 
 ### SmartScreen の警告について
 
-このアプリは**コード署名をしていません**。初回の実行時に「Windows によって PC が保護されました」という SmartScreen の警告が出ることがあります。
+このアプリ（インストーラーも）は**コード署名をしていません**。インストーラーの初回実行時（とダウンロード直後）に「Windows によって PC が保護されました」という SmartScreen の警告が出ることがあります。
 
 1. 警告画面の **「詳細情報」** をクリックします。
 2. 表示された **「実行」** をクリックします。
 
-ダウンロード元が [公式の Releases](https://github.com/ousiassllc/hitomado/releases) であることを確認してから実行してください。
+ダウンロード元が [公式の Releases](https://github.com/ousiassllc/hitomado/releases) であることと、`SHA256SUMS.txt` のハッシュが一致することを確認してから実行してください。
 
 ## OAuth クライアントの作り方
 
@@ -110,4 +131,4 @@ task check                      # CI と同等の検査（生成物の差分な�
 - 動作保証の対象は Windows です。Linux／macOS では Go の単体テスト・フロントのテスト・lint を実行できますが、アプリ本体の実行確認は Windows で行ってください。Linux で Go をビルド・テストするときは GTK を使わない `CGO_ENABLED=0 go test -tags purego ./...` を使います。
 - 仕様書は [docs/overview.md](docs/overview.md) のドキュメントマップから辿れます。
 - マージは squash／rebase せず、マージコミット方式です。コミットには `git commit -s`（Signed-off-by）を付けます。
-- リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けの成果物と `SHA256SUMS.txt` を Releases に添付します（コード署名なし）。手でタグを打つ必要はありません。
+- リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けのインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）と `SHA256SUMS.txt` を Releases に添付します（コード署名なし）。手元でインストーラーを作るときは、Windows で [NSIS](https://nsis.sourceforge.io/)（`makensis`）を入れて `task package VERSION=X.Y.Z` を実行します（`bin/` に出力）。手でタグを打つ必要はありません。
