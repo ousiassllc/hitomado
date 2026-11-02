@@ -35,6 +35,13 @@ mock.module(BINDINGS, () => ({
     CheckForUpdate: binding('CheckForUpdate'),
   },
   ThreadService: { OpenExternal: binding('OpenExternal') },
+  MCPService: {
+    GetMCPStatus: binding('GetMCPStatus'),
+    SetMCPConfig: binding('SetMCPConfig'),
+    IssueMCPToken: binding('IssueMCPToken'),
+    RevokeMCPToken: binding('RevokeMCPToken'),
+  },
+  LogService: { OpenLogFolder: binding('OpenLogFolder'), ExportLogs: binding('ExportLogs') },
 }))
 
 mock.module('../lib/events', () => ({
@@ -59,6 +66,15 @@ const { useSettingsStore } = await import('./settings')
 const { useUiStore } = await import('./ui')
 
 const baseAI = { provider: 'anthropic', model: 'm', hasApiKey: false, consentedProviders: null }
+const baseMcp = {
+  enabled: false,
+  host: '127.0.0.1',
+  port: 47650,
+  allowNonLoopback: false,
+  hasToken: false,
+  listening: false,
+  endpoint: 'http://127.0.0.1:47650/mcp',
+}
 const baseInfo = { version: '0.1.0', updateCheckEnabled: true, dataDir: '/data' }
 
 function callsOf(name: string) {
@@ -81,6 +97,12 @@ beforeEach(() => {
     SetUpdateCheckEnabled: undefined,
     CheckForUpdate: { available: true, version: '0.2.0', url: 'https://example.com/r' },
     OpenExternal: undefined,
+    GetMCPStatus: baseMcp,
+    SetMCPConfig: { ...baseMcp, enabled: true, listening: true },
+    IssueMCPToken: { token: 'hmcp_example', status: { ...baseMcp, hasToken: true } },
+    RevokeMCPToken: baseMcp,
+    OpenLogFolder: undefined,
+    ExportLogs: { saved: true, path: '/tmp/logs.zip' },
   }
 })
 
@@ -238,5 +260,42 @@ describe('settingsStore', () => {
     const s = useSettingsStore()
     await s.openExternal('ftp://x')
     expect(useUiStore().toasts.at(-1)).toMatchObject({ kind: 'error', message: '開けません' })
+  })
+
+  test('MCP: 既定はオフ。設定の反映・トークンの発行と無効化は戻り値の状態で更新し、トークンの値は状態に残さない', async () => {
+    const s = useSettingsStore()
+    await s.loadMcp()
+    expect(s.mcp).toMatchObject({ enabled: false, listening: false, hasToken: false })
+
+    await s.setMcpConfig({ enabled: true, host: '127.0.0.1', port: 47650, allowNonLoopback: false })
+    expect(callsOf('SetMCPConfig')[0]?.args).toEqual([
+      { enabled: true, host: '127.0.0.1', port: 47650, allowNonLoopback: false },
+    ])
+    expect(s.mcp?.listening).toBe(true)
+
+    const token = await s.issueMcpToken()
+    expect(token).toBe('hmcp_example')
+    expect(s.mcp?.hasToken).toBe(true)
+    expect(JSON.stringify(s.mcp)).not.toContain('hmcp_example')
+
+    await s.revokeMcpToken()
+    expect(s.mcp?.hasToken).toBe(false)
+  })
+
+  test('MCP: 設定の検証エラーは AppError として投げ直し、状態を変えない', async () => {
+    const s = useSettingsStore()
+    await s.loadMcp()
+    failures.SetMCPConfig = { code: 'VALIDATION', message: '不正', retryable: false }
+    await expect(
+      s.setMcpConfig({ enabled: true, host: '0.0.0.0', port: 47650, allowNonLoopback: false }),
+    ).rejects.toMatchObject({ code: 'VALIDATION' })
+    expect(s.mcp?.enabled).toBe(false)
+  })
+
+  test('ログ: フォルダを開く・書き出す', async () => {
+    const s = useSettingsStore()
+    await s.openLogFolder()
+    expect(callsOf('OpenLogFolder')).toHaveLength(1)
+    expect(await s.exportLogs()).toEqual({ saved: true, path: '/tmp/logs.zip' })
   })
 })

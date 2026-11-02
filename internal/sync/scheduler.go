@@ -11,6 +11,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/events"
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/notify"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
@@ -224,6 +225,7 @@ func (s *Scheduler) runWorker(a *account) {
 }
 
 func (s *Scheduler) cycle(a *account) {
+	defer logging.Recover(s.log, "sync cycle") // 1 周期の panic でワーカーを止めない（スタックを記録して次の周期へ）
 	if a.paused.Load() {
 		return
 	}

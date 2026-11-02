@@ -74,12 +74,21 @@ function tryParse(s: string): unknown {
   }
 }
 
-/** バインディング呼び出しを実行し、reject を AppError にして投げ直す。キャンセル可能性は保持しない。 */
+let bindingErrorReporter: ((e: AppError) => void) | undefined
+
+/** バインディング呼び出しの失敗を記録する先（Go のログへ送る処理。errorReporter が取り付ける）。 */
+export function setBindingErrorReporter(fn: ((e: AppError) => void) | undefined): void {
+  bindingErrorReporter = fn
+}
+
+/** バインディング呼び出しを実行し、reject を AppError にして投げ直す（失敗はログへも報告する）。キャンセル可能性は保持しない。 */
 export async function call<T>(p: PromiseLike<T>): Promise<T> {
   try {
     return await p
   } catch (e) {
-    throw parseBindingError(e)
+    const err = parseBindingError(e)
+    bindingErrorReporter?.(err)
+    throw err
   }
 }
 

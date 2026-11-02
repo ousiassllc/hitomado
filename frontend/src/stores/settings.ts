@@ -3,11 +3,16 @@ import { ref } from 'vue'
 import {
   AIService,
   AppService,
+  LogService,
+  MCPService,
   ThreadService,
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
 import type {
   AIConfig,
   AppInfo,
+  ExportLogsResult,
+  MCPConfig,
+  MCPStatus,
   UpdateInfo,
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { call, list, parseBindingError } from '../lib/api'
@@ -27,6 +32,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const aiConfig = ref<AIConfig>()
   const appInfo = ref<AppInfo>()
   const update = ref<UpdateInfo>()
+  const mcp = ref<MCPStatus>()
   let started = false
   let stopUpdateEvents: (() => void) | undefined
 
@@ -72,6 +78,38 @@ export const useSettingsStore = defineStore('settings', () => {
     } catch (e) {
       ui.pushToast('error', parseBindingError(e).message || msg.loadFailed)
     }
+  }
+
+  /** MCP の設定と待ち受けの状態を読み込む。失敗時はエラートーストを出して投げ直さない。 */
+  async function loadMcp(): Promise<void> {
+    try {
+      mcp.value = await call(MCPService.GetMCPStatus())
+    } catch (e) {
+      ui.pushToast('error', parseBindingError(e).message || msg.loadFailed)
+    }
+  }
+
+  async function setMcpConfig(cfg: MCPConfig): Promise<void> {
+    mcp.value = await call(MCPService.SetMCPConfig(cfg))
+  }
+
+  /** トークンを（再）発行して値を返す。値は呼び出し側が 1 回だけ表示し、ストアには残さない。 */
+  async function issueMcpToken(): Promise<string> {
+    const res = await call(MCPService.IssueMCPToken())
+    mcp.value = res.status
+    return res.token
+  }
+
+  async function revokeMcpToken(): Promise<void> {
+    mcp.value = await call(MCPService.RevokeMCPToken())
+  }
+
+  async function openLogFolder(): Promise<void> {
+    await call(LogService.OpenLogFolder())
+  }
+
+  async function exportLogs(): Promise<ExportLogsResult> {
+    return await call(LogService.ExportLogs())
   }
 
   /** 冪等。`update:available` を購読して初期ロードする。 */
@@ -144,7 +182,14 @@ export const useSettingsStore = defineStore('settings', () => {
     aiConfig,
     appInfo,
     update,
+    mcp,
     load,
+    loadMcp,
+    setMcpConfig,
+    issueMcpToken,
+    revokeMcpToken,
+    openLogFolder,
+    exportLogs,
     start,
     stop,
     openExternal,

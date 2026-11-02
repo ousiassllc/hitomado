@@ -240,3 +240,19 @@ func (f *FakeUpdate) CallCount() int {
 	defer f.mu.Unlock()
 	return f.Calls
 }
+
+// FakePaths は app.PathOpener のフェイク。開いたパスを記録する。
+type FakePaths struct {
+	mu sync.Mutex
+
+	Opened []string
+	Err    error
+}
+
+// OpenPath はパスを記録する。
+func (f *FakePaths) OpenPath(path string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Opened = append(f.Opened, path)
+	return f.Err
+}

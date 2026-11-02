@@ -197,4 +197,5 @@ const (
 	SettingUpdateCheck = "update.check_enabled"
 	SettingLastChecked = "update.last_checked_at"
 	SettingWindowState = "window.state"
+	SettingMCPConfig   = "mcp.config"
 )

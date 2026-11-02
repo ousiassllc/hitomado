@@ -32,6 +32,7 @@ type Env struct {
 	Flow     *FakeFlow
 	Files    *FakeFiles
 	Browser  *FakeBrowser
+	Paths    *FakePaths
 	Notifier *FakeNotifier
 	Events   *FakeEmitter
 	Sync     *FakeSync
@@ -56,14 +57,14 @@ func NewEnv(tb testing.TB) *Env {
 	tb.Cleanup(func() { _ = st.Close() })
 
 	e := &Env{
-		Store: st, Gmail: NewFakeGmail(), Flow: NewFakeFlow(), Files: &FakeFiles{}, Browser: &FakeBrowser{},
+		Store: st, Gmail: NewFakeGmail(), Flow: NewFakeFlow(), Files: &FakeFiles{}, Browser: &FakeBrowser{}, Paths: &FakePaths{},
 		Notifier: &FakeNotifier{}, Events: NewFakeEmitter(), Update: &FakeUpdate{},
 		Secrets: secrets.NewMemory(), Clock: clk,
 	}
 	e.Sync = NewFakeSync(st, e.Gmail)
 	e.Deps = &app.Deps{
 		Store: st, Gmail: e.Gmail, Secrets: e.Secrets, OAuth: e.Flow, Sync: e.Sync, Notifier: e.Notifier,
-		Update: e.Update, Events: e.Events, Clock: e.Clock, Files: e.Files, Browser: e.Browser,
+		Update: e.Update, Events: e.Events, Clock: e.Clock, Files: e.Files, Browser: e.Browser, Paths: e.Paths,
 		AI: func(string, string, string, string) (ai.Provider, error) {
 			return nil, errors.New("apptest: Deps.AI が未設定です")
 		},

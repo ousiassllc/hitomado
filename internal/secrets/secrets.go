@@ -25,3 +25,6 @@ func OAuthClientSecretKey(oauthClientID string) string {
 
 // AIAPIKeyKey は AI プロバイダ（anthropic／openai）の API キーのキー。
 func AIAPIKeyKey(provider string) string { return "hitomado/ai_api_key/" + provider }
+
+// MCPTokenKey は内蔵 MCP サーバーの Bearer トークンのキー。
+func MCPTokenKey() string { return "hitomado/mcp_token" }

@@ -1,11 +1,12 @@
 import { describe, expect, test } from 'bun:test'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAccountsStore } from '../../stores/accounts'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
 import AISettings from './AISettings.vue'
 import { aiDestination } from './aiDestination'
+import McpSettings from './McpSettings.vue'
 import OAuthClientsSettings from './OAuthClientsSettings.vue'
 import SettingsDialog from './SettingsDialog.vue'
 import { normalizeSignatureHtml } from './signatureHtml'
@@ -111,7 +112,7 @@ describe('normalizeSignatureHtml', () => {
 })
 
 describe('SettingsDialog', () => {
-  test('uiStore.dialogs.settings で開き、5 つのタブを出す', async () => {
+  test('uiStore.dialogs.settings で開き、7 つのタブを出す', async () => {
     const pinia = setup()
     const ui = useUiStore()
     // 開いた時の load() は Wails ランタイムを呼ぶので、読み込み済みにして空振りさせる
@@ -125,7 +126,66 @@ describe('SettingsDialog', () => {
     const tabs = [...document.body.querySelectorAll('[role="tab"]')].map((t) =>
       t.textContent?.trim(),
     )
-    expect(tabs).toEqual(['アカウント', 'OAuth クライアント', '署名', 'AI', '一般'])
+    expect(tabs).toEqual(['アカウント', 'OAuth クライアント', '署名', 'AI', 'MCP', 'ログ', '一般'])
+    w.unmount()
+  })
+})
+
+describe('McpSettings', () => {
+  const status = {
+    enabled: true,
+    host: '127.0.0.1',
+    port: 47650,
+    allowNonLoopback: false,
+    hasToken: false,
+    listening: true,
+    endpoint: 'http://127.0.0.1:47650/mcp',
+  }
+
+  test('状態・接続先・トークンの有無を表示し、発行直後だけトークンの値を見せる（閉じると消える）', async () => {
+    const pinia = setup()
+    const store = useSettingsStore()
+    store.loadMcp = async () => {}
+    store.mcp = status
+    store.issueMcpToken = async () => {
+      store.mcp = { ...status, hasToken: true }
+      return 'hmcp_shown_once'
+    }
+    const w = mount(McpSettings, { global: { plugins: [pinia] } })
+    await w.vm.$nextTick()
+    expect(w.get('[data-testid="mcp-state"]').text()).toBe('待ち受け中')
+    expect(w.get('[data-testid="mcp-endpoint"]').text()).toBe('http://127.0.0.1:47650/mcp')
+    expect(w.get('[data-testid="mcp-token-state"]').text()).toContain('未発行')
+    expect(w.find('[data-testid="mcp-token-value"]').exists()).toBe(false)
+
+    const issue = w.findAll('button').find((b) => b.text() === 'トークンを発行')
+    await issue?.trigger('click')
+    await flushPromises()
+    expect(w.get('[data-testid="mcp-token-value"]').text()).toBe('hmcp_shown_once')
+    expect(w.get('[data-testid="mcp-token-state"]').text()).toContain('発行済み')
+    expect(w.get('[data-testid="mcp-token-state"]').text()).not.toContain('hmcp_shown_once')
+    w.unmount()
+  })
+
+  test('範囲外のポートは送らずにエラーを出す', async () => {
+    const pinia = setup()
+    const store = useSettingsStore()
+    store.loadMcp = async () => {}
+    store.mcp = status
+    let sent = 0
+    store.setMcpConfig = async () => {
+      sent++
+    }
+    const w = mount(McpSettings, { global: { plugins: [pinia] } })
+    await w.vm.$nextTick()
+    const port = w.findAll('input')[1]
+    await port?.setValue('80')
+    await w
+      .findAll('button')
+      .find((b) => b.text() === '設定を反映')
+      ?.trigger('click')
+    expect(sent).toBe(0)
+    expect(w.text()).toContain('1024〜65535')
     w.unmount()
   })
 })

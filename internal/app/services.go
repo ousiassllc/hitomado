@@ -10,6 +10,8 @@ type Services struct {
 	Compose *ComposeService
 	AI      *AIService
 	App     *AppService
+	Log     *LogService
+	MCP     *MCPService
 }
 
 // NewServices は各サービスを組み立てる。共有のスレッド本文 LRU（d.Threads）が未設定なら作る
@@ -19,12 +21,15 @@ func NewServices(d *Deps) *Services {
 		d.Threads = threadcache.New(d.Gmail, threadcache.DefaultCapacity)
 	}
 	compose := NewComposeService(d)
+	inbox := NewInboxService(d)
 	return &Services{
 		Account: NewAccountService(d),
-		Inbox:   NewInboxService(d),
+		Inbox:   inbox,
 		Thread:  NewThreadService(d),
 		Compose: compose,
 		AI:      NewAIService(d, compose),
 		App:     NewAppService(d),
+		Log:     NewLogService(d),
+		MCP:     NewMCPService(d, newMCPBackend(d, inbox)),
 	}
 }

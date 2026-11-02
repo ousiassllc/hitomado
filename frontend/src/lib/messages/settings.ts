@@ -1,13 +1,15 @@
 // 設定画面の文言（H4 の領域）。UI は日本語のみ。
 export const settings = {
   title: '設定',
-  description: 'アカウント・OAuth クライアント・署名・AI・一般の設定を変更します。',
+  description: 'アカウント・OAuth クライアント・署名・AI・MCP・ログ・一般の設定を変更します。',
   tabsLabel: '設定の分類',
   tabs: {
     accounts: 'アカウント',
     oauthClients: 'OAuth クライアント',
     signature: '署名',
     ai: 'AI',
+    mcp: 'MCP',
+    logs: 'ログ',
     general: '一般',
   },
   loadFailed: '設定の読み込みに失敗しました。',
@@ -166,6 +168,56 @@ export const settings = {
     dataDir: 'データの保存先',
     dataDirHint: '設定とメールの一覧キャッシュ（本文は保存しません）が保存されています。',
     unknown: '取得できていません',
+  },
+
+  mcp: {
+    heading: 'MCP（エージェント連携）',
+    intro:
+      'しずくなどのエージェントから MCP でつないで、状態・ログ・メールの読み取りと返信の下書き作成ができるようにします。メールの送信はできません。下書きはこのアプリで確認して、あなたが送ります。',
+    enable: 'MCP サーバーを有効にする',
+    enableSwitch: 'MCP サーバーの有効・無効',
+    enableHint:
+      '既定はオフです。オンにすると、下のアドレスで待ち受けます。トークンがない接続はすべて拒否します。',
+    host: '待ち受けアドレス',
+    port: 'ポート',
+    portInvalid: 'ポートは 1024〜65535 の数字で入力してください。',
+    allowNonLoopback: 'loopback 以外のアドレスで待ち受ける',
+    allowNonLoopbackHint:
+      'tailnet など別のアドレスで待ち受けるときだけオンにします。そのアドレスにつなげる機器から、トークンを持つ人はメールを読めます。',
+    apply: '設定を反映',
+    applied: 'MCP の設定を反映しました。',
+    statusListening: '待ち受け中',
+    statusStopped: '停止中',
+    endpoint: '接続先 URL',
+    listenError: '待ち受けを開始できませんでした。',
+    token: 'トークン',
+    tokenNone: '未発行です。トークンを発行するまで、すべての接続を拒否します。',
+    tokenIssued: '発行済みです（値は表示できません。無くしたときは再発行してください）。',
+    issue: 'トークンを発行',
+    reissue: 'トークンを再発行',
+    revoke: 'トークンを無効にする',
+    revoked: 'トークンを無効にしました。',
+    tokenShown: '新しいトークン（この画面を閉じると二度と表示できません）',
+    tokenIssuedToast: 'トークンを発行しました。',
+    copy: 'コピー',
+    copied: 'コピーしました。',
+    copyFailed: 'コピーできませんでした。手で選択してコピーしてください。',
+    clientHint:
+      'MCP クライアントには、接続先 URL（Streamable HTTP）と Authorization: Bearer <トークン> を設定します。',
+    reissueHint:
+      '再発行すると、古いトークンは使えなくなります。つないでいるエージェントの設定を更新してください。',
+  },
+
+  logs: {
+    heading: 'ログ',
+    intro:
+      'アプリのエラーと動作の記録を、データの保存先の logs フォルダに残します（5 MB ごとに切り替え、5 世代・30 日まで）。',
+    redactHint:
+      'トークン・パスワード・OAuth 情報・メール本文・件名・宛先は記録しません。アカウントはアカウント ID で記録します。',
+    openFolder: 'ログフォルダを開く',
+    export: 'ログを書き出す',
+    exporting: '書き出し中…',
+    exported: (path: string) => `ログを書き出しました: ${path}`,
   },
 
   update: {

@@ -20,6 +20,8 @@ Hitomado は HTTP サーバーを持たない。フロントエンド（Vue）�
 | `ComposeService` | 作成セッション、下書き、送信前確認、送信、宛先候補 |
 | `AIService` | AI 設定・同意・下書き生成 |
 | `AppService` | アプリ設定（受信箱フィルタ等）、バージョン、更新確認 |
+| `LogService` | フロントのエラーの記録、ログフォルダを開く、ログの書き出し |
+| `MCPService` | 内蔵 MCP サーバーの設定・トークン・状態 |
 
 ### 1.2 エラー
 
@@ -360,6 +362,27 @@ type AIConfig = {
 | `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時は `{ available: false }` |
 | `AckBeforeQuit()` | — | — | `app:before-quit` を受けたフロントが、未保存の作成セッションを `SaveDraft` し終えたことを Go に伝える（§9）。Go はこれを受けるか猶予 3 秒の経過で終了処理に進む |
 
+### 7.1 LogService
+
+| メソッド | 引数 | 戻り値 | 内容 |
+|----------|------|--------|------|
+| `ReportClientError(error)` | `ClientError` | — | フロントの未処理例外・Promise の reject・Vue の描画エラー・バインディング呼び出しの失敗を Go のログへ記録する。`ClientError` は `{ kind: 'error' \| 'unhandledrejection' \| 'vue' \| 'binding'; message: string; stack?: string; source?: string; code?: string; accountId?: string }`。本文・件名・宛先の項目は持たない。メッセージ・スタックはログの伏せ処理（NF-S10）を通り、長さを切る。1 秒に 1 件（瞬間 30 件）を超える報告は捨てる（エラーにしない）。`kind` が不正なら `VALIDATION`。`binding` は `code` が `INTERNAL` のときだけ Error、それ以外は Warn |
+| `OpenLogFolder()` | — | — | ログフォルダ（`%APPDATA%\Hitomado\logs`）を OS の標準の方法で開く |
+| `ExportLogs()` | — | `{ saved: boolean; path?: string }` | 保存ダイアログで選んだ先に、ログ（現行とローテーション済み）を zip で書き出す。キャンセルは `saved=false` |
+
+### 7.2 MCPService
+
+内蔵 MCP サーバーの設定と状態。仕様・ツールは [MCP 連携とログ](../mcp.md)。
+
+| メソッド | 引数 | 戻り値 | 内容 |
+|----------|------|--------|------|
+| `GetMCPStatus()` | — | `MCPStatus` | 設定と状態。`MCPStatus = { enabled; host; port; allowNonLoopback; hasToken; listening; endpoint; error? }`。既定は `enabled=false`・`host=127.0.0.1`・`port=47650`。トークンの値は含まない |
+| `SetMCPConfig(config)` | `{ enabled; host; port; allowNonLoopback }` | `MCPStatus` | 検証して `app_settings.mcp.config` に保存し、待ち受けに反映する（オフなら止める）。ポートは 1024〜65535、loopback 以外のホストは `allowNonLoopback=true` が必要（満たさなければ `VALIDATION`・保存しない）。待ち受けに失敗（ポート使用中など）しても設定は保存し、`listening=false`・`error` で返す |
+| `IssueMCPToken()` | — | `{ token: string; status: MCPStatus }` | Bearer トークンを（再）発行して資格情報ストア（`hitomado/mcp_token`）に保存する。古いトークンは無効になる。`token` を返すのはこの 1 回だけ |
+| `RevokeMCPToken()` | — | `MCPStatus` | トークンを削除する（以後すべての MCP 接続を拒否） |
+
+- MCP は待ち受けのみで、`Bearer` トークンの無い・合わない接続は `401`。MCP のツール（読み取りと `create_reply_draft`）に送信は無い。ツールの呼び出しは `LogService` と同じログに残る（本文・引数は残さない）
+
 ## 8. イベント（Go → フロント）
 
 Wails のイベントとして発行する。ペイロードに本文・件名・宛先などの機密を載せない。フロントは受信後に該当バインディングを再呼び出しして再描画する。
@@ -406,3 +429,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | `AckBeforeQuit`、イベント `app:before-quit`／`files-dropped` を追加 | トレイ終了時の下書き保存（F-12）とファイルドロップのパス取得（Wails はパスを Go 側でのみ受け取る）のため |
+| 1.2 | 2026-11-03 | `LogService`（§7.1）・`MCPService`（§7.2）を追加 | #14 |

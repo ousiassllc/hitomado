@@ -8,6 +8,8 @@ import BaseDialog from '../ui/BaseDialog.vue'
 import AccountsSettings from './AccountsSettings.vue'
 import AISettings from './AISettings.vue'
 import GeneralSettings from './GeneralSettings.vue'
+import LogSettings from './LogSettings.vue'
+import McpSettings from './McpSettings.vue'
 import OAuthClientsSettings from './OAuthClientsSettings.vue'
 import SignatureSettings from './SignatureSettings.vue'
 
@@ -19,6 +21,8 @@ const tabs = [
   { value: 'oauth', label: msg.tabs.oauthClients, component: OAuthClientsSettings },
   { value: 'signature', label: msg.tabs.signature, component: SignatureSettings },
   { value: 'ai', label: msg.tabs.ai, component: AISettings },
+  { value: 'mcp', label: msg.tabs.mcp, component: McpSettings },
+  { value: 'logs', label: msg.tabs.logs, component: LogSettings },
   { value: 'general', label: msg.tabs.general, component: GeneralSettings },
 ] as const
 

@@ -6,6 +6,8 @@ import * as AccountService from "./accountservice.js";
 import * as AppService from "./appservice.js";
 import * as ComposeService from "./composeservice.js";
 import * as InboxService from "./inboxservice.js";
+import * as LogService from "./logservice.js";
+import * as MCPService from "./mcpservice.js";
 import * as ThreadService from "./threadservice.js";
 export {
     AIService,
@@ -13,5 +15,7 @@ export {
     AppService,
     ComposeService,
     InboxService,
+    LogService,
+    MCPService,
     ThreadService
 };
