@@ -101,7 +101,7 @@ FunctionEnd
 !insertmacro DEFINE_CHECK_NOT_RUNNING "un."
 
 Function .onInit
-    # 対応は 64 bit の Windows 10 以降のみ（Wails／WebView2 の要件）。
+    # 対応は x64 の Windows 10 以降のみ。ARM64 は対象外（動作未確認のため中止する）。
     ${IfNot} ${AtLeastWin10}
     ${OrIfNot} ${IsNativeAMD64}
         IfSilent silentUnsupported
@@ -113,7 +113,7 @@ Function .onInit
     ${EndIf}
 FunctionEnd
 
-Section "${APP_NAME}（必須）" SecApp
+Section "${APP_NAME}（必須）"
     SectionIn RO
     SetShellVarContext current
     SetRegView 64
@@ -154,12 +154,12 @@ Section "${APP_NAME}（必須）" SecApp
     WriteRegDWORD HKCU "${UNINST_KEY}" "EstimatedSize" $0
 SectionEnd
 
-Section /o "デスクトップにショートカットを作る" SecDesktop
+Section /o "デスクトップにショートカットを作る"
     SetShellVarContext current
     CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
 SectionEnd
 
-# アンインストールで消すのはプログラム本体・ショートカット・登録だけ。利用者のデータ
+# アンインストールで消すのはプログラム本体・ショートカット・登録（通知用の登録を含む）だけ。利用者のデータ
 # （%APPDATA%\Hitomado の DB・設定・ログ、資格情報マネージャーの秘密）は消さない（docs/environment/setup.md §4.3）。
 Section "Uninstall"
     SetShellVarContext current
@@ -176,6 +176,16 @@ Section "Uninstall"
     Delete "$DESKTOP\${APP_NAME}.lnk"
 
     RMDir /r "${WEBVIEW_DATA}"
+
+    # アプリ（Wails の通知サービス）が起動時に HKCU へ書く通知用の登録。次の起動で作り直されるので、残さない。
+    # CLSID の GUID は AppUserModelId\Hitomado の CustomActivator に入っている。
+    ReadRegStr $0 HKCU "Software\Classes\AppUserModelId\Hitomado" "CustomActivator"
+    ${If} $0 != ""
+        DeleteRegKey HKCU "Software\Classes\CLSID\$0"
+    ${EndIf}
+    DeleteRegKey HKCU "Software\Classes\AppUserModelId\Hitomado"
+    DeleteRegKey HKCU "Software\Hitomado\NotificationCategories"
+    DeleteRegKey /ifempty HKCU "Software\Hitomado"
 
     DeleteRegKey HKCU "${UNINST_KEY}"
 SectionEnd

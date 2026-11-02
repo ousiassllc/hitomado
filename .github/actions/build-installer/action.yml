@@ -21,8 +21,9 @@ runs:
     - name: Install NSIS
       shell: pwsh
       run: |
+        # runner イメージに入っていればそれを使う（版は下の makensis -VERSION に出す）。無ければ 3.11 を入れる。
         if (-not (Get-Command makensis -ErrorAction SilentlyContinue)) {
-          choco install nsis -y --no-progress
+          choco install nsis --version=3.11 -y --no-progress
           if ($LASTEXITCODE -ne 0) { throw "choco install nsis failed ($LASTEXITCODE)" }
         }
         # choco は PATH を更新しない場合がある。makensis が見つかるようにしておく。
