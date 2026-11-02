@@ -186,6 +186,9 @@ sequenceDiagram
     else invalid_grant
       SC->>DB: status = needs_reauth
       SC->>FE: account:status
+    else invalid_client／unauthorized_client（OAuth クライアントの資格情報の拒否）
+      SC->>DB: status = needs_reauth（理由: OAuth クライアントの設定を確認）
+      SC->>FE: account:status（message つき。自動再試行は止める）
     end
   end
 ```
@@ -285,3 +288,4 @@ sequenceDiagram
 | 1.8 | 2026-11-03 | §7.3 に、応答を受け取れなかった送信の扱い（送信済みの確認→成功扱い／`SEND_UNCERTAIN`）への参照を追記 | バインディング仕様 §5.2 との整合（#55） |
 | 1.9 | 2026-11-03 | §7.3 の `SEND_UNCERTAIN` の要約に、送信前の期限切れは `OFFLINE`・送信前のキャンセルは `CANCELLED` を追記 | バインディング仕様 §5.2 の振り分けとの整合（#66） |
 | 1.10 | 2026-11-03 | §7.4 の AI 下書きのシーケンスを `GenerateReplyDraft(sessionId, requestId)` に直し、作成セッションから送信元とスレッドを引くこと・`CancelGenerate(requestId)` での中止を追記 | バインディング仕様 §6・実装（`internal/app/aicore`）との整合（#67） |
+| 1.11 | 2026-11-03 | §7.2 の同期シーケンスに、`invalid_client`／`unauthorized_client` による `needs_reauth`（理由つき・自動再試行を止める）を追記 | 実装（`internal/sync/cycle.go`）・バインディング仕様 §10 との整合（#43、#69） |
