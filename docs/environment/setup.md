@@ -136,7 +136,7 @@ flowchart LR
 | 権限・場所 | 利用者ごと（`RequestExecutionLevel user`）。既定 `%LOCALAPPDATA%\Programs\Hitomado`。UAC は出ない |
 | ショートカット | スタートメニュー（必須）。デスクトップは任意（インストーラーのコンポーネント選択。既定はオフ、サイレントでも作らない） |
 | 「アプリと機能」 | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\jp.ousias.hitomado`（表示名・版・発行元・`InstallLocation`・`UninstallString`）。このキー名を変えると別アプリ扱いになり、上書き更新できなくなる |
-| 上書き更新 | 新しい版のインストーラーを実行するだけ。前回の `InstallLocation` に入り、exe と登録内容を置き換える。起動中の `hitomado.exe` は置き換えられないため（実行中の exe を書き込みで開けるかで判定）、画面ありなら終了を促して再試行させ、サイレント（`/S`）なら何も変えずエラーコード 5 を設定して中止する（CI は非 0 であることを確認。ウイルス対策ソフトが exe を一時的に掴んでいる間も同じ扱いになるため、少し待って再実行する） |
+| 上書き更新 | 新しい版のインストーラーを実行するだけ。前回の `InstallLocation` に入り、exe と登録内容を置き換える。起動中の `hitomado.exe` は置き換えられないため（実行中の exe を書き込みで開けるかで判定）、画面ありなら終了を促して再試行させ、サイレント（`/S`）なら何も変えずエラーコード 5 を設定して中止する（CI で終了コード 5 を確認。ウイルス対策ソフトが exe を一時的に掴んでいる間も同じ扱いになるため、少し待って再実行する） |
 | 版番号 | `VERSION=X.Y.Z` 1 つから、`-X main.version`（アプリの表示・更新確認）、exe のファイルバージョン（`build/windows/info.generated.json` を `generate:syso` の前に書く。git 管理外）、インストーラーの表示と「アプリと機能」の `DisplayVersion` を作る。X.Y.Z 以外はビルドを失敗させる |
 | WebView2 | 無い PC ではインストーラーに同梱したブートストラッパー（Microsoft 配布。ビルド時に `wails3 generate webview2bootstrapper` で取得）で入れる |
 | 対応 | Windows 10 以降の x64 のみ。ARM64 は対象外（x64 エミュレーションで動くかは未確認のため、インストーラーは中止する。サイレントはエラーコード 64） |

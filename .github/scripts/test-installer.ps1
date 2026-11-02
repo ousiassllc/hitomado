@@ -4,7 +4,7 @@
 #
 # 確認すること:
 #   - スタートメニューのショートカットと「アプリと機能」の登録（DisplayVersion）ができる
-#   - 起動中（実行中の exe がある）なら、サイレントインストールは何も変えずに非 0 で終わる
+#   - 起動中（実行中の exe がある）なら、サイレントインストールは何も変えずに終了コード 5 で終わる
 #   - 上書きで版が上がり、exe が新しいものに置き換わり、exe のファイルバージョンと埋め込まれた
 #     main.version が版と一致する
 #   - アンインストールでプログラム・ショートカット・登録は消え、利用者のデータ（%APPDATA%\Hitomado）は残る
@@ -94,7 +94,7 @@ try {
     Assert (-not $running.HasExited) 'stand-in hitomado.exe is running'
     $code = Install $NewInstaller
     Write-Host "installer exit code while running: $code"
-    Assert ($code -ne 0) 'installer refuses to overwrite a running hitomado.exe'
+    Assert ($code -eq 5) 'installer refuses to overwrite a running hitomado.exe (exit code 5)'
     Assert ((Displayed-Version) -eq $OldVersion) 'a refused install leaves the registration unchanged'
   } finally {
     Stop-Process -Id $running.Id -Force -ErrorAction SilentlyContinue
