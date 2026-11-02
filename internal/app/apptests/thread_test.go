@@ -243,12 +243,11 @@ func TestSaveAttachmentReplacesExistingFileAtomically(t *testing.T) {
 	assert.Len(t, entries, 1, "一時ファイルを残さない")
 }
 
+// 権限ビットの検証だけを Windows でスキップする（既存ファイルの置き換えで一時ファイルが残らないことは
+// TestSaveAttachmentReplacesExistingFileAtomically が Windows でも検証する）。
 func TestSaveAttachmentPermissions(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("Windows のファイルモードは POSIX の権限ビットを持たない")
-	}
-	if runtime.GOOS == "windows" {
-		t.Skip("Windows には POSIX のパーミッションがない")
 	}
 	svc, e, a := saveSetup(t)
 	mref := dto.MessageRef{AccountID: a.ID, ThreadID: "t1", MessageID: "m1"}
