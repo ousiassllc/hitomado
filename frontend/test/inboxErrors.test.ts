@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import {
   appError,
   base,
+  callsOf,
   failures,
   installMocks,
   ref,
@@ -73,5 +74,25 @@ describe('キーボード選択', () => {
     s.openCursor()
     expect(s.selectedKey).toBe('a1:t1')
     expect(s.checkedKeys).toEqual([])
+  })
+})
+
+describe('検索の失敗ページ', () => {
+  test('全アカウントが OFFLINE で失敗しても Search は先頭 1 回＋自動継続 1 回で止まる', async () => {
+    responses.Search = {
+      items: [],
+      nextCursor: 'c',
+      failures: [
+        { accountId: 'a1', error: { code: 'OFFLINE', message: 'x', retryable: true } },
+        { accountId: 'a2', error: { code: 'OFFLINE', message: 'x', retryable: true } },
+      ],
+    }
+    const s = useInboxStore()
+    await s.runSearch('hit')
+    expect(callsOf('Search')).toHaveLength(2)
+    expect(s.items).toHaveLength(0)
+    expect(s.nextCursor).toBe('c')
+    await s.loadMore() // 利用者の再要求では再試行する
+    expect(callsOf('Search')).toHaveLength(3)
   })
 })

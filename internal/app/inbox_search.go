@@ -29,6 +29,7 @@ type accountSearch struct {
 	queue  []searchEntry // 最終メッセージ日時の降順
 	pt     string        // 次の pageToken（空なら末尾）
 	err    error
+	gone   bool // 再試行しても直らない失敗（続きのカーソルに残さない）
 }
 
 // Search は Gmail 検索クエリを各アカウントで並列実行し、最終メッセージ日時の降順で統合する（結果は保存しない）。
@@ -67,6 +68,7 @@ func (s *InboxService) Search(ctx context.Context, q dto.SearchQuery) (dto.Threa
 	for _, w := range work {
 		if w.err != nil {
 			page.Failures = append(page.Failures, s.failure(ctx, w.acc.ID, w.err))
+			w.gone = permanentFailure(w.err)
 			continue // 失敗したアカウントは配信せず、取得済みの分も含めて next に引き継ぐ（時刻順を崩さないため）。
 		}
 		all = append(all, w.queue...)
@@ -83,6 +85,9 @@ func (s *InboxService) Search(ctx context.Context, q dto.SearchQuery) (dto.Threa
 		}
 	}
 	for _, w := range work {
+		if w.gone {
+			continue // 再接続待ち・資格情報拒否・アカウント消滅は再試行しても直らない。Failures にだけ載せる。
+		}
 		st := appcore.SearchState{PT: w.pt}
 		for _, e := range w.queue {
 			if _, ok := delivered[e.AccountID+"/"+e.ThreadID]; !ok {
@@ -109,6 +114,16 @@ func entryLess(a, b searchEntry) bool {
 
 func (s *InboxService) failure(ctx context.Context, accountID string, err error) dto.AccountFailure {
 	return dto.AccountFailure{AccountID: accountID, Error: apperr.ToMap(gmailErr(s.d, ctx, accountID, err))}
+}
+
+// permanentFailure は再試行しても直らない失敗（NEEDS_REAUTH・OAUTH_CLIENT_REJECTED・NOT_FOUND）か。
+// RATE_LIMITED・OFFLINE・一時的な GMAIL_ERROR は再試行で直り得るので false。
+func permanentFailure(err error) bool {
+	switch apperr.FromInfra(err, "").Code {
+	case apperr.NeedsReauth, apperr.OAuthClientRejected, apperr.NotFound:
+		return true
+	}
+	return false
 }
 
 // loadAccount は残り（カーソル由来）を起点に、limit 件に満ちるまで Gmail の次ページを取得して w.queue を作る。
@@ -186,6 +201,7 @@ func (s *InboxService) hydratePicked(ctx context.Context, work []*accountSearch,
 			dropEntry(byID[e.AccountID], e.ThreadID)
 		case !failedAccounts[e.AccountID]:
 			failedAccounts[e.AccountID] = true
+			byID[e.AccountID].gone = permanentFailure(err)
 			page.Failures = append(page.Failures, s.failure(ctx, e.AccountID, err))
 		}
 	})
