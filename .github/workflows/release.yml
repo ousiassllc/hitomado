@@ -1,8 +1,18 @@
 name: Release
 
+# main に入るたびに、最新の v* タグから patch を 1 つ上げたタグと GitHub Release を作る。
+# タグは publish ジョブが `gh release create --target` で作る（GITHUB_TOKEN で作ったタグは
+# 別のワークフローを起動しないので、タグ push では動かさない）。
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
+
+# 同時に 2 つマージされても版番号がぶつからないよう、実行を 1 本ずつに直列化する。
+# cancel-in-progress は false（公開途中のものを止めない）。待機中の run は最新の 1 本だけが残り、
+# 間に挟まったコミットは単独のリリースにならず、次のリリースに含まれる。
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -11,14 +21,28 @@ env:
   WAILS_VERSION: v3.1.0
 
 jobs:
-  # タグが指すコミットでも CI（lint・test・Windows ビルド）を必ず通す。
+  # 今回のコミットで公開するタグを決める（ロジックは .github/scripts/next-version.sh）。
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.next.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Next release tag
+        id: next
+        run: echo "tag=$(bash .github/scripts/next-version.sh "$GITHUB_SHA")" >> "$GITHUB_OUTPUT"
+
+  # このコミットでも CI（lint・test・Windows ビルド）を必ず通す。
   ci:
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
 
   build:
-    needs: [ci]
+    needs: [version, ci]
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,12 +60,12 @@ jobs:
       - name: Build (version is injected from the tag)
         shell: bash
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ needs.version.outputs.tag }}
         run: wails3 build VERSION="${TAG#v}"
       - name: Package
         shell: pwsh
         env:
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ needs.version.outputs.tag }}
         run: |
           Compress-Archive -Path bin/hitomado.exe -DestinationPath "hitomado-$env:TAG-windows-amd64.zip"
           $hash = (Get-FileHash "hitomado-$env:TAG-windows-amd64.zip" -Algorithm SHA256).Hash.ToLower()
@@ -55,7 +79,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [build]
+    needs: [version, build]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -63,13 +87,13 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: release-files
-      - name: Publish release assets
+      - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ needs.version.outputs.tag }}
           REPO: ${{ github.repository }}
         run: |
-          flags=()
-          case "$TAG" in *-*) flags+=(--prerelease) ;; esac
-          gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1 || gh release create "$TAG" --repo "$REPO" --title "$TAG" --generate-notes "${flags[@]}"
+          # 再実行でも壊れないよう、Release が既にあれば作らず成果物だけ上書きする。
+          # タグは --target のコミット（このワークフローを起動した main のコミット）に作られる。
+          gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1 || gh release create "$TAG" --repo "$REPO" --target "$GITHUB_SHA" --title "$TAG" --generate-notes
           gh release upload "$TAG" --repo "$REPO" --clobber hitomado-*-windows-amd64.zip SHA256SUMS.txt

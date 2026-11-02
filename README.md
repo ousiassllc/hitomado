@@ -110,4 +110,4 @@ task check                      # CI と同等の検査（生成物の差分な�
 - 動作保証の対象は Windows です。Linux／macOS では Go の単体テスト・フロントのテスト・lint を実行できますが、アプリ本体の実行確認は Windows で行ってください。Linux で Go をビルド・テストするときは GTK を使わない `CGO_ENABLED=0 go test -tags purego ./...` を使います。
 - 仕様書は [docs/overview.md](docs/overview.md) のドキュメントマップから辿れます。
 - マージは squash／rebase せず、マージコミット方式です。コミットには `git commit -s`（Signed-off-by）を付けます。
-- リリースは `v*` タグの push で GitHub Actions が Windows 向けの成果物をビルドして Releases に添付します（コード署名なし）。
+- リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けの成果物と `SHA256SUMS.txt` を Releases に添付します（コード署名なし）。手でタグを打つ必要はありません。

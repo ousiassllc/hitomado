@@ -254,7 +254,7 @@ sequenceDiagram
 ## 9. ビルド・CI
 
 - ローカル: `wails3 dev`（開発）、`wails3 build`（Windows 向け成果物）。`sqlc generate` と `wails3 generate bindings` の生成物はコミットする（差分が出ていないことを CI で検査する）
-- GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 build`）。タグ push 時に成果物を Releases に添付。詳細は [環境構築 §4](../environment/setup.md)
+- GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 build`）。`main` への push（PR のマージ）ごとに CI を通したうえで patch を 1 つ上げたタグを自動で作り、成果物を Releases に添付する。詳細は [環境構築 §4](../environment/setup.md)
 - マイグレーションは `internal/store/migrations/*.sql`（goose）を `embed` し、起動時に適用する。失敗時は起動中止（NF 可用性）
 
 ## 改訂履歴
