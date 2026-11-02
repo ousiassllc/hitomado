@@ -271,7 +271,7 @@ type SendResult = { messageId: string; threadId: string; archived: boolean; arch
 | `Send(sessionId, confirmToken, content)` | string ×2, `ComposeContent` | `SendResult` | トークンを検証して送信する（§5.2）。成功時はセッションを閉じ、下書きを削除、連絡先候補を加算する |
 | `CloseCompose(sessionId)` | string | — | セッションを破棄（下書きは残す）。未保存の変更の保存はフロントが先に `SaveDraft` する |
 | `DiscardCompose(sessionId)` | string | — | セッションを破棄し、Gmail 下書きがあれば削除する |
-| `SuggestContacts(accountId, prefix, limit)` | string, string, number | `Address[]` | `contacts` から前方一致（メールアドレス）で候補を返す。順位は [ER §3.8](../architecture/er.md) |
+| `SuggestContacts(accountId, prefix, limit)` | string, string, number | `Address[]` | `contacts` から、メールアドレスまたは表示名の前方一致で候補を返す。順位は [ER §3.8](../architecture/er.md) |
 
 ### 5.1 OpenCompose の初期値
 
@@ -409,3 +409,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.2 | 2026-11-03 | §1.2 のエラー受け渡し方式を `MarshalError`（`apperr.Marshal`）／`error.cause`／`INTERNAL` フォールバックに確定。未決の記述を削除 | 実装との整合（#31） |
 | 1.3 | 2026-11-03 | §8 `notify:open-thread` の契機を通知クリックのみに修正 | 実装（通知の応答のみで発行）・アーキテクチャ設計 §5 との整合（#30） |
 | 1.4 | 2026-11-03 | §10 の Gmail API 一覧に `users.getProfile`・`users.drafts.get` を追加 | `internal/gmail` の呼び出しとの整合（#33） |
+| 1.5 | 2026-11-03 | `SuggestContacts` の一致対象にメールアドレスと表示名の前方一致を明記 | 実装（`SuggestContacts` クエリ）との整合（#32） |
