@@ -7,6 +7,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/events"
 	"github.com/ousiassllc/hitomado/internal/notify"
 	"github.com/ousiassllc/hitomado/internal/oauth"
+	"github.com/ousiassllc/hitomado/internal/secrets"
 	"github.com/ousiassllc/hitomado/internal/update"
 )
 
@@ -240,3 +241,51 @@ func (f *FakeUpdate) CallCount() int {
 	defer f.mu.Unlock()
 	return f.Calls
 }
+
+// FailingSecrets は secrets.Store を包み、SetErr／DeleteErr が非 nil の間は Set／Delete を（書き込まずに）失敗させる。
+// Deps.Secrets へ差し替えて使う。
+type FailingSecrets struct {
+	secrets.Store
+
+	mu        sync.Mutex
+	setErr    error
+	deleteErr error
+}
+
+// FailSet は以降の Set を err で失敗させる（nil で解除）。
+func (f *FailingSecrets) FailSet(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.setErr = err
+}
+
+// FailDelete は以降の Delete を err で失敗させる（nil で解除）。
+func (f *FailingSecrets) FailDelete(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deleteErr = err
+}
+
+// Set は secrets.Store.Set。FailSet 中は失敗する。
+func (f *FailingSecrets) Set(key, value string) error {
+	f.mu.Lock()
+	err := f.setErr
+	f.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	return f.Store.Set(key, value)
+}
+
+// Delete は secrets.Store.Delete。FailDelete 中は失敗する。
+func (f *FailingSecrets) Delete(key string) error {
+	f.mu.Lock()
+	err := f.deleteErr
+	f.mu.Unlock()
+	if err != nil {
+		return err
+	}
+	return f.Store.Delete(key)
+}
+
+var _ secrets.Store = (*FailingSecrets)(nil)

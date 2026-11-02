@@ -114,8 +114,8 @@ type ThreadPage = {
 |----------|------|--------|------|
 | `ListOAuthClients()` | — | `OAuthClient[]` | 登録済みクライアント（Secret は返さない） |
 | `AddOAuthClient(name, clientId, clientSecret)` | string ×3 | `OAuthClient` | 登録。Secret は資格情報ストアへ。`client_id` 重複は `VALIDATION` |
-| `UpdateOAuthClient(id, name, clientId, clientSecret?)` | | `OAuthClient` | Secret は指定時のみ更新 |
-| `DeleteOAuthClient(id)` | string | — | 使用中は `OAUTH_CLIENT_IN_USE`。Secret も削除 |
+| `UpdateOAuthClient(id, name, clientId, clientSecret?)` | | `OAuthClient` | Secret は指定時のみ更新。保存に失敗しても Client ID と Secret の組は変わらない |
+| `DeleteOAuthClient(id)` | string | — | 使用中は `OAUTH_CLIENT_IN_USE`。Secret も削除（Secret の削除に失敗したらクライアントは残しエラーを返す） |
 | `ListAccounts()` | — | `Account[]` | `sortOrder` 昇順 |
 | `StartAddAccount(oauthClientId)` | string | `Account` | 認可フローを開始し、**完了またはキャンセル・タイムアウトまでブロック**する。システムブラウザを開く。完了後に初回同期を開始 |
 | `CancelAddAccount()` | — | — | 進行中の認可を中断（`StartAddAccount` は `OAUTH_CANCELLED` で reject） |
