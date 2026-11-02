@@ -42,6 +42,9 @@ func classify(err error) failure {
 		switch {
 		case re.ErrorCode == "invalid_grant":
 			return failure{kind: ErrNeedsReauth, status: status}
+		case re.ErrorCode == "invalid_client" || re.ErrorCode == "unauthorized_client" || status == http.StatusUnauthorized:
+			// Client Secret の無効化・ローテーションなど。再接続や再試行では直らず、OAuth クライアントの設定を直す必要がある。
+			return failure{kind: ErrClientRejected, status: status}
 		case status == http.StatusTooManyRequests:
 			return failure{kind: ErrRateLimited, retry: retryLimited, status: status}
 		case status >= 500:

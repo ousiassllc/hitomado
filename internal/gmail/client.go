@@ -13,6 +13,7 @@ import (
 // internal/app/apperr がこれらをバインディングのエラーコードへ写像する。
 var (
 	ErrNeedsReauth    = errors.New("gmail: needs reauth")           // invalid_grant（トークン失効・取り消し）
+	ErrClientRejected = errors.New("gmail: oauth client rejected")  // invalid_client／unauthorized_client（Client ID／Secret が拒否された）
 	ErrOffline        = errors.New("gmail: offline")                // ネットワーク不通
 	ErrRateLimited    = errors.New("gmail: rate limited")           // 429（バックオフで解消せず）
 	ErrNotFound       = errors.New("gmail: not found")              // 404（スレッド・下書き等）

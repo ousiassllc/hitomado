@@ -16,34 +16,35 @@ import (
 
 // エラーコード（バインディング仕様 §1.2）。
 const (
-	Validation         = "VALIDATION"
-	NotFound           = "NOT_FOUND"
-	SessionNotFound    = "SESSION_NOT_FOUND"
-	Offline            = "OFFLINE"
-	RateLimited        = "RATE_LIMITED"
-	GmailError         = "GMAIL_ERROR"
-	NeedsReauth        = "NEEDS_REAUTH"
-	AccountDuplicate   = "ACCOUNT_DUPLICATE"
-	OAuthClientInUse   = "OAUTH_CLIENT_IN_USE"
-	OAuthCancelled     = "OAUTH_CANCELLED"
-	OAuthDenied        = "OAUTH_DENIED"
-	OAuthTimeout       = "OAUTH_TIMEOUT"
-	SenderRequired     = "SENDER_REQUIRED"
-	SenderLocked       = "SENDER_LOCKED"
-	SenderMismatch     = "SENDER_MISMATCH"
-	NoRecipients       = "NO_RECIPIENTS"
-	InvalidAddress     = "INVALID_ADDRESS"
-	AttachmentTooLarge = "ATTACHMENT_TOO_LARGE"
-	AttachmentIO       = "ATTACHMENT_IO"
-	ConfirmRequired    = "CONFIRM_REQUIRED"
-	ConfirmExpired     = "CONFIRM_EXPIRED"
-	ConfirmMismatch    = "CONFIRM_MISMATCH"
-	SendUncertain      = "SEND_UNCERTAIN"
-	AINotConfigured    = "AI_NOT_CONFIGURED"
-	AIConsentRequired  = "AI_CONSENT_REQUIRED"
-	AIFailed           = "AI_FAILED"
-	Cancelled          = "CANCELLED"
-	Internal           = "INTERNAL"
+	Validation          = "VALIDATION"
+	NotFound            = "NOT_FOUND"
+	SessionNotFound     = "SESSION_NOT_FOUND"
+	Offline             = "OFFLINE"
+	RateLimited         = "RATE_LIMITED"
+	GmailError          = "GMAIL_ERROR"
+	NeedsReauth         = "NEEDS_REAUTH"
+	AccountDuplicate    = "ACCOUNT_DUPLICATE"
+	OAuthClientInUse    = "OAUTH_CLIENT_IN_USE"
+	OAuthCancelled      = "OAUTH_CANCELLED"
+	OAuthDenied         = "OAUTH_DENIED"
+	OAuthTimeout        = "OAUTH_TIMEOUT"
+	SenderRequired      = "SENDER_REQUIRED"
+	SenderLocked        = "SENDER_LOCKED"
+	SenderMismatch      = "SENDER_MISMATCH"
+	NoRecipients        = "NO_RECIPIENTS"
+	InvalidAddress      = "INVALID_ADDRESS"
+	AttachmentTooLarge  = "ATTACHMENT_TOO_LARGE"
+	AttachmentIO        = "ATTACHMENT_IO"
+	ConfirmRequired     = "CONFIRM_REQUIRED"
+	ConfirmExpired      = "CONFIRM_EXPIRED"
+	ConfirmMismatch     = "CONFIRM_MISMATCH"
+	SendUncertain       = "SEND_UNCERTAIN"
+	OAuthClientRejected = "OAUTH_CLIENT_REJECTED"
+	AINotConfigured     = "AI_NOT_CONFIGURED"
+	AIConsentRequired   = "AI_CONSENT_REQUIRED"
+	AIFailed            = "AI_FAILED"
+	Cancelled           = "CANCELLED"
+	Internal            = "INTERNAL"
 )
 
 // Error は AppError。JSON は {code, message, retryable, accountId?, details?}。
@@ -120,6 +121,8 @@ func classify(err error) *Error {
 		return Wrap(SendUncertain, "送信済みの可能性があります。送信済みを確認してから再送してください。", err)
 	case errors.Is(err, gmail.ErrNeedsReauth):
 		return Wrap(NeedsReauth, "アカウントの接続が切れました。再接続してください。", err)
+	case errors.Is(err, gmail.ErrClientRejected):
+		return Wrap(OAuthClientRejected, "OAuth クライアントの設定（Client ID／Secret）を確認してください。", err)
 	case errors.Is(err, oauth.ErrCancelled), errors.Is(err, context.Canceled):
 		// url.Error はキャンセルでも net.Error を満たすため、ネットワーク判定より先に見る。
 		return Wrap(Cancelled, "キャンセルしました。", err)
