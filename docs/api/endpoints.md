@@ -395,7 +395,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 外部 API | 用途 | 主なエンドポイント／スコープ |
 |----------|------|------------------------------|
 | Google OAuth 2.0 | 認可・更新・revoke | `https://accounts.google.com/o/oauth2/v2/auth`、`https://oauth2.googleapis.com/token`、`https://oauth2.googleapis.com/revoke`、`https://openidconnect.googleapis.com/v1/userinfo`。スコープ: `https://www.googleapis.com/auth/gmail.modify`、`openid`、`email`、`profile` |
-| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`（いずれも `gmail.modify` スコープ内） |
+| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ。§5.2）、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`（いずれも `gmail.modify` スコープ内） |
 | AI プロバイダ | 下書き生成 | Anthropic Messages API／OpenAI 互換 Chat Completions（Base URL 指定可） |
 | GitHub Releases API | 更新確認 | `GET /repos/ousiassllc/hitomado/releases/latest`（未認証） |
 
@@ -419,3 +419,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.5 | 2026-11-03 | `SuggestContacts` の一致対象にメールアドレスと表示名の前方一致を明記 | 実装（`SuggestContacts` クエリ）との整合（#32） |
 | 1.6 | 2026-11-03 | §5.2 に送信失敗時の動作を、§10 に `messages.send`／`drafts.create` が 5xx を再試行しない例外を追記 | `internal/gmail/call.go` との整合（#46） |
 | 1.7 | 2026-11-03 | §1.2・§5.2 の `SEND_UNCERTAIN` を、送信後に応答を受け取れず送信済みを確認できない場合に限定（接続前の失敗は `OFFLINE`）。送信済みの確認を独自ヘッダ `X-Hitomado-Send-Id` と `in:sent` 検索に変更し、確認できなければ `SEND_UNCERTAIN` とした。MIME ヘッダに `X-Hitomado-Send-Id` を追加 | Gmail API が `Message-ID` を付け替えるため `rfc822msgid:` 検索では送信済みを確認できないこと、接続前の失敗まで `SEND_UNCERTAIN` になる不具合の修正（#52、#54） |
+| 1.8 | 2026-11-03 | §10 の Gmail API 一覧に `users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ）を追加 | `internal/gmail` の呼び出しとの整合（#51） |
