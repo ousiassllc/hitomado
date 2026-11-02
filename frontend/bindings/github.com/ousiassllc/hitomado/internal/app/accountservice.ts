@@ -31,6 +31,8 @@ export function CancelAddAccount(): $CancellablePromise<void> {
 
 /**
  * DeleteOAuthClient は使用中でなければクライアントと Client Secret を削除する。
+ * 使用中は Secret に触れず OAUTH_CLIENT_IN_USE を返す（削除できないと分かっている操作で、先に Secret を消さない）。
+ * Secret の削除に失敗したときは DB 行を残してエラーを返し、DB の削除に失敗したときは Secret を元に戻す。
  */
 export function DeleteOAuthClient(id: string): $CancellablePromise<void> {
     return $Call.ByID(3994097819, id);
