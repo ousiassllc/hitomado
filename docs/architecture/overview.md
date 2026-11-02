@@ -273,3 +273,4 @@ sequenceDiagram
 | 1.2 | 2026-11-02 | §2 のフロントのテストを Vitest から `bun test` に変更。§9 の CI 記述を ubuntu／windows 構成に更新 | 環境構築（bun 統一・CI マトリクス）との整合 |
 | 1.3 | 2026-11-02 | 発行イベントに `app:before-quit`／`files-dropped` を追加 | バインディング仕様 1.1 との整合 |
 | 1.4 | 2026-11-03 | §2 の Wails を v3.1.0 に、§9 のビルド・CI を `wails3 package`（インストーラー）に更新。§4 のレイヤー表・ディレクトリ構成に `run.go`（composition root）、`internal/platform`、`events`／`clock`／`logging` を追加し、`notify` の説明を実装に合わせた | #34、#35 |
+| 1.5 | 2026-11-03 | §5 のレート制限に `messages.send`／`drafts.create` が 5xx を再試行しない例外を追記（履歴に未記録だった分） | 二重送信・重複作成を避ける実装との整合（#46。記録漏れの補正 #53） |

@@ -416,3 +416,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.4 | 2026-11-03 | §10 の Gmail API 一覧に `users.getProfile`・`users.drafts.get` を追加 | `internal/gmail` の呼び出しとの整合（#33） |
 | 1.5 | 2026-11-03 | `SuggestContacts` の一致対象にメールアドレスと表示名の前方一致を明記 | 実装（`SuggestContacts` クエリ）との整合（#32） |
 | 1.6 | 2026-11-03 | §5.2 に送信失敗時の動作を、§10 に `messages.send`／`drafts.create` が 5xx を再試行しない例外を追記 | `internal/gmail/call.go` との整合（#46） |
+| 1.7 | 2026-11-03 | §1.2 に `SEND_UNCERTAIN`・`OAUTH_CLIENT_REJECTED` を、§2 に `UpdateOAuthClient`／`DeleteOAuthClient` の失敗時の挙動を、§4 に `ThreadDetail.draftId` を DRAFT ラベルがあるときだけ探す注記を、§5.2 に送信の転送へ総時間上限を掛けない記述を追記（履歴に未記録だった分） | 実装との整合（#37、#43、#45、#42。記録漏れの補正 #53） |
