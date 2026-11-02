@@ -29,7 +29,7 @@
 | リッチテキスト | Tiptap（ProseMirror）。太字・リンク・箇条書き | F-11 |
 | 仮想スクロール | `@tanstack/vue-virtual` | NF-P04 |
 | サニタイズ | DOMPurify＋`sandbox` iframe（`srcdoc`、`allow-same-origin` のみ・スクリプト不可） | NF-S04 |
-| テスト | Go: 標準 `testing`／`testify`。フロント: Vitest＋Vue Test Utils | NF §10 |
+| テスト | Go: 標準 `testing`／`testify`。フロント: **`bun test`**（DOM は happy-dom、コンポーネントは Vue Test Utils。`.vue` の読み込みは bun のプラグイン設定が必要で、実装時に検証する。[環境構築 §5.3](../environment/setup.md)） | NF §10 |
 | CI／配布 | GitHub Actions（Windows ランナーでビルド）、GitHub Releases | NF-D01〜D04 |
 
 > 補足: Wails v3 は正式版が出て間もない。API は公式ドキュメント（v3.wails.io）を一次情報とし、実装前にバージョンを固定（`go.mod`）する。
@@ -252,7 +252,7 @@ sequenceDiagram
 ## 9. ビルド・CI
 
 - ローカル: `wails3 dev`（開発）、`wails3 build`（Windows 向け成果物）。`sqlc generate` と `wails3 generate bindings` の生成物はコミットする（差分が出ていないことを CI で検査する）
-- GitHub Actions: `windows-latest` で Go のテスト・vet・lint、フロントの型チェック・lint・Vitest、`wails3 build`、成果物を Releases に添付（タグ push 時）
+- GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 build`）。タグ push 時に成果物を Releases に添付。詳細は [環境構築 §4](../environment/setup.md)
 - マイグレーションは `internal/store/migrations/*.sql`（goose）を `embed` し、起動時に適用する。失敗時は起動中止（NF 可用性）
 
 ## 改訂履歴
@@ -261,3 +261,4 @@ sequenceDiagram
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | §2 サニタイズ欄を NF-S04 の最終形に合わせた。§7.3 を `PrepareSend`→確認トークン→`Send` に書き換え。§8 の送信前確認を Go 側強制に変更、検索カーソルの記述を修正、作成セッションを追記 | バインディング仕様の確認トークン方式・作成セッション方式との整合 |
+| 1.2 | 2026-11-02 | §2 のフロントのテストを Vitest から `bun test` に変更。§9 の CI 記述を ubuntu／windows 構成に更新 | 環境構築（bun 統一・CI マトリクス）との整合 |

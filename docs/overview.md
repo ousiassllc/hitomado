@@ -73,6 +73,7 @@ flowchart LR
 | ER / データモデル | [`docs/architecture/er.md`](architecture/er.md) | SQLite のテーブル定義（メタデータ・スニペットのみ）、インデックス、保持ルール |
 | バインディング仕様（API 仕様） | [`docs/api/endpoints.md`](api/endpoints.md) | Go↔フロントのバインディング契約、エラーコード、送信確認トークン、外部 API 利用 |
 | コンポーネント設計 | [`docs/components/overview.md`](components/overview.md) | Go／Vue のコンポーネント責務・依存・ショートカット・要件対応表 |
+| 環境構築 | [`docs/environment/setup.md`](environment/setup.md) | 開発ツール・bun 固定・CI（ubuntu／windows）・Biome／golangci-lint・Linterly・Lefthook |
 
 ## マイルストーン / リリース計画
 
@@ -95,3 +96,4 @@ flowchart LR
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成。ドキュメントマップを確定し、スコープの未決事項を反映 | 初版（ひな型 0.1 をもとに作成） |
+| 1.1 | 2026-11-02 | ドキュメントマップに環境構築を追加 | env-setup の実施 |
