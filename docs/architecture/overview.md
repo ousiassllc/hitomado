@@ -186,6 +186,9 @@ sequenceDiagram
     else invalid_grant
       SC->>DB: status = needs_reauth
       SC->>FE: account:status
+    else invalid_client／unauthorized_client（OAuth クライアントの資格情報の拒否）
+      SC->>DB: status = needs_reauth（理由: OAuth クライアントの設定を確認）
+      SC->>FE: account:status（message つき。自動再試行は止める）
     end
   end
 ```
@@ -228,7 +231,7 @@ sequenceDiagram
 
 契約の詳細（トークン仕様・エラーコード）は [バインディング仕様 §5.2](../api/endpoints.md#52-送信前確認と送信確認トークン) を参照。
 
-`messages.send` がリクエストを送った後に応答を受け取れず失敗した場合は、`gmail.Client` が Gmail の送信済みを確認し（独自ヘッダ `X-Hitomado-Send-Id` と `in:sent` 検索）、見つかれば成功として扱う。見つからない・確認できないときは `SEND_UNCERTAIN` を返し、再送を促さずアーカイブ・下書き削除もしない（二重送信を避けるため）。接続前の失敗は `OFFLINE`（再送可）。詳細は同 §5.2 を参照。
+`messages.send` がリクエストを送った後に応答を受け取れず失敗した場合は、`gmail.Client` が Gmail の送信済みを確認し（独自ヘッダ `X-Hitomado-Send-Id` と `in:sent` 検索）、見つかれば成功として扱う。見つからない・確認できないときは `SEND_UNCERTAIN` を返し、再送を促さずアーカイブ・下書き削除もしない（二重送信を避けるため）。接続前の失敗と送信前の期限切れは `OFFLINE`（再送可）、送信前のキャンセルは `CANCELLED`。詳細は同 §5.2 を参照。
 
 ### 7.4 AI 下書き
 
@@ -236,15 +239,19 @@ sequenceDiagram
 sequenceDiagram
   participant FE as フロント
   participant AI as AIService
+  participant CS as ComposeService
   participant GM as gmail.Client
   participant PV as ai.Provider
-  FE->>AI: GenerateReplyDraft(accountId, threadId)
+  FE->>AI: GenerateReplyDraft(sessionId, requestId)
+  AI->>CS: 作成セッションから送信元アカウントとスレッドを取得（返信・全員に返信のみ。new／forward は VALIDATION）
   AI->>AI: 同意済み・キー設定済みを確認
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>PV: 生成要求（直近 5 メッセージ・20,000 文字以内）
   PV-->>AI: 本文テキスト
   AI-->>FE: 下書き本文（フロントがエディタに挿入。送信は行わない）
 ```
+
+生成中の中止はフロントが `CancelGenerate(requestId)` を呼び、`GenerateReplyDraft` は `CANCELLED` で reject される。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
 
 ## 8. 主要な設計判断
 
@@ -279,3 +286,6 @@ sequenceDiagram
 | 1.6 | 2026-11-03 | §2 のテスト行を `frontend/bunfig.toml` の preload による検証済みの記述に、補足を「バージョンは `go.mod` で固定している」に改めた | 環境構築 §5.3 の検証結果・`go.mod`（v3.1.0）との整合（#56） |
 | 1.7 | 2026-11-03 | §4 のディレクトリ構成の `domain/` の説明を実際のパッケージ名に直した（`replyto` → `reply`、`confirm`・`contacts`・`palette`・`textconv`・`model` を追加） | 実装（`internal/domain/*`）との整合（#59） |
 | 1.8 | 2026-11-03 | §7.3 に、応答を受け取れなかった送信の扱い（送信済みの確認→成功扱い／`SEND_UNCERTAIN`）への参照を追記 | バインディング仕様 §5.2 との整合（#55） |
+| 1.9 | 2026-11-03 | §7.3 の `SEND_UNCERTAIN` の要約に、送信前の期限切れは `OFFLINE`・送信前のキャンセルは `CANCELLED` を追記 | バインディング仕様 §5.2 の振り分けとの整合（#66） |
+| 1.10 | 2026-11-03 | §7.4 の AI 下書きのシーケンスを `GenerateReplyDraft(sessionId, requestId)` に直し、作成セッションから送信元とスレッドを引くこと・`CancelGenerate(requestId)` での中止を追記 | バインディング仕様 §6・実装（`internal/app/aicore`）との整合（#67） |
+| 1.11 | 2026-11-03 | §7.2 の同期シーケンスに、`invalid_client`／`unauthorized_client` による `needs_reauth`（理由つき・自動再試行を止める）を追記 | 実装（`internal/sync/cycle.go`）・バインディング仕様 §10 との整合（#43、#69） |
