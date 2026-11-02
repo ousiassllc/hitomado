@@ -42,7 +42,7 @@ type AppError = {
 | `SESSION_NOT_FOUND` | 作成セッションが存在しない・破棄済み | false | ComposeService, AIService |
 | `OFFLINE` | ネットワーク不通 | true | Gmail／AI／GitHub 呼び出し |
 | `RATE_LIMITED` | 429（バックオフで解消せず） | true | Gmail／AI |
-| `OAUTH_CLIENT_REJECTED` | OAuth クライアントの資格情報が Google に拒否された（`invalid_client`／`unauthorized_client`／トークン更新の 401）。Client ID／Secret の設定を確認する | false | Gmail 呼び出し |
+| `OAUTH_CLIENT_REJECTED` | OAuth クライアントの資格情報が Google に拒否された（`invalid_client`／`unauthorized_client`／トークン更新・認可コード交換の 401）。Client ID／Secret の設定を確認する | false | Gmail 呼び出し, StartAddAccount, Reconnect |
 | `GMAIL_ERROR` | Gmail API のその他のエラー | 状況による | Gmail 呼び出し |
 | `NEEDS_REAUTH` | トークン失効（`invalid_grant`）。当該アカウントを「要再接続」にする | false | Gmail 呼び出し |
 | `ACCOUNT_DUPLICATE` | 同じアドレスのアカウントが登録済み | false | StartAddAccount |

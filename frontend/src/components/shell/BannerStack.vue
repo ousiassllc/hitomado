@@ -27,6 +27,7 @@ const banners = computed(() =>
       statusMessages: accounts.statusMessages,
       extra: ui.banners,
       reconnect: (id) => void reconnect(id),
+      openOAuthClients: () => ui.openSettings('oauth'),
     }),
   ),
 )
