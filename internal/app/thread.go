@@ -58,6 +58,10 @@ func (s *ThreadService) GetThread(ctx context.Context, ref dto.ThreadRef) (dto.T
 			detail.Labels = append(detail.Labels, l)
 		}
 	}
+	if !hasDraftMessage(tf.Messages) {
+		// DRAFT ラベルのメッセージが無ければ下書きは無い。drafts.list の全ページ走査を避ける。
+		return detail, nil
+	}
 	draftID, ok, err := s.d.Gmail.FindDraftForThread(ctx, ref.AccountID, ref.ThreadID)
 	switch {
 	case err != nil && ctx.Err() != nil:
@@ -69,6 +73,11 @@ func (s *ThreadService) GetThread(ctx context.Context, ref dto.ThreadRef) (dto.T
 		detail.DraftID = draftID
 	}
 	return detail, nil
+}
+
+// hasDraftMessage は msgs に DRAFT ラベルのメッセージがあるかを返す。
+func hasDraftMessage(msgs []gmail.MessageFull) bool {
+	return slices.ContainsFunc(msgs, func(m gmail.MessageFull) bool { return slices.Contains(m.LabelIDs, "DRAFT") })
 }
 
 func threadMessage(m gmail.MessageFull) dto.ThreadMessage {

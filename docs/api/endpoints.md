@@ -187,7 +187,7 @@ type ThreadDetail = {
   threadId: string;
   subject: string;
   messages: ThreadMessage[]; // 下書き（DRAFT ラベル）を除く。時系列昇順
-  draftId?: string;         // このスレッドの Gmail 下書き（あれば）
+  draftId?: string;         // このスレッドの Gmail 下書き（あれば）。スレッド内に DRAFT ラベルのメッセージがあるときだけ drafts.list で探す
   labels: Label[];
 };
 ```
