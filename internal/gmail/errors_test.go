@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 
 	"github.com/ousiassllc/hitomado/internal/secrets"
 )
@@ -241,4 +242,17 @@ func TestClientImplementsForgetter(t *testing.T) {
 	var c Client = e.c
 	_, ok := c.(Forgetter)
 	assert.True(t, ok)
+}
+
+func TestClassifyRejectedOAuthClient(t *testing.T) {
+	for _, tc := range []struct {
+		code   string
+		status int
+	}{{"invalid_client", 401}, {"unauthorized_client", 400}, {"", 401}} {
+		err := &oauth2.RetrieveError{Response: &http.Response{StatusCode: tc.status}, ErrorCode: tc.code}
+		f := classify(err)
+		assert.Equal(t, ErrClientRejected, f.kind, "%q/%d", tc.code, tc.status)
+		assert.Equal(t, retryNone, f.retry)
+	}
+	assert.Equal(t, ErrNeedsReauth, classify(&oauth2.RetrieveError{Response: &http.Response{StatusCode: 400}, ErrorCode: "invalid_grant"}).kind)
 }

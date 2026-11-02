@@ -42,6 +42,9 @@ func classify(err error) failure {
 		switch {
 		case re.ErrorCode == "invalid_grant":
 			return failure{kind: ErrNeedsReauth, status: status}
+		case re.ErrorCode == "invalid_client" || re.ErrorCode == "unauthorized_client" || status == http.StatusUnauthorized:
+			// Client Secret の無効化・ローテーションなど。再接続や再試行では直らず、OAuth クライアントの設定を直す必要がある。
+			return failure{kind: ErrClientRejected, status: status}
 		case status == http.StatusTooManyRequests:
 			return failure{kind: ErrRateLimited, retry: retryLimited, status: status}
 		case status >= 500:
@@ -89,6 +92,12 @@ func isNetworkError(err error) bool {
 	var ne net.Error
 	return errors.As(err, &ue) || errors.As(err, &ne) ||
 		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
+}
+
+// resultUnknown は、リクエストを送った後に応答を受け取れなかった可能性のある失敗（切断・タイムアウト・ctx の期限切れ）か。
+// 5xx など応答を受け取った失敗は含まない。
+func resultUnknown(err error) bool {
+	return errors.Is(err, ErrOffline) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)
 }
 
 // wrapFailure は sentinel を %w で包んだ公開用エラーを作る（元エラーの本文は含めない）。

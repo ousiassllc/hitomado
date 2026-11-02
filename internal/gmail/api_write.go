@@ -5,6 +5,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net/mail"
+	"strings"
+	"time"
 
 	gmailapi "google.golang.org/api/gmail/v1"
 	"google.golang.org/api/googleapi"
@@ -33,7 +37,7 @@ func (c *client) TrashThread(ctx context.Context, accountID, threadID string) er
 // GetAttachment は添付データを取得する。取得できなければ ErrAttachmentGone（404 は ErrNotFound も満たす）。
 func (c *client) GetAttachment(ctx context.Context, accountID, messageID, attachmentID string) ([]byte, error) {
 	var body *gmailapi.MessagePartBody
-	err := c.do(ctx, accountID, callSpec{name: "attachments.get", units: unitsAttachment, retry5xx: true}, func(s *gmailapi.Service) error {
+	err := c.do(ctx, accountID, callSpec{name: "attachments.get", units: unitsAttachment, retry5xx: true, transfer: true}, func(s *gmailapi.Service) error {
 		var err error
 		body, err = s.Users.Messages.Attachments.Get(userID, messageID, attachmentID).Context(ctx).Do()
 		return err
@@ -58,25 +62,74 @@ var uploadOptions = []googleapi.MediaOption{googleapi.ContentType("message/rfc82
 // Send は生 MIME を送信する（messages.send）。raw を JSON に埋め込むと大きな添付で
 // リクエスト上限（413）に当たり得るので、メディアアップロード経路で送る。
 // 5xx は二重送信を避けるため再試行しない。
+// 応答を受け取れずに失敗した（切断・タイムアウト）ときは、Gmail 側が受理済みの可能性があるので、
+// raw の Message-ID で送信済みメッセージを探す（confirmSent）。
 func (c *client) Send(ctx context.Context, accountID string, raw []byte, threadID string) (SentMessage, error) {
 	msg := &gmailapi.Message{ThreadId: threadID}
 	var sent *gmailapi.Message
-	err := c.do(ctx, accountID, callSpec{name: "messages.send", units: unitsMessageSend}, func(s *gmailapi.Service) error {
+	err := c.do(ctx, accountID, callSpec{name: "messages.send", units: unitsMessageSend, transfer: true}, func(s *gmailapi.Service) error {
 		var err error
 		sent, err = s.Users.Messages.Send(userID, msg).Media(bytes.NewReader(raw), uploadOptions...).Context(ctx).Do()
 		return err
 	})
 	if err != nil {
+		if resultUnknown(err) {
+			return c.confirmSent(ctx, accountID, raw, err)
+		}
 		return SentMessage{}, err
 	}
 	return SentMessage{MessageID: sent.Id, ThreadID: sent.ThreadId}, nil
+}
+
+// confirmSendTimeout は Send 失敗後に送信済みか確かめる検索の上限（呼び出し側 ctx が切れていても掛ける）。
+const confirmSendTimeout = 30 * time.Second
+
+// confirmSent は応答を受け取れなかった Send について、同じ Message-ID のメッセージが Gmail にあるかを確かめる。
+// あれば送信成功として返す。無ければ元のエラー cause を返す（未送信として再送できる）。
+// 確かめられなければ ErrSendUncertain（送信済みの可能性。再送させない）を返す。
+func (c *client) confirmSent(ctx context.Context, accountID string, raw []byte, cause error) (SentMessage, error) {
+	id := messageIDOf(raw)
+	if id == "" {
+		return SentMessage{}, fmt.Errorf("gmail: messages.send: Message-ID が無く送信結果を確認できません: %w", ErrSendUncertain)
+	}
+	vctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), confirmSendTimeout)
+	defer cancel()
+	var found *gmailapi.Message
+	err := c.do(vctx, accountID, callSpec{name: "messages.list", units: unitsMessageList, retry5xx: true}, func(s *gmailapi.Service) error {
+		resp, err := s.Users.Messages.List(userID).Q("rfc822msgid:" + id).MaxResults(1).Context(vctx).Do()
+		if err != nil {
+			return err
+		}
+		if len(resp.Messages) > 0 {
+			found = resp.Messages[0]
+		}
+		return nil
+	})
+	switch {
+	case err != nil:
+		return SentMessage{}, fmt.Errorf("gmail: messages.send: 送信結果を確認できません: %w", ErrSendUncertain)
+	case found != nil:
+		c.logger.Warn("応答を受け取れなかった送信は Gmail 側で受理済みでした", slog.String("account_id", accountID))
+		return SentMessage{MessageID: found.Id, ThreadID: found.ThreadId}, nil
+	default:
+		return SentMessage{}, cause
+	}
+}
+
+// messageIDOf は raw の Message-ID（山括弧なし）を返す。無ければ空。
+func messageIDOf(raw []byte) string {
+	m, err := mail.ReadMessage(bytes.NewReader(raw))
+	if err != nil {
+		return ""
+	}
+	return strings.Trim(strings.TrimSpace(m.Header.Get("Message-Id")), "<>")
 }
 
 // CreateDraft は下書きを作成する（drafts.create。メディアアップロード経路）。5xx は重複作成を避けるため再試行しない。
 func (c *client) CreateDraft(ctx context.Context, accountID string, raw []byte, threadID string) (string, error) {
 	draft := &gmailapi.Draft{Message: &gmailapi.Message{ThreadId: threadID}}
 	var created *gmailapi.Draft
-	err := c.do(ctx, accountID, callSpec{name: "drafts.create", units: unitsDraft}, func(s *gmailapi.Service) error {
+	err := c.do(ctx, accountID, callSpec{name: "drafts.create", units: unitsDraft, transfer: true}, func(s *gmailapi.Service) error {
 		var err error
 		created, err = s.Users.Drafts.Create(userID, draft).Media(bytes.NewReader(raw), uploadOptions...).Context(ctx).Do()
 		return err
@@ -90,7 +143,7 @@ func (c *client) CreateDraft(ctx context.Context, accountID string, raw []byte, 
 // UpdateDraft は下書きの内容を置き換える（drafts.update。メディアアップロード経路）。
 func (c *client) UpdateDraft(ctx context.Context, accountID, draftID string, raw []byte) error {
 	draft := &gmailapi.Draft{Message: &gmailapi.Message{}}
-	return c.do(ctx, accountID, callSpec{name: "drafts.update", units: unitsDraft, retry5xx: true}, func(s *gmailapi.Service) error {
+	return c.do(ctx, accountID, callSpec{name: "drafts.update", units: unitsDraft, retry5xx: true, transfer: true}, func(s *gmailapi.Service) error {
 		_, err := s.Users.Drafts.Update(userID, draftID, draft).Media(bytes.NewReader(raw), uploadOptions...).Context(ctx).Do()
 		return err
 	})

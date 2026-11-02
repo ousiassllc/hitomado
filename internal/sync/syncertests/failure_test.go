@@ -156,3 +156,28 @@ func TestRefreshOfNeedsReauthAccountReturnsErrorWithoutCallingGmail(t *testing.T
 	assert.ErrorIs(t, res[0].Err, gmail.ErrNeedsReauth)
 	assert.Equal(t, 1, h.gm.Count("a", "ListHistory"))
 }
+
+// OAuth クライアントの資格情報が拒否されたとき（invalid_client 等）は、設定を確認する案内を出し、
+// needs_reauth と同様に自動再試行を止める。再接続（Start）で再開する。
+func TestClientRejectedStopsRetryingWithConfigMessage(t *testing.T) {
+	h := newHarness(t)
+	h.account("a", true, synced("1"))
+	h.gm.Edit("a", func(a *synctest.Script) { a.HistoryErr = fmt.Errorf("refresh: %w", gmail.ErrClientRejected) })
+
+	h.s.Start("a")
+	h.waitStatus("a", "needs_reauth", 1)
+	assert.Equal(t, store.StatusNeedsReauth, h.st.Account("a").Status)
+	assert.Equal(t, "OAuth クライアントの設定（Client ID／Secret）を確認してください", h.st.Account("a").StatusMessage)
+	assert.Equal(t, "OAuth クライアントの設定（Client ID／Secret）を確認してください", h.st.State("a").LastError)
+
+	h.syncTicker(0).Tick(3) // ワーカーが tick を処理し終えるまで進める
+	assert.Equal(t, 1, h.gm.Count("a", "ListHistory"), "自動再試行しない")
+
+	h.gm.Edit("a", func(a *synctest.Script) {
+		a.HistoryErr = nil
+		a.History = gmail.HistoryPage{LatestHistoryID: "1"}
+	})
+	h.s.Start("a")
+	h.waitActive("a", 1)
+	assert.Equal(t, 2, h.gm.Count("a", "ListHistory"), "再開後に 1 回同期")
+}

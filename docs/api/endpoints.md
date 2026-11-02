@@ -42,6 +42,7 @@ type AppError = {
 | `SESSION_NOT_FOUND` | 作成セッションが存在しない・破棄済み | false | ComposeService, AIService |
 | `OFFLINE` | ネットワーク不通 | true | Gmail／AI／GitHub 呼び出し |
 | `RATE_LIMITED` | 429（バックオフで解消せず） | true | Gmail／AI |
+| `OAUTH_CLIENT_REJECTED` | OAuth クライアントの資格情報が Google に拒否された（`invalid_client`／`unauthorized_client`／トークン更新の 401）。Client ID／Secret の設定を確認する | false | Gmail 呼び出し |
 | `GMAIL_ERROR` | Gmail API のその他のエラー | 状況による | Gmail 呼び出し |
 | `NEEDS_REAUTH` | トークン失効（`invalid_grant`）。当該アカウントを「要再接続」にする | false | Gmail 呼び出し |
 | `ACCOUNT_DUPLICATE` | 同じアドレスのアカウントが登録済み | false | StartAddAccount |
@@ -59,6 +60,7 @@ type AppError = {
 | `CONFIRM_REQUIRED` | 確認トークンがない・未知 | false | Send |
 | `CONFIRM_EXPIRED` | 確認トークンの期限切れ（5 分）または使用済み | false | Send |
 | `CONFIRM_MISMATCH` | 確認時と送信時で送信内容が異なる | false | Send |
+| `SEND_UNCERTAIN` | `Send` の応答を受け取れず（切断・タイムアウト）、Gmail 側に送信済みのメッセージがあるかも確認できなかった。送信済みの可能性があるため、送信済みフォルダーを確認してから再送する | false | Send |
 | `AI_NOT_CONFIGURED` | API キー・プロバイダ未設定 | false | AIService |
 | `AI_CONSENT_REQUIRED` | 当該プロバイダへの送信に未同意 | false | AIService |
 | `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト等） | 状況による | AIService |
@@ -185,7 +187,7 @@ type ThreadDetail = {
   threadId: string;
   subject: string;
   messages: ThreadMessage[]; // 下書き（DRAFT ラベル）を除く。時系列昇順
-  draftId?: string;         // このスレッドの Gmail 下書き（あれば）
+  draftId?: string;         // このスレッドの Gmail 下書き（あれば）。スレッド内に DRAFT ラベルのメッセージがあるときだけ drafts.list で探す
   labels: Label[];
 };
 ```
@@ -320,6 +322,7 @@ sequenceDiagram
 - 送信元の整合（`SENDER_MISMATCH`）: セッションのアカウントと、スレッドの所有アカウント（`threads.account_id`／セッション作成時の `ThreadRef.accountId`）が一致すること。`From` ヘッダは `accounts.email` から生成し、本文・ヘッダに由来する値を使わない
 - 送信は `archiveAfterSend` が真でも**送信成功後**にアーカイブする。アーカイブ失敗時は `SendResult.archived = false`、`archiveError` に理由を入れ、送信自体は成功として扱う
 - 送信が失敗したとき（`messages.send` は二重送信を避けるため 5xx を再試行しない）は、確認トークンは使用済みになるが、作成セッションと本文はそのまま残る。利用者は内容を保ったまま、`PrepareSend`（F-06 の確認）からやり直して再送できる
+- 送信の転送（`messages.send`・添付の取得）には総時間の上限を掛けず、呼び出し側 `ctx` の期限と応答ヘッダー待ちで打ち切る。`Send` が応答を受け取れず失敗したとき（切断・タイムアウト）は、再送を許す前に `rfc822msgid:<Message-ID>` で Gmail 側を検索し、あれば成功として返す。検索も失敗したら `SEND_UNCERTAIN`（`OFFLINE` にしない）で返す
 - MIME: `multipart/alternative`（`text/plain`＋`text/html`）。添付があれば `multipart/mixed`。ヘッダは `From`、`To`、`Cc`、`Bcc`、`Subject`（RFC 2047）、`In-Reply-To`、`References`、`Date`、`Message-ID`
 
 ## 6. AIService
@@ -399,6 +402,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 - `threads.get` は一覧同期で `format=metadata`（`metadataHeaders=From,To,Cc,Subject,Date`）、閲覧時は `format=full`
 - すべての Gmail 呼び出しはアカウントごとの `rate.Limiter`（クォータユニット単位）を通す。429／5xx は指数バックオフ（初回 1 秒、上限 60 秒、ジッタ付き）。ただし二重実行になり得る `messages.send` と `drafts.create` は 5xx を再試行しない（429 は再試行する）
 - `invalid_grant` は `NEEDS_REAUTH` に変換し、`accounts.status = 'needs_reauth'` を更新して `account:status` を発行する
+- `invalid_client`／`unauthorized_client`／トークン更新の 401 は `OAUTH_CLIENT_REJECTED` に変換する。同期では `needs_reauth` と同様に自動再試行を止め、`message` に「OAuth クライアントの設定（Client ID／Secret）を確認してください」を載せる（設定を直したあと `Reconnect` で再開する）
 - ネットワーク不通は `OFFLINE` に変換する。取得済みのキャッシュ表示は維持する
 
 ## 改訂履歴

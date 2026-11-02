@@ -27,7 +27,9 @@ func TestFromInfraMapsSentinels(t *testing.T) {
 		retryable bool
 	}{
 		{"needs reauth", gmail.ErrNeedsReauth, apperr.NeedsReauth, false},
+		{"client rejected", gmail.ErrClientRejected, apperr.OAuthClientRejected, false},
 		{"offline", gmail.ErrOffline, apperr.Offline, true},
+		{"send uncertain", gmail.ErrSendUncertain, apperr.SendUncertain, false},
 		{"net error", &net.DNSError{Err: "no such host"}, apperr.Offline, false},
 		{"rate limited", gmail.ErrRateLimited, apperr.RateLimited, true},
 		{"gmail not found", gmail.ErrNotFound, apperr.NotFound, false},

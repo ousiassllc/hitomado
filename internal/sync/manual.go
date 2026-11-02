@@ -137,16 +137,17 @@ func (s *Scheduler) flushQuiet(ctx context.Context, cyc *cycle) {
 	s.flush(ctx, cyc)
 }
 
-// noteReauth は手動操作で ErrNeedsReauth を受けたとき、アカウントを needs_reauth にして自動再試行を止める。
+// noteReauth は手動操作で ErrNeedsReauth／ErrClientRejected を受けたとき、アカウントを needs_reauth にして自動再試行を止める。
 func (s *Scheduler) noteReauth(ctx context.Context, a *account, err error) {
-	if !errors.Is(err, gmail.ErrNeedsReauth) || ctx.Err() != nil {
+	if (!errors.Is(err, gmail.ErrNeedsReauth) && !errors.Is(err, gmail.ErrClientRejected)) || ctx.Err() != nil {
 		return
 	}
+	status, msg := classify(err)
 	a.paused.Store(true)
 	cur, getErr := s.store.GetAccount(ctx, a.id)
 	if getErr != nil {
 		s.log.Warn("get account failed", "account", a.id, "err", getErr)
 		return
 	}
-	s.publishStatus(ctx, a, cur, store.StatusNeedsReauth, msgNeedsReauth)
+	s.publishStatus(ctx, a, cur, status, msg)
 }
