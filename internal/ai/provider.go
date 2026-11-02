@@ -40,7 +40,12 @@ func NewWithClient(provider, model, baseURL, apiKey string, hc *http.Client) (Pr
 		return nil, errors.New("ai: モデルが指定されていません")
 	}
 	if hc == nil {
-		hc = &http.Client{Timeout: defaultHTTPTimeout}
+		// リダイレクトは追従しない。307／308 は POST の本文ごと別ホスト・別 scheme へ再送されるため、
+		// 同意・検証済みの送信先（scheme＋ホスト）以外にスレッド内容が届き得る。3xx は ErrFailed になる。
+		hc = &http.Client{
+			Timeout:       defaultHTTPTimeout,
+			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+		}
 	}
 	c := client{hc: hc, model: model, apiKey: apiKey}
 	switch provider {
