@@ -3,6 +3,7 @@ package apptests
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -243,6 +244,9 @@ func TestSaveAttachmentReplacesExistingFileAtomically(t *testing.T) {
 }
 
 func TestSaveAttachmentPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Windows には POSIX のパーミッションがない")
+	}
 	svc, e, a := saveSetup(t)
 	mref := dto.MessageRef{AccountID: a.ID, ThreadID: "t1", MessageID: "m1"}
 	dir := t.TempDir()
