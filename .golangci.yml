@@ -1,0 +1,28 @@
+version: "2"
+
+run:
+  timeout: 5m
+  # Linux では CGO なし（GTK ヘッダ不要）の purego バックエンドでビルドする。Windows には影響しない。
+  build-tags:
+    - purego
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - errorlint
+    - bodyclose
+    - gosec
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/ousiassllc/hitomado

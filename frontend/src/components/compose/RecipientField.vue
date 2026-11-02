@@ -1,0 +1,299 @@
+<script setup lang="ts">
+import { computed, ref, useId } from 'vue'
+import { ComposeService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import type { Address } from '../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+import { useContactSuggest } from '../../composables/useContactSuggest'
+import { call } from '../../lib/api'
+import { compose as msg } from '../../lib/messages'
+import { addressLabel, isLikelyEmail, mergeAddresses, parseAddresses } from '../../lib/recipients'
+
+const props = defineProps<{
+  modelValue: Address[]
+  /** 候補を引く送信元アカウント。未選択なら候補は出さない。 */
+  accountId?: string
+  label: string
+  disabled?: boolean
+}>()
+
+const emit = defineEmits<{ 'update:modelValue': [value: Address[]] }>()
+
+const text = ref('')
+const input = ref<HTMLInputElement>()
+const active = ref(-1)
+const listId = useId()
+
+const { suggestions, query, clear } = useContactSuggest({
+  accountId: () => props.accountId,
+  fetch: (accountId, prefix, limit) => call(ComposeService.SuggestContacts(accountId, prefix, limit)),
+})
+
+const shown = computed(() => {
+  const have = new Set(props.modelValue.map((a) => a.email.toLowerCase()))
+  return suggestions.value.filter((s) => !have.has(s.email.toLowerCase()))
+})
+const open = computed(() => shown.value.length > 0 && text.value.trim() !== '')
+
+function add(addrs: Address[]): void {
+  if (addrs.length === 0) return
+  emit('update:modelValue', mergeAddresses(props.modelValue, addrs))
+}
+
+function reset(): void {
+  text.value = ''
+  active.value = -1
+  clear()
+}
+
+/** 入力中の文字列をチップにする。 */
+function commit(): void {
+  const addrs = parseAddresses(text.value)
+  if (addrs.length > 0) add(addrs)
+  reset()
+}
+
+/** 入力途中の文字列があればチップにする（送信前に呼ぶ）。 */
+defineExpose({ commitPending: commit })
+
+function pick(a: Address): void {
+  add([a])
+  reset()
+  input.value?.focus()
+}
+
+function remove(index: number): void {
+  emit('update:modelValue', props.modelValue.toSpliced(index, 1))
+}
+
+function onInput(): void {
+  active.value = -1
+  // 区切り文字が入力されたらそこまでをチップにする（貼り付けでなくても , ; 区切りで入力できる）
+  if (/[,;\n]/.test(text.value)) {
+    const parts = text.value.split(/[,;\n]/)
+    const rest = parts.pop() ?? ''
+    add(parseAddresses(parts.join(',')))
+    text.value = rest
+  }
+  query(text.value)
+}
+
+function onPaste(e: ClipboardEvent): void {
+  const pasted = e.clipboardData?.getData('text/plain') ?? ''
+  const addrs = parseAddresses(pasted)
+  if (addrs.length < 2 && !/[,;\n]/.test(pasted)) return // 単一アドレスは通常の入力として扱う
+  e.preventDefault()
+  add(parseAddresses(`${text.value} ${pasted}`.trim()))
+  reset()
+}
+
+function onKeydown(e: KeyboardEvent): void {
+  if (e.isComposing) return
+  const n = shown.value.length
+  if (e.key === 'ArrowDown' && open.value) {
+    e.preventDefault()
+    active.value = (active.value + 1) % n
+  } else if (e.key === 'ArrowUp' && open.value) {
+    e.preventDefault()
+    active.value = (active.value - 1 + n) % n
+  } else if (e.key === 'Enter' && !e.ctrlKey && !e.metaKey) {
+    if (open.value && active.value >= 0) {
+      e.preventDefault()
+      pick(shown.value[active.value])
+    } else if (text.value.trim() !== '') {
+      e.preventDefault()
+      commit()
+    }
+  } else if (e.key === 'Tab' && text.value.trim() !== '') {
+    if (open.value && active.value >= 0) {
+      e.preventDefault()
+      pick(shown.value[active.value])
+    } else {
+      commit()
+    }
+  } else if (e.key === 'Escape' && open.value) {
+    e.stopPropagation()
+    clear()
+  } else if (e.key === 'Backspace' && text.value === '' && props.modelValue.length > 0) {
+    remove(props.modelValue.length - 1)
+  }
+}
+</script>
+
+<template>
+  <div class="recipient-field">
+    <span class="recipient-label">{{ label }}</span>
+    <label class="recipient-box" :class="{ 'recipient-disabled': disabled }">
+      <span
+        v-for="(a, i) in modelValue"
+        :key="a.email"
+        class="chip"
+        :class="{ 'chip-invalid': !isLikelyEmail(a.email) }"
+        :title="isLikelyEmail(a.email) ? undefined : msg.fields.invalidAddress"
+      >
+        <span class="chip-text">{{ addressLabel(a) }}</span>
+        <button
+          type="button"
+          class="chip-remove"
+          :aria-label="msg.fields.removeRecipient(a.email)"
+          :disabled="disabled"
+          @click.stop="remove(i)"
+        >
+          ×
+        </button>
+      </span>
+      <input
+        ref="input"
+        v-model="text"
+        class="recipient-input"
+        type="text"
+        role="combobox"
+        autocomplete="off"
+        spellcheck="false"
+        :disabled="disabled"
+        :aria-label="msg.fields.addRecipient(label)"
+        :aria-expanded="open"
+        :aria-controls="listId"
+        :aria-activedescendant="active >= 0 ? `${listId}-${active}` : undefined"
+        aria-autocomplete="list"
+        @input="onInput"
+        @keydown="onKeydown"
+        @paste="onPaste"
+        @blur="commit"
+      />
+      <div v-show="open" :id="listId" class="suggest" role="listbox" :aria-label="msg.fields.suggestions">
+        <div
+          v-for="(s, i) in shown"
+          :id="`${listId}-${i}`"
+          :key="s.email"
+          class="suggest-item"
+          :class="{ 'suggest-active': i === active }"
+          role="option"
+          tabindex="-1"
+          :aria-selected="i === active"
+          @mousedown.prevent="pick(s)"
+        >
+          <span class="suggest-email">{{ s.email }}</span>
+          <span v-if="s.name" class="suggest-name">{{ s.name }}</span>
+        </div>
+      </div>
+    </label>
+  </div>
+</template>
+
+<style scoped>
+.recipient-field {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.recipient-label {
+  flex: 0 0 56px;
+  padding-top: 7px;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.recipient-box {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 34px;
+  padding: 2px var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg);
+}
+
+.recipient-box:focus-within {
+  border-color: var(--color-focus);
+}
+
+.recipient-disabled {
+  opacity: 0.7;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-subtle);
+  font-size: var(--font-size-sm);
+  line-height: 22px;
+}
+
+.chip-invalid {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.chip-text {
+  overflow: hidden;
+  padding: 0 var(--space-1) 0 var(--space-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chip-remove {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.chip-remove:hover {
+  background: var(--color-selected);
+}
+
+.recipient-input {
+  flex: 1 1 160px;
+  min-width: 120px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-md);
+  outline: none;
+}
+
+.suggest {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  left: 0;
+  z-index: 20;
+  margin: 2px 0 0;
+  padding: var(--space-1) 0;
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-elevated);
+  box-shadow: var(--shadow-popup);
+}
+
+.suggest-item {
+  display: flex;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+
+.suggest-active,
+.suggest-item:hover {
+  background: var(--color-selected);
+}
+
+.suggest-name {
+  color: var(--color-text-muted);
+}
+</style>

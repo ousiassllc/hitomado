@@ -1,0 +1,117 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  WAILS_VERSION: v3.1.0
+  SQLC_VERSION: v1.31.1
+  GOLANGCI_LINT_VERSION: v2.12.2
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Install tools
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          go install -tags purego github.com/wailsapp/wails/v3/cmd/wails3@"${WAILS_VERSION}"
+          go install github.com/sqlc-dev/sqlc/cmd/sqlc@"${SQLC_VERSION}"
+          go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@"${GOLANGCI_LINT_VERSION}"
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - name: go.mod / go.sum are tidy
+        env:
+          CGO_ENABLED: "0"
+        run: go mod tidy -diff
+      - name: Go lint
+        env:
+          CGO_ENABLED: "0"
+        run: golangci-lint run
+      - name: Biome
+        run: frontend/node_modules/.bin/biome ci
+      - name: Type check
+        run: bun run typecheck
+        working-directory: frontend
+      - name: Linterly
+        run: frontend/node_modules/.bin/linterly check
+      - name: Generated files are up to date
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          sqlc generate
+          wails3 generate bindings -f '-tags purego' -clean=true -ts -i
+          git diff --exit-code
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Go vet
+        env:
+          CGO_ENABLED: "0"
+          GOFLAGS: ${{ matrix.os == 'ubuntu-latest' && '-tags=purego' || '' }}
+        run: go vet ./...
+      - name: Go test
+        env:
+          CGO_ENABLED: "0"
+          GOFLAGS: ${{ matrix.os == 'ubuntu-latest' && '-tags=purego' || '' }}
+        run: go test ./...
+      - if: matrix.os == 'ubuntu-latest'
+        run: bun install --frozen-lockfile
+        working-directory: frontend
+      - if: matrix.os == 'ubuntu-latest'
+        run: bun test
+        working-directory: frontend
+
+  build:
+    needs: [lint, test]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Install tools
+        shell: bash
+        run: |
+          go install github.com/wailsapp/wails/v3/cmd/wails3@"${WAILS_VERSION}"
+      - name: Build
+        shell: bash
+        run: wails3 build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitomado-windows-amd64
+          path: bin/hitomado.exe
+          if-no-files-found: error
