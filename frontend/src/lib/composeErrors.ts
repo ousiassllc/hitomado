@@ -49,6 +49,7 @@ export function describeComposeError(e: AppError): string {
     case 'CONFIRM_REQUIRED':
     case 'CONFIRM_EXPIRED':
     case 'CONFIRM_MISMATCH':
+    case 'SEND_UNCERTAIN':
       return msg.errors[e.code]
     case 'INVALID_ADDRESS':
       return msg.errors.INVALID_ADDRESS(emailsOf(e.details))

@@ -14,7 +14,7 @@
 
 | 領域 | 採用 | 理由 |
 |------|------|------|
-| デスクトップ基盤 | **Wails v3**（v3.0.0 正式版） | システムトレイ・ネイティブ通知（クリック応答つき）・単一インスタンス制御を標準 API で扱える（F-10）。Go バインディングの TypeScript 自動生成（`wails3 generate bindings`） |
+| デスクトップ基盤 | **Wails v3**（v3.1.0。版は `go.mod` で固定） | システムトレイ・ネイティブ通知（クリック応答つき）・単一インスタンス制御を標準 API で扱える（F-10）。Go バインディングの TypeScript 自動生成（`wails3 generate bindings`） |
 | バックエンド言語 | Go | Gmail API 公式クライアント・単一バイナリ配布 |
 | メール API | Gmail API（`google.golang.org/api/gmail/v1`） | `history` による差分同期、`threads`／`drafts`／`messages.send` を使う。IMAP は採用しない（OAuth スコープが粗く、スレッド・ラベル・下書きの対応が弱い） |
 | OAuth | `golang.org/x/oauth2`＋Google エンドポイント（PKCE・ループバック） | NF-S03 |
@@ -30,10 +30,10 @@
 | リッチテキスト | Tiptap（ProseMirror）。太字・リンク・箇条書き | F-11 |
 | 仮想スクロール | `@tanstack/vue-virtual` | NF-P04 |
 | サニタイズ | DOMPurify＋`sandbox` iframe（`srcdoc`、`allow-same-origin` のみ・スクリプト不可） | NF-S04 |
-| テスト | Go: 標準 `testing`／`testify`。フロント: **`bun test`**（DOM は happy-dom、コンポーネントは Vue Test Utils。`.vue` の読み込みは bun のプラグイン設定が必要で、実装時に検証する。[環境構築 §5.3](../environment/setup.md)） | NF §10 |
+| テスト | Go: 標準 `testing`／`testify`。フロント: **`bun test`**（DOM は happy-dom、コンポーネントは Vue Test Utils。`.vue` の読み込みは `frontend/bunfig.toml` の preload で行い、`bun test` で SFC を import できる。検証結果は [環境構築 §5.3](../environment/setup.md)） | NF §10 |
 | CI／配布 | GitHub Actions（Windows ランナーでビルド）、GitHub Releases | NF-D01〜D04 |
 
-> 補足: Wails v3 は正式版が出て間もない。API は公式ドキュメント（v3.wails.io）を一次情報とし、実装前にバージョンを固定（`go.mod`）する。
+> 補足: Wails v3 の API は公式ドキュメント（v3.wails.io）を一次情報とし、バージョンは `go.mod` で固定している。
 
 ## 3. システム構成
 
@@ -74,23 +74,30 @@ graph TD
 | **サービス層**（`internal/app`） | Wails に公開するバインディング。入力検証・DTO 変換・ドメインとインフラの調停 | ドメイン層、インフラ層（インターフェース越し） |
 | **ドメイン層**（`internal/domain`） | 返信宛先の決定、送信元ポリシー、署名挿入、引用生成、MIME 組立の入力モデル。**I/O を持たない純粋なロジック** | なし（標準ライブラリのみ） |
 | **同期層**（`internal/sync`） | アカウント別スケジューラ、`history` 差分の適用、リセット同期、新着検出 | ドメイン層、インフラ層 |
-| **インフラ層**（`internal/gmail`／`oauth`／`store`／`secrets`／`ai`／`notify`／`update`） | 外部との I/O。すべてインターフェースで抽象化し、テストではフェイクを注入する | 標準ライブラリ、外部ライブラリ |
+| **インフラ層**（`internal/gmail`／`oauth`／`store`／`secrets`／`ai`／`notify`／`update`／`platform`） | 外部との I/O。すべてインターフェースで抽象化し、テストではフェイクを注入する。`platform` は Wails の機能（ウィンドウ・トレイ・通知・ダイアログ・イベント発行）への接続層で、`notify` などのインターフェースの Wails 実装を持つ | 標準ライブラリ、外部ライブラリ |
+
+横断のパッケージ: `internal/events`（Go からフロントへ発行するイベントの名前とペイロード）、`internal/clock`（時刻の注入）、`internal/logging`（ログ出力の組み立て。機密を出さない）。いずれもレイヤーには属さず、各層から使う。
 
 ### ディレクトリ構成（目安）
 
 ```
 hitomado/
-├─ main.go                 # Wails アプリ起動・サービス登録・トレイ
+├─ main.go                 # エントリポイント（run() を呼び、失敗時は致命的エラーを表示して終了）
+├─ run.go                  # composition root（Wails アプリ作成・単一インスタンス・依存の組み立て・サービス登録・トレイ生成）
 ├─ internal/
 │  ├─ app/                 # バインディング（サービス層）
-│  ├─ domain/              # 純粋ロジック（replyto, signature, quote, sender policy）
+│  ├─ domain/              # 純粋ロジック（reply, quote, signature, senderpolicy, confirm, contacts, palette, textconv, model）
 │  ├─ sync/                # 同期スケジューラ
 │  ├─ gmail/               # Gmail クライアント（interface＋実装）
 │  ├─ oauth/               # ループバック＋PKCE フロー
 │  ├─ store/               # sqlc 生成コード・クエリ・goose マイグレーション
 │  ├─ secrets/             # 資格情報ストア（interface＋keyring 実装）
 │  ├─ ai/                  # Provider interface、anthropic、openai-compat
-│  ├─ notify/              # トースト・トレイ
+│  ├─ notify/              # 新着通知・トレイバッジの Notifier インターフェース（Wails 実装は platform）
+│  ├─ platform/            # Wails 接続層（メインウィンドウ・トレイ・トースト通知・ファイル／ブラウザのダイアログ・イベント発行・終了処理）
+│  ├─ events/              # フロントへ発行するイベントの名前とペイロード
+│  ├─ clock/               # 時刻の注入（System／Fake）
+│  ├─ logging/             # ログ出力（slog＋ローテーション。機密を出さない）
 │  └─ update/              # GitHub Releases 確認
 ├─ frontend/               # Vue 3 + TS（src/components, src/stores, src/lib）
 └─ docs/
@@ -102,7 +109,7 @@ hitomado/
 - **ウィンドウ**: メインウィンドウ 1 つ。エディタはメインウィンドウ内のペイン（返信・転送はスレッド下部、新規作成は右ペイン全面）として表示する。独立ウィンドウは v0 では設けない
 - **トレイ**: ウィンドウの × は非表示化（トレイへ格納）。トレイメニュー「開く」「終了」。「終了」でのみ同期スケジューラを停止してプロセスを終了する
 - **同期**: アカウントごとに 1 ゴルーチン。`time.Ticker`（60 秒）＋手動更新シグナル。`context` でキャンセル可能。アカウント追加・削除に応じて起動・停止する
-- **レート制限**: アカウントごとの `rate.Limiter`（クォータユニット単位）。429／5xx は指数バックオフ
+- **レート制限**: アカウントごとの `rate.Limiter`（クォータユニット単位）。429／5xx は指数バックオフ。ただし `messages.send`／`drafts.create` は二重実行を避けるため 5xx を再試行しない（429 は再試行する）
 - **フロントへの通知**: Go から Wails のイベントを発行し、フロントはイベント受信時にバインディングを再呼び出しして再描画する（イベントに本文等の機密は載せない）
 
 ### 発行イベント
@@ -181,6 +188,9 @@ sequenceDiagram
     else invalid_grant
       SC->>DB: status = needs_reauth
       SC->>FE: account:status
+    else invalid_client／unauthorized_client（OAuth クライアントの資格情報の拒否）
+      SC->>DB: status = needs_reauth（理由: OAuth クライアントの設定を確認）
+      SC->>FE: account:status（message つき。自動再試行は止める）
     end
   end
 ```
@@ -223,21 +233,27 @@ sequenceDiagram
 
 契約の詳細（トークン仕様・エラーコード）は [バインディング仕様 §5.2](../api/endpoints.md#52-送信前確認と送信確認トークン) を参照。
 
+`messages.send` がリクエストを送った後に応答を受け取れず失敗した場合は、`gmail.Client` が Gmail の送信済みを確認し（独自ヘッダ `X-Hitomado-Send-Id` と `in:sent` 検索）、見つかれば成功として扱う。見つからない・確認できないときは `SEND_UNCERTAIN` を返し、再送を促さずアーカイブ・下書き削除もしない（二重送信を避けるため）。接続前の失敗と送信前の期限切れは `OFFLINE`（再送可）、送信前のキャンセルは `CANCELLED`。詳細は同 §5.2 を参照。
+
 ### 7.4 AI 下書き
 
 ```mermaid
 sequenceDiagram
   participant FE as フロント
   participant AI as AIService
+  participant CS as ComposeService
   participant GM as gmail.Client
   participant PV as ai.Provider
-  FE->>AI: GenerateReplyDraft(accountId, threadId)
+  FE->>AI: GenerateReplyDraft(sessionId, requestId)
+  AI->>CS: 作成セッションから送信元アカウントとスレッドを取得（返信・全員に返信のみ。new／forward は VALIDATION）
   AI->>AI: 同意済み・キー設定済みを確認
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>PV: 生成要求（直近 5 メッセージ・20,000 文字以内）
   PV-->>AI: 本文テキスト
   AI-->>FE: 下書き本文（フロントがエディタに挿入。送信は行わない）
 ```
+
+生成中の中止はフロントが `CancelGenerate(requestId)` を呼び、`GenerateReplyDraft` は `CANCELLED` で reject される。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
 
 ## 8. 主要な設計判断
 
@@ -255,8 +271,8 @@ sequenceDiagram
 
 ## 9. ビルド・CI
 
-- ローカル: `wails3 dev`（開発）、`wails3 build`（Windows 向け成果物）。`sqlc generate` と `wails3 generate bindings` の生成物はコミットする（差分が出ていないことを CI で検査する）
-- GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 build`）。`main` への push（PR のマージ）ごとに CI を通したうえで patch を 1 つ上げたタグを自動で作り、成果物を Releases に添付する。詳細は [環境構築 §4](../environment/setup.md)
+- ローカル: `wails3 dev`（開発）、`wails3 package VERSION=X.Y.Z`（NSIS インストーラー `bin/hitomado-vX.Y.Z-windows-amd64-setup.exe` を作る。`task package` も同じ）。`sqlc generate` と `wails3 generate bindings` の生成物はコミットする（差分が出ていないことを CI で検査する）
+- GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 package` によりインストーラーを作り、インストール・上書き・アンインストールを検証する）。`main` への push（PR のマージ）ごとに CI を通したうえで patch を 1 つ上げたタグを自動で作り、インストーラーを Releases に添付する。詳細は [環境構築 §4](../environment/setup.md)
 - マイグレーションは `internal/store/migrations/*.sql`（goose）を `embed` し、起動時に適用する。失敗時は起動中止（NF 可用性）
 
 ## 改訂履歴
@@ -267,4 +283,12 @@ sequenceDiagram
 | 1.1 | 2026-11-02 | §2 サニタイズ欄を NF-S04 の最終形に合わせた。§7.3 を `PrepareSend`→確認トークン→`Send` に書き換え。§8 の送信前確認を Go 側強制に変更、検索カーソルの記述を修正、作成セッションを追記 | バインディング仕様の確認トークン方式・作成セッション方式との整合 |
 | 1.2 | 2026-11-02 | §2 のフロントのテストを Vitest から `bun test` に変更。§9 の CI 記述を ubuntu／windows 構成に更新 | 環境構築（bun 統一・CI マトリクス）との整合 |
 | 1.3 | 2026-11-02 | 発行イベントに `app:before-quit`／`files-dropped` を追加 | バインディング仕様 1.1 との整合 |
-| 1.4 | 2026-11-03 | 技術選定とデータ保存先に MCP・ログの形式・MCP トークンを追加 | #14 |
+| 1.4 | 2026-11-03 | §2 の Wails を v3.1.0 に、§9 のビルド・CI を `wails3 package`（インストーラー）に更新。§4 のレイヤー表・ディレクトリ構成に `run.go`（composition root）、`internal/platform`、`events`／`clock`／`logging` を追加し、`notify` の説明を実装に合わせた | #34、#35 |
+| 1.5 | 2026-11-03 | §5 のレート制限に `messages.send`／`drafts.create` が 5xx を再試行しない例外を追記（履歴に未記録だった分） | 二重送信・重複作成を避ける実装との整合（#46。記録漏れの補正 #53） |
+| 1.6 | 2026-11-03 | §2 のテスト行を `frontend/bunfig.toml` の preload による検証済みの記述に、補足を「バージョンは `go.mod` で固定している」に改めた | 環境構築 §5.3 の検証結果・`go.mod`（v3.1.0）との整合（#56） |
+| 1.7 | 2026-11-03 | §4 のディレクトリ構成の `domain/` の説明を実際のパッケージ名に直した（`replyto` → `reply`、`confirm`・`contacts`・`palette`・`textconv`・`model` を追加） | 実装（`internal/domain/*`）との整合（#59） |
+| 1.8 | 2026-11-03 | §7.3 に、応答を受け取れなかった送信の扱い（送信済みの確認→成功扱い／`SEND_UNCERTAIN`）への参照を追記 | バインディング仕様 §5.2 との整合（#55） |
+| 1.9 | 2026-11-03 | §7.3 の `SEND_UNCERTAIN` の要約に、送信前の期限切れは `OFFLINE`・送信前のキャンセルは `CANCELLED` を追記 | バインディング仕様 §5.2 の振り分けとの整合（#66） |
+| 1.10 | 2026-11-03 | §7.4 の AI 下書きのシーケンスを `GenerateReplyDraft(sessionId, requestId)` に直し、作成セッションから送信元とスレッドを引くこと・`CancelGenerate(requestId)` での中止を追記 | バインディング仕様 §6・実装（`internal/app/aicore`）との整合（#67） |
+| 1.11 | 2026-11-03 | §7.2 の同期シーケンスに、`invalid_client`／`unauthorized_client` による `needs_reauth`（理由つき・自動再試行を止める）を追記 | 実装（`internal/sync/cycle.go`）・バインディング仕様 §10 との整合（#43、#69） |
+| 1.12 | 2026-11-03 | 技術選定とデータ保存先に MCP・ログの形式・MCP トークンを追加 | #14 |

@@ -3,6 +3,7 @@
 
 /**
  * LogService はフロントのエラーの記録・ログフォルダを開く・ログの書き出し（バインディング仕様 §8）。
+ * Wails のバインディング面で、実装は logcore に委譲する。
  * @module
  */
 
@@ -15,7 +16,7 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as dto$0 from "./dto/models.js";
 
 /**
- * ExportLogs は保存先を選ばせ、ログ（現行とローテーション済み）を zip にして書き出す。キャンセルは Saved=false。
+ * ExportLogs は保存先を選ばせ、ログを zip にして書き出す。キャンセルは Saved=false。
  */
 export function ExportLogs(): $CancellablePromise<dto$0.ExportLogsResult> {
     return $Call.ByID(3480587922);
@@ -30,7 +31,6 @@ export function OpenLogFolder(): $CancellablePromise<void> {
 
 /**
  * ReportClientError はフロントの未処理例外・Promise の reject・バインディング呼び出しの失敗を Go のログに記録する。
- * 値は logging の伏せ処理を通り、メッセージ・スタックは長さを切る。上限を超えた報告は黙って捨てる（エラーを返さない）。
  */
 export function ReportClientError(e: dto$0.ClientError): $CancellablePromise<void> {
     return $Call.ByID(3892033248, e);

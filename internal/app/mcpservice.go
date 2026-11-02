@@ -6,7 +6,9 @@ import (
 	"sync"
 
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
+	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/hitomado/internal/app/logcore"
 	"github.com/ousiassllc/hitomado/internal/mcpserver"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
@@ -27,7 +29,7 @@ func NewMCPService(d *Deps, backend mcpserver.Backend) *MCPService {
 	return &MCPService{
 		d: d, tokens: tokens,
 		mgr: mcpserver.New(mcpserver.Options{
-			Backend: backend, Tokens: tokens, Logger: logger(d), LogDir: logDir(d), Version: d.Version,
+			Backend: backend, Tokens: tokens, Logger: logger(d), LogDir: logcore.Dir((*deps.Deps)(d)), Version: d.Version,
 		}),
 	}
 }

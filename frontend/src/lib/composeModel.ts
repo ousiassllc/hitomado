@@ -2,6 +2,7 @@
 import type {
   ComposeContent,
   ComposeSession,
+  OpenComposeRequest,
   SendPreview,
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import type { Address } from '../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
@@ -53,4 +54,13 @@ export function snapshotOf(c: EditableContent): ComposeContent {
     subject: c.subject,
     bodyHtml: c.bodyHtml,
   }
+}
+
+/** 新規作成の送信元の初期値（F-11）: 受信箱のアカウントフィルタが単一選択ならそのアカウント、それ以外は未選択。 */
+export function withDefaultSender(
+  req: OpenComposeRequest,
+  filterAccountIds: string[],
+): OpenComposeRequest {
+  if (req.mode !== 'new' || req.accountId || filterAccountIds.length !== 1) return req
+  return { ...req, accountId: filterAccountIds[0] }
 }

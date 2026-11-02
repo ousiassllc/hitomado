@@ -11,7 +11,7 @@ info:
   description: "Multi-account Gmail unified inbox"
   copyright: "Hitomado contributors, AGPL-3.0"
   comments: "https://github.com/ousiassllc/hitomado"
-  version: "0.1.0"
+  version: "0.0.0"
 
 # Dev mode configuration
 dev_mode:

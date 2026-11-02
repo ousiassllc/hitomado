@@ -67,12 +67,15 @@ type RestEntry struct {
 }
 
 // SearchState はアカウント 1 つ分の検索の続き: 次の pageToken と、配信前の残り。
+// Start は、まだ何も取得できていない（先頭からやり直す）ことを表す。取得に失敗したアカウントを
+// 次の呼び出しで再試行するためのもので、尽きたアカウント（空の状態）とカーソル上で区別する。
 type SearchState struct {
-	PT   string      `json:"p,omitempty"`
-	Rest []RestEntry `json:"r,omitempty"`
+	PT    string      `json:"p,omitempty"`
+	Rest  []RestEntry `json:"r,omitempty"`
+	Start bool        `json:"s,omitempty"`
 }
 
-func (st SearchState) empty() bool { return st.PT == "" && len(st.Rest) == 0 }
+func (st SearchState) empty() bool { return st.PT == "" && len(st.Rest) == 0 && !st.Start }
 
 // searchCursorJSON は検索カーソルの中身（サーバー状態を持たない設計。アカウントごとの続きをすべて埋め込む）。
 type searchCursorJSON struct {

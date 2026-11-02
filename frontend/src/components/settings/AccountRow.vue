@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import type { Account } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { isClientRejectedMessage } from '../../lib/clientRejected'
 import { settings as msg } from '../../lib/messages'
 import AccountChip from '../account/AccountChip.vue'
 import BaseButton from '../ui/BaseButton.vue'
@@ -16,6 +17,8 @@ const props = defineProps<{
   total: number
   /** 'active' | 'syncing' | 'needs_reauth' | 'error'（一時状態を含む） */
   status: string
+  /** Go から届いたステータス理由（account:status の message／保存済みの statusMessage） */
+  statusMessage?: string
   busy: boolean
 }>()
 
@@ -25,6 +28,7 @@ const emit = defineEmits<{
   notify: [enabled: boolean]
   move: [direction: -1 | 1]
   reconnect: []
+  checkClient: []
   remove: []
 }>()
 
@@ -45,7 +49,12 @@ function submitName(): void {
   emit('rename', trimmed.value)
 }
 
+const clientRejected = computed(
+  () => props.status === 'needs_reauth' && isClientRejectedMessage(props.statusMessage),
+)
+
 const statusText = computed(() => {
+  if (clientRejected.value) return props.statusMessage
   if (props.status === 'needs_reauth') return msg.accounts.needsReauth
   if (props.status === 'error') return msg.accounts.statusError
   return ''
@@ -61,6 +70,9 @@ const statusText = computed(() => {
       />
       <span v-if="statusText" class="status" role="status">{{ statusText }}</span>
       <span class="spacer" />
+      <BaseButton v-if="clientRejected" :disabled="busy" @click="emit('checkClient')">
+        {{ msg.accounts.checkOAuthClient }}
+      </BaseButton>
       <BaseButton v-if="status === 'needs_reauth'" :loading="busy" @click="emit('reconnect')">
         {{ busy ? msg.accounts.reconnecting : msg.accounts.reconnect }}
       </BaseButton>

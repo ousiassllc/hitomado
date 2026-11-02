@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ousiassllc/hitomado/internal/app/appcore"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
@@ -120,4 +121,121 @@ func TestSearchIgnoresDraftsInSummary(t *testing.T) {
 	assert.Equal(t, "snippet m2", it.Snippet)
 	assert.Equal(t, "sender@example.com", it.LastFrom.Email)
 	assert.True(t, it.IsUnread)
+}
+
+func TestSearchFailedAccountKeepsStateInCursorAndRetries(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	b := e.AddAccount(t, "b@x.example")
+	e.PutRemoteThread(a.ID, "hit1", apptest.Msg("m1", "hit1", at(1), "INBOX"))
+	e.PutRemoteThread(a.ID, "hit3", apptest.Msg("m3", "hit3", at(3), "INBOX"))
+	e.PutRemoteThread(b.ID, "hit2", apptest.Msg("m2", "hit2", at(2), "INBOX"))
+	e.PutRemoteThread(b.ID, "hit4", apptest.Msg("m4", "hit4", at(4), "INBOX"))
+	ctx := t.Context()
+
+	p, err := svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 1})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hit4"}, threadIDs(p.Items))
+	require.NotEmpty(t, p.NextCursor)
+
+	// 2 ページ目: B の ListThreads が一度だけ失敗する。
+	e.Gmail.Err["ListThreads:"+b.ID] = gmail.ErrRateLimited
+	p, err = svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 1, Cursor: p.NextCursor})
+	require.NoError(t, err)
+	delete(e.Gmail.Err, "ListThreads:"+b.ID)
+	assert.Equal(t, []string{"hit3"}, threadIDs(p.Items))
+	require.Len(t, p.Failures, 1)
+	assert.Equal(t, b.ID, p.Failures[0].AccountID)
+	require.NotEmpty(t, p.NextCursor)
+	states, err := appcore.DecodeSearchCursor(p.NextCursor)
+	require.NoError(t, err)
+	require.Contains(t, states, b.ID, "失敗した B の状態を続きのカーソルに残す")
+	assert.Equal(t, "1", states[b.ID].PT, "B は入ってきた pageToken から再試行する")
+
+	// 以降は B の結果も返る（時刻順を保つ）。
+	var got []string
+	cursor := p.NextCursor
+	for range 5 {
+		p, err = svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 1, Cursor: cursor})
+		require.NoError(t, err)
+		assert.Empty(t, p.Failures)
+		got = append(got, threadIDs(p.Items)...)
+		if cursor = p.NextCursor; cursor == "" {
+			break
+		}
+	}
+	assert.Equal(t, []string{"hit2", "hit1"}, got)
+}
+
+func TestSearchFailureOnFirstPageIsRetriedFromStart(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	b := e.AddAccount(t, "b@x.example")
+	e.PutRemoteThread(a.ID, "hit1", apptest.Msg("m1", "hit1", at(1), "INBOX"))
+	e.PutRemoteThread(b.ID, "hit2", apptest.Msg("m2", "hit2", at(2), "INBOX"))
+	ctx := t.Context()
+
+	e.Gmail.Err["ListThreads:"+b.ID] = gmail.ErrRateLimited
+	p, err := svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 5})
+	require.NoError(t, err)
+	delete(e.Gmail.Err, "ListThreads:"+b.ID)
+	assert.Equal(t, []string{"hit1"}, threadIDs(p.Items))
+	require.Len(t, p.Failures, 1)
+	require.NotEmpty(t, p.NextCursor, "先頭で失敗したアカウントの再試行を続きのカーソルで表す")
+
+	p, err = svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 5, Cursor: p.NextCursor})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hit2"}, threadIDs(p.Items))
+	assert.Empty(t, p.Failures)
+	assert.Empty(t, p.NextCursor)
+}
+
+func TestSearchMetadataFailureKeepsPageForRetry(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	e.PutRemoteThread(a.ID, "hit1", apptest.Msg("m1", "hit1", at(1), "INBOX"))
+	e.PutRemoteThread(a.ID, "hit2", apptest.Msg("m2", "hit2", at(2), "INBOX"))
+	ctx := t.Context()
+
+	e.Gmail.Err["GetThreadMetadata:"+a.ID+":hit1"] = gmail.ErrRateLimited
+	p, err := svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 5})
+	require.NoError(t, err)
+	delete(e.Gmail.Err, "GetThreadMetadata:"+a.ID+":hit1")
+	assert.Empty(t, p.Items)
+	require.Len(t, p.Failures, 1)
+	require.NotEmpty(t, p.NextCursor)
+
+	p, err = svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 5, Cursor: p.NextCursor})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hit2", "hit1"}, threadIDs(p.Items))
+	assert.Empty(t, p.NextCursor)
+}
+
+func TestSearchPermanentFailureIsNotKeptInCursor(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	b := e.AddAccount(t, "b@x.example")
+	e.PutRemoteThread(a.ID, "hit1", apptest.Msg("m1", "hit1", at(1), "INBOX"))
+	e.PutRemoteThread(b.ID, "hit2", apptest.Msg("m2", "hit2", at(2), "INBOX"))
+
+	e.Gmail.Err["ListThreads:"+b.ID] = gmail.ErrNeedsReauth
+	p, err := svc.Search(t.Context(), dto.SearchQuery{Q: "hit", Limit: 5})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hit1"}, threadIDs(p.Items))
+	require.Len(t, p.Failures, 1)
+	assert.Equal(t, b.ID, p.Failures[0].AccountID)
+	assert.Equal(t, apperr.NeedsReauth, p.Failures[0].Error["code"])
+	assert.Empty(t, p.NextCursor, "再試行しても直らない失敗は続きのカーソルに残さない")
+}
+
+func TestSearchOfflineFailureIsKeptInCursor(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	e.PutRemoteThread(a.ID, "hit1", apptest.Msg("m1", "hit1", at(1), "INBOX"))
+
+	e.Gmail.Err["ListThreads:"+a.ID] = gmail.ErrOffline
+	p, err := svc.Search(t.Context(), dto.SearchQuery{Q: "hit", Limit: 5})
+	require.NoError(t, err)
+	require.Len(t, p.Failures, 1)
+	assert.NotEmpty(t, p.NextCursor, "オフラインは回復し得るので再試行を続きのカーソルで表す")
 }

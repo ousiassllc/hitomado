@@ -50,3 +50,11 @@ func TestSearchCursorRoundTrip(t *testing.T) {
 	_, err = appcore.DecodeSearchCursor("e30")
 	assert.Error(t, err)
 }
+
+func TestSearchCursorKeepsStartState(t *testing.T) {
+	enc := appcore.EncodeSearchCursor(map[string]appcore.SearchState{"a": {Start: true}, "b": {}})
+	require.NotEmpty(t, enc, "先頭からの再試行は尽きたアカウントと区別して残す")
+	got, err := appcore.DecodeSearchCursor(enc)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]appcore.SearchState{"a": {Start: true}}, got)
+}

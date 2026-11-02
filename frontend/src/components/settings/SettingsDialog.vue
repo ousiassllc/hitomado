@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { settings as msg } from '../../lib/messages'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
@@ -26,8 +26,6 @@ const tabs = [
   { value: 'general', label: msg.tabs.general, component: GeneralSettings },
 ] as const
 
-const tab = ref<string>('accounts')
-
 const open = computed({
   get: () => ui.dialogs.settings,
   set: (v: boolean) => {
@@ -35,10 +33,16 @@ const open = computed({
   },
 })
 
-// 開くたびに最新の AI 設定・アプリ情報を読み込み、先頭タブから始める。
+const tab = computed({
+  get: () => ui.settingsTab,
+  set: (v: string) => {
+    ui.settingsTab = v
+  },
+})
+
+// 開くたびに最新の AI 設定・アプリ情報を読み込む（開くタブは ui.openSettings が決める）。
 watch(open, (isOpen) => {
   if (!isOpen) return
-  tab.value = 'accounts'
   void settingsStore.load()
 })
 </script>

@@ -19,6 +19,9 @@ var (
 	ErrCancelled = errors.New("oauth: cancelled") // ctx のキャンセル、または利用者が認可画面を拒否せず閉じた
 	ErrDenied    = errors.New("oauth: denied")    // access_denied・スコープ不足
 	ErrTimeout   = errors.New("oauth: timeout")   // 5 分以内に完了しなかった
+
+	// ErrClientRejected はトークンエンドポイントが Client ID／Secret を拒否した（invalid_client／unauthorized_client／401）。
+	ErrClientRejected = errors.New("oauth: client rejected")
 )
 
 // ClientConfig は利用者が登録した OAuth クライアントの資格情報。

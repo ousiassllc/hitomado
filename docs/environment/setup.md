@@ -2,7 +2,7 @@
 
 > 関連: [プロジェクト概要](../overview.md) / [アーキテクチャ設計](../architecture/overview.md) / [コンポーネント設計](../components/overview.md) / [非機能要件 §10](../requirements/non-functional.md)
 
-本書は開発環境・CI・lint／format・Git Hooks の方針を定める。**設定ファイルはまだリポジトリに存在しない**。実装 Issue（#1）の最初のステップで本書どおりに作成する。バージョンの数値は、実装着手時に最新の安定版を確認して固定する（本書では未確認の数値を断定しない）。
+本書は開発環境・CI・lint／format・Git Hooks の方針を定める。本書の設定ファイル（`.golangci.yml`、`.linterly.yml`、`biome.json`、`lefthook.yml`、`sqlc.yaml`、`Taskfile.yml`、`.github/workflows/*`）はいずれもリポジトリに存在する。ツールのバージョンは `go.mod`・`frontend/package.json`・`ci.yml` の `env`（`WAILS_VERSION` など）で固定しており、本書では数値を重ねて断定しない（開発機の確認値は参考として示す）。
 
 ## 1. 概要
 
@@ -79,7 +79,7 @@ task dev                        # 開発サーバー（wails3 dev）
 
 | タスク | 内容 |
 |--------|------|
-| `task dev` | `wails3 dev`（フロントは `bun run dev`） |
+| `task dev` | `wails3 dev`（フロントは `bun run dev`）。版は `-X` なしで `main.go` の既定値 `0.0.0`（§4.3 版番号） |
 | `task build` | `wails3 build`（Windows 向け成果物。`VERSION=X.Y.Z` で版を埋め込む。既定は `0.0.0`） |
 | `task package` | `wails3 package VERSION=X.Y.Z`（`build` のあと NSIS で `bin/hitomado-vX.Y.Z-windows-amd64-setup.exe` を作る。§4.3） |
 | `task generate` | `sqlc generate` と `wails3 generate bindings` |
@@ -88,7 +88,7 @@ task dev                        # 開発サーバー（wails3 dev）
 | `task test` | `go test ./...`、`bun test`（`frontend/` で実行） |
 | `task check` | `generate` の差分なし確認＋`lint`＋`test`（CI と同等） |
 
-- `frontend/package.json` の `scripts`: `dev`、`build`（`vue-tsc --noEmit && vite build`）、`typecheck`（`vue-tsc --noEmit`）。テストは `frontend/` で `bun test` を直接実行する（`vitest` は使わない）
+- `frontend/package.json` の `scripts`: `dev`、`build`（`vue-tsc --noEmit && vite build --mode production`）、`build:dev`（`vue-tsc --noEmit && vite build --minify false --mode development`。`build/Taskfile.yml` が `DEV=true` のときに使う）、`typecheck`（`vue-tsc --noEmit`）。テストは `frontend/` で `bun test` を直接実行する（`vitest` は使わない）
 - Wails v3 のテンプレートが `npm`／`npx` を呼ぶ箇所（`Taskfile.yml`、`build/` 配下のタスク）は、すべて `bun`／`bunx` に置換する
 
 ### 3.4 秘密情報
@@ -114,7 +114,7 @@ flowchart LR
 | `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため） |
 | `build` | windows-latest | `needs: [lint, test]`。`wails3 package` でインストーラーを作り（版 `0.99.1` と `0.99.2` の 2 つ）、`.github/scripts/test-installer.ps1` で **インストール → 起動中の上書き拒否 → 上書き → アンインストール** を実機で検証する（§4.3）。新しい方のインストーラーを Actions のアーティファクトに保存 |
 
-- セットアップ: `actions/setup-go`（`go.mod` のバージョン）、`oven-sh/setup-bun`、Go とフロントの依存キャッシュ
+- セットアップ: `actions/setup-go`（`go.mod` のバージョン。Go のモジュール・ビルドキャッシュは既定で効く）、`oven-sh/setup-bun`（bun 1.3.14 を固定）、`bun install --frozen-lockfile`。フロントの依存は明示的にキャッシュしない
 - 生成物の差分検査: `wails3 generate bindings` は Linux でも動く。ただし GTK ヘッダが無い環境では cgo を使う既定の Linux バックエンドをビルドできないため、`CGO_ENABLED=0` と `-tags purego`（Wails v3.1.0 の CGO なし Linux バックエンド）を付ける。Go の lint・vet・test も ubuntu では同じ設定で実行する（Windows 向けビルドには影響しない）。
 
 ### 4.2 `release.yml`
@@ -137,7 +137,7 @@ flowchart LR
 | ショートカット | スタートメニュー（必須）。デスクトップは任意（インストーラーのコンポーネント選択。既定はオフ、サイレントでも作らない） |
 | 「アプリと機能」 | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\jp.ousias.hitomado`（表示名・版・発行元・`InstallLocation`・`UninstallString`）。このキー名を変えると別アプリ扱いになり、上書き更新できなくなる |
 | 上書き更新 | 新しい版のインストーラーを実行するだけ。前回の `InstallLocation` に入り、exe と登録内容を置き換える。起動中の `hitomado.exe` は置き換えられないため（実行中の exe を書き込みで開けるかで判定）、画面ありなら終了を促して再試行させ、サイレント（`/S`）なら何も変えずエラーコード 5 を設定して中止する（CI で終了コード 5 を確認。ウイルス対策ソフトが exe を一時的に掴んでいる間も同じ扱いになるため、少し待って再実行する） |
-| 版番号 | `VERSION=X.Y.Z` 1 つから、`-X main.version`（アプリの表示・更新確認）、exe のファイルバージョン（`build/windows/info.generated.json` を `generate:syso` の前に書く。git 管理外）、インストーラーの表示と「アプリと機能」の `DisplayVersion` を作る。X.Y.Z 以外はビルドを失敗させる |
+| 版番号 | `VERSION=X.Y.Z` 1 つから、`-X main.version`（アプリの表示・更新確認）、exe のファイルバージョン（`build/windows/info.generated.json` を `generate:syso` の前に書く。git 管理外）、インストーラーの表示と「アプリと機能」の `DisplayVersion` を作る。X.Y.Z 以外はビルドを失敗させる。`VERSION` を渡さない場合の既定値は `0.0.0`。`task dev` は `-X` を付けないため、アプリの表示・更新確認には `main.go` の `version` の既定値が使われる。この既定値と、`build/config.yml` の `info.version`（Wails テンプレート由来。`task dev` が `-config` で読むファイルだが、`info.version` を使う手順はこのリポジトリにない）、`build/windows/wails.exe.manifest` の `assemblyIdentity` の版（exe に埋め込まれる。`VERSION` とは連動しない固定値）は `0.0.0` に揃えてあり、`VERSION` の既定値を変えるときは `main.go`・`config.yml`・manifest も一緒に変える。`0.0.0` は更新確認で常に「新しい版あり」になる（dev・ローカルビルド専用の版） |
 | WebView2 | 無い PC ではインストーラーに同梱したブートストラッパー（Microsoft 配布。ビルド時に `wails3 generate webview2bootstrapper` で取得）で入れる |
 | 対応 | Windows 10 以降の x64 のみ。ARM64 は対象外（x64 エミュレーションで動くかは未確認のため、インストーラーは中止する。サイレントはエラーコード 64） |
 
@@ -169,14 +169,14 @@ flowchart LR
 
 ### 5.2 フロントエンド（Biome）
 
-- 設定: `biome.json`。対象は `frontend/src`。生成物（`frontend/bindings/**`）は除外する
+- 設定: `biome.json`。対象は `files.includes` の `frontend/src/**`・`frontend/test/**`・`frontend/*.ts`・`frontend/package.json`・`frontend/tsconfig.json`・`biome.json`。生成物（`frontend/bindings`）は除外する
 - 型検査は Biome の範囲外のため、`vue-tsc --noEmit` を CI／pre-push で実行して補う
-- **確認結果**: Biome 2.6.4 は `html.experimentalFullSupportEnabled` で `.vue` の `<script>` と `<template>` を lint する（未使用変数・`==`・`<img>` の alt 欠落を検出できることを確認した）。ESLint の追加は行わない。設定はルートの `biome.json`（対象は `frontend/src`・`frontend/test`。生成物 `frontend/bindings/**` は対象外）
+- **確認結果**: Biome 2.6.4 は `html.experimentalFullSupportEnabled` で `.vue` の `<script>` と `<template>` を lint する（未使用変数・`==`・`<img>` の alt 欠落を検出できることを確認した）。ESLint の追加は行わない。設定はルートの `biome.json`
 
 ### 5.3 フロントエンドのテスト（`bun test`）
 
 - ランナーは **`bun test`**。パッケージ管理・Taskfile・CI・Hooks をすべて bun に統一する
-- テストファイルは `frontend/src/**/*.test.ts`。DOM が必要なテストは `@happy-dom/global-registrator` を `bunfig.toml` の `[test] preload` で登録する
+- テストファイルは `frontend/src/**/*.test.ts` と `frontend/test/*.test.ts`（共有のセットアップ `setup.ts` もここ）。DOM が必要なテストは `@happy-dom/global-registrator` を `frontend/bunfig.toml` の `[test] preload` で登録する
 - **実装時に最初に検証する項目**（検証結果: 1・2 とも **bun 1.3.14 で成立**。`frontend/bunfig.toml` の preload（`test/setup.ts`）で happy-dom の登録と `.vue` ローダーを行い、Vue Test Utils で SFC をマウントできる。代替案は不要）:
   1. `bunfig.toml` の `[test] preload` に、`@happy-dom/global-registrator`（DOM の登録）と、`Bun.plugin` で `@vue/compiler-sfc` を使って `.vue` をコンパイルするローダーを登録し、`bun test` で SFC を import できるか
   2. Vue Test Utils が bun＋happy-dom 上で動くか
@@ -212,13 +212,18 @@ default_excludes: true
 language: ja
 
 # 生成コードなど明確な理由がある場合のみ追加する。
-# ignore:
-#   - "frontend/bindings/**"
-#   - "internal/store/db/**"
+ignore:
+  # ソースコードではないもの（仕様書・ライセンス全文・ロックファイル）。
+  - "docs/**"
+  - "LICENSE"
+  - "frontend/bun.lock"
+  # 生成物（Wails のバインディング・sqlc の出力）。
+  - "frontend/bindings/**"
+  - "internal/store/db/**"
 ```
 
 - `.linterlyignore` は作らない（Linterly は `.linterlyignore` と `.linterly.yml` の `ignore` が両方あると後者を無視するため、除外は `.linterly.yml` の `ignore` に一本化する）。手書きソースコードの除外パターンは追加しない。除外は、ソースコードでないもの（`docs/**`・`LICENSE`・`frontend/bun.lock`）と生成物（`frontend/bindings/**`・`internal/store/db/**`）に限る
-- 生成物（`sqlc` の出力、Wails のバインディング）は、手書きでなく明確な理由があるため、**生成ファイルができた時点で**除外する
+- 生成物（`sqlc` の出力、Wails のバインディング）は、手書きでなく明確な理由があるため、上の `ignore` で除外している
 - `count_mode: all` は変更しない
 - 実行: `bunx linterly check`（pre-commit ではステージ済みファイル、CI では全体）
 
@@ -270,3 +275,5 @@ pre-push:
 | 1.3 | 2026-11-02 | §5.2・§5.3 の検証結果、ubuntu での purego 実行を反映。Linterly の除外を `.linterly.yml` の `ignore` に一本化（`.linterlyignore` は削除） | 実装（#1）での検証 |
 | 1.4 | 2026-11-02 | §4.1 の `ci.yml` から `main` への push トリガーを外し、§4.2 の `release.yml` を「`main` への push で patch を自動で上げて公開」に変更。タグ決定スクリプトとそのテストを追加 | 自動リリース（#8） |
 | 1.5 | 2026-11-02 | §4.3（Windows インストーラー: NSIS・利用者ごと・上書き更新・アンインストール時にデータを残す方針）を追加。§4.1 の `build` と §4.2 の成果物を zip からインストーラーに変更。`task package`・版番号の一元化（`VERSION`） | #10 |
+| 1.6 | 2026-11-03 | §4.3 の版番号に、`VERSION` を渡さないときの版（`0.0.0`）と、`main.go`・`build/config.yml`・`wails.exe.manifest` の既定値を揃える方針を追記 | #12 |
+| 1.7 | 2026-11-03 | 冒頭の「設定ファイルはまだ存在しない」を削除し、§7 の YAML 例を実際の `.linterly.yml`（有効な `ignore`）に揃えた。§3.3 に `build:dev`、§4.1 のセットアップのキャッシュ（Go のみ既定、フロントは明示なし）、§5.2 の Biome の対象範囲、§5.3 のテスト配置（`frontend/test/`）を実装に合わせた | #27、#28 |

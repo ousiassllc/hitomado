@@ -3,6 +3,8 @@ package tokenauth
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -51,14 +53,19 @@ func New(cfg Config) *Transport {
 	return &Transport{cfg: cfg, refreshToken: cfg.RefreshToken}
 }
 
+// ErrRefresh はアクセストークンの取得・更新に失敗したことを表す（リクエストは Gmail へ送られていない）。
+// RoundTrip が返すエラーに %w で含まれ、元の更新エラー（*oauth2.RetrieveError など）も errors.As で辿れる。
+var ErrRefresh = errors.New("tokenauth: access token refresh failed")
+
 // RoundTrip は Authorization ヘッダを付けて base に委譲する（元の req は変更しない）。
+// トークンを用意できなければ ErrRefresh を含むエラーを返し、リクエストは送られない。
 func (a *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	tok, err := a.token(req.Context())
 	if err != nil {
 		if req.Body != nil {
 			_ = req.Body.Close()
 		}
-		return nil, err
+		return nil, fmt.Errorf("%w: %w", ErrRefresh, err)
 	}
 	r := req.Clone(req.Context())
 	tok.SetAuthHeader(r)

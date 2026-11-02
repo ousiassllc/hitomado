@@ -95,7 +95,8 @@ OAuth 同意画面の公開ステータスが **外部かつ「テスト」** �
 - ログ（`%APPDATA%\Hitomado\logs\`）にトークン・パスワード・OAuth 情報・本文・件名・宛先は出力しません（書き込む前に伏せます）。設定 → ログ から、フォルダを開く・書き出すことができます。形式・保持期間は [docs/mcp.md](docs/mcp.md#ログ) にあります。
 - MCP サーバーは既定でオフです。オンにしても、アプリが作るトークン（Bearer）が無い接続は拒否します。既定は `127.0.0.1` のみで待ち受け、別のアドレス（tailnet など）は設定で明示的に許可したときだけです。トークンは Windows 資格情報マネージャーに保存し、再発行・無効化できます。MCP には送信の機能が無く、下書きは必ずあなたがアプリで確認して送ります。
 - アプリが行う外部通信先は次の 4 種類だけです。公開者のサーバーへは一切通信しません。テレメトリもありません。
-  - Google（`accounts.google.com`／`oauth2.googleapis.com`／`openidconnect.googleapis.com`／`gmail.googleapis.com`）
+  - Google OAuth（`accounts.google.com`／`oauth2.googleapis.com`／`openidconnect.googleapis.com`。認可・トークン更新・アドレス取得）
+  - Gmail（`gmail.googleapis.com`。メールの取得・操作・送信）
   - AI プロバイダ（設定したもの。「AI で下書き」を押したときだけ、スレッド本文の一部・表示名・署名を送信）
   - GitHub Releases（`api.github.com`。新バージョンの確認のみ。設定でオフにできます）
 - 例外: メールのリモート画像は既定でブロックします。メッセージごとに「画像を表示」を押したときだけ、そのメールが参照する画像を WebView が直接取得します（取得先はメールの送信者が指定したホストです）。
@@ -139,6 +140,7 @@ task check                      # CI と同等の検査（生成物の差分な�
 ```
 
 - 動作保証の対象は Windows です。Linux／macOS では Go の単体テスト・フロントのテスト・lint を実行できますが、アプリ本体の実行確認は Windows で行ってください。Linux で Go をビルド・テストするときは GTK を使わない `CGO_ENABLED=0 go test -tags purego ./...` を使います。
+- `task dev`・`task build`（`VERSION` なし）の版は `0.0.0` です（`task package VERSION=X.Y.Z` で渡した値だけが配布物の版になります）。`0.0.0` はリリース済みのどの版よりも古いため、設定画面の更新確認には常に新しい版が出ます。
 - 仕様書は [docs/overview.md](docs/overview.md) のドキュメントマップから辿れます。
 - マージは squash／rebase せず、マージコミット方式です。コミットには `git commit -s`（Signed-off-by）を付けます。
 - リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けのインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）と `SHA256SUMS.txt` を Releases に添付します（コード署名なし）。手元でインストーラーを作るときは、Windows で [NSIS](https://nsis.sourceforge.io/)（`makensis`）を入れて `task package VERSION=X.Y.Z` を実行します（`bin/` に出力）。手でタグを打つ必要はありません。

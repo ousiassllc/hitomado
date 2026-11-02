@@ -1,5 +1,6 @@
 // バナーの選択（優先度順に最大 2 件）。純関数。
 import type { Banner, BannerKind } from '../stores/ui'
+import { isClientRejectedMessage } from './clientRejected'
 import { common } from './messages'
 
 export const MAX_BANNERS = 2
@@ -31,6 +32,8 @@ export interface BannerSources {
   /** uiStore に積まれたバナー（更新あり等） */
   extra: Banner[]
   reconnect: (accountId: string) => void
+  /** 設定の OAuth クライアントタブを開く */
+  openOAuthClients: () => void
 }
 
 /**
@@ -41,7 +44,16 @@ export function deriveBanners(s: BannerSources): Banner[] {
   const out: Banner[] = []
   if (!s.online) out.push({ key: 'offline', kind: 'offline', message: common.offlineBanner })
   for (const a of s.accounts) {
-    if (s.statuses[a.id] === 'needs_reauth') {
+    const rejected = s.statusMessages[a.id]
+    if (s.statuses[a.id] === 'needs_reauth' && isClientRejectedMessage(rejected)) {
+      // 再接続しても直らない（Client ID／Secret の設定を直す）ので、原因の案内と設定への導線を出す。
+      out.push({
+        key: `reauth:${a.id}`,
+        kind: 'needs_reauth',
+        message: `${a.displayName}: ${rejected}`,
+        action: { label: common.checkOAuthClient, run: s.openOAuthClients },
+      })
+    } else if (s.statuses[a.id] === 'needs_reauth') {
       out.push({
         key: `reauth:${a.id}`,
         kind: 'needs_reauth',

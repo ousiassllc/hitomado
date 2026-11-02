@@ -64,6 +64,7 @@ func (s *sqlStore) addContacts(ctx context.Context, accountID string, addrs []mo
 
 // SuggestContacts は prefix に前方一致するメールアドレス（PK インデックスの範囲検索）または表示名の
 // 候補を、順位（send*3+receive 降順、同点は last_used_at 降順）で返す。自アカウントのアドレスは除く。
+// 順位規則の実装はここ（queries/contacts.sql の ORDER BY）だけで、docs/architecture/er.md §3.8 と一致させる。
 // prefix が空のときは順位の上位を返す。
 func (s *sqlStore) SuggestContacts(ctx context.Context, accountID, prefix string, limit int) ([]Contact, error) {
 	if limit <= 0 {

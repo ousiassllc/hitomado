@@ -116,9 +116,12 @@ export function useComposeSend(ctx: ComposeSendContext) {
       // 確認トークンは使用済み・無効のため確認をやり直す。本文・添付・宛先は保持する。
       ctx.preview.value = undefined
       const text = ctx.fail(e)
-      ctx.error.value = needsReprepare(parseBindingError(e).code)
-        ? text
-        : `${msg.errors.sendFailed} ${text}`
+      // SEND_UNCERTAIN は送信済みの可能性があるため「送信に失敗しました」を前置しない。
+      const code = parseBindingError(e).code
+      ctx.error.value =
+        needsReprepare(code) || code === 'SEND_UNCERTAIN'
+          ? text
+          : `${msg.errors.sendFailed} ${text}`
       ctx.resaveIfDirty()
       return false
     } finally {

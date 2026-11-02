@@ -2,14 +2,21 @@ package gmail
 
 import (
 	"context"
+	"errors"
+	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
+	"google.golang.org/api/googleapi"
 
+	"github.com/ousiassllc/hitomado/internal/gmail/tokenauth"
 	"github.com/ousiassllc/hitomado/internal/secrets"
 )
 
@@ -241,4 +248,38 @@ func TestClientImplementsForgetter(t *testing.T) {
 	var c Client = e.c
 	_, ok := c.(Forgetter)
 	assert.True(t, ok)
+}
+
+func TestClassifyRejectedOAuthClient(t *testing.T) {
+	for _, tc := range []struct {
+		code   string
+		status int
+	}{{"invalid_client", 401}, {"unauthorized_client", 400}, {"", 401}} {
+		err := &oauth2.RetrieveError{Response: &http.Response{StatusCode: tc.status}, ErrorCode: tc.code}
+		f := classify(err)
+		assert.Equal(t, ErrClientRejected, f.kind, "%q/%d", tc.code, tc.status)
+		assert.Equal(t, retryNone, f.retry)
+	}
+	assert.Equal(t, ErrNeedsReauth, classify(&oauth2.RetrieveError{Response: &http.Response{StatusCode: 400}, ErrorCode: "invalid_grant"}).kind)
+}
+
+func TestResultUnknown(t *testing.T) {
+	post := func(err error) error { return &url.Error{Op: "Post", URL: "https://gmail.example/", Err: err} }
+	for _, tc := range []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"応答を読めず切断", post(io.EOF), true},
+		{"応答待ちのタイムアウト", post(context.DeadlineExceeded), true},
+		{"キャンセル", post(context.Canceled), true},
+		{"読み取り中の切断", post(&net.OpError{Op: "read", Err: errors.New("connection reset by peer")}), true},
+		{"接続拒否", post(&net.OpError{Op: "dial", Err: errors.New("connection refused")}), false},
+		{"名前解決失敗", post(&net.DNSError{Err: "no such host", Name: "gmail.example"}), false},
+		{"トークン更新の通信失敗", post(errors.Join(tokenauth.ErrRefresh, post(io.EOF))), false},
+		{"応答を受け取った 5xx", &googleapi.Error{Code: 503}, false},
+		{"失敗なし", nil, false},
+	} {
+		assert.Equal(t, tc.want, resultUnknown(tc.err), tc.name)
+	}
 }

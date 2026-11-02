@@ -292,10 +292,10 @@ erDiagram
 | `email` | TEXT | NO | PK(2)。小文字正規化 |
 | `display_name` | TEXT | YES | 直近に観測した表示名 |
 | `send_count` | INTEGER | NO | 既定 0。送信完了時に宛先へ加算 |
-| `receive_count` | INTEGER | NO | 既定 0。同期・閲覧時に差出人・宛先・Cc を加算 |
+| `receive_count` | INTEGER | NO | 既定 0。同期時に、取得したメッセージの差出人・宛先・Cc を加算（閲覧時は加算しない） |
 | `last_used_at` | INTEGER | NO | 最終観測時刻 |
 
-- 候補の順位: `send_count * 3 + receive_count` の降順、同点は `last_used_at` の降順
+- 候補の順位: `send_count * 3 + receive_count` の降順、同点は `last_used_at` の降順（`SuggestContacts` の SQL が唯一の実装）
 - 自アカウントのアドレス（`accounts.email`）は候補から除外する
 - スレッドの保持期間削除の影響を受けない。アカウント削除時にカスケード削除する
 
@@ -321,8 +321,8 @@ erDiagram
 | キー | 値の例 | 用途 |
 |------|--------|------|
 | `inbox.filter` | `{"accountIds":["01H..."],"unreadOnly":false}` | 受信箱フィルタの保持（F-02） |
-| `ai.config` | `{"provider":"anthropic","model":"...","baseUrl":null}` | AI 設定（API キーは資格情報ストア） |
-| `ai.consent` | `{"provider":"anthropic","agreedAt":1730000000000}` | AI 送信の同意（F-08） |
+| `ai.config` | `{"provider":"openai","model":"...","baseUrl":"https://example.com/v1"}` | AI 設定（API キーは資格情報ストア）。`baseUrl` は省略可（Base URL 無しのときはキー自体を保存しない。`null` は保存しない。例: `{"provider":"anthropic","model":"..."}`） |
+| `ai.consent` | `{"providers":[{"provider":"openai","baseUrl":"https://api.openai.com","agreedAt":1730000000000}]}` | AI 送信の同意（F-08）。「プロバイダ＋送信先（Base URL の scheme とホスト。パスは含めない）」単位の配列で、プロバイダごとに 1 件。`baseUrl` は省略可（省略は既定の送信先）。送信先が変わった同意は無効になり、保存からも外す。旧形式 `{"provider":"anthropic","agreedAt":...}`（単一オブジェクト）は読み取り専用の互換入力で、保存は常に `providers` 形式（`RecordAIConsent` が書き込む。[API §6](../api/endpoints.md)） |
 | `update.check_enabled` | `true` | 新バージョン確認の有効／無効（NF-D03） |
 | `update.last_checked_at` | `1730000000000` | 最終確認日時 |
 | `window.state` | `{"x":100,"y":60,"width":1280,"height":800,"maximized":false}` | ウィンドウ状態。位置・サイズは最大化していないときの DIP 値（`x`／`y` は省略可。省略時は位置を OS に任せる）。画面外の位置は起動時に捨てる（[F-10](../requirements/functional.md)） |
@@ -355,3 +355,6 @@ erDiagram
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | `contacts` の前方一致を範囲検索に変更 | `LIKE` が PK インデックスを使わないため |
+| 1.2 | 2026-11-03 | §3.9 の `ai.config`／`ai.consent` の値を実装の保存形式に合わせ、旧形式の扱いを追記 | 同意が送信先単位の配列になり、`baseUrl` は省略可のため（#29） |
+| 1.3 | 2026-11-03 | §3.8 の候補の順位規則の実装が `SuggestContacts` の SQL のみであることを明記 | `domain/contacts` の未使用の順位付けを削除したため（#47） |
+| 1.4 | 2026-11-03 | §3.8 の `receive_count` を、同期時に加算し閲覧時は加算しない旨に修正（履歴に未記録だった分） | 実装との整合（#32。記録漏れの補正 #53） |

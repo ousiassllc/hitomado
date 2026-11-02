@@ -61,6 +61,8 @@ type Scheduler struct {
 	closed    bool
 	accounts  map[string]*account
 	refreshes map[string]*refreshCall
+
+	unreadMu sync.Mutex // updateUnread の「未読数の取得→トレイへの反映」を直列化する
 }
 
 var _ Engine = (*Scheduler)(nil)
@@ -294,9 +296,3 @@ func (noopNotifier) SetUnread(bool)                                      {}
 type noopEmitter struct{}
 
 func (noopEmitter) Emit(string, any) {}
-
-// waitIdle は実行中の同期周期・FetchMore の終了を待つ。
-func (a *account) waitIdle() {
-	a.syncMu.Lock()
-	defer a.syncMu.Unlock()
-}

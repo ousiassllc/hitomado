@@ -189,6 +189,7 @@ func (f *FakeGmail) GetThreadMetadata(_ context.Context, accountID, threadID str
 }
 
 // GetThreadFull は Threads を返す。無ければ ErrNotFound。
+// 実 Gmail と同じく、スレッドに紐づく下書き（Drafts のメッセージが DRAFT ラベル付きのもの）も含める。
 func (f *FakeGmail) GetThreadFull(_ context.Context, accountID, threadID string) (gmail.ThreadFull, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -200,6 +201,12 @@ func (f *FakeGmail) GetThreadFull(_ context.Context, accountID, threadID string)
 		return gmail.ThreadFull{}, gmail.ErrNotFound
 	}
 	tf.Messages = slices.Clone(tf.Messages)
+	for k, d := range f.Drafts {
+		if strings.HasPrefix(k, Key(accountID, "")) && d.ThreadID == threadID && slices.Contains(d.Message.LabelIDs, "DRAFT") &&
+			!slices.ContainsFunc(tf.Messages, func(m gmail.MessageFull) bool { return m.ID == d.Message.ID }) {
+			tf.Messages = append(tf.Messages, d.Message)
+		}
+	}
 	return tf, nil
 }
 

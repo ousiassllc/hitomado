@@ -105,12 +105,14 @@ const removeOpen = computed({
         :index="i"
         :total="accounts.length"
         :status="statusOf(a)"
+        :status-message="accountsStore.statusMessages[a.id]"
         :busy="busyId === a.id"
         @rename="rename(a, $event)"
         @color="setColor(a, $event)"
         @notify="setNotify(a, $event)"
         @move="move(a, $event)"
         @reconnect="reconnect(a)"
+        @check-client="ui.openSettings('oauth')"
         @remove="removeTarget = a"
       />
     </ul>

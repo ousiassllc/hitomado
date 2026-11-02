@@ -117,4 +117,4 @@ MCP の呼び出しはログに残ります（いつ・どのツール・成否�
 | MCP サーバー（待ち受け・トークン検証・ツール） | `internal/mcpserver` |
 | 設定・トークンの操作（バインディング） | `internal/app/mcpservice.go`（`MCPService`） |
 | MCP が使うアプリの機能（読み取り・下書き） | `internal/app/mcpbackend.go` |
-| フロントのエラー送信・ログ操作（バインディング） | `frontend/src/lib/errorReporter.ts`／`internal/app/logservice.go`（`LogService`） |
+| フロントのエラー送信・ログ操作（バインディング） | `frontend/src/lib/errorReporter.ts`／`internal/app/logservice.go`（`LogService`。実装は `internal/app/logcore`） |
