@@ -68,28 +68,30 @@ func (s *MCPService) GetMCPStatus(ctx context.Context) (dto.MCPStatus, error) {
 func (s *MCPService) SetMCPConfig(ctx context.Context, in dto.MCPConfig) (dto.MCPStatus, error) {
 	cfg := mcpserver.Config{Enabled: in.Enabled, Host: in.Host, Port: in.Port, AllowNonLoopback: in.AllowNonLoopback}.Normalize()
 	// 止めるときは検証しない（不正な値が残っていてもオフにできる）。値は保存済みのものを維持する。
+	if cfg.Enabled {
+		if err := cfg.Validate(); err != nil {
+			return dto.MCPStatus{}, validation(err.Error())
+		}
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if !cfg.Enabled {
 		saved, err := s.load(ctx)
 		if err != nil {
 			return dto.MCPStatus{}, apperr.FromInfra(err, "")
 		}
 		saved.Enabled = false
-		return s.save(ctx, saved)
+		cfg = saved
 	}
-	if err := cfg.Validate(); err != nil {
-		return dto.MCPStatus{}, validation(err.Error())
-	}
-	return s.save(ctx, cfg)
+	return s.saveLocked(ctx, cfg)
 }
 
-// save は設定を保存して待ち受けに反映する。待ち受けに失敗しても設定は保存し、状態の Error に理由を入れる。
-func (s *MCPService) save(ctx context.Context, cfg mcpserver.Config) (dto.MCPStatus, error) {
+// saveLocked は設定を保存して待ち受けに反映する（s.mu を持って呼ぶ）。待ち受けに失敗しても設定は保存し、状態の Error に理由を入れる。
+func (s *MCPService) saveLocked(ctx context.Context, cfg mcpserver.Config) (dto.MCPStatus, error) {
 	b, err := json.Marshal(cfg)
 	if err != nil {
 		return dto.MCPStatus{}, apperr.FromInfra(err, "")
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if err := s.d.Store.SetSetting(ctx, store.SettingMCPConfig, string(b)); err != nil {
 		return dto.MCPStatus{}, apperr.FromInfra(err, "")
 	}
@@ -97,43 +99,49 @@ func (s *MCPService) save(ctx context.Context, cfg mcpserver.Config) (dto.MCPSta
 	return s.status(cfg), nil
 }
 
-// IssueMCPToken はトークンを（再）発行する。古いトークンは無効になる。値を返すのはこの 1 回だけ。
+// IssueMCPToken はトークンを（再）発行する。古いトークンは無効になり、開いている接続は切れる。値を返すのはこの 1 回だけ。
 func (s *MCPService) IssueMCPToken(ctx context.Context) (dto.MCPTokenResult, error) {
-	cfg, err := s.load(ctx)
-	if err != nil {
-		return dto.MCPTokenResult{}, apperr.FromInfra(err, "")
-	}
 	token, err := s.tokens.Issue()
 	if err != nil {
 		return dto.MCPTokenResult{}, apperr.Wrap(apperr.Internal, "トークンを発行できません。", err)
 	}
-	s.dropConnections(cfg)
+	status, err := s.dropConnections(ctx)
+	if err != nil {
+		return dto.MCPTokenResult{}, err
+	}
 	logger(s.d).Info("mcp token issued")
-	return dto.MCPTokenResult{Token: token, Status: s.status(cfg)}, nil
+	return dto.MCPTokenResult{Token: token, Status: status}, nil
 }
 
-// RevokeMCPToken はトークンを無効にする（以後すべての接続を拒否する）。
+// RevokeMCPToken はトークンを無効にする（以後すべての接続を拒否する）。資格情報ストアの削除に失敗しても、
+// このプロセスでは無効にして接続を切る（エラーは返す。再起動すると残ったトークンが有効に戻る）。
 func (s *MCPService) RevokeMCPToken(ctx context.Context) (dto.MCPStatus, error) {
+	revokeErr := s.tokens.Revoke()
+	status, err := s.dropConnections(ctx)
+	if err != nil {
+		return dto.MCPStatus{}, err
+	}
+	if revokeErr != nil {
+		return dto.MCPStatus{}, apperr.Wrap(apperr.Internal, "トークンを無効にできません。", revokeErr)
+	}
+	logger(s.d).Info("mcp token revoked")
+	return status, nil
+}
+
+// dropConnections はトークンの再発行・無効化のあと、待ち受け中なら待ち受けを作り直して開いている接続・ストリームを切り、
+// 現在の状態を返す（各リクエストはトークンを検証されるが、確立済みの SSE ストリームは検証されないため）。
+// 設定の読み取りと Apply は同じロック区間で行う（並行する SetMCPConfig と食い違わないように）。
+func (s *MCPService) dropConnections(ctx context.Context) (dto.MCPStatus, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	cfg, err := s.load(ctx)
 	if err != nil {
 		return dto.MCPStatus{}, apperr.FromInfra(err, "")
 	}
-	if err := s.tokens.Revoke(); err != nil {
-		return dto.MCPStatus{}, apperr.Wrap(apperr.Internal, "トークンを無効にできません。", err)
-	}
-	s.dropConnections(cfg)
-	logger(s.d).Info("mcp token revoked")
-	return s.status(cfg), nil
-}
-
-// dropConnections はトークンの再発行・無効化のあと、待ち受け中なら待ち受けを作り直して開いている接続・ストリームを切る
-// （各リクエストはトークンを検証されるが、確立済みの SSE ストリームは検証されないため）。
-func (s *MCPService) dropConnections(cfg mcpserver.Config) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
 	if s.mgr.State().Listening {
 		_ = s.mgr.Apply(cfg)
 	}
+	return s.status(cfg), nil
 }
 
 // load は保存済みの設定を返す。未保存・壊れた値は既定（オフ）。

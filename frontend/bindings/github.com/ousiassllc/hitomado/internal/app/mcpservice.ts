@@ -23,14 +23,15 @@ export function GetMCPStatus(): $CancellablePromise<dto$0.MCPStatus> {
 }
 
 /**
- * IssueMCPToken はトークンを（再）発行する。古いトークンは無効になる。値を返すのはこの 1 回だけ。
+ * IssueMCPToken はトークンを（再）発行する。古いトークンは無効になり、開いている接続は切れる。値を返すのはこの 1 回だけ。
  */
 export function IssueMCPToken(): $CancellablePromise<dto$0.MCPTokenResult> {
     return $Call.ByID(960983425);
 }
 
 /**
- * RevokeMCPToken はトークンを無効にする（以後すべての接続を拒否する）。
+ * RevokeMCPToken はトークンを無効にする（以後すべての接続を拒否する）。資格情報ストアの削除に失敗しても、
+ * このプロセスでは無効にして接続を切る（エラーは返す。再起動すると残ったトークンが有効に戻る）。
  */
 export function RevokeMCPToken(): $CancellablePromise<dto$0.MCPStatus> {
     return $Call.ByID(4210082566);

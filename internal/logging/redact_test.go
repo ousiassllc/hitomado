@@ -186,3 +186,15 @@ func TestScrubDoesNotOvermaskStatusCodes(t *testing.T) {
 	assert.Equal(t, "gmail: status code=404 for thread", Scrub("gmail: status code=404 for thread"))
 	assert.Equal(t, "a 100%% done", Scrub("a 100%% done"))
 }
+
+// スタックトレースの「ファイル名.go:行」は、名前に token・session などを含んでいても伏せない（調査に要る）。
+func TestScrubKeepsStackTraceFileLines(t *testing.T) {
+	for _, in := range []string{
+		"/app/internal/app/composecore/compose_session.go:127 +0x1d",
+		"internal/oauth/token.go:67",
+		"frontend/src/session.ts:12:5",
+	} {
+		assert.Equal(t, in, Scrub(in))
+	}
+	assert.NotContains(t, Scrub("access_token=EVADEF1 and x.session_token=EVADEF2"), "EVADEF")
+}

@@ -91,8 +91,11 @@ func TestMCPStaysUsableAfterTokenRotation(t *testing.T) {
 	st := m.enable(t)
 	old := m.issueToken(t)
 	cs := connect(t, st.Endpoint, old)
-	_ = cs
+	_, err := cs.ListTools(t.Context(), nil)
+	require.NoError(t, err)
 	fresh := m.issueToken(t)
+	_, err = cs.ListTools(t.Context(), nil)
+	require.Error(t, err, "再発行で、古いトークンで確立した接続は使えなくなる")
 	cur, err := m.Svc.GetMCPStatus(t.Context())
 	require.NoError(t, err)
 	assert.True(t, cur.Listening)
@@ -145,4 +148,16 @@ func TestMCPReplyDraftDoesNotDuplicate(t *testing.T) {
 	assert.Contains(t, string(b), first.DraftID, "既存の下書き ID を返す")
 	assert.Equal(t, 1, m.Gmail.CallCount("CreateDraft"))
 	assert.Len(t, m.Gmail.Drafts, 1)
+}
+
+// Host／Origin の拒否も（接続元だけ）ログに残す。
+func TestMCPForeignHostRejectionIsLogged(t *testing.T) {
+	m := newMCPEnv(t)
+	st := m.enable(t)
+	token := m.issueToken(t)
+	assert.Equal(t, http.StatusForbidden, postWith(t, st.Endpoint, token, func(r *http.Request) { r.Host = "evil.example" }))
+	log := m.logText(t)
+	assert.Contains(t, log, "mcp connection rejected")
+	assert.Contains(t, log, `"status":403`)
+	assert.NotContains(t, log, token)
 }

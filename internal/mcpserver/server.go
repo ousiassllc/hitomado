@@ -50,7 +50,7 @@ type Options struct {
 // State は待ち受けの状態。
 type State struct {
 	Listening bool
-	Addr      string // 実際に待ち受けているアドレス（Port 0 のときに決まったポートが入る）
+	Addr      string // 実際に待ち受けているアドレス
 	Err       string // 直近の待ち受け失敗（ポート使用中など）
 }
 
@@ -166,7 +166,7 @@ func (m *Manager) handler(cfg Config) http.Handler {
 		&mcp.StreamableHTTPOptions{SessionTimeout: sessionTimeout})
 	guarded := auth.RequireBearerToken(verify, nil)(mcpHandler)
 	mux := http.NewServeMux()
-	mux.Handle(Path, hostGuard(cfg.Host, m.logRejected(guarded)))
+	mux.Handle(Path, m.logRejected(hostGuard(cfg.Host, guarded)))
 	return mux
 }
 
