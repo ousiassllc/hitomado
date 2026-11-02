@@ -186,6 +186,40 @@ func TestErrorClassification(t *testing.T) {
 	}
 }
 
+// リダイレクト先（別ホスト）にはリクエストが届かず、3xx は ErrFailed になる。
+func TestRedirectIsNotFollowed(t *testing.T) {
+	const leak = "leaked-redirect-body"
+	for _, name := range []string{"anthropic", "openai"} {
+		for _, status := range []int{301, 302, 307, 308} {
+			t.Run(name+"/"+http.StatusText(status), func(t *testing.T) {
+				hit := make(chan struct{}, 1)
+				target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+					hit <- struct{}{}
+					_, _ = io.WriteString(w, `{"choices":[{"message":{"content":"ok"}}],"content":[{"type":"text","text":"ok"}]}`)
+				}))
+				t.Cleanup(target.Close)
+				origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					_, _ = io.Copy(io.Discard, r.Body)
+					w.Header().Set("Location", target.URL+r.URL.Path)
+					w.WriteHeader(status)
+					_, _ = io.WriteString(w, leak)
+				}))
+				t.Cleanup(origin.Close)
+
+				_, err := provider(t, name, origin.URL).GenerateReply(context.Background(), input)
+				require.ErrorIs(t, err, ai.ErrFailed)
+				assert.NotContains(t, err.Error(), leak)
+				assert.NotContains(t, err.Error(), apiKey)
+				select {
+				case <-hit:
+					t.Fatal("リダイレクト先にリクエストが届いた")
+				default:
+				}
+			})
+		}
+	}
+}
+
 func TestNetworkErrorIsNetError(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	base := srv.URL
