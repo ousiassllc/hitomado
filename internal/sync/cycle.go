@@ -169,7 +169,11 @@ func (s *Scheduler) flush(ctx context.Context, cyc *cycle) {
 }
 
 // updateUnread は全アカウント合計の未読有無をトレイに反映する。
+// アカウントごとのワーカーなどから並行に呼ばれるため、未読数の取得から反映までを unreadMu で 1 区間にする
+// （間に別の呼び出しが入ると、古い値でバッジを上書きしてしまう）。
 func (s *Scheduler) updateUnread(ctx context.Context) {
+	s.unreadMu.Lock()
+	defer s.unreadMu.Unlock()
 	counts, err := s.store.UnreadCounts(ctx)
 	if err != nil {
 		s.log.Warn("unread counts failed", "err", err)

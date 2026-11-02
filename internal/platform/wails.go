@@ -123,10 +123,10 @@ func NewMainWindow(app *application.App, saved WindowState, save func(WindowStat
 
 // Tray はシステムトレイ（開く／終了。未読バッジ付きアイコン）。
 type Tray struct {
-	tray      *application.SystemTray
-	icon      []byte
-	badged    []byte
-	lastState bool
+	tray   *application.SystemTray
+	icon   []byte
+	badged []byte
+	badge  unreadBadge
 }
 
 // NewTray はトレイを作る。icon は PNG。クリックと「開く」でウィンドウを表示し、「終了」で quit を呼ぶ。
@@ -136,6 +136,7 @@ func NewTray(app *application.App, window *application.WebviewWindow, icon []byt
 		return nil, err
 	}
 	t := &Tray{tray: app.SystemTray.New(), icon: icon, badged: badged}
+	t.badge.apply = t.applyUnread
 	t.tray.SetIcon(icon)
 	t.tray.SetTooltip("Hitomado")
 	menu := app.Menu.New()
@@ -147,12 +148,10 @@ func NewTray(app *application.App, window *application.WebviewWindow, icon []byt
 	return t, nil
 }
 
-// SetUnread は未読の有無に応じてトレイアイコンを切り替える。
-func (t *Tray) SetUnread(has bool) {
-	if has == t.lastState {
-		return
-	}
-	t.lastState = has
+// SetUnread は未読の有無に応じてトレイアイコンを切り替える。複数のゴルーチンから呼んでよい。
+func (t *Tray) SetUnread(has bool) { t.badge.set(has) }
+
+func (t *Tray) applyUnread(has bool) {
 	if has {
 		t.tray.SetIcon(t.badged)
 		t.tray.SetTooltip("Hitomado（未読あり）")
