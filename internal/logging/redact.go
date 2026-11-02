@@ -66,8 +66,9 @@ var scrubRules = []struct {
 	{regexp.MustCompile(`\bsk-[A-Za-z0-9_-]{16,}`), Masked},                             // AI の API キー（OpenAI・Anthropic）
 	{regexp.MustCompile(`\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*`), Masked}, // JWT（id_token）
 	{regexp.MustCompile(`\bhmcp_[A-Za-z0-9_-]+`), Masked},                               // Hitomado の MCP トークン
-	// key=value / key: value / key%3Dvalue。キーが「…_token」「x-auth-token」のように前に文字が付いていても拾う。
-	{regexp.MustCompile(`(?i)([A-Za-z0-9_.-]*(?:token|secret|passw(?:or)?d|passphrase|api[_-]?key|access[_-]?key|secret[_-]?key|verifier|credential|session|otp|jwt)[A-Za-z0-9_-]*\s*(?:=|:|%3D|%3A)\s*)(?:"[^"]*"|'[^']*'|[^&\s"',;%]+)`), "${1}" + Masked},
+	// key=value / key: value / key%3Dvalue。キーが「…_token」「x-auth-token」「token.value」のように前後に文字が付いていても拾う。
+	// ただし ':' 区切りのときは、キーの後ろに '.' を許さない（スタックトレースの `compose_session.go:127` を伏せないため）。
+	{regexp.MustCompile(`(?i)([A-Za-z0-9_.-]*(?:token|secret|passw(?:or)?d|passphrase|api[_-]?key|access[_-]?key|secret[_-]?key|verifier|credential|session|otp|jwt)(?:[A-Za-z0-9_.-]*\s*(?:=|%3D)|[A-Za-z0-9_-]*\s*(?::|%3A))\s*)(?:"[^"]*"|'[^']*'|(?:[^&\s"',;%]|%[0-9A-Fa-f]{2})+)`), "${1}" + Masked},
 	// 引用符つきの JSON のキー: "accessToken":"…"。
 	{regexp.MustCompile(`(?i)("[A-Za-z0-9_.-]*(?:token|secret|passw(?:or)?d|passphrase|api[_-]?key|access[_-]?key|verifier|credential|session|authorization|jwt|otp)[A-Za-z0-9_.-]*"\s*:\s*)"[^"]*"`), "${1}\"" + Masked + "\""},
 	// URL のクエリの code / state / key。

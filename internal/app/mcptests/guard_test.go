@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/stretchr/testify/assert"
@@ -85,22 +86,33 @@ func TestMCPDoesNotListenAfterShutdown(t *testing.T) {
 	assert.False(t, st.Listening)
 }
 
-// トークンの再発行で待ち受けを作り直し、新しいトークンで引き続き使える。
-func TestMCPStaysUsableAfterTokenRotation(t *testing.T) {
+// トークンの再発行で待ち受けを作り直し、古いトークンで確立済みの接続（ストリーム）は閉じる。新しいトークンでは引き続き使える。
+func TestMCPTokenRotationClosesEstablishedConnections(t *testing.T) {
 	m := newMCPEnv(t)
 	st := m.enable(t)
 	old := m.issueToken(t)
-	cs := connect(t, st.Endpoint, old)
-	_, err := cs.ListTools(t.Context(), nil)
+	c := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0"}, nil)
+	oldSession, err := c.Connect(t.Context(), &mcp.StreamableClientTransport{
+		Endpoint: st.Endpoint, HTTPClient: &http.Client{Transport: bearerTransport{old}}, MaxRetries: -1,
+	}, nil) // 常設の SSE ストリームを開く
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = oldSession.Close() })
+	_, err = oldSession.ListTools(t.Context(), nil)
+	require.NoError(t, err)
+
 	fresh := m.issueToken(t)
-	_, err = cs.ListTools(t.Context(), nil)
-	require.Error(t, err, "再発行で、古いトークンで確立した接続は使えなくなる")
+
+	closed := make(chan struct{})
+	go func() { _ = oldSession.Wait(); close(closed) }()
+	select {
+	case <-closed:
+	case <-time.After(10 * time.Second):
+		t.Fatal("再発行のあとも、古いトークンの接続が閉じない")
+	}
 	cur, err := m.Svc.GetMCPStatus(t.Context())
 	require.NoError(t, err)
 	assert.True(t, cur.Listening)
-	cs2 := connect(t, st.Endpoint, fresh)
-	_, err = cs2.ListTools(t.Context(), nil)
+	_, err = connect(t, st.Endpoint, fresh).ListTools(t.Context(), nil)
 	require.NoError(t, err)
 }
 

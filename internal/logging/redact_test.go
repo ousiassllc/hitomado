@@ -196,5 +196,10 @@ func TestScrubKeepsStackTraceFileLines(t *testing.T) {
 	} {
 		assert.Equal(t, in, Scrub(in))
 	}
-	assert.NotContains(t, Scrub("access_token=EVADEF1 and x.session_token=EVADEF2"), "EVADEF")
+	for _, in := range []string{
+		"access_token=EVADEF1", "x.session_token=EVADEF2", "token.value=EVADEF3", "client.secret.value=EVADEF4",
+		"tokens.value=EVADEF5", "token=EVADEF6%2BEVADEF7", "token%3DEVADEF8%2BEVADEF9", "X-Auth-Token: EVADEFA",
+	} {
+		assert.NotContains(t, Scrub(in), "EVADEF", in)
+	}
 }

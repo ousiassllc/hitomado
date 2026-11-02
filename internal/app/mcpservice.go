@@ -101,6 +101,10 @@ func (s *MCPService) saveLocked(ctx context.Context, cfg mcpserver.Config) (dto.
 
 // IssueMCPToken はトークンを（再）発行する。古いトークンは無効になり、開いている接続は切れる。値を返すのはこの 1 回だけ。
 func (s *MCPService) IssueMCPToken(ctx context.Context) (dto.MCPTokenResult, error) {
+	// 設定を読めない（DB 障害）ときは、旧トークンを無効にする前に失敗させる（新トークンを渡せないまま旧トークンを失わない）。
+	if _, err := s.load(ctx); err != nil {
+		return dto.MCPTokenResult{}, apperr.FromInfra(err, "")
+	}
 	token, err := s.tokens.Issue()
 	if err != nil {
 		return dto.MCPTokenResult{}, apperr.Wrap(apperr.Internal, "トークンを発行できません。", err)
@@ -118,11 +122,11 @@ func (s *MCPService) IssueMCPToken(ctx context.Context) (dto.MCPTokenResult, err
 func (s *MCPService) RevokeMCPToken(ctx context.Context) (dto.MCPStatus, error) {
 	revokeErr := s.tokens.Revoke()
 	status, err := s.dropConnections(ctx)
-	if err != nil {
-		return dto.MCPStatus{}, err
-	}
 	if revokeErr != nil {
 		return dto.MCPStatus{}, apperr.Wrap(apperr.Internal, "トークンを無効にできません。", revokeErr)
+	}
+	if err != nil {
+		return dto.MCPStatus{}, err
 	}
 	logger(s.d).Info("mcp token revoked")
 	return status, nil
