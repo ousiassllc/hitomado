@@ -1,12 +1,14 @@
 package apptests
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
+	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/secrets"
 )
 
@@ -70,4 +72,70 @@ func TestDeleteOAuthClientInUse(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, list, 1)
 	assert.Equal(t, 1, list[0].AccountCount)
+}
+
+func TestUpdateOAuthClientSecretSaveFailureKeepsClient(t *testing.T) {
+	svc, e := newAccountSvc(t)
+	ctx := t.Context()
+	c, err := svc.AddOAuthClient(ctx, "Personal", "cid-1", "sec-1")
+	require.NoError(t, err)
+
+	fs := &apptest.FailingSecrets{Store: e.Secrets}
+	fs.FailSet(errors.New("keyring unavailable"))
+	e.Deps.Secrets = fs
+
+	_, err = svc.UpdateOAuthClient(ctx, c.ID, "Renamed", "cid-2", "sec-2")
+	require.Error(t, err)
+
+	got, err := e.Store.GetOAuthClient(ctx, c.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "Personal", got.Name)
+	assert.Equal(t, "cid-1", got.ClientID)
+	sec, err := e.Secrets.Get(secrets.OAuthClientSecretKey(c.ID))
+	require.NoError(t, err)
+	assert.Equal(t, "sec-1", sec)
+}
+
+func TestUpdateOAuthClientDBFailureRestoresSecret(t *testing.T) {
+	svc, e := newAccountSvc(t)
+	ctx := t.Context()
+	c, err := svc.AddOAuthClient(ctx, "A", "cid-1", "sec-1")
+	require.NoError(t, err)
+	_, err = svc.AddOAuthClient(ctx, "B", "cid-2", "sec-b")
+	require.NoError(t, err)
+
+	// Client ID 重複で DB 更新が失敗したら、先に保存した新 Secret は旧値へ戻る。
+	_, err = svc.UpdateOAuthClient(ctx, c.ID, "A", "cid-2", "sec-new")
+	_ = requireCode(t, apperr.Validation, err)
+
+	sec, err := e.Secrets.Get(secrets.OAuthClientSecretKey(c.ID))
+	require.NoError(t, err)
+	assert.Equal(t, "sec-1", sec)
+	got, err := e.Store.GetOAuthClient(ctx, c.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "cid-1", got.ClientID)
+}
+
+func TestDeleteOAuthClientSecretDeleteFailureKeepsClient(t *testing.T) {
+	svc, e := newAccountSvc(t)
+	ctx := t.Context()
+	c, err := svc.AddOAuthClient(ctx, "Personal", "cid-1", "sec-1")
+	require.NoError(t, err)
+
+	fs := &apptest.FailingSecrets{Store: e.Secrets}
+	fs.FailDelete(errors.New("keyring unavailable"))
+	e.Deps.Secrets = fs
+
+	require.Error(t, svc.DeleteOAuthClient(ctx, c.ID))
+
+	_, err = e.Store.GetOAuthClient(ctx, c.ID)
+	require.NoError(t, err, "Secret を消せなかったときは DB 行を残す")
+	sec, err := e.Secrets.Get(secrets.OAuthClientSecretKey(c.ID))
+	require.NoError(t, err)
+	assert.Equal(t, "sec-1", sec)
+
+	fs.FailDelete(nil)
+	require.NoError(t, svc.DeleteOAuthClient(ctx, c.ID))
+	_, err = e.Secrets.Get(secrets.OAuthClientSecretKey(c.ID))
+	assert.ErrorIs(t, err, secrets.ErrNotFound)
 }
