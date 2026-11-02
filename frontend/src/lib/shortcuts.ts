@@ -43,6 +43,18 @@ export interface ShortcutResult {
   pendingG: boolean
 }
 
+/** ボタン・メニューに併記するキー表記（`resolveShortcut` の割り当てと一致させる。shortcuts.test.ts で検証）。 */
+export const SHORTCUT_KEYS = {
+  archive: 'e',
+  trash: '#',
+  markRead: 'Shift+I',
+  markUnread: 'Shift+U',
+  reply: 'r',
+  replyAll: 'a',
+  forward: 'f',
+  compose: 'c',
+} as const satisfies Partial<Record<ShortcutAction, string>>
+
 /** 検索窓の識別用属性（`/` でのフォーカス先）。 */
 export const SEARCH_INPUT_ATTR = 'data-search-input'
 

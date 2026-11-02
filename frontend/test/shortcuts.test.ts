@@ -6,6 +6,7 @@ import {
   isInteractiveElement,
   type KeyInfo,
   resolveShortcut,
+  SHORTCUT_KEYS,
   type ShortcutAction,
   type ShortcutContext,
 } from '../src/lib/shortcuts'
@@ -25,6 +26,18 @@ function key(k: string, extra: Partial<KeyInfo> = {}): KeyInfo {
 }
 
 const idle: ShortcutContext = { dialogOpen: false, pendingG: false }
+
+describe('SHORTCUT_KEYS（ボタン併記のキー表記）', () => {
+  test('表記のキーを押すと同じアクションに解決される', () => {
+    for (const [action, label] of Object.entries(SHORTCUT_KEYS)) {
+      const shift = label.startsWith('Shift+')
+      const k = shift ? label.slice('Shift+'.length) : label
+      expect(resolveShortcut(key(k, { shiftKey: shift }), idle).action).toBe(
+        action as ShortcutAction,
+      )
+    }
+  })
+})
 
 describe('resolveShortcut', () => {
   test('単独キーの割り当て', () => {

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { ThreadDetail } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { thread as msg } from '../../lib/messages'
+import { common, thread as msg } from '../../lib/messages'
 import { accountColorVar } from '../../lib/palette'
+import { SHORTCUT_KEYS } from '../../lib/shortcuts'
 import { useThreadStore } from '../../stores/thread'
 import AccountChip from '../account/AccountChip.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseMenu from '../ui/BaseMenu.vue'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 
 const props = defineProps<{ detail: ThreadDetail }>()
 const store = useThreadStore()
@@ -31,8 +33,12 @@ const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail
     <div class="title-row">
       <h2 class="subject" data-testid="thread-subject">{{ subject }}</h2>
       <div class="actions">
-        <BaseButton data-testid="act-archive" @click="store.archive()">{{ msg.archive }}</BaseButton>
-        <BaseButton data-testid="act-trash" @click="store.trash()">{{ msg.trash }}</BaseButton>
+        <BaseTooltip :text="common.shortcutHint(msg.archive, SHORTCUT_KEYS.archive)">
+          <BaseButton data-testid="act-archive" @click="store.archive()">{{ msg.archive }}</BaseButton>
+        </BaseTooltip>
+        <BaseTooltip :text="common.shortcutHint(msg.trash, SHORTCUT_KEYS.trash)">
+          <BaseButton data-testid="act-trash" @click="store.trash()">{{ msg.trash }}</BaseButton>
+        </BaseTooltip>
         <BaseMenu :items="labelItems" @select="onLabel">
           <template #trigger>
             <BaseButton
@@ -43,9 +49,17 @@ const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail
             >{{ msg.label }}</BaseButton>
           </template>
         </BaseMenu>
-        <BaseButton data-testid="act-toggle-read" @click="store.toggleRead()">
-          {{ store.unread ? msg.markRead : msg.markUnread }}
-        </BaseButton>
+        <BaseTooltip
+          :text="
+            store.unread
+              ? common.shortcutHint(msg.markRead, SHORTCUT_KEYS.markRead)
+              : common.shortcutHint(msg.markUnread, SHORTCUT_KEYS.markUnread)
+          "
+        >
+          <BaseButton data-testid="act-toggle-read" @click="store.toggleRead()">
+            {{ store.unread ? msg.markRead : msg.markUnread }}
+          </BaseButton>
+        </BaseTooltip>
       </div>
     </div>
     <div class="meta-row">

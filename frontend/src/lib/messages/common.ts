@@ -7,6 +7,8 @@ export const common = {
   retry: '再試行',
   loading: '読み込み中',
   dismiss: '閉じる',
+  /** ツールチップ・メニューのショートカット併記（例: アーカイブ (e)） */
+  shortcutHint: (label: string, key: string) => `${label} (${key})`,
   offlineBanner: 'オフラインです。取得済みの内容を表示しています。',
   needsReauthBanner: (name: string) => `${name} の接続が切れました。再接続してください。`,
   reconnect: '再接続',

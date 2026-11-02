@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { thread as msg } from '../../lib/messages'
+import { common, thread as msg } from '../../lib/messages'
+import { SHORTCUT_KEYS } from '../../lib/shortcuts'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseMenu from '../ui/BaseMenu.vue'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 
 export type ReplyMode = 'reply' | 'reply_all' | 'forward'
 
@@ -9,8 +11,8 @@ const props = defineProps<{ draftId?: string }>()
 const emit = defineEmits<{ open: [mode: ReplyMode]; openDraft: [] }>()
 
 const items = [
-  { key: 'reply', label: msg.reply },
-  { key: 'forward', label: msg.forward },
+  { key: 'reply', label: msg.reply, shortcut: SHORTCUT_KEYS.reply },
+  { key: 'forward', label: msg.forward, shortcut: SHORTCUT_KEYS.forward },
 ]
 
 function onSelect(key: string): void {
@@ -21,7 +23,9 @@ function onSelect(key: string): void {
 <template>
   <div class="reply-bar" data-testid="reply-bar">
     <div class="split">
-      <BaseButton variant="primary" data-testid="reply-all" @click="emit('open', 'reply_all')">{{ msg.replyAll }}</BaseButton>
+      <BaseTooltip :text="common.shortcutHint(msg.replyAll, SHORTCUT_KEYS.replyAll)">
+        <BaseButton variant="primary" data-testid="reply-all" @click="emit('open', 'reply_all')">{{ msg.replyAll }}</BaseButton>
+      </BaseTooltip>
       <BaseMenu :items="items" @select="onSelect">
         <template #trigger>
           <BaseButton variant="primary" class="split-menu" data-testid="reply-menu" :aria-label="msg.replyMenu">▾</BaseButton>
