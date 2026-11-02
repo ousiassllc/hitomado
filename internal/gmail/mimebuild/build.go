@@ -49,6 +49,7 @@ func buildMIME(m model.OutgoingMessage, requireRecipients bool) ([]byte, error) 
 	if date.IsZero() {
 		date = time.Now()
 	}
+	messageID, sendID := newMessageID(m.From.Email)
 	b := enmime.Builder().
 		From(m.From.Name, m.From.Email).
 		ToAddrs(toNetAddrs(m.To)).
@@ -57,7 +58,8 @@ func buildMIME(m model.OutgoingMessage, requireRecipients bool) ([]byte, error) 
 		Date(date).
 		Text([]byte(text)).
 		HTML([]byte(m.BodyHTML)).
-		Header("Message-ID", newMessageID(m.From.Email))
+		Header("Message-ID", messageID).
+		Header(SendIDHeader, sendID)
 	if noVisibleTo {
 		b = b.To("", m.From.Email)
 	}
@@ -91,10 +93,16 @@ func buildMIME(m model.OutgoingMessage, requireRecipients bool) ([]byte, error) 
 	return buf.Bytes(), nil
 }
 
-// newMessageID は <ULID@From のドメイン> 形式の Message-ID を作る。
-func newMessageID(from string) string {
+// SendIDHeader は送信ごとの識別子（ULID）を入れる独自ヘッダ名。
+// Gmail API は送信時に Message-ID を付け替えることがあるため、messages.send の応答を受け取れなかったとき
+// 送信済みかを確かめる手掛かりには、書き換えられにくいこのヘッダも使う（gmail.Client.Send）。
+const SendIDHeader = "X-Hitomado-Send-Id"
+
+// newMessageID は <ULID@From のドメイン> 形式の Message-ID と、同じ ULID の送信識別子を作る。
+func newMessageID(from string) (messageID, sendID string) {
 	domain := from[strings.LastIndex(from, "@")+1:]
-	return "<" + ulid.Make().String() + "@" + domain + ">"
+	sendID = ulid.Make().String()
+	return "<" + sendID + "@" + domain + ">", sendID
 }
 
 func validateOutgoing(m model.OutgoingMessage, requireRecipients bool) error {

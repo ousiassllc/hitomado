@@ -11,6 +11,8 @@ import (
 
 	"golang.org/x/oauth2"
 	"google.golang.org/api/googleapi"
+
+	"github.com/ousiassllc/hitomado/internal/gmail/tokenauth"
 )
 
 // retryClass は失敗の再試行方針。
@@ -94,10 +96,22 @@ func isNetworkError(err error) bool {
 		errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF)
 }
 
-// resultUnknown は、リクエストを送った後に応答を受け取れなかった可能性のある失敗（切断・タイムアウト・ctx の期限切れ）か。
+// notSent は、リクエストを Gmail へ送る前に失敗したと言える生のエラーか（トークン更新の失敗・名前解決失敗・接続確立失敗）。
+// これらは本文を送れていないので、ネットワーク不通（ErrOffline）のまま再試行してよい。
+func notSent(err error) bool {
+	var dns *net.DNSError
+	var op *net.OpError
+	return errors.Is(err, tokenauth.ErrRefresh) || errors.As(err, &dns) || (errors.As(err, &op) && op.Op == "dial")
+}
+
+// resultUnknown は、生のエラー（sentinel にする前）が、リクエストを送った後に応答を受け取れなかった
+// 可能性のある失敗（切断・タイムアウト・ctx の期限切れ）か。送る前の失敗（notSent）や、
 // 5xx など応答を受け取った失敗は含まない。
-func resultUnknown(err error) bool {
-	return errors.Is(err, ErrOffline) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled)
+func resultUnknown(raw error) bool {
+	if raw == nil || notSent(raw) {
+		return false
+	}
+	return errors.Is(classify(raw).kind, ErrOffline) || errors.Is(raw, context.DeadlineExceeded) || errors.Is(raw, context.Canceled)
 }
 
 // wrapFailure は sentinel を %w で包んだ公開用エラーを作る（元エラーの本文は含めない）。

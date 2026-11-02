@@ -19,6 +19,7 @@ const (
 	unitsHistory     = 2
 	unitsAttachment  = 5
 	unitsMessageList = 5
+	unitsMessageGet  = 5
 	unitsThread      = 10
 	unitsDraft       = 10
 	unitsMessageSend = 100

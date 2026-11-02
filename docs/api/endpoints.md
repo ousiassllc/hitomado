@@ -60,7 +60,7 @@ type AppError = {
 | `CONFIRM_REQUIRED` | 確認トークンがない・未知 | false | Send |
 | `CONFIRM_EXPIRED` | 確認トークンの期限切れ（5 分）または使用済み | false | Send |
 | `CONFIRM_MISMATCH` | 確認時と送信時で送信内容が異なる | false | Send |
-| `SEND_UNCERTAIN` | `Send` の応答を受け取れず（切断・タイムアウト）、Gmail 側に送信済みのメッセージがあるかも確認できなかった。送信済みの可能性があるため、送信済みフォルダーを確認してから再送する | false | Send |
+| `SEND_UNCERTAIN` | リクエストを送った後に `Send` の応答を受け取れず（切断・タイムアウト）、Gmail 側の送信済みに同じ送信を確認できなかった。送信済みの可能性があるため、送信済みフォルダーを確認してから、必要な場合だけ再送する。接続前の失敗（名前解決・接続拒否・トークン更新の通信失敗）は本文を送れていないので、これではなく `OFFLINE`（再試行可） | false | Send |
 | `AI_NOT_CONFIGURED` | API キー・プロバイダ未設定 | false | AIService |
 | `AI_CONSENT_REQUIRED` | 当該プロバイダへの送信に未同意 | false | AIService |
 | `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト・リダイレクト応答（3xx。追従しない）等） | 状況による | AIService |
@@ -322,8 +322,10 @@ sequenceDiagram
 - 送信元の整合（`SENDER_MISMATCH`）: セッションのアカウントと、スレッドの所有アカウント（`threads.account_id`／セッション作成時の `ThreadRef.accountId`）が一致すること。`From` ヘッダは `accounts.email` から生成し、本文・ヘッダに由来する値を使わない
 - 送信は `archiveAfterSend` が真でも**送信成功後**にアーカイブする。アーカイブ失敗時は `SendResult.archived = false`、`archiveError` に理由を入れ、送信自体は成功として扱う
 - 送信が失敗したとき（`messages.send` は二重送信を避けるため 5xx を再試行しない）は、確認トークンは使用済みになるが、作成セッションと本文はそのまま残る。利用者は内容を保ったまま、`PrepareSend`（F-06 の確認）からやり直して再送できる
-- 送信の転送（`messages.send`・添付の取得）には総時間の上限を掛けず、呼び出し側 `ctx` の期限と応答ヘッダー待ちで打ち切る。`Send` が応答を受け取れず失敗したとき（切断・タイムアウト）は、再送を許す前に `rfc822msgid:<Message-ID>` で Gmail 側を検索し、あれば成功として返す。検索も失敗したら `SEND_UNCERTAIN`（`OFFLINE` にしない）で返す
-- MIME: `multipart/alternative`（`text/plain`＋`text/html`）。添付があれば `multipart/mixed`。ヘッダは `From`、`To`、`Cc`、`Bcc`、`Subject`（RFC 2047）、`In-Reply-To`、`References`、`Date`、`Message-ID`
+- 送信の転送（`messages.send`・添付の取得）には総時間の上限を掛けず、呼び出し側 `ctx` の期限と応答ヘッダー待ちで打ち切る
+- `Send` がリクエストを送った後に応答を受け取れず失敗したとき（切断・タイムアウト・期限切れ）は、再送を許す前に Gmail の送信済みを確認する。Gmail API は送信時に `Message-ID` を付け替えることがあるため、MIME に付ける独自ヘッダ `X-Hitomado-Send-Id`（送信ごとの ULID。`Message-ID` のローカル部と同じ値）を主な手掛かりにする。`users.messages.list`（`q=in:sent after:<送信開始の 10 分前の UNIX 秒>`、新しい順に最大 20 件）で候補を取り、各候補を `users.messages.get`（`format=metadata`、`metadataHeaders=X-Hitomado-Send-Id,Message-ID`）で見て、`X-Hitomado-Send-Id` か `Message-ID` が一致すれば成功として返す
+- 上記の確認で見つからなかった・確認自体に失敗したときは、**未送信とは決めつけず** `SEND_UNCERTAIN`（`OFFLINE` にしない）を返す。独自ヘッダが送信済みに残る保証も、検索インデックスが送信直後に追い付く保証も無く、「見つからない」は「送られていない」の根拠にならないため、再送を促さない（利用者が送信済みフォルダーを確認する）。`OFFLINE`（再送可）のままにするのは、リクエストを送れていないと言える接続前の失敗（名前解決失敗・接続拒否・アクセストークン更新の通信失敗・`Send` 呼び出し前の `ctx` キャンセル）だけで、この場合は確認の検索もしない
+- MIME: `multipart/alternative`（`text/plain`＋`text/html`）。添付があれば `multipart/mixed`。ヘッダは `From`、`To`、`Cc`、`Bcc`、`Subject`（RFC 2047）、`In-Reply-To`、`References`、`Date`、`Message-ID`、`X-Hitomado-Send-Id`
 
 ## 6. AIService
 
@@ -393,7 +395,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 外部 API | 用途 | 主なエンドポイント／スコープ |
 |----------|------|------------------------------|
 | Google OAuth 2.0 | 認可・更新・revoke | `https://accounts.google.com/o/oauth2/v2/auth`、`https://oauth2.googleapis.com/token`、`https://oauth2.googleapis.com/revoke`、`https://openidconnect.googleapis.com/v1/userinfo`。スコープ: `https://www.googleapis.com/auth/gmail.modify`、`openid`、`email`、`profile` |
-| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`（いずれも `gmail.modify` スコープ内） |
+| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ。§5.2）、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`（いずれも `gmail.modify` スコープ内） |
 | AI プロバイダ | 下書き生成 | Anthropic Messages API／OpenAI 互換 Chat Completions（Base URL 指定可） |
 | GitHub Releases API | 更新確認 | `GET /repos/ousiassllc/hitomado/releases/latest`（未認証） |
 
@@ -418,3 +420,5 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.6 | 2026-11-03 | §5.2 に送信失敗時の動作を、§10 に `messages.send`／`drafts.create` が 5xx を再試行しない例外を追記 | `internal/gmail/call.go` との整合（#46） |
 | 1.7 | 2026-11-03 | §1.2 に `SEND_UNCERTAIN`・`OAUTH_CLIENT_REJECTED` を、§2 に `UpdateOAuthClient`／`DeleteOAuthClient` の失敗時の挙動を、§4 に `ThreadDetail.draftId` を DRAFT ラベルがあるときだけ探す注記を、§5.2 に送信の転送へ総時間上限を掛けない記述を追記（履歴に未記録だった分） | 実装との整合（#37、#43、#45、#42。記録漏れの補正 #53） |
 | 1.8 | 2026-11-03 | §1.2 の `AI_FAILED` と §6 に、AI プロバイダの 3xx を追従せず失敗とする挙動を追記 | 実装（`internal/ai/provider.go` の既定クライアント）との整合（#58） |
+| 1.9 | 2026-11-03 | §1.2・§5.2 の `SEND_UNCERTAIN` を、送信後に応答を受け取れず送信済みを確認できない場合に限定（接続前の失敗は `OFFLINE`）。送信済みの確認を独自ヘッダ `X-Hitomado-Send-Id` と `in:sent` 検索に変更し、確認できなければ `SEND_UNCERTAIN` とした。MIME ヘッダに `X-Hitomado-Send-Id` を追加 | Gmail API が `Message-ID` を付け替えるため `rfc822msgid:` 検索では送信済みを確認できないこと、接続前の失敗まで `SEND_UNCERTAIN` になる不具合の修正（#52、#54） |
+| 1.10 | 2026-11-03 | §10 の Gmail API 一覧に `users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ）を追加 | `internal/gmail` の呼び出しとの整合（#51） |
