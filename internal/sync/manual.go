@@ -151,3 +151,9 @@ func (s *Scheduler) noteReauth(ctx context.Context, a *account, err error) {
 	}
 	s.publishStatus(ctx, a, cur, status, msg)
 }
+
+// waitIdle は実行中の同期周期・FetchMore の終了を待つ。
+func (a *account) waitIdle() {
+	a.syncMu.Lock()
+	defer a.syncMu.Unlock()
+}
