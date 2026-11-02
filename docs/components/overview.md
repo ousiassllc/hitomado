@@ -26,6 +26,7 @@ graph TD
   SE[internal/secrets]
   AI[internal/ai]
   NT[internal/notify]
+  PF[internal/platform<br/>Wails 接続層（ウィンドウ・トレイ・通知）]
   UP[internal/update]
 
   APP --> DOM
@@ -43,9 +44,11 @@ graph TD
   SYNC --> NT
   GM --> SE
   OA --> SE
+  PF --> NT
 ```
 
-- `domain` は他の内部パッケージに依存しない。`app`／`sync` が `gmail`／`store` 等を**インターフェースとして**受け取る（具象は `main.go` で組み立てる）
+- `domain` は他の内部パッケージに依存しない。`app`／`sync` が `gmail`／`store` 等を**インターフェースとして**受け取る（具象は `run.go`（composition root）で組み立てる）
+- `platform` は Wails のウィンドウ・トレイ・トースト通知・ダイアログ・イベント発行を包み、`notify.Notifier` などの Wails 実装を持つ。`run.go` だけが生成し、`app`／`sync` にはインターフェース越しに渡す（`app`／`sync` は `platform` に依存しない）
 - `gmail` はアカウントごとの `TokenSource`（`secrets` のリフレッシュトークンから生成）と `rate.Limiter` を持つ
 
 ### 2.2 domain（純粋ロジック）
@@ -366,7 +369,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | F-07 署名 | `SignatureSettings`、`lib/signature` | `AccountService.SetSignature`、`domain/signature` |
 | F-08 AI 下書き | `AiDraftButton`、`AISettings` | `AIService`、`ai.Provider` |
 | F-09 検索 | `SearchBar`、`inboxStore.runSearch` | `InboxService.Search` |
-| F-10 通知・トレイ | `uiStore`（`notify:open-thread`）、`AccountsSettings`（通知切替） | `sync.detector`、`notify.Notifier`、`main.go`（トレイ・単一インスタンス） |
+| F-10 通知・トレイ | `uiStore`（`notify:open-thread`）、`AccountsSettings`（通知切替） | `sync.detector`、`notify.Notifier`、`platform.Notifier`／`platform.Tray`、`run.go`（トレイ生成・単一インスタンス） |
 | F-11 新規作成 | `ComposePane`、`SenderField`、`RecipientField`、`RichTextEditor` | `ComposeService` |
 | F-12 下書き保存 | `useAutosave`、`composeStore` | `ComposeService.SaveDraft`、`gmail.Client`（drafts） |
 | F-13 オートコンプリート | `RecipientField` | `ComposeService.SuggestContacts`、`domain/contacts`、`store` |
@@ -378,3 +381,4 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | §3.8 の「実装時の確認事項」を「最初に検証する項目」に改め、代替案（固定高＋内部スクロール、ナビゲーションフック）を追記 | WebView2 上での動作が未検証のため |
+| 1.2 | 2026-11-03 | §2.1 に `internal/platform` を追加し、具象の組み立て場所を `main.go` から `run.go` に修正。§6 の F-10 の対応先を `run.go`／`internal/platform` に修正 | #34 |
