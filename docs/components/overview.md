@@ -60,7 +60,7 @@ graph TD
 | `signature` | 署名ブロック（`<div data-hitomado-signature>`）の挿入、許可タグでのサニタイズ | `Insert(bodyHTML, sigHTML string) string`、`Sanitize(html string) string` |
 | `senderpolicy` | 送信元の整合検証。`From` を `accounts.email` のみから決める | `Check(sessionAccountID, threadAccountID string) error` → `ErrSenderMismatch` |
 | `confirm` | 確認トークン発行・検証（内容ハッシュ・TTL 5 分・1 回限り）。時計は注入 | `Issue(sessionID string, h Hash) Token`、`Verify(sessionID string, t Token, h Hash) error` |
-| `contacts` | 候補の順位付け（`send_count*3 + receive_count`）、アドレス正規化・形式検証 | `Rank(...)`、`Normalize(email string) string` |
+| `contacts` | アドレス正規化・形式検証（候補の順位付けは `store` の SQL） | `Normalize(email string) string`、`IsValid(email string) bool` |
 | `model` | `Address`、`SourceMessage`、`Recipients`、`OutgoingMessage` 等の型 | — |
 
 ### 2.3 インフラ層インターフェース
@@ -392,3 +392,4 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 1.1 | 2026-11-02 | §3.8 の「実装時の確認事項」を「最初に検証する項目」に改め、代替案（固定高＋内部スクロール、ナビゲーションフック）を追記 | WebView2 上での動作が未検証のため |
 | 1.2 | 2026-11-03 | §3.3 から `BaseToast` を外して `ToastHost` を §3.4 に追加し、文言の集約先を `lib/messages/` に修正、§3.11 に `useQuitFlush`・`dropFiles` ほかを追記 | 実装のファイル構成・責務との乖離（#36） |
 | 1.3 | 2026-11-03 | §2.1 に `internal/platform` を追加し、具象の組み立て場所を `main.go` から `run.go` に修正。§6 の F-10 の対応先を `run.go`／`internal/platform` に修正 | 実装のファイル構成との乖離（#34） |
+| 1.4 | 2026-11-03 | §2.2 の `contacts` 行から候補の順位付け（`Rank`）を外し、順位付けは `store` の SQL とした | 本番で未使用の `Rank`／`Score`／`Candidate` を削除し、順位規則を SQL に一本化したため（#47） |
