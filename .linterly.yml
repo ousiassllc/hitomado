@@ -11,8 +11,10 @@ language: ja
 
 # 生成コードなど明確な理由がある場合のみ追加する。
 ignore:
-  # 仕様書（Markdown）はソースコードではないため対象外にする。
+  # ソースコードではないもの（仕様書・ライセンス全文・ロックファイル）。
   - "docs/**"
+  - "LICENSE"
+  - "frontend/bun.lock"
   # 生成物（Wails のバインディング・sqlc の出力）。
   - "frontend/bindings/**"
   - "internal/store/db/**"

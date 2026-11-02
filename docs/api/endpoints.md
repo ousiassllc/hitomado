@@ -356,6 +356,7 @@ type AIConfig = {
 | `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; dataDir: string }` | |
 | `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03 |
 | `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時は `{ available: false }` |
+| `AckBeforeQuit()` | — | — | `app:before-quit` を受けたフロントが、未保存の作成セッションを `SaveDraft` し終えたことを Go に伝える（§9）。Go はこれを受けるか猶予 3 秒の経過で終了処理に進む |
 
 ## 8. イベント（Go → フロント）
 
@@ -367,6 +368,8 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | `account:status` | `{ accountId: string; status: 'active' \| 'syncing' \| 'needs_reauth' \| 'error'; message?: string }` | アカウント状態の変化（`syncing` は一時状態で DB に保存しない） |
 | `notify:open-thread` | `{ accountId: string; threadId: string }` | 通知クリック、またはトレイから開く |
 | `update:available` | `{ version: string; url: string }` | 新バージョン検出 |
+| `app:before-quit` | なし | トレイの「終了」。フロントは未保存の下書きを保存して `AckBeforeQuit` を呼ぶ |
+| `files-dropped` | `{ files: string[] }` | ウィンドウへのファイルドロップ（`data-file-drop-target` 属性の要素上のみ）。フロントは `AddAttachments` に渡す |
 
 ## 9. セッション・状態の寿命
 
@@ -377,7 +380,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 本文キャッシュ（LRU） | メモリのみ（直近 50 スレッド） | `history` で変更検知／アプリ終了／アカウント削除 |
 | 検索カーソル | カーソル文字列に埋め込み（サーバー状態なし） | — |
 
-- アプリ終了時はフロントが未保存の作成セッションに `SaveDraft` を呼んでから終了する（F-12）。トレイ格納（× ボタン）ではセッションを維持する
+- アプリ終了時は、Go が `app:before-quit` を発行し、フロントが未保存の作成セッションに `SaveDraft` を呼んでから `AckBeforeQuit` を呼ぶ（F-12。Go は猶予 3 秒で打ち切る）。トレイ格納（× ボタン）ではセッションを維持する
 
 ## 10. 外部 API の利用
 
@@ -400,3 +403,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 版 | 日付 | 変更内容 | 変更理由 |
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
+| 1.1 | 2026-11-02 | `AckBeforeQuit`、イベント `app:before-quit`／`files-dropped` を追加 | トレイ終了時の下書き保存（F-12）とファイルドロップのパス取得（Wails はパスを Go 側でのみ受け取る）のため |

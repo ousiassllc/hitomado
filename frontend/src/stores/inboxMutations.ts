@@ -1,0 +1,137 @@
+// アーカイブ・ゴミ箱・既読/未読・ラベルの楽観的更新。リストから即時反映し、失敗時は元へ戻してエラートースト。
+import type { Ref } from 'vue'
+import type {
+  ThreadRef,
+  ThreadSummary,
+} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import * as InboxService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
+import type { AppError } from '../lib/api'
+import { list } from '../lib/api'
+import { failedRefsOf } from '../lib/errorEffects'
+import { keyOf, removeKeys, restoreRemoved } from '../lib/inboxItems'
+import { common } from '../lib/messages'
+import type { useUiStore } from './ui'
+
+type Op = 'archive' | 'trash' | 'read' | 'unread'
+
+export interface MutationDeps {
+  items: Ref<ThreadSummary[]>
+  /** 未読のみ表示中の受信箱か（既読にした行が一覧から外れる） */
+  hidesRead: () => boolean
+  /** サーバー反映待ちで楽観的に除去した行。先頭ページの再取得で復活させない。 */
+  pendingRemoval: Set<string>
+  api: <T>(p: PromiseLike<T>) => Promise<T>
+  ui: ReturnType<typeof useUiStore>
+  afterRemoval: (
+    keys: ReadonlySet<string>,
+    kept: ThreadSummary[],
+    firstIndex: number,
+    closeOpened: boolean,
+  ) => void
+  /** 操作後に先頭ページと未読件数を再取得する */
+  reload: () => void
+}
+
+const OP_FAILED: Record<Op, string> = {
+  archive: common.op.archiveFailed,
+  trash: common.op.trashFailed,
+  read: common.op.markReadFailed,
+  unread: common.op.markReadFailed,
+}
+
+export function useInboxMutations(d: MutationDeps) {
+  function callOp(op: Op, refs: ThreadRef[]): Promise<ThreadSummary[] | null> {
+    switch (op) {
+      case 'archive':
+        return d.api(InboxService.Archive(refs))
+      case 'trash':
+        return d.api(InboxService.Trash(refs))
+      default:
+        return d.api(InboxService.MarkRead(refs, op === 'read'))
+    }
+  }
+
+  /** 楽観的に反映し、元に戻すための関数（失敗した ref の集合があればそれだけ）を返す。 */
+  function applyOptimistic(op: Op, keys: Set<string>): (failed?: Set<string>) => void {
+    const removes = op === 'archive' || op === 'trash' || (op === 'read' && d.hidesRead())
+    if (!removes) {
+      const prev = new Map<string, boolean>()
+      d.items.value = d.items.value.map((t) => {
+        if (!keys.has(keyOf(t))) return t
+        prev.set(keyOf(t), t.isUnread)
+        return { ...t, isUnread: op === 'unread' }
+      })
+      return (failed) => {
+        d.items.value = d.items.value.map((t) => {
+          const k = keyOf(t)
+          return prev.has(k) && (!failed || failed.has(k))
+            ? { ...t, isUnread: prev.get(k) === true }
+            : t
+        })
+      }
+    }
+    const r = removeKeys(d.items.value, keys)
+    d.items.value = r.items
+    for (const k of keys) d.pendingRemoval.add(k)
+    // 既読化で行が消えるだけ（未読のみ表示中）なら、開いているスレッドは閉じない
+    d.afterRemoval(keys, r.items, r.removed[0]?.index ?? 0, op !== 'read')
+    return (failed) => {
+      const back = failed ? r.removed.filter((x) => failed.has(keyOf(x.item))) : r.removed
+      d.items.value = restoreRemoved(d.items.value, back)
+    }
+  }
+
+  async function mutate(op: Op, refs: ThreadRef[]): Promise<boolean> {
+    if (refs.length === 0) return true
+    const keys = new Set(refs.map(keyOf))
+    const undo = applyOptimistic(op, keys)
+    try {
+      const updated = await callOp(op, refs)
+      if (op === 'read' || op === 'unread') {
+        const byKey = new Map(list(updated).map((t) => [keyOf(t), t]))
+        d.items.value = d.items.value.map((t) => byKey.get(keyOf(t)) ?? t)
+      }
+      return true
+    } catch (e) {
+      const err = e as AppError
+      const failedRefs = failedRefsOf(err)
+      const failed = failedRefs.length > 0 ? new Set(failedRefs.map(keyOf)) : undefined
+      if (err.code === 'NOT_FOUND') {
+        d.ui.pushToast('info', common.op.threadGone)
+      } else {
+        undo(failed)
+        const retryRefs = failed ? failedRefs : refs
+        d.ui.pushToast('error', `${OP_FAILED[op]}${err.message}`, () => void mutate(op, retryRefs))
+      }
+      return false
+    } finally {
+      for (const k of keys) d.pendingRemoval.delete(k)
+      d.reload()
+    }
+  }
+
+  /** ラベルの付与／除去（Could）。結果の ThreadSummary で一覧の行を差し替える。 */
+  async function modifyLabel(refs: ThreadRef[], labelId: string, add: boolean): Promise<boolean> {
+    let ok = true
+    for (const ref of refs) {
+      try {
+        const updated = await d.api(
+          InboxService.ModifyLabels(ref, add ? [labelId] : [], add ? [] : [labelId]),
+        )
+        d.items.value = d.items.value.map((t) => (keyOf(t) === keyOf(updated) ? updated : t))
+      } catch (e) {
+        ok = false
+        d.ui.pushToast('error', `${common.op.labelFailed}${(e as AppError).message}`)
+        break
+      }
+    }
+    return ok
+  }
+
+  return {
+    archive: (refs: ThreadRef[]) => mutate('archive', refs),
+    trash: (refs: ThreadRef[]) => mutate('trash', refs),
+    markRead: (refs: ThreadRef[], read: boolean) => mutate(read ? 'read' : 'unread', refs),
+    modifyLabel,
+  }
+}

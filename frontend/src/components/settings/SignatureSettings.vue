@@ -1,0 +1,146 @@
+<script setup lang="ts">
+import { computed, ref } from 'vue'
+import { parseBindingError } from '../../lib/api'
+import { settings as msg } from '../../lib/messages'
+import { useAccountsStore } from '../../stores/accounts'
+import { useUiStore } from '../../stores/ui'
+import RichTextEditor from '../compose/RichTextEditor.vue'
+import BaseButton from '../ui/BaseButton.vue'
+import BaseSelect from '../ui/BaseSelect.vue'
+import { normalizeSignatureHtml } from './signatureHtml'
+
+const accountsStore = useAccountsStore()
+const ui = useUiStore()
+
+const accounts = computed(() => accountsStore.accounts)
+const selectedId = ref<string>()
+const current = computed(
+  () => accounts.value.find((a) => a.id === selectedId.value) ?? accounts.value[0],
+)
+/** アカウントを切り替えても未保存の編集を失わないよう、アカウントごとに下書きを保持する。 */
+const drafts = ref<Record<string, string>>({})
+const saving = ref(false)
+
+const html = computed(() => {
+  const a = current.value
+  if (!a) return ''
+  return drafts.value[a.id] ?? a.signatureHtml
+})
+const dirty = computed(() => {
+  const a = current.value
+  return (
+    a !== undefined &&
+    normalizeSignatureHtml(html.value) !== normalizeSignatureHtml(a.signatureHtml)
+  )
+})
+const options = computed(() =>
+  accounts.value.map((a) => ({ value: a.id, label: `${a.displayName} <${a.email}>` })),
+)
+
+function onEdit(value: string): void {
+  const a = current.value
+  if (a) drafts.value = { ...drafts.value, [a.id]: value }
+}
+
+function revert(): void {
+  const a = current.value
+  if (!a) return
+  const { [a.id]: _discarded, ...rest } = drafts.value
+  drafts.value = rest
+  editorKey.value++
+}
+
+// 元に戻したときにエディタを作り直して内容を反映させる。
+const editorKey = ref(0)
+
+async function save(): Promise<void> {
+  const a = current.value
+  if (!a || saving.value) return
+  saving.value = true
+  try {
+    await accountsStore.setSignature(a.id, normalizeSignatureHtml(html.value))
+    const { [a.id]: _saved, ...rest } = drafts.value
+    drafts.value = rest
+    editorKey.value++
+    ui.pushToast('success', msg.signature.saved(a.displayName))
+  } catch (e) {
+    ui.pushToast('error', parseBindingError(e).message)
+  } finally {
+    saving.value = false
+  }
+}
+</script>
+
+<template>
+  <section class="sig" :aria-label="msg.signature.heading">
+    <h3 class="heading">{{ msg.signature.heading }}</h3>
+    <p class="intro">{{ msg.signature.intro }}</p>
+
+    <p v-if="!current" class="empty">{{ msg.signature.empty }}</p>
+    <template v-else>
+      <div class="select">
+        <BaseSelect
+          :model-value="current.id"
+          :options="options"
+          :ariaLabel="msg.signature.account"
+          @update:model-value="selectedId = $event"
+        />
+      </div>
+      <RichTextEditor
+        :key="`${current.id}:${editorKey}`"
+        :html="html"
+        :ariaLabel="msg.signature.editorLabel(current.displayName)"
+        @update:html="onEdit"
+      />
+      <div class="actions">
+        <span v-if="dirty" class="dirty" role="status">{{ msg.signature.dirty }}</span>
+        <span class="spacer" />
+        <BaseButton :disabled="!dirty || saving" @click="revert">{{ msg.signature.revert }}</BaseButton>
+        <BaseButton variant="primary" :disabled="!dirty" :loading="saving" @click="save">
+          {{ msg.save }}
+        </BaseButton>
+      </div>
+    </template>
+  </section>
+</template>
+
+<style scoped>
+.heading {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+.intro {
+  margin: var(--space-2) 0 var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.empty {
+  color: var(--color-text-muted);
+}
+
+.select {
+  margin-bottom: var(--space-3);
+  max-width: 420px;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}
+
+.spacer {
+  flex: 1;
+}
+
+.dirty {
+  color: var(--color-warning-text);
+  background: var(--color-warning-bg);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-xs);
+}
+</style>

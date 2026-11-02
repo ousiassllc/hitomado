@@ -35,6 +35,28 @@
   --space-6: 24px;
   --shadow-popup: 0 8px 24px rgb(15 23 42 / 18%);
   --transition-fast: 120ms ease;
+
+  /* アカウント色（帯・チップ背景 / その上の文字）。--color-bg 系に対し 4.5:1 以上（test/palette.test.ts で検証） */
+  --account-red: #b91c1c;
+  --account-red-text: #ffffff;
+  --account-orange: #a64b06;
+  --account-orange-text: #ffffff;
+  --account-amber: #8a6100;
+  --account-amber-text: #ffffff;
+  --account-green: #157a3a;
+  --account-green-text: #ffffff;
+  --account-teal: #0f766e;
+  --account-teal-text: #ffffff;
+  --account-cyan: #0e7490;
+  --account-cyan-text: #ffffff;
+  --account-blue: #1d4ed8;
+  --account-blue-text: #ffffff;
+  --account-indigo: #4338ca;
+  --account-indigo-text: #ffffff;
+  --account-purple: #7e22ce;
+  --account-purple-text: #ffffff;
+  --account-pink: #be185d;
+  --account-pink-text: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -57,6 +79,27 @@
     --color-unread-bg: #1c2433;
     --color-overlay: rgb(0 0 0 / 60%);
     --shadow-popup: 0 8px 24px rgb(0 0 0 / 50%);
+
+    --account-red: #f87171;
+    --account-red-text: #0b0f14;
+    --account-orange: #fb923c;
+    --account-orange-text: #0b0f14;
+    --account-amber: #fbbf24;
+    --account-amber-text: #0b0f14;
+    --account-green: #4ade80;
+    --account-green-text: #0b0f14;
+    --account-teal: #2dd4bf;
+    --account-teal-text: #0b0f14;
+    --account-cyan: #22d3ee;
+    --account-cyan-text: #0b0f14;
+    --account-blue: #60a5fa;
+    --account-blue-text: #0b0f14;
+    --account-indigo: #a5b4fc;
+    --account-indigo-text: #0b0f14;
+    --account-purple: #c084fc;
+    --account-purple-text: #0b0f14;
+    --account-pink: #f472b6;
+    --account-pink-text: #0b0f14;
   }
 }
 

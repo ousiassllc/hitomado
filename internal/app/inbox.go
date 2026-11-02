@@ -3,49 +3,149 @@ package app
 import (
 	"context"
 
+	"github.com/ousiassllc/hitomado/internal/app/appcore"
+	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/hitomado/internal/store"
+)
+
+const (
+	defaultPageLimit = 50
+	maxPageLimit     = 100
+	// maxFetchRounds は 1 回の ListInbox が Gmail から追加取得する最大回数（未読のみ等で一覧が埋まらない場合の歯止め）。
+	maxFetchRounds = 5
 )
 
 // InboxService は統合受信箱・検索・未読件数・スレッド操作・ラベル（バインディング仕様 §3）。
+// 検索は inbox_search.go、スレッド操作は inbox_ops.go、ラベルは inbox_labels.go。
 type InboxService struct{ d *Deps }
 
 // NewInboxService は InboxService を作る。
 func NewInboxService(d *Deps) *InboxService { return &InboxService{d: d} }
 
+func pageLimit(n int) (int, error) {
+	switch {
+	case n == 0:
+		return defaultPageLimit, nil
+	case n < 0 || n > maxPageLimit:
+		return 0, validation("limit は 1〜100 で指定してください。")
+	}
+	return n, nil
+}
+
+// ListInbox はローカル DB の受信箱をキーセットページングで返す。ローカルの行が尽き、かつ未取得分のある
+// アカウントがあれば Gmail から追加取得して続きを返す。アカウント別の失敗は Failures に入れ、他は返す。
 func (s *InboxService) ListInbox(ctx context.Context, q dto.InboxQuery) (dto.ThreadPage, error) {
-	return dto.ThreadPage{}, errNotImplemented
+	limit, err := pageLimit(q.Limit)
+	if err != nil {
+		return dto.ThreadPage{}, err
+	}
+	after, err := appcore.DecodeInboxCursor(q.Cursor)
+	if err != nil {
+		return dto.ThreadPage{}, err
+	}
+	list, _, err := accountsByID(s.d, ctx)
+	if err != nil {
+		return dto.ThreadPage{}, err
+	}
+	targets := targetAccounts(list, q.AccountIDs)
+	page := dto.ThreadPage{Items: []dto.ThreadSummary{}, Failures: []dto.AccountFailure{}}
+	if len(targets) == 0 {
+		return page, nil
+	}
+	ids := make([]string, len(targets))
+	for i, a := range targets {
+		ids[i] = a.ID
+	}
+	filter := store.InboxFilter{AccountIDs: ids, UnreadOnly: q.UnreadOnly, After: after, Limit: limit + 1}
+
+	failed := map[string]bool{}
+	var rows []store.ThreadRow
+	for round := 0; ; round++ {
+		if rows, err = s.d.Store.ListInbox(ctx, filter); err != nil {
+			return dto.ThreadPage{}, apperr.FromInfra(err, "")
+		}
+		if len(rows) > limit || round >= maxFetchRounds {
+			break
+		}
+		if !s.fetchMore(ctx, ids, failed, &page) {
+			break
+		}
+	}
+	more := len(rows) > limit
+	if more {
+		rows = rows[:limit]
+	}
+	for _, r := range rows {
+		page.Items = append(page.Items, summaryFromRow(r))
+	}
+	// 続きがある: ローカルに余り、または未取得のアカウントが残っている。
+	if len(rows) > 0 && (more || s.hasRemote(ctx, ids, failed)) {
+		last := rows[len(rows)-1]
+		page.NextCursor = appcore.EncodeInboxCursor(store.InboxCursor{LastMessageAt: last.LastMessageAt, AccountID: last.AccountID, ThreadID: last.ThreadID})
+	}
+	return page, nil
 }
 
+// fetchMore は未取得分のあるアカウントすべてから 1 ページ追加取得する。1 件でも進んだら true。
+func (s *InboxService) fetchMore(ctx context.Context, ids []string, failed map[string]bool, page *dto.ThreadPage) bool {
+	progressed := false
+	for _, id := range ids {
+		if failed[id] {
+			continue
+		}
+		state, err := s.d.Store.GetSyncState(ctx, id)
+		if err == nil && state.InboxExhausted {
+			continue
+		}
+		added := 0
+		if err == nil {
+			added, err = s.d.Sync.FetchMore(ctx, id)
+		}
+		if err != nil {
+			failed[id] = true
+			page.Failures = append(page.Failures, dto.AccountFailure{AccountID: id, Error: apperr.ToMap(gmailErr(s.d, ctx, id, err))})
+			continue
+		}
+		progressed = progressed || added > 0
+	}
+	return progressed
+}
+
+// hasRemote は Gmail 側に未取得の受信箱が残っているアカウントがあるかを返す（失敗したアカウントは除く）。
+func (s *InboxService) hasRemote(ctx context.Context, ids []string, failed map[string]bool) bool {
+	for _, id := range ids {
+		if failed[id] {
+			continue
+		}
+		if state, err := s.d.Store.GetSyncState(ctx, id); err == nil && !state.InboxExhausted {
+			return true
+		}
+	}
+	return false
+}
+
+// Refresh は差分同期を今すぐ実行して完了を待つ。空は全アカウント。
 func (s *InboxService) Refresh(ctx context.Context, accountIDs []string) (dto.RefreshResponse, error) {
-	return dto.RefreshResponse{}, errNotImplemented
+	results := s.d.Sync.Refresh(ctx, accountIDs)
+	out := dto.RefreshResponse{Results: make([]dto.RefreshResult, len(results))}
+	for i, r := range results {
+		out.Results[i] = dto.RefreshResult{AccountID: r.AccountID, OK: r.Err == nil}
+		if r.Err != nil {
+			out.Results[i].Error = apperr.ToMap(gmailErr(s.d, ctx, r.AccountID, r.Err))
+		}
+	}
+	return out, nil
 }
 
+// GetUnreadCounts はアカウントごとの受信箱の未読スレッド数を返す。
 func (s *InboxService) GetUnreadCounts(ctx context.Context) (map[string]int, error) {
-	return nil, errNotImplemented
-}
-
-func (s *InboxService) Search(ctx context.Context, q dto.SearchQuery) (dto.ThreadPage, error) {
-	return dto.ThreadPage{}, errNotImplemented
-}
-
-func (s *InboxService) MarkRead(ctx context.Context, refs []dto.ThreadRef, read bool) ([]dto.ThreadSummary, error) {
-	return nil, errNotImplemented
-}
-
-func (s *InboxService) Archive(ctx context.Context, refs []dto.ThreadRef) ([]dto.ThreadSummary, error) {
-	return nil, errNotImplemented
-}
-
-func (s *InboxService) Trash(ctx context.Context, refs []dto.ThreadRef) ([]dto.ThreadSummary, error) {
-	return nil, errNotImplemented
-}
-
-// ListLabels はユーザー作成ラベル【Could】。
-func (s *InboxService) ListLabels(ctx context.Context, accountID string) ([]dto.Label, error) {
-	return nil, errNotImplemented
-}
-
-// ModifyLabels はユーザー作成ラベルの付与・除去【Could】。システムラベルは VALIDATION。
-func (s *InboxService) ModifyLabels(ctx context.Context, ref dto.ThreadRef, addLabelIDs, removeLabelIDs []string) (dto.ThreadSummary, error) {
-	return dto.ThreadSummary{}, errNotImplemented
+	m, err := s.d.Store.UnreadCounts(ctx)
+	if err != nil {
+		return nil, apperr.FromInfra(err, "")
+	}
+	if m == nil {
+		m = map[string]int{}
+	}
+	return m, nil
 }

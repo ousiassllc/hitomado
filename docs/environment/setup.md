@@ -30,7 +30,6 @@ hitomado/
 ├─ .github/workflows/        # ci.yml, release.yml
 ├─ .golangci.yml
 ├─ .linterly.yml
-├─ .linterlyignore
 ├─ .editorconfig
 ├─ biome.json
 ├─ lefthook.yml
@@ -111,7 +110,7 @@ flowchart LR
 | `build` | windows-latest | `needs: [lint, test]`。`wails3 build` を実行し、成果物を Actions のアーティファクトに保存 |
 
 - セットアップ: `actions/setup-go`（`go.mod` のバージョン）、`oven-sh/setup-bun`、Go とフロントの依存キャッシュ
-- 生成物の差分検査で `wails3 generate bindings` が ubuntu で動くかは**実装時に検証**する。動かない場合は、バインディング生成の検査を windows ジョブに移す
+- 生成物の差分検査: `wails3 generate bindings` は Linux でも動く。ただし GTK ヘッダが無い環境では cgo を使う既定の Linux バックエンドをビルドできないため、`CGO_ENABLED=0` と `-tags purego`（Wails v3.1.0 の CGO なし Linux バックエンド）を付ける。Go の lint・vet・test も ubuntu では同じ設定で実行する（Windows 向けビルドには影響しない）。
 
 ### 4.2 `release.yml`
 
@@ -132,13 +131,13 @@ flowchart LR
 
 - 設定: `biome.json`。対象は `frontend/src`。生成物（`frontend/bindings/**`）は除外する
 - 型検査は Biome の範囲外のため、`vue-tsc --noEmit` を CI／pre-push で実行して補う
-- **制約（要確認）**: Biome の Vue SFC の対応範囲（特に `<template>` の lint）は限定的な可能性がある。実装着手時に採用バージョンで確認し、template の検査が不足する場合は ESLint（`eslint-plugin-vue`）の追加を再検討する
+- **確認結果**: Biome 2.6.4 は `html.experimentalFullSupportEnabled` で `.vue` の `<script>` と `<template>` を lint する（未使用変数・`==`・`<img>` の alt 欠落を検出できることを確認した）。ESLint の追加は行わない。設定はルートの `biome.json`（対象は `frontend/src`・`frontend/test`。生成物 `frontend/bindings/**` は対象外）
 
 ### 5.3 フロントエンドのテスト（`bun test`）
 
 - ランナーは **`bun test`**。パッケージ管理・Taskfile・CI・Hooks をすべて bun に統一する
 - テストファイルは `frontend/src/**/*.test.ts`。DOM が必要なテストは `@happy-dom/global-registrator` を `bunfig.toml` の `[test] preload` で登録する
-- **実装時に最初に検証する項目**（本書作成時点ではいずれも**未検証**）:
+- **実装時に最初に検証する項目**（検証結果: 1・2 とも **bun 1.3.14 で成立**。`frontend/bunfig.toml` の preload（`test/setup.ts`）で happy-dom の登録と `.vue` ローダーを行い、Vue Test Utils で SFC をマウントできる。代替案は不要）:
   1. `bunfig.toml` の `[test] preload` に、`@happy-dom/global-registrator`（DOM の登録）と、`Bun.plugin` で `@vue/compiler-sfc` を使って `.vue` をコンパイルするローダーを登録し、`bun test` で SFC を import できるか
   2. Vue Test Utils が bun＋happy-dom 上で動くか
 - **成立しない場合の代替**:
@@ -178,7 +177,7 @@ language: ja
 #   - "internal/store/db/**"
 ```
 
-- `.linterlyignore` に手書きソースコードの除外パターンは追加しない（コメントでその旨を記載する）
+- `.linterlyignore` は作らない（Linterly は `.linterlyignore` と `.linterly.yml` の `ignore` が両方あると後者を無視するため、除外は `.linterly.yml` の `ignore` に一本化する）。手書きソースコードの除外パターンは追加しない。除外は、ソースコードでないもの（`docs/**`・`LICENSE`・`frontend/bun.lock`）と生成物（`frontend/bindings/**`・`internal/store/db/**`）に限る
 - 生成物（`sqlc` の出力、Wails のバインディング）は、手書きでなく明確な理由があるため、**生成ファイルができた時点で**除外する
 - `count_mode: all` は変更しない
 - 実行: `bunx linterly check`（pre-commit ではステージ済みファイル、CI では全体）
@@ -228,3 +227,4 @@ pre-push:
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | フロントのテストランナーを Vitest から `bun test` に変更（§3.3、§4.1、§8、§5.3 を新設） | bun への統一方針 |
 | 1.2 | 2026-11-02 | §5.3 に preload・SFC ローダーの検証項目と Vitest 併用の代替を明記。§8 の pre-push に `vue-tsc` を追加 | `bun test` の前提（DOM・.vue）が未検証であること、template の型エラーを検出するため |
+| 1.3 | 2026-11-02 | §5.2・§5.3 の検証結果、ubuntu での purego 実行を反映。Linterly の除外を `.linterly.yml` の `ignore` に一本化（`.linterlyignore` は削除） | 実装（#1）での検証 |

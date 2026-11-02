@@ -3,6 +3,7 @@
 
 /**
  * ThreadService はスレッド詳細・添付保存・リンクを開く（バインディング仕様 §4）。
+ * 添付保存・リンクは thread_actions.go、本文 HTML の加工は thread_html.go。
  * @module
  */
 
@@ -14,6 +15,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as dto$0 from "./dto/models.js";
 
+/**
+ * GetThread はスレッド詳細を返す。下書きは除き、時系列昇順。状態は変更しない（既読化は MarkRead）。
+ */
 export function GetThread(ref: dto$0.ThreadRef): $CancellablePromise<dto$0.ThreadDetail> {
     return $Call.ByID(243811463, ref);
 }
@@ -21,10 +25,14 @@ export function GetThread(ref: dto$0.ThreadRef): $CancellablePromise<dto$0.Threa
 /**
  * OpenExternal は http／https／mailto のみ許可する（NF-S07）。
  */
-export function OpenExternal(url: string): $CancellablePromise<void> {
-    return $Call.ByID(3741676278, url);
+export function OpenExternal(rawURL: string): $CancellablePromise<void> {
+    return $Call.ByID(3741676278, rawURL);
 }
 
+/**
+ * SaveAttachment はネイティブの保存ダイアログで選ばれた場所へ添付を書き込む。キャンセルは Saved=false。
+ * 一時ファイルは作らず、保存先へ直接書く（失敗時は書きかけを削除する）。
+ */
 export function SaveAttachment(ref: dto$0.MessageRef, attachmentID: string, suggestedName: string): $CancellablePromise<dto$0.SaveAttachmentResult> {
     return $Call.ByID(4231123365, ref, attachmentID, suggestedName);
 }

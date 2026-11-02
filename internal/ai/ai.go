@@ -10,7 +10,8 @@ import (
 // AI プロバイダのエラー分類。実装は errors.Is で判定できる形で wrap して返す。
 var (
 	ErrUnauthorized = errors.New("ai: unauthorized") // キー不正（401／403）
-	ErrFailed       = errors.New("ai: failed")       // その他のプロバイダエラー（レート制限・不正な応答など）
+	ErrRateLimited  = errors.New("ai: rate limited") // レート制限（429）
+	ErrFailed       = errors.New("ai: failed")       // その他のプロバイダエラー（不正な応答など）
 )
 
 // ContextMessage はプロンプトに含めるスレッド内のメッセージ（プレーンテキスト化済み）。

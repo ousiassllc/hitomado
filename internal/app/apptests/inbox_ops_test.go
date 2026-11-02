@@ -1,0 +1,171 @@
+package apptests
+
+import (
+	"cmp"
+	"slices"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/ousiassllc/hitomado/internal/app/apperr"
+	"github.com/ousiassllc/hitomado/internal/app/apptest"
+	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/store"
+)
+
+func ref(acc, thr string) dto.ThreadRef { return dto.ThreadRef{AccountID: acc, ThreadID: thr} }
+
+func TestMarkReadAndUnread(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	b := e.AddAccount(t, "b@x.example")
+	e.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX", "UNREAD"))
+	e.PutThread(t, b.ID, "t2", apptest.Msg("m2", "t2", at(2), "INBOX", "UNREAD"))
+
+	out, err := svc.MarkRead(t.Context(), []dto.ThreadRef{ref(a.ID, "t1"), ref(b.ID, "t2")}, true)
+	require.NoError(t, err)
+	require.Len(t, out, 2)
+	for _, s := range out {
+		assert.False(t, s.IsUnread)
+	}
+	row, err := e.Store.GetThread(t.Context(), a.ID, "t1")
+	require.NoError(t, err)
+	assert.False(t, row.IsUnread, "DB も更新される")
+	assert.Equal(t, []string{"UNREAD"}, e.Gmail.Modified[0].Remove)
+
+	out, err = svc.MarkRead(t.Context(), []dto.ThreadRef{ref(a.ID, "t1")}, false)
+	require.NoError(t, err)
+	assert.True(t, out[0].IsUnread)
+
+	out, err = svc.MarkRead(t.Context(), nil, true)
+	require.NoError(t, err)
+	assert.NotNil(t, out)
+	_, err = svc.MarkRead(t.Context(), []dto.ThreadRef{{AccountID: a.ID}}, true)
+	_ = requireCode(t, apperr.Validation, err)
+}
+
+func failedRefs(t *testing.T, ae *apperr.Error) []map[string]string {
+	t.Helper()
+	v, ok := ae.Details["failedRefs"].([]map[string]string)
+	require.True(t, ok, "details.failedRefs がある: %#v", ae.Details)
+	return v
+}
+
+func TestArchivePartialFailure(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	b := e.AddAccount(t, "b@x.example")
+	e.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX"))
+	e.PutThread(t, a.ID, "t2", apptest.Msg("m2", "t2", at(2), "INBOX"))
+	e.PutThread(t, b.ID, "t3", apptest.Msg("m3", "t3", at(3), "INBOX"))
+	e.Gmail.Err["ModifyThread:"+b.ID+":t3"] = gmail.ErrRateLimited
+
+	out, err := svc.Archive(t.Context(), []dto.ThreadRef{ref(a.ID, "t1"), ref(b.ID, "t3"), ref(a.ID, "t2")})
+	assert.Nil(t, out)
+	ae := requireCode(t, apperr.RateLimited, err)
+	assert.Equal(t, []map[string]string{{"accountId": b.ID, "threadId": "t3"}}, failedRefs(t, ae))
+
+	for _, id := range []string{"t1", "t2"} {
+		row, gerr := e.Store.GetThread(t.Context(), a.ID, id)
+		require.NoError(t, gerr)
+		assert.False(t, row.InInbox, "成功分は反映済み")
+	}
+	row, err := e.Store.GetThread(t.Context(), b.ID, "t3")
+	require.NoError(t, err)
+	assert.True(t, row.InInbox)
+}
+
+func TestMarkReadNeedsReauthMarksAccount(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	e.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX", "UNREAD"))
+	e.Gmail.Err["ModifyThread"] = gmail.ErrNeedsReauth
+	_, err := svc.MarkRead(t.Context(), []dto.ThreadRef{ref(a.ID, "t1")}, true)
+	_ = requireCode(t, apperr.NeedsReauth, err)
+	got, _ := e.Store.GetAccount(t.Context(), a.ID)
+	assert.Equal(t, store.StatusNeedsReauth, got.Status)
+}
+
+func TestOpsDeleteVanishedThreadsFromDB(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	e.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX"))
+	e.PutThread(t, a.ID, "t2", apptest.Msg("m2", "t2", at(2), "INBOX"))
+	delete(e.Gmail.Threads, apptest.Key(a.ID, "t1")) // Gmail 側で消えた（ModifyThread が 404）
+
+	out, err := svc.Archive(t.Context(), []dto.ThreadRef{ref(a.ID, "t1"), ref(a.ID, "t2")})
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	assert.Equal(t, "t2", out[0].ThreadID)
+	_, err = e.Store.GetThread(t.Context(), a.ID, "t1")
+	assert.ErrorIs(t, err, store.ErrNotFound)
+}
+
+func TestTrash(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	e.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX"))
+	out, err := svc.Trash(t.Context(), []dto.ThreadRef{ref(a.ID, "t1")})
+	require.NoError(t, err)
+	require.Len(t, out, 1)
+	assert.False(t, out[0].InInbox)
+	assert.Equal(t, []string{apptest.Key(a.ID, "t1")}, e.Gmail.Trashed)
+
+	_, err = svc.Trash(t.Context(), []dto.ThreadRef{ref("nope", "t1")})
+	ae := requireCode(t, apperr.NotFound, err)
+	assert.Len(t, failedRefs(t, ae), 1)
+}
+
+func TestListLabelsAndModifyLabels(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	e.Gmail.Labels[a.ID] = []gmail.Label{
+		{ID: "INBOX", Name: "INBOX", Type: "system"},
+		{ID: "Label_1", Name: "Work", Type: "user", ColorBg: "#111", ColorFg: "#fff"},
+		{ID: "Label_2", Name: "Home", Type: "user"},
+	}
+	e.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX"))
+
+	labels, err := svc.ListLabels(t.Context(), a.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []dto.Label{{ID: "Label_1", Name: "Work", ColorBg: "#111", ColorFg: "#fff"}, {ID: "Label_2", Name: "Home"}}, sortLabels(labels))
+
+	sum, err := svc.ModifyLabels(t.Context(), ref(a.ID, "t1"), []string{"Label_1"}, nil)
+	require.NoError(t, err)
+	require.Len(t, sum.Labels, 1)
+	assert.Equal(t, "Work", sum.Labels[0].Name)
+	assert.Equal(t, []string{"Label_1"}, e.Gmail.Modified[0].Add)
+	sum, err = svc.ModifyLabels(t.Context(), ref(a.ID, "t1"), nil, []string{"Label_1"})
+	require.NoError(t, err)
+	assert.Empty(t, sum.Labels)
+
+	for _, bad := range [][2][]string{{{"INBOX"}, nil}, {nil, {"UNREAD"}}, {{"Label_404"}, nil}, {nil, nil}} {
+		_, err = svc.ModifyLabels(t.Context(), ref(a.ID, "t1"), bad[0], bad[1])
+		_ = requireCode(t, apperr.Validation, err)
+	}
+	assert.Len(t, e.Gmail.Modified, 2, "検証エラーでは Gmail を呼ばない")
+
+	_, err = svc.ListLabels(t.Context(), "nope")
+	_ = requireCode(t, apperr.NotFound, err)
+}
+
+func TestListLabelsOfflineUsesCache(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	require.NoError(t, e.Store.ReplaceLabels(t.Context(), a.ID, []store.Label{{ID: "L1", Name: "Cached", Type: "user"}}))
+	e.Gmail.Err["ListLabels"] = gmail.ErrOffline
+	labels, err := svc.ListLabels(t.Context(), a.ID)
+	require.NoError(t, err)
+	require.Len(t, labels, 1)
+	assert.Equal(t, "Cached", labels[0].Name)
+	e.Gmail.Err["ListLabels"] = gmail.ErrRateLimited
+	_, err = svc.ListLabels(t.Context(), a.ID)
+	_ = requireCode(t, apperr.RateLimited, err)
+}
+
+func sortLabels(l []dto.Label) []dto.Label {
+	slices.SortFunc(l, func(a, b dto.Label) int { return cmp.Compare(b.Name, a.Name) })
+	return l
+}

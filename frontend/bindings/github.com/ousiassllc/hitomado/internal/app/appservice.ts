@@ -14,22 +14,53 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as dto$0 from "./dto/models.js";
 
+/**
+ * AckBeforeQuit は終了前の保存が済んだことをトレイの終了処理（platform.Quitter）へ知らせる。
+ * フロントは events.BeforeQuit を受けて未保存の下書きを保存してから呼ぶ（F-12）。
+ */
+export function AckBeforeQuit(): $CancellablePromise<void> {
+    return $Call.ByID(910222355);
+}
+
+/**
+ * CheckForUpdate は更新確認を今すぐ行う。無効のときは通信せず {available:false}。
+ */
 export function CheckForUpdate(): $CancellablePromise<dto$0.UpdateInfo> {
     return $Call.ByID(338931324);
 }
 
+/**
+ * GetAppInfo はバージョン・更新確認の有効／無効・データ保存先を返す。
+ */
 export function GetAppInfo(): $CancellablePromise<dto$0.AppInfo> {
     return $Call.ByID(2903597929);
 }
 
+/**
+ * GetInboxFilter は保存済みフィルタを返す。存在しないアカウント ID は除く。
+ */
 export function GetInboxFilter(): $CancellablePromise<dto$0.InboxFilter> {
     return $Call.ByID(1333674868);
 }
 
+/**
+ * RunUpdateLoop は起動時と 24 時間ごとに（有効なときだけ）更新を確認し、新版なら update:available を発行する。
+ * ctx のキャンセルまでブロックする。失敗は記録して次の周期に任せる。main.go が goroutine で呼ぶ。
+ */
+export function RunUpdateLoop(): $CancellablePromise<void> {
+    return $Call.ByID(3674361348);
+}
+
+/**
+ * SetInboxFilter はフィルタを保存する。存在しないアカウント ID は除いて保存する。
+ */
 export function SetInboxFilter(filter: dto$0.InboxFilter): $CancellablePromise<void> {
     return $Call.ByID(3037705400, filter);
 }
 
+/**
+ * SetUpdateCheckEnabled は更新確認のオン／オフを保存する。
+ */
 export function SetUpdateCheckEnabled(enabled: boolean): $CancellablePromise<void> {
     return $Call.ByID(2002059346, enabled);
 }

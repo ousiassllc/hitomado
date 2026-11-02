@@ -8,6 +8,10 @@ const (
 	AccountStatus    = "account:status"
 	NotifyOpenThread = "notify:open-thread"
 	UpdateAvailable  = "update:available"
+	// BeforeQuit はトレイの「終了」で発行する。フロントは未保存の下書きを保存して AppService.AckBeforeQuit を呼ぶ。
+	BeforeQuit = "app:before-quit"
+	// FilesDropped はウィンドウへのファイルドロップ（ペイロード {files: string[]}）。ドロップ先は data-file-drop-target 属性の要素のみ。
+	FilesDropped = "files-dropped"
 )
 
 // SyncUpdatedPayload は差分同期・リセット同期でキャッシュが更新されたことを表す。

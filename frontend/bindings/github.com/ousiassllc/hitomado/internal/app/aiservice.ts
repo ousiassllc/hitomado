@@ -3,6 +3,7 @@
 
 /**
  * AIService は AI 設定・同意・下書き生成（バインディング仕様 §6）。
+ * Wails のバインディング面で、実装は aicore に委譲する。
  * @module
  */
 
@@ -14,6 +15,9 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as dto$0 from "./dto/models.js";
 
+/**
+ * CancelGenerate は実行中の生成を中止する（GenerateReplyDraft は CANCELLED で終わる）。
+ */
 export function CancelGenerate(requestID: string): $CancellablePromise<void> {
     return $Call.ByID(624546058, requestID);
 }

@@ -1,0 +1,65 @@
+<script setup lang="ts">
+import { computed } from 'vue'
+import { parseBindingError } from '../../lib/api'
+import { deriveBanners, selectBanners } from '../../lib/banners'
+import { useAccountsStore } from '../../stores/accounts'
+import { useUiStore } from '../../stores/ui'
+import BaseButton from '../ui/BaseButton.vue'
+
+const ui = useUiStore()
+const accounts = useAccountsStore()
+
+async function reconnect(id: string): Promise<void> {
+  try {
+    await accounts.reconnect(id)
+  } catch (e) {
+    const err = parseBindingError(e)
+    if (err.code !== 'OAUTH_CANCELLED') ui.pushToast('error', err.message, () => void reconnect(id))
+  }
+}
+
+const banners = computed(() =>
+  selectBanners(
+    deriveBanners({
+      online: ui.online,
+      accounts: accounts.accounts,
+      statuses: accounts.statuses,
+      statusMessages: accounts.statusMessages,
+      extra: ui.banners,
+      reconnect: (id) => void reconnect(id),
+    }),
+  ),
+)
+</script>
+
+<template>
+  <div v-if="banners.length > 0" class="banners">
+    <div v-for="b in banners" :key="b.key" class="banner" :class="`banner-${b.kind}`" role="status">
+      <span class="msg">{{ b.message }}</span>
+      <BaseButton v-if="b.action" @click="b.action.run()">{{ b.action.label }}</BaseButton>
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.banners {
+  display: flex;
+  flex-direction: column;
+}
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border-bottom: 1px solid var(--color-border);
+  font-size: var(--font-size-sm);
+}
+
+.msg {
+  flex: 1;
+  min-width: 0;
+}
+</style>

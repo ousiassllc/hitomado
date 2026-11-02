@@ -3,6 +3,7 @@
 
 /**
  * ComposeService は作成セッション・下書き・送信前確認・送信・宛先候補（バインディング仕様 §5）。
+ * Wails のバインディング面で、実装は composecore に委譲する。
  * @module
  */
 

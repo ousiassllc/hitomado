@@ -112,6 +112,9 @@ func classify(err error) *Error {
 	switch {
 	case errors.Is(err, gmail.ErrNeedsReauth):
 		return Wrap(NeedsReauth, "アカウントの接続が切れました。再接続してください。", err)
+	case errors.Is(err, oauth.ErrCancelled), errors.Is(err, context.Canceled):
+		// url.Error はキャンセルでも net.Error を満たすため、ネットワーク判定より先に見る。
+		return Wrap(Cancelled, "キャンセルしました。", err)
 	case errors.Is(err, gmail.ErrOffline), errors.As(err, &netErr):
 		return Wrap(Offline, "ネットワークに接続できません。", err)
 	case errors.Is(err, gmail.ErrRateLimited):
@@ -122,14 +125,14 @@ func classify(err error) *Error {
 		return Wrap(AttachmentIO, "添付ファイルを取得できません。", err)
 	case errors.Is(err, store.ErrOAuthClientUse):
 		return Wrap(OAuthClientInUse, "このOAuthクライアントを使っているアカウントがあるため削除できません。", err)
-	case errors.Is(err, oauth.ErrCancelled), errors.Is(err, context.Canceled):
-		return Wrap(Cancelled, "キャンセルしました。", err)
 	case errors.Is(err, oauth.ErrDenied):
 		return Wrap(OAuthDenied, "Google の認可が拒否されました。", err)
 	case errors.Is(err, oauth.ErrTimeout):
 		return Wrap(OAuthTimeout, "認可が時間内に完了しませんでした。", err)
 	case errors.Is(err, ai.ErrUnauthorized):
 		return Wrap(AIFailed, "AI プロバイダの認証に失敗しました。API キーを確認してください。", err)
+	case errors.Is(err, ai.ErrRateLimited):
+		return Wrap(RateLimited, "AI プロバイダの利用制限に達しました。しばらくしてからやり直してください。", err)
 	case errors.Is(err, context.DeadlineExceeded):
 		return Wrap(Offline, "応答がありませんでした。", err)
 	case errors.Is(err, ai.ErrFailed):

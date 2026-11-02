@@ -3,6 +3,7 @@
 
 /**
  * InboxService は統合受信箱・検索・未読件数・スレッド操作・ラベル（バインディング仕様 §3）。
+ * 検索は inbox_search.go、スレッド操作は inbox_ops.go、ラベルは inbox_labels.go。
  * @module
  */
 
@@ -14,44 +15,67 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 // @ts-ignore: Unused imports
 import * as dto$0 from "./dto/models.js";
 
+/**
+ * Archive は INBOX ラベルを除去する。
+ */
 export function Archive(refs: dto$0.ThreadRef[] | null): $CancellablePromise<dto$0.ThreadSummary[] | null> {
     return $Call.ByID(3481227409, refs);
 }
 
+/**
+ * GetUnreadCounts はアカウントごとの受信箱の未読スレッド数を返す。
+ */
 export function GetUnreadCounts(): $CancellablePromise<{ [_ in string]?: number } | null> {
     return $Call.ByID(1893575540);
 }
 
+/**
+ * ListInbox はローカル DB の受信箱をキーセットページングで返す。ローカルの行が尽き、かつ未取得分のある
+ * アカウントがあれば Gmail から追加取得して続きを返す。アカウント別の失敗は Failures に入れ、他は返す。
+ */
 export function ListInbox(q: dto$0.InboxQuery): $CancellablePromise<dto$0.ThreadPage> {
     return $Call.ByID(1786551739, q);
 }
 
 /**
- * ListLabels はユーザー作成ラベル【Could】。
+ * ListLabels はユーザー作成ラベルを返す（labels.list で更新。オフライン時はキャッシュ）。
  */
 export function ListLabels(accountID: string): $CancellablePromise<dto$0.Label[] | null> {
     return $Call.ByID(2543891978, accountID);
 }
 
+/**
+ * MarkRead は UNREAD ラベルを付与・除去する。
+ */
 export function MarkRead(refs: dto$0.ThreadRef[] | null, read: boolean): $CancellablePromise<dto$0.ThreadSummary[] | null> {
     return $Call.ByID(2299048096, refs, read);
 }
 
 /**
- * ModifyLabels はユーザー作成ラベルの付与・除去【Could】。システムラベルは VALIDATION。
+ * ModifyLabels はユーザー作成ラベルの付与・除去。システムラベル・未知のラベルは VALIDATION。
  */
 export function ModifyLabels(ref: dto$0.ThreadRef, addLabelIDs: string[] | null, removeLabelIDs: string[] | null): $CancellablePromise<dto$0.ThreadSummary> {
     return $Call.ByID(3842352212, ref, addLabelIDs, removeLabelIDs);
 }
 
+/**
+ * Refresh は差分同期を今すぐ実行して完了を待つ。空は全アカウント。
+ */
 export function Refresh(accountIDs: string[] | null): $CancellablePromise<dto$0.RefreshResponse> {
     return $Call.ByID(3372514952, accountIDs);
 }
 
+/**
+ * Search は Gmail 検索クエリを各アカウントで並列実行し、最終メッセージ日時の降順で統合する（結果は保存しない）。
+ * カーソルはアカウントごとの pageToken と未配信の残りを埋め込んだ不透明文字列で、サーバー側に状態を持たない。
+ */
 export function Search(q: dto$0.SearchQuery): $CancellablePromise<dto$0.ThreadPage> {
     return $Call.ByID(498908709, q);
 }
 
+/**
+ * Trash はスレッドをゴミ箱へ移す。
+ */
 export function Trash(refs: dto$0.ThreadRef[] | null): $CancellablePromise<dto$0.ThreadSummary[] | null> {
     return $Call.ByID(685588537, refs);
 }

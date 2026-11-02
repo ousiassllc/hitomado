@@ -112,6 +112,8 @@ hitomado/
 | `account:status` | `{ accountId, status, message? }` | `active`／`syncing`／`needs_reauth`／`error` が変化した |
 | `notify:open-thread` | `{ accountId, threadId }` | 通知クリック |
 | `update:available` | `{ version, url }` | 新バージョン検出 |
+| `app:before-quit` | なし | トレイの「終了」（フロントが下書きを保存して `AckBeforeQuit`） |
+| `files-dropped` | `{ files }` | ファイルドロップ（添付） |
 
 ## 6. データの置き場所
 
@@ -262,3 +264,4 @@ sequenceDiagram
 | 1.0 | 2026-11-02 | 新規作成 | 初版 |
 | 1.1 | 2026-11-02 | §2 サニタイズ欄を NF-S04 の最終形に合わせた。§7.3 を `PrepareSend`→確認トークン→`Send` に書き換え。§8 の送信前確認を Go 側強制に変更、検索カーソルの記述を修正、作成セッションを追記 | バインディング仕様の確認トークン方式・作成セッション方式との整合 |
 | 1.2 | 2026-11-02 | §2 のフロントのテストを Vitest から `bun test` に変更。§9 の CI 記述を ubuntu／windows 構成に更新 | 環境構築（bun 統一・CI マトリクス）との整合 |
+| 1.3 | 2026-11-02 | 発行イベントに `app:before-quit`／`files-dropped` を追加 | バインディング仕様 1.1 との整合 |
