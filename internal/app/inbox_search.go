@@ -67,7 +67,7 @@ func (s *InboxService) Search(ctx context.Context, q dto.SearchQuery) (dto.Threa
 	for _, w := range work {
 		if w.err != nil {
 			page.Failures = append(page.Failures, s.failure(ctx, w.acc.ID, w.err))
-			continue
+			continue // 失敗したアカウントは配信せず、取得済みの分も含めて next に引き継ぐ（時刻順を崩さないため）。
 		}
 		all = append(all, w.queue...)
 	}
@@ -83,15 +83,14 @@ func (s *InboxService) Search(ctx context.Context, q dto.SearchQuery) (dto.Threa
 		}
 	}
 	for _, w := range work {
-		if w.err != nil {
-			continue
-		}
 		st := appcore.SearchState{PT: w.pt}
 		for _, e := range w.queue {
 			if _, ok := delivered[e.AccountID+"/"+e.ThreadID]; !ok {
 				st.Rest = append(st.Rest, appcore.RestEntry{I: e.ThreadID, T: e.T})
 			}
 		}
+		// 失敗したアカウントで何も取得できていないなら、先頭からの再試行を印す（尽きたアカウントと区別する）。
+		st.Start = w.err != nil && st.PT == "" && len(st.Rest) == 0
 		next[w.acc.ID] = st
 	}
 	page.NextCursor = appcore.EncodeSearchCursor(next)
@@ -113,7 +112,12 @@ func (s *InboxService) failure(ctx context.Context, accountID string, err error)
 }
 
 // loadAccount は残り（カーソル由来）を起点に、limit 件に満ちるまで Gmail の次ページを取得して w.queue を作る。
+// 失敗したときも w.queue と w.pt は「次の呼び出しがそこから再開できる状態」（入ってきた状態＋失敗前に取り込めたページ）に保つ。
 func (s *InboxService) loadAccount(ctx context.Context, w *accountSearch, query string, limit int, st appcore.SearchState) {
+	for _, r := range st.Rest {
+		w.queue = append(w.queue, searchEntry{AccountID: w.acc.ID, ThreadID: r.I, T: r.T})
+	}
+	w.pt = st.PT
 	labels, err := s.d.Store.ListLabels(ctx, w.acc.ID)
 	if err != nil {
 		w.err = err
@@ -124,10 +128,6 @@ func (s *InboxService) loadAccount(ctx context.Context, w *accountSearch, query 
 			w.labels = append(w.labels, l)
 		}
 	}
-	for _, r := range st.Rest {
-		w.queue = append(w.queue, searchEntry{AccountID: w.acc.ID, ThreadID: r.I, T: r.T})
-	}
-	w.pt = st.PT
 	// 初回（カーソルなし）は pt が空でも先頭ページを取る。続きの呼び出しで pt が空なら末尾。
 	first := st.PT == "" && len(st.Rest) == 0
 	for round := 0; (first || w.pt != "") && len(w.queue) < limit && round < maxFetchRounds; round++ {
@@ -137,7 +137,6 @@ func (s *InboxService) loadAccount(ctx context.Context, w *accountSearch, query 
 			w.err = err
 			return
 		}
-		w.pt = tl.NextPageToken
 		entries := make([]*searchEntry, len(tl.Threads))
 		errs := make([]error, len(tl.Threads))
 		appcore.ParallelDo(len(tl.Threads), appcore.SearchParallelism, func(i int) {
@@ -148,11 +147,14 @@ func (s *InboxService) loadAccount(ctx context.Context, w *accountSearch, query 
 				}
 			}
 		})
-		for i, e := range entries {
-			if errs[i] != nil && !errors.Is(errs[i], gmail.ErrNotFound) {
-				w.err = errs[i]
+		for _, e := range errs {
+			if e != nil && !errors.Is(e, gmail.ErrNotFound) {
+				w.err = e // このページは取り込まず、w.pt もこのページの手前のまま（次回このページから取り直す）。
 				return
 			}
+		}
+		w.pt = tl.NextPageToken
+		for _, e := range entries {
 			if e != nil {
 				w.queue = append(w.queue, *e)
 			}

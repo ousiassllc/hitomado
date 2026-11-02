@@ -3,6 +3,7 @@ package threadcache
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -40,48 +41,76 @@ func New(c gmail.Client, capacity int) *Cache {
 }
 
 // Get はキャッシュにあればそれを返し、無ければ Gmail から取得して保持する。
+//
+// 取得中に Invalidate されたスレッドの結果は、その取得の呼び出し元にだけ返し、キャッシュにも
+// 後続の相乗りにも渡さない。相乗り先の取得が context の取り消し・期限切れで失敗したときは、
+// 自分の ctx が生きていれば取得をやり直す。
 func (c *Cache) Get(ctx context.Context, accountID, threadID string) (gmail.ThreadFull, error) {
 	k := key{accountID, threadID}
-	if v, ok := c.lru.Get(k); ok {
-		return v, nil
-	}
-	c.mu.Lock()
-	if f, ok := c.flight[k]; ok {
+	for {
+		if v, ok := c.lru.Get(k); ok {
+			return v, nil
+		}
+		c.mu.Lock()
+		f, ok := c.flight[k]
+		if !ok {
+			break // c.mu を保持したまま、自分がリーダーになる。
+		}
 		c.mu.Unlock()
 		select {
 		case <-f.done:
-			return f.val, f.err
 		case <-ctx.Done():
 			return gmail.ThreadFull{}, ctx.Err()
 		}
+		if isContextErr(f.err) && ctx.Err() == nil {
+			continue // リーダーの ctx だけが終わった。自分の ctx で取り直す。
+		}
+		return f.val, f.err
 	}
 	f := &call{done: make(chan struct{})}
 	c.flight[k] = f
 	c.mu.Unlock()
 
 	f.val, f.err = c.client.GetThreadFull(ctx, accountID, threadID)
-	if f.err == nil {
-		c.lru.Add(k, f.val)
-	}
 	c.mu.Lock()
-	delete(c.flight, k)
+	if c.flight[k] == f { // 取得中に無効化されていなければ登録する。
+		delete(c.flight, k)
+		if f.err == nil {
+			c.lru.Add(k, f.val)
+		}
+	}
 	c.mu.Unlock()
 	close(f.done)
 	return f.val, f.err
 }
 
-// Invalidate は指定スレッドのキャッシュを破棄する。
+func isContextErr(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
+// Invalidate は指定スレッドのキャッシュと進行中の取得を破棄する。
 func (c *Cache) Invalidate(accountID string, threadIDs ...string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for _, id := range threadIDs {
-		c.lru.Remove(key{accountID, id})
+		k := key{accountID, id}
+		c.lru.Remove(k)
+		delete(c.flight, k)
 	}
 }
 
-// InvalidateAccount は当該アカウントのキャッシュをすべて破棄する（アカウント削除時）。
+// InvalidateAccount は当該アカウントのキャッシュと進行中の取得をすべて破棄する（アカウント削除時）。
 func (c *Cache) InvalidateAccount(accountID string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	for _, k := range c.lru.Keys() {
 		if k.account == accountID {
 			c.lru.Remove(k)
+		}
+	}
+	for k := range c.flight {
+		if k.account == accountID {
+			delete(c.flight, k)
 		}
 	}
 }
