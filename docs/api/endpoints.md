@@ -63,7 +63,7 @@ type AppError = {
 | `SEND_UNCERTAIN` | `Send` の応答を受け取れず（切断・タイムアウト）、Gmail 側に送信済みのメッセージがあるかも確認できなかった。送信済みの可能性があるため、送信済みフォルダーを確認してから再送する | false | Send |
 | `AI_NOT_CONFIGURED` | API キー・プロバイダ未設定 | false | AIService |
 | `AI_CONSENT_REQUIRED` | 当該プロバイダへの送信に未同意 | false | AIService |
-| `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト等） | 状況による | AIService |
+| `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト・リダイレクト応答（3xx。追従しない）等） | 状況による | AIService |
 | `CANCELLED` | 呼び出し側がキャンセルした | false | AIService |
 | `INTERNAL` | 想定外の内部エラー | false | 全般 |
 
@@ -349,7 +349,7 @@ type AIConfig = {
 | `GenerateReplyDraft(sessionId, requestId)` | string ×2 | `{ bodyHtml: string }` | 返信系セッション（`reply`／`reply_all`）のスレッドから下書きを生成する。署名・引用は含めない。`new`／`forward` は `VALIDATION` |
 | `CancelGenerate(requestId)` | string | — | 生成を中止（`GenerateReplyDraft` は `CANCELLED` で reject） |
 
-- `GenerateReplyDraft` の前提: キー設定済み（`AI_NOT_CONFIGURED`）・同意済み（`AI_CONSENT_REQUIRED`）。タイムアウトは 60 秒（`AI_FAILED`）
+- `GenerateReplyDraft` の前提: キー設定済み（`AI_NOT_CONFIGURED`）・同意済み（`AI_CONSENT_REQUIRED`）。タイムアウトは 60 秒（`AI_FAILED`）。プロバイダの応答が 3xx のときは、同意した送信先以外へ内容を再送しないよう追従せず `AI_FAILED` とする（Base URL にはリダイレクト後の最終的な URL を指定する）
 - 送信するコンテキスト: 直近 5 メッセージ・合計 20,000 文字以内（NF §12）。HTML はテキスト化して送る。機密のログ出力は禁止（NF-S10）
 - 自動送信・自動生成は行わない。本メソッドはボタン押下からのみ呼ばれる
 
@@ -417,3 +417,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.5 | 2026-11-03 | `SuggestContacts` の一致対象にメールアドレスと表示名の前方一致を明記 | 実装（`SuggestContacts` クエリ）との整合（#32） |
 | 1.6 | 2026-11-03 | §5.2 に送信失敗時の動作を、§10 に `messages.send`／`drafts.create` が 5xx を再試行しない例外を追記 | `internal/gmail/call.go` との整合（#46） |
 | 1.7 | 2026-11-03 | §1.2 に `SEND_UNCERTAIN`・`OAUTH_CLIENT_REJECTED` を、§2 に `UpdateOAuthClient`／`DeleteOAuthClient` の失敗時の挙動を、§4 に `ThreadDetail.draftId` を DRAFT ラベルがあるときだけ探す注記を、§5.2 に送信の転送へ総時間上限を掛けない記述を追記（履歴に未記録だった分） | 実装との整合（#37、#43、#45、#42。記録漏れの補正 #53） |
+| 1.8 | 2026-11-03 | §1.2 の `AI_FAILED` と §6 に、AI プロバイダの 3xx を追従せず失敗とする挙動を追記 | 実装（`internal/ai/provider.go` の既定クライアント）との整合（#58） |
