@@ -1,0 +1,66 @@
+version: '3'
+
+vars:
+  APP_NAME: "hitomado"
+  BIN_DIR: "bin"
+  PACKAGE_MANAGER: "bun"
+  VITE_PORT: '{{.WAILS_VITE_PORT | default 9245}}'
+  GOOS: '{{.GOOS | default OS}}'
+
+includes:
+  common: ./build/Taskfile.yml
+  windows: ./build/windows/Taskfile.yml
+
+tasks:
+  build:
+    summary: Builds the application (Windows artifact)
+    cmds:
+      - task: "{{.GOOS}}:build"
+
+  run:
+    summary: Runs the application
+    cmds:
+      - task: "{{.GOOS}}:run"
+
+  dev:
+    summary: Runs the application in development mode
+    cmds:
+      - wails3 dev -config ./build/config.yml -port {{.VITE_PORT}}
+
+  generate:
+    summary: Regenerates sqlc code and the Wails bindings
+    cmds:
+      - sqlc generate
+      - task: common:generate:bindings
+
+  lint:
+    summary: Runs every linter and the type check
+    cmds:
+      - golangci-lint run
+      - cmd: bunx biome ci .
+        dir: frontend
+      - cmd: bun run typecheck
+        dir: frontend
+      - bunx linterly check
+
+  fmt:
+    summary: Formats Go and frontend sources
+    cmds:
+      - golangci-lint fmt
+      - cmd: bunx biome format --write .
+        dir: frontend
+
+  test:
+    summary: Runs the Go and frontend tests
+    cmds:
+      - go test ./...
+      - cmd: bun test
+        dir: frontend
+
+  check:
+    summary: Same checks as CI (generated files must be up to date)
+    cmds:
+      - task: generate
+      - git diff --exit-code
+      - task: lint
+      - task: test

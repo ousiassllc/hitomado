@@ -1,0 +1,22 @@
+pre-commit:
+  parallel: true
+  commands:
+    go-lint:
+      glob: "*.go"
+      run: golangci-lint run
+    biome:
+      glob: "*.{ts,vue,json,css}"
+      run: cd frontend && bunx biome check --staged --no-errors-on-unmatched
+    linterly:
+      run: cd frontend && bunx linterly check {staged_files}
+
+pre-push:
+  commands:
+    go-test:
+      run: go test ./...
+    bun-test:
+      root: "frontend/"
+      run: bun test
+    typecheck:
+      root: "frontend/"
+      run: bun run typecheck

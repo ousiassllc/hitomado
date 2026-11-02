@@ -1,0 +1,72 @@
+version: '3'
+
+tasks:
+  go:mod:tidy:
+    summary: Runs `go mod tidy`
+    internal: true
+    run: once
+    cmds:
+      - go mod tidy
+
+  install:frontend:deps:
+    summary: Install frontend dependencies (bun only)
+    run: once
+    dir: frontend
+    sources:
+      - package.json
+      - bun.lock
+    generates:
+      - node_modules
+    preconditions:
+      - sh: bun --version
+        msg: "bun not found: https://bun.sh"
+    cmds:
+      - bun install --frozen-lockfile
+
+  build:frontend:
+    label: build:frontend (DEV={{.DEV}})
+    summary: Build the frontend project
+    run: once
+    dir: frontend
+    sources:
+      - "**/*"
+      - exclude: node_modules/**/*
+    generates:
+      - dist/**/*
+    deps:
+      - task: install:frontend:deps
+      - task: generate:bindings
+        vars:
+          BUILD_FLAGS:
+            ref: .BUILD_FLAGS
+    cmds:
+      - bun run {{if eq .DEV "true"}}build:dev{{else}}build{{end}}
+    env:
+      PRODUCTION: '{{if eq .DEV "true"}}false{{else}}true{{end}}'
+
+  generate:bindings:
+    summary: Generates the TypeScript bindings (frontend/bindings)
+    run: once
+    deps:
+      - task: go:mod:tidy
+    cmds:
+      - wails3 generate bindings -f '{{.BUILD_FLAGS}}' -clean=true -ts -i
+
+  generate:icons:
+    summary: Generates the Windows `.ico` from build/appicon.png
+    run: once
+    dir: build
+    sources:
+      - "appicon.png"
+    generates:
+      - "windows/icon.ico"
+    cmds:
+      - wails3 generate icons -input appicon.png -windowsfilename windows/icon.ico
+
+  dev:frontend:
+    summary: Runs the frontend in development mode
+    deps:
+      - task: install:frontend:deps
+    dir: frontend
+    cmds:
+      - bun run dev --port {{.VITE_PORT}} --strictPort

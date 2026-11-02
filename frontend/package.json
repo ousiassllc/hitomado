@@ -1,0 +1,35 @@
+{
+  "name": "hitomado-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:dev": "vue-tsc --noEmit && vite build --minify false --mode development",
+    "build": "vue-tsc --noEmit && vite build --mode production",
+    "typecheck": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@tanstack/vue-virtual": "^3.13.51",
+    "@tiptap/pm": "^3.32.2",
+    "@tiptap/starter-kit": "^3.32.2",
+    "@tiptap/vue-3": "^3.32.2",
+    "@wailsio/runtime": "3.1.0",
+    "dompurify": "^3.4.17",
+    "pinia": "^4.1.0",
+    "reka-ui": "^2.11.0",
+    "vue": "^3.5.44"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.4",
+    "@happy-dom/global-registrator": "^21.0.4",
+    "@linterly/cli": "^0.3.3",
+    "@types/bun": "^1.4.4",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "@vue/compiler-sfc": "^3.5.44",
+    "@vue/test-utils": "^2.5.1",
+    "typescript": "~5.9.3",
+    "vite": "^8.3.5",
+    "vue-tsc": "^3.3.14"
+  }
+}
