@@ -2,7 +2,7 @@
 
 > 関連: [環境構築](setup.md) / [プロジェクト概要](../overview.md) / [アーキテクチャ設計](../architecture/overview.md)
 
-本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。ストレージの保存先（#85）、資格情報の強化（#84）、通知（#88）、`modernc.org/libc` の android/amd64 問題（#83）は別の Issue が扱う。本書の対象外。
+本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。ストレージの保存先（#85）、通知（#88）、`modernc.org/libc` の android/amd64 問題（#83）は別の Issue が扱う。本書の対象外。
 
 ## 1. 必要なもの
 
@@ -37,6 +37,7 @@ sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;26.3.11579264" "plat
 | `task android:verify [APK=<path>] VERSION=X.Y.Z` | APK を検査する（`build/android/scripts/verify-apk.sh`。§6） | — |
 | `task android:install [DEVICE_ID=<serial>] [APK=<path>]` | `adb install -r` で実機へ入れる（既定は `bin/hitomado.apk`） | — |
 | `task android:run` / `android:run:device` | debug ビルドをエミュレーター／実機へ入れて起動する（`bin/hitomado-debug.apk`） | — |
+| `task android:test` | Java の単体テスト（`build/android/app/src/test`。JVM のみで端末は不要。§10） | — |
 | `task android:lint` | android タグ側の Go lint（§7） | — |
 | `task android:clean` | 生成物を消す | — |
 
@@ -124,6 +125,84 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 ## 9. 既知の事項
 
 - **x86_64（`ARCH=amd64`）はビルドできるが、アプリ内では起動しない**: `modernc.org/libc` の android/amd64 実装が旧式の syscall を直接呼び、Android の seccomp に拒否される（`SIGSYS`）。#83 が扱う。arm64（実機）はこの問題の対象外と見ているが、実機では未確認。x86_64 のエミュレーターでの起動確認は #83 の後。
-- Android の最小実装（アプリが起動してクラッシュしないための土台）: `dataDir` は `getFilesDir()` 配下（`datadir_android.go`。保存先の本実装は #85）、資格情報は EncryptedSharedPreferences（`internal/secrets/keyring_android.go`。強化は #84）、通知サービスは未登録で `Android.Notify` を直接呼ぶ（`internal/platform/toast_android.go`。#88）、保存ダイアログは `files/exports` へ保存（`savefile_android.go`。#85）。
+- Android の最小実装（アプリが起動してクラッシュしないための土台）: `dataDir` は `getFilesDir()` 配下（`datadir_android.go`。保存先の本実装は #85）、資格情報は EncryptedSharedPreferences（`internal/secrets/keyring_android.go`・`SecureStore.java`。§10）、通知サービスは未登録で `Android.Notify` を直接呼ぶ（`internal/platform/toast_android.go`。#88）、保存ダイアログは `files/exports` へ保存（`savefile_android.go`。#85）。
 - `build/android/` は Wails のテンプレートを取り込んだもので、`.linterly.yml` の対象外。Gradle は `build/android/gradlew`（Gradle 9.2.1）を使う。
 - `build/android/overlay.json`・`build/android/gen/`・`jniLibs/*/libwails.so` などの生成物は git 管理外（`.gitignore`）。
+
+## 10. 資格情報の保管（#84）
+
+リフレッシュトークン・OAuth クライアントの Client Secret・AI の API キー・ChatGPT ログインのトークン・MCP トークンは、Android では **EncryptedSharedPreferences**（鍵は Android Keystore）にだけ保存する。SQLite・ログ・logcat には入れない（NF-S01）。Windows の動き（`internal/secrets/keyring.go`。`!android`）は変えない。
+
+### 10.1 構成
+
+```
+Go の secrets.Store（internal/secrets/bridge.go。純 Go。鍵の喪失を ErrKeyLost へ）
+  → Wails の application.Android.SecureGet/SecureSet/SecureDelete（JNI）
+  → WailsBridge.secureGet/secureSet/secureDelete（Java。委譲だけ）
+  → SecureStore（Java。applicationContext だけを使う static なシングルトン。排他・鍵の喪失の検出と復旧）
+  → EncryptedSharedPreferences
+```
+
+| 項目 | 値 |
+|------|----|
+| 保存先（SharedPreferences ファイル） | `hitomado_secrets`。Wails の既定（`wails_secure`）とは分ける。試作（#81）の保存分は引き継がない（試作はエミュレーターの検証のみで、本番のデータは無い） |
+| Keystore の鍵の別名 | `hitomado_secrets_master_key`（AES256-GCM）。androidx の既定の別名とは分ける |
+| キーの暗号化／値の暗号化 | `AES256_SIV`／`AES256_GCM`（security-crypto の標準） |
+| 名前空間 | キー名は Windows と同じ `hitomado/<種別>/<ID>`（[ER §1](../architecture/er.md)）。保存先のファイルが専用なので、Windows の「サービス名 `Hitomado`」に当たる区切りは別にいらない |
+| 値の大きさ | SharedPreferences に Windows 資格情報マネージャーのような 2.5KB の上限は無い。4096 バイトを超える値（ChatGPT の JWT など）もそのまま往復できる（`bridge_test.go`・`SecureStoreTest`）。`internal/siwc` の分割保存は上限が無くても動く |
+| API レベル | minSdk 21 のうち、暗号化ストアを使えるのは **API 23 以上**。API 21〜22 は `unavailable` で保存・読み出しとも失敗する（資格情報を平文で置くフォールバックは作らない） |
+| 削除 | 無いキーの削除はエラーにしない（`secrets.Store` の契約） |
+
+### 10.2 security-crypto の版（alpha06 → 1.1.0）
+
+| 版 | 状態 | 内容 |
+|----|------|------|
+| 1.0.0（2021-04） | 安定。**minSdk 23** | `MasterKey` クラスが無い（`MasterKeys`〔deprecated〕のみ）。minSdk 21 のこのアプリでは、マニフェストのマージで minSdk の衝突になる |
+| 1.1.0-alpha06（2023-04。旧） | alpha | `MasterKey` あり、minSdk 21。Tink 1.8.0 |
+| 1.1.0-alpha07／beta01（2025） | — | **全 API を deprecated にしただけ**（機能の変更なし。プラットフォームの API と Android Keystore の直接利用へ移行する方針） |
+| **1.1.0（2025-07-30）** | **安定（採用）** | alpha07 以降と同じ。minSdk 21、`MasterKey` あり |
+
+- **1.1.0 を採用する**。alpha を外せること、minSdk 21 を保てること（1.0.0 は minSdk 23 になり、`MasterKey` も無い）、保存形式が alpha06 と同じで互換が切れないことが理由。出典: [AndroidX Security のリリースノート](https://developer.android.com/jetpack/androidx/releases/security)。
+- **deprecated であることの扱い**: 1.1.0 は全 API が deprecated（置き換えは Android Keystore を直接使った AES-GCM）だが、安定版として公開済みで、ここでの使い方（`MasterKey` ＋ `EncryptedSharedPreferences.create`）は動く。`SecureStore` の本番の保存先（`AndroidBackend`）に `@SuppressWarnings("deprecation")` を付け、deprecated な API の使用をこの 1 クラスに閉じ込めてある。Keystore の直接利用へ移す場合も、`SecureStore.Backend` を差し替えるだけで済む（呼び出し側の Go・WailsBridge は変えない）。移行は、security-crypto に不具合・非互換が出たとき、または targetSdk の引き上げで動かなくなったときに行う。今は行わない（自前の暗号は検証の負担が大きい）。
+- 版の更新は `build/android/app/build.gradle` の 1 行。
+
+### 10.3 Keystore の鍵が失われたとき
+
+バックアップ復元・端末の変更・画面ロックのリセット・鍵の無効化などで、保存済みの値を復号できなくなることがある（`InvalidKeyException`／`KeyPermanentlyInvalidatedException`／`AEADBadTagException`／`UnrecoverableKeyException`／`KeyStoreException`／`ProviderException`、Tink のキーセットの破損〔`InvalidProtocolBufferException`〕。EncryptedSharedPreferences は復号の失敗を `SecurityException` などに包むため、`cause` の連鎖をたどって判定する）。
+
+| 層 | 動作 |
+|----|------|
+| Java（`SecureStore`） | 暗号化ストア（ファイルと Keystore の鍵）を消して作り直し、**起動は落とさない**。読み出しは `key_lost` を返す。書き込み・削除で見つけたときは、作り直したうえで続きを実行する（保存は 1 回だけ再試行）。Keystore が一時的に使えないだけの失敗（`KeyStoreException.isTransientFailure()`）や、ディスクの `IOException` だけの失敗は鍵の喪失とみなさず、ストアも消さない（`failed`。資格情報を消すのは確実なときだけ） |
+| Go（`secrets.Store`） | `key_lost` を `secrets.ErrKeyLost` にする。`ErrKeyLost` は `errors.Is(err, secrets.ErrNotFound)` も真になる。ストアは作り直されて空なので、2 回目以降は通常の `ErrNotFound` |
+| アプリ | 既存の呼び出し側が `ErrNotFound` で扱う。**リフレッシュトークン**は `gmail.ErrNeedsReauth`（`internal/gmail/options.go`）→ アカウントが `needs_reauth` になり、受信箱の「要再接続」とアカウント設定の「再接続」へ案内される（F-01。新しい UI は無い）。**Client Secret** は未設定（`hasSecret=false`。「再接続」では OAuth クライアントの Secret の登録を案内する）。**API キー**は未設定。**ChatGPT** は未ログイン。**MCP トークン**は未発行（再発行する） |
+
+`bridge_test.go`（Java を模した fake 越しに、往復・削除・大きな値・鍵の喪失・それ以外の失敗）と `internal/gmail/errors_test.go`（`TestKeyLostRefreshTokenIsNeedsReauth`）、`SecureStoreTest`（Java の分類と復旧）で確かめている。バックアップは `allowBackup=false`・`dataExtractionRules`（§6）で除外しているため、通常は端末の移行で鍵の喪失は起きない。それでも `adb restore` などで起きうるので備えている。
+
+### 10.4 Activity なしで読む（#88 の WorkManager）
+
+`SecureStore.getInstance(context)` は `applicationContext` だけを保持する（Activity を参照しない）。`WailsBridge` の `secureGet`／`secureSet`／`secureDelete`、WorkManager の `Worker`、JNI 経由の Go は、**同じ 1 つのインスタンス**（同じファイル・同じ Keystore の鍵）を使い、全メソッドが 1 つの monitor で直列化される（同時の読み書きで壊れない）。
+
+```java
+// Worker（Activity なし）での使い方
+String refreshToken = SecureStore.getInstance(getApplicationContext()).get("hitomado/refresh_token/" + accountId);
+// 無ければ null。鍵が失われていれば SecureStoreException（kind() == KEY_LOST。ストアは作り直し済み）→ 再ログインが必要として扱う。
+```
+
+- Wails の `SecureGet`（Go）は、`WailsBridge`（Activity から作る）の `secureGet` を呼ぶ。Go は `libwails.so` が読み込まれた同じプロセスでしか動かないため、Activity が無いままプロセスだけが残っているとき（Worker 起動時）は Go の `Store` ではなく、Java から `SecureStore` を直接使う。`WailsBridge` は `SecureStore.getInstance(activity)` で `getApplicationContext()` を使い、Activity が破棄されたあとも保管先は使える。
+- この Issue では、コード（`SecureStore` が `Context` を引数に取り Activity に依存しないこと）と JVM 単体テスト（`SecureStoreTest.concurrentUseFromBackgroundThreadsIsSerialized`。Activity・Context なしのスレッドから同じ `SecureStore` を並行に使える）で示す。Worker からの実際の呼び出しは #88 で入れる。
+
+### 10.5 ログに出さない
+
+- Go: `Store` のエラーは `secrets: <操作> "<キー名>": <Java の失敗コード>` だけで、値を含まない（キー名は `hitomado/<種別>/<ID>` で秘密ではない）。`slog` に値を渡している箇所は無い（`internal/` を grep して確認）。
+- Java: `SecureStore`／`WailsBridge` の失敗コードは `key_lost`／`unavailable`／`failed`／`empty key` だけで、例外のメッセージ（値を含みうる）は返さず、logcat にも例外のクラス名だけを出す。
+- **Wails のテンプレートが debug ビルドで logcat に出していた JS からの呼び出しの本文を、長さだけに変えた**（`WailsBridge.handleMessage`／`handleRuntimeCall`、`WailsJSBridge.invoke`／`invokeAsync`）。バインディング呼び出しの引数（`SetAIApiKey` の API キー、`AddOAuthClient` の Client Secret）が本文に入るため。release ビルド（`BuildConfig.DEBUG` が偽）は元から出さない。`MainActivity` の `Wails API call`（パスとクエリだけ）、WebView のコンソールのメッセージ（debug のみ）は、フロントが `console.error(err)` を出す 1 か所（`errorReporter.ts`。AppError のメッセージで、値は含まない）を除き、値を出す箇所が無い。
+- Go 側の Wails のフレームワークのログ（`[JS message]`、`runtime call returned status`）は `production` タグで無効になる（release のビルドは `-tags production,android`）。debug ビルド（`android:run`）では `[JS message]`（ウィンドウのメッセージ）が logcat に出る。
+
+### 10.6 確認の手順（実機・エミュレーター）
+
+自動で確かめたのは、Go と Java の単体テスト・ビルド・`android:verify` まで。次は実機・エミュレーターが要る（未確認）:
+
+1. 往復: アカウントを接続（または設定で AI の API キーを登録）→ アプリを終了して再起動 → 接続・キーが残っている。`adb shell run-as jp.ousias.hitomado cat shared_prefs/hitomado_secrets.xml`（debug ビルド）に、トークンが**平文で無い**（キーも値も暗号化されている）。
+2. ログ: `adb logcat -d | grep -i -E "token|ya29|1//|sk-"` でトークン・キーが出ない（debug ビルドで、接続・キー登録・同期のあと）。
+3. 鍵の喪失: debug ビルドで接続 → `run-as` で `shared_prefs/hitomado_secrets.xml` を端末の外へ退避 → `adb shell pm clear jp.ousias.hitomado`（Keystore の鍵も消える）→ 一度起動して終了 → 退避したファイルを `run-as` で書き戻す → 起動。アカウントが「要再接続」になり、再接続で復旧する。logcat に `Keystore key lost; resetting secure storage (<例外クラス名>)` が出る。
+4. Worker: #88 の実装後に、Activity が無い状態（`adb shell am force-stop` のあとの定期実行）でトークンを読めること。
