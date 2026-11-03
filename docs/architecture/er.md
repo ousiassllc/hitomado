@@ -346,7 +346,7 @@ erDiagram
 - `threads` の `is_unread`／`in_inbox`／`last_*`／`message_count`／`has_attachment` は、同一トランザクション内で `messages`／`message_labels` の変更後に再計算する
 - 同期の反映は 1 スレッド（または 1 アカウント分の 1 周期）を 1 トランザクションで行い、途中失敗時は `history_id` を進めない
 - リセット同期（`history` 失効）は当該アカウントの `INBOX` 内スレッドのみ入れ替える。`contacts`・`labels` は保持する
-- アカウント削除: DB は `DELETE FROM accounts WHERE id = ?` のカスケード、続いて資格情報ストアの `refresh_token/<account_id>` を削除する。OAuth クライアントはユーザー操作で別途削除する
+- アカウント削除: 先に同期ワーカーを止めて実行中の周期の終了を待ち（DB 削除に失敗したら再開する）、DB は `DELETE FROM accounts WHERE id = ?` のカスケード、続いて資格情報ストアの `refresh_token/<account_id>` を削除する。OAuth クライアントはユーザー操作で別途削除する
 - 本文・添付・下書きに相当するカラム・テーブルは作らない
 
 ## 改訂履歴
