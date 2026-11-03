@@ -4,7 +4,7 @@
 
 - 公開者のサーバーは持ちません。通信は利用者の PC と Google／AI プロバイダ（任意）／GitHub Releases（更新確認）の間だけで完結します。
 - Gmail の制限付きスコープの審査（CASA）を避けるため、**利用者が自分の Google Cloud で OAuth クライアントを作る**方式（BYO OAuth）です。手順は [OAuth クライアントの作り方](#oauth-クライアントの作り方) を参照してください。
-- ライセンス: [AGPL-3.0](LICENSE)
+- ライセンス: [AGPL-3.0](LICENSE)。依存ライブラリのライセンス表記（MPL-2.0 の依存のソース入手先を含む）は [NOTICE](NOTICE)（Release にも添付。インストール先には `NOTICE.txt` として入ります）
 
 ## 主な機能
 
