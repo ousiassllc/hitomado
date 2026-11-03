@@ -54,18 +54,22 @@ type Deps struct {
 	OAuth    oauth.Flow
 	Sync     syncer.Engine
 	Notifier notify.Notifier
-	Update   update.Checker
-	Events   events.Emitter
-	Clock    clock.Clock
-	Files    FileDialog
-	Browser  URLOpener
-	Paths    PathOpener
-	AI       AIFactory
-	AIModels AIModelsLister
-	ChatGPT  siwc.Auth // Sign in with ChatGPT（ログイン・更新・ログアウト）
-	Logger   *slog.Logger
-	DataDir  string // %APPDATA%\Hitomado
-	Version  string
+	// Background は OS のバックグラウンド同期・通知基盤（Android の WorkManager・通知チャネル・通知の許可）。nil は何もしない。
+	Background notify.Background
+	// OpenRequests は通知のタップで開くスレッドの受け渡し口（Android）。nil は常に「なし」。
+	OpenRequests *notify.OpenRequests
+	Update       update.Checker
+	Events       events.Emitter
+	Clock        clock.Clock
+	Files        FileDialog
+	Browser      URLOpener
+	Paths        PathOpener
+	AI           AIFactory
+	AIModels     AIModelsLister
+	ChatGPT      siwc.Auth // Sign in with ChatGPT（ログイン・更新・ログアウト）
+	Logger       *slog.Logger
+	DataDir      string // %APPDATA%\Hitomado
+	Version      string
 
 	// Capabilities はこの OS で提供する機能（MCP・自動更新など。Android では無効）。ゼロ値は全機能が無効。
 	Capabilities capability.Capabilities

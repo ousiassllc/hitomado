@@ -64,3 +64,10 @@ func bridgeError(op, key string, err error) error {
 	}
 	return fmt.Errorf("secrets: %s %q: %w", op, key, err)
 }
+
+// Bridge は資格情報を読み書きする Java 側の窓口（Wails の application.Android、または Worker 用の JNI の呼び出し口）。
+type Bridge = bridge
+
+// NewBridgeStore は b を使う Store を返す。Wails の application.Android（Activity のあるプロセス）のほかに、
+// Activity の無い WorkManager の Worker から呼ぶ JNI の窓口（internal/androidbg）にも使う。
+func NewBridgeStore(b Bridge) Store { return newBridgeStore(b) }

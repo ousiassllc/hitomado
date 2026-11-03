@@ -3,8 +3,8 @@ package exportfile
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
-	"unicode/utf16"
+
+	"github.com/ousiassllc/hitomado/internal/asciijson"
 )
 
 // 以下は Java（build/android/.../DocumentExporter.java）との間でやり取りする JSON。JNI を使う呼び出し自体は
@@ -87,25 +87,5 @@ func ParseEnvelope(raw string) (value string, err error) {
 	return env.Value, nil
 }
 
-// ASCIIJSON は v を JSON にし、ASCII 以外を \uXXXX（UTF-16 のサロゲートペア）に直す。
-// JNI の NewStringUTF は Java の "modified UTF-8" を期待し、標準の UTF-8 の 4 バイト（絵文字など）を正しく扱えないため、
-// ファイル名を Java へ渡すときは ASCII だけにする。
-func ASCIIJSON(v any) (string, error) {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return "", err
-	}
-	var sb strings.Builder
-	for _, r := range string(b) {
-		if r < 0x80 {
-			sb.WriteRune(r)
-			continue
-		}
-		if r1, r2 := utf16.EncodeRune(r); r1 != 0xFFFD || r2 != 0xFFFD {
-			fmt.Fprintf(&sb, `\u%04x\u%04x`, r1, r2)
-			continue
-		}
-		fmt.Fprintf(&sb, `\u%04x`, r)
-	}
-	return sb.String(), nil
-}
+// ASCIIJSON は v を ASCII だけの JSON にする（asciijson.Marshal。JNI の NewStringUTF の制約への対処）。
+func ASCIIJSON(v any) (string, error) { return asciijson.Marshal(v) }

@@ -108,6 +108,12 @@ func (s *AccountService) StartAddAccount(ctx context.Context, oauthClientID stri
 		return dto.Account{}, apperr.FromInfra(err, "")
 	}
 	s.d.Sync.Start(acc.ID)
+	// バックグラウンド同期（Android の WorkManager）を登録し、最初のアカウントの追加が済んだところで通知の許可を求める。
+	bg := background(s.d)
+	bg.ScheduleSync(true)
+	if len(existing) == 0 {
+		bg.RequestPermission()
+	}
 	saved, err := s.d.Store.GetAccount(ctx, acc.ID)
 	if err != nil {
 		return dto.Account{}, apperr.FromInfra(err, acc.ID)

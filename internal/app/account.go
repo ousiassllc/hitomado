@@ -62,6 +62,12 @@ func (s *AccountService) RemoveAccount(ctx context.Context, accountID string) er
 	if s.d.Threads != nil {
 		s.d.Threads.InvalidateAccount(accountID)
 	}
+	// 通知チャネルと表示中の通知を消し、アカウントが 0 件になったらバックグラウンド同期を解除する。
+	bg := background(s.d)
+	bg.ForgetAccount(accountID)
+	if rest, err := s.d.Store.ListAccounts(ctx); err == nil && len(rest) == 0 {
+		bg.ScheduleSync(false)
+	}
 	return nil
 }
 
