@@ -32,6 +32,14 @@ import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
+import android.webkit.RenderProcessGoneDetail;
+import android.os.SystemClock;
+import android.view.Gravity;
+import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import androidx.annotation.RequiresApi;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
@@ -74,6 +82,13 @@ public class MainActivity extends AppCompatActivity {
     // network/screen broadcasts don't wake the app.
     private boolean systemReceiversRegistered = false;
     private WebViewAssetLoader assetLoader;
+
+    // WebView のレンダラが落ちたときの復旧（#90）。直近 5 分に 3 回まで WebView を作り直し、超えたらエラー画面を出す（無限ループの防止）。
+    private static final long RECOVERY_WINDOW_MS = 5 * 60 * 1000L;
+    private final RecoveryBudget renderRecoveryBudget = new RecoveryBudget(3, RECOVERY_WINDOW_MS);
+    // 初回の index.html が取れなかった（Go の準備が遅く Wails の 10 秒待ちが切れた）ときの読み直し。3 秒おきに、直近 5 分に 6 回まで。
+    private static final long LOAD_RETRY_DELAY_MS = 3000L;
+    private final RecoveryBudget loadRetryBudget = new RecoveryBudget(6, RECOVERY_WINDOW_MS);
 
     // The Go-side dialog ID of the in-flight file picker (-1 when idle)
     private int pendingFilePickerCallbackID = -1;
@@ -264,6 +279,25 @@ public class MainActivity extends AppCompatActivity {
                 // current battery / network / theme so the UI starts populated.
                 emitSystemSnapshot();
             }
+
+            /**
+             * レンダラのプロセスが落ちた（クラッシュ、またはメモリ不足で OS が止めた）。true を返すとアプリのプロセスは
+             * 落とされない（false・未実装だと「Render process crash wasn't handled」でアプリ全体が終了する）。
+             * 落ちた WebView は使えないので、破棄して新しい WebView を作り直す（#90）。
+             */
+            @RequiresApi(Build.VERSION_CODES.O)
+            @Override
+            public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+                return handleRenderProcessGone(view, detail.didCrash());
+            }
+
+            /** メインフレームの読み込み失敗（API 23 以降は他のリソースの失敗では呼ばれない）。アプリの URL だけを扱う。 */
+            @SuppressWarnings("deprecation")
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                super.onReceivedError(view, errorCode, description, failingUrl);
+                retryMainFrameLoad(view, errorCode, failingUrl);
+            }
         });
 
         // Add JavaScript interface for Go communication
@@ -309,10 +343,104 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    private String appUrl() {
+        return devServer != null ? devServer.toString() + "/" : WAILS_SCHEME + "://" + WAILS_HOST + "/";
+    }
+
     private void loadApplication() {
-        String url = devServer != null ? devServer.toString() + "/" : WAILS_SCHEME + "://" + WAILS_HOST + "/";
+        String url = appUrl();
         if (DEBUG) Log.d(TAG, "Loading URL: " + url);
         webView.loadUrl(url);
+    }
+
+    /**
+     * 初回の index.html が取れなかったとき（Wails の Go 側は、アプリの準備が 10 秒で終わらないと要求を捨てる）、
+     * 白画面のままにせず読み直す。上限（直近 5 分に 6 回）を超えたらエラー画面にする（#90）。
+     */
+    private void retryMainFrameLoad(WebView view, int errorCode, String failingUrl) {
+        if (view != webView || failingUrl == null || !failingUrl.equals(appUrl())) return;
+        if (!loadRetryBudget.tryAcquire(SystemClock.elapsedRealtime())) {
+            Log.e(TAG, "Main frame load failed (error " + errorCode + ") and the retry limit is reached; showing the error screen");
+            showFatalError();
+            return;
+        }
+        Log.w(TAG, "Main frame load failed (error " + errorCode + "); reloading in " + LOAD_RETRY_DELAY_MS + " ms");
+        view.postDelayed(() -> {
+            if (view == webView) loadApplication();
+        }, LOAD_RETRY_DELAY_MS);
+    }
+
+    /** @return 常に true（アプリのプロセスを落とさない）。 */
+    private boolean handleRenderProcessGone(WebView view, boolean didCrash) {
+        Log.e(TAG, RenderGoneReason.describe(didCrash));
+        if (view != webView) {
+            return true; // すでに作り直した（または破棄した）WebView の通知。何もしない
+        }
+        if (!renderRecoveryBudget.tryAcquire(SystemClock.elapsedRealtime())) {
+            Log.e(TAG, "WebView renderer kept dying; the recovery limit is reached; showing the error screen");
+            showFatalError();
+            return true;
+        }
+        Log.w(TAG, "Recreating the WebView and reloading the app");
+        recreateWebView();
+        return true;
+    }
+
+    /**
+     * 落ちた WebView を破棄し、同じ位置に新しい WebView を作って読み直す。ブリッジ（JS インターフェース・
+     * WailsBridge の WebView 参照・戻るボタン・同期イベント）は setupWebView が新しい WebView につなぎ直す。
+     * Go 側（DB・同期・作成セッション）は動き続ける。フロントの状態は初期化される（下書きは自動保存済みの分だけ残る）。
+     */
+    private void recreateWebView() {
+        if (webViewFileChooserCallback != null) {
+            webViewFileChooserCallback.onReceiveValue(null);
+            webViewFileChooserCallback = null;
+        }
+        WebView old = webView;
+        ViewGroup parent = (ViewGroup) old.getParent();
+        int index = parent.indexOfChild(old);
+        parent.removeView(old);
+        old.destroy();
+        WebView fresh = new WebView(this);
+        fresh.setId(R.id.webview);
+        parent.addView(fresh, index, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        setupWebView();
+        loadApplication();
+    }
+
+    /** 復旧の上限を超えた。WebView を外し、「アプリを終了して起動し直してください」の画面を出す。 */
+    private void showFatalError() {
+        WebView old = webView;
+        if (old == null) return;
+        webView = null;
+        bridge.setWebView(null);
+        ViewGroup parent = (ViewGroup) old.getParent();
+        int index = parent.indexOfChild(old);
+        parent.removeView(old);
+        old.destroy();
+
+        LinearLayout box = new LinearLayout(this);
+        box.setId(R.id.render_error);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setGravity(Gravity.CENTER);
+        int pad = (int) (24 * getResources().getDisplayMetrics().density);
+        box.setPadding(pad, pad, pad, pad);
+        TextView message = new TextView(this);
+        message.setText(R.string.render_error_message);
+        message.setTextSize(16);
+        message.setGravity(Gravity.CENTER);
+        Button quit = new Button(this);
+        quit.setText(R.string.render_error_quit);
+        // 次の起動がきれいに始まるよう、Go のランタイムごとプロセスを終える（利用者が押したときだけ）。
+        quit.setOnClickListener(v -> {
+            finishAndRemoveTask();
+            android.os.Process.killProcess(android.os.Process.myPid());
+        });
+        box.addView(message);
+        box.addView(quit);
+        parent.addView(box, index, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
 
     /**

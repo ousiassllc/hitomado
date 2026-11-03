@@ -20,6 +20,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/threadcache"
 	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/clock"
+	"github.com/ousiassllc/hitomado/internal/e2e"
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/headless"
 	"github.com/ousiassllc/hitomado/internal/logging"
@@ -101,6 +102,11 @@ func run() error {
 	gm, err := gmail.NewClient(gmail.Options{Secrets: sec, Accounts: headless.StoreLookup{Store: st}, Clock: clk, Logger: logger})
 	if err != nil {
 		return fmt.Errorf("gmail client: %w", err)
+	}
+	// E2E 用ビルド（タグ e2e。リリースには入らない）のときだけ、Gmail・資格情報をシード済みのフェイクに差し替える（#90）。
+	sec, gm, err = e2e.Override(ctx, dir, st, sec, gm, logger)
+	if err != nil {
+		return err
 	}
 	cache := threadcache.New(gm, threadcache.DefaultCapacity)
 	events := cache.Emitter(emitter)
@@ -191,7 +197,10 @@ func startBackground(ctx context.Context, d *app.Deps, svc *app.Services, loops 
 		}
 	}
 	// バックグラウンド同期（Android の WorkManager）。アカウントがあれば登録（冪等）、無ければ解除する。Windows では何もしない。
-	d.Background.ScheduleSync(len(accounts) > 0)
+	// E2E 用ビルドではフェイクの資格情報がアプリ内にしか無く、Worker（ヘッドレス）は同期できないので登録しない。
+	if !e2e.Enabled {
+		d.Background.ScheduleSync(len(accounts) > 0)
+	}
 	if !d.Capabilities.SupportsAutoUpdate {
 		return
 	}

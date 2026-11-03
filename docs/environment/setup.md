@@ -116,6 +116,8 @@ flowchart LR
 | `android` | ubuntu-latest | `pull_request` のみ（`release.yml` からの呼び出しでは動かさない）。release APK（arm64）と AAB を作って検査し、アーティファクトに上げる（使い捨ての署名鍵。[Android ビルド §8](android.md)） |
 | `build` | windows-latest | `needs: [lint, test]`。`wails3 package` でインストーラーを作り（版 `0.99.1` と `0.99.2` の 2 つ）、`.github/scripts/test-installer.ps1` で **インストール → 起動中の上書き拒否 → 上書き → アンインストール** を実機で検証する（§4.3）。新しい方のインストーラーを Actions のアーティファクトに保存 |
 
+補足: `.github/workflows/android-e2e.yml`（`workflow_dispatch` のみ。PR の CI には含めない）が、KVM つきの x86_64 エミュレーター（API 35）で Android の E2E を回す。手順と位置づけは [Android ビルド §17](android.md#17-実機エミュレーターでの-e2e-webview-のクラッシュ対策性能90)。
+
 - セットアップ: `actions/setup-go`（`go.mod` のバージョン。Go のモジュール・ビルドキャッシュは既定で効く）、`oven-sh/setup-bun`（bun 1.3.14 を固定）、`bun install --frozen-lockfile`。フロントの依存は明示的にキャッシュしない
 - 生成物の差分検査: `wails3 generate bindings` は Linux でも動く。ただし GTK ヘッダが無い環境では cgo を使う既定の Linux バックエンドをビルドできないため、`CGO_ENABLED=0` と `-tags purego`（Wails v3.1.0 の CGO なし Linux バックエンド）を付ける。Go の lint・vet・test も ubuntu では同じ設定で実行する（Windows 向けビルドには影響しない）。
 
@@ -293,3 +295,4 @@ pre-push:
 | 1.8 | 2026-11-03 | §4.3 に第三者ライセンスの表記（`NOTICE`）の作り方と配布（インストーラー同梱・Release 添付）、§4.1 の `lint` に最新性検査、§4.2 の成果物に `NOTICE` を追記。§7 の除外に `NOTICE` を追加 | #3 |
 | 1.9 | 2026-11-03 | §4.3 の版番号に、`VERSION` の既定値の定義を `Taskfile.yml` の `includes` の `vars` 1 か所にまとめたこと、`frontend/package.json` の `version` を `0.0.0` に揃えたこと、版が `0.0.0`（dev・ローカルビルド）のときは更新確認をしないことを反映 | #19、#20、#21 |
 | 1.10 | 2026-11-03 | Android ビルド基盤を [android.md](android.md) に分けて追加し、§3.3 に導線を足した。CI（`ci.yml`）に `Go lint (android)` と `android` ジョブを追加（§4.1） | #82 |
+| 1.11 | 2026-11-04 | §4.1 に Android の E2E（`android-e2e.yml`。手動実行のみ）の補足を追記 | #90 |
