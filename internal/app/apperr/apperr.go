@@ -71,6 +71,11 @@ func New(code, message string) *Error {
 	return &Error{Code: code, Message: message, Retryable: code == RateLimited || code == Offline || code == OAuthTimeout}
 }
 
+// DuplicateAccount は同じアドレスのアカウントがすでにある（ACCOUNT_DUPLICATE）ときのエラー。
+func DuplicateAccount() *Error {
+	return New(AccountDuplicate, "このアドレスのアカウントはすでに登録されています。")
+}
+
 // Wrap は cause を保持した AppError を作る。
 func Wrap(code, message string, cause error) *Error {
 	e := New(code, message)

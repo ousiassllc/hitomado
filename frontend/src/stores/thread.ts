@@ -4,6 +4,7 @@ import type {
   ThreadDetail,
   ThreadRef,
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import * as NotifyService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/notifycore/notifyservice'
 import * as ThreadService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/threadservice'
 import { type AppError, call, list, parseBindingError } from '../lib/api'
 import { applyErrorEffects } from '../lib/errorEffects'
@@ -233,6 +234,20 @@ export const useThreadStore = defineStore('thread', () => {
     await open(ref)
   }
 
+  /**
+   * 通知のタップで起動されたとき（コールドスタート）に開くよう要求されたスレッドを、購読の開始後に 1 回受け取って開く。
+   * Go（Java）がフロントの準備前に発行したイベントは取りこぼされるため、準備ができたこのときに受け取る（Android）。
+   * 要求が無い・取り出せない（Windows など）ときは何もしない。
+   */
+  async function openPendingFromNotification(): Promise<void> {
+    try {
+      const ref = await call(NotifyService.TakePendingOpenThread())
+      if (ref) await onNotifyOpen({ accountId: ref.accountId, threadId: ref.threadId })
+    } catch {
+      // 取り出せなくても通常どおり起動する
+    }
+  }
+
   /** イベント購読と、一覧の選択に追従する監視を開始する（冪等）。 */
   function start(): void {
     if (started) return
@@ -248,6 +263,7 @@ export const useThreadStore = defineStore('thread', () => {
         },
       ),
     ]
+    void openPendingFromNotification()
   }
 
   function stop(): void {

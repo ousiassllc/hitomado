@@ -85,10 +85,11 @@ func (s *Scheduler) collectNotice(ctx context.Context, cyc *cycle, threadID stri
 		name = cyc.acct.Email
 	}
 	cyc.notices = append(cyc.notices, notify.NewMailNotice{
-		AccountID:   cyc.acct.ID,
-		AccountName: name,
-		ThreadID:    threadID,
-		FromName:    from,
-		Subject:     row.Subject,
+		AccountID:    cyc.acct.ID,
+		AccountName:  name,
+		AccountEmail: cyc.acct.Email,
+		ThreadID:     threadID,
+		FromName:     from,
+		Subject:      row.Subject,
 	})
 }

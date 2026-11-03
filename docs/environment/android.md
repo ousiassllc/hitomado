@@ -100,7 +100,7 @@ Wails v3.1.0 のテンプレートは `compileSdk = 36`・`targetSdk = 36`（`ap
 
 `build/android/app/src/main/AndroidManifest.xml`:
 
-- 置く権限: `INTERNET`、`ACCESS_NETWORK_STATE`（ネットワーク変化の通知）、`VIBRATE`、`POST_NOTIFICATIONS`、`FOREGROUND_SERVICE`、`FOREGROUND_SERVICE_DATA_SYNC`（最後の 3 つは Wails のテンプレート由来。**通知・前面サービスの扱いは #88 で決める**ため、ここでは増やさず消しもしない）。
+- 置く権限: `INTERNET`、`ACCESS_NETWORK_STATE`（ネットワーク変化の通知）、`VIBRATE`、`POST_NOTIFICATIONS`（§15）。WorkManager が manifest のマージで `WAKE_LOCK`・`RECEIVE_BOOT_COMPLETED` を足す（許可リストに入っている）。前面サービスの権限（`FOREGROUND_SERVICE`・`FOREGROUND_SERVICE_DATA_SYNC`）と `WailsForegroundService` は #88 で削除した（§15.1・§15.7）。
 - 削除した権限: `CAMERA`、`ACCESS_FINE_LOCATION`、`ACCESS_COARSE_LOCATION`、`USE_BIOMETRIC`。`androidx.biometric`（`WailsBridge.java` が参照する）がマージ時に `USE_BIOMETRIC`／`USE_FINGERPRINT` を足すため、`tools:node="remove"` で取り除く。カメラ用の `<queries>` も削除した。
 - `allowBackup="false"`、`fullBackupContent="false"`、`dataExtractionRules`（`res/xml/data_extraction_rules.xml`。クラウドバックアップ・端末間移行ともすべて除外）。DB（メール本文のメタデータを含む）と、Android Keystore の鍵に紐づく暗号化済み資格情報は、別の端末に復元しても使えないため。
 
@@ -125,7 +125,7 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 ## 9. 既知の事項
 
 - **x86_64（`ARCH=amd64`）は、パッチ済みの `modernc.org/libc` でビルドする**（§12）。パッチなしだと SQLite の最初のファイル操作で `SIGSYS` で落ちる。arm64（実機）はこの問題の対象外で、アプリ内の SQLite の実行は**実機で未確認**（§12.3）。
-- Android の最小実装（アプリが起動してクラッシュしないための土台）: `dataDir` は `getFilesDir()` 配下（`datadir_android.go`。保存先は §13）、資格情報は EncryptedSharedPreferences（`internal/secrets/keyring_android.go`・`SecureStore.java`。§11）、通知サービスは未登録で `Android.Notify` を直接呼ぶ（`internal/platform/toast_android.go`。#88）、保存ダイアログは Storage Access Framework（§13）。
+- Android の最小実装（アプリが起動してクラッシュしないための土台）: `dataDir` は `getFilesDir()` 配下（`datadir_android.go`。保存先は §13）、資格情報は EncryptedSharedPreferences（`internal/secrets/keyring_android.go`・`SecureStore.java`。§11）、通知サービスは未登録で、新着は Java の `NewMailNotifier`（`internal/platform/toast_android.go`。§15）、保存ダイアログは Storage Access Framework（§13）。
 - `build/android/` は Wails のテンプレートを取り込んだもので、`.linterly.yml` の対象外。Gradle は `build/android/gradlew`（Gradle 9.2.1）を使う。
 - `build/android/overlay.json`・`build/android/gen/`・`jniLibs/*/libwails.so` などの生成物は git 管理外（`.gitignore`）。
 
@@ -147,7 +147,7 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 - `run.go` が `capability.Current()` を 1 回だけ読み、`app.Deps.Capabilities` と各部品の生成へ渡す。`Deps.Capabilities` のゼロ値は全機能が無効（設定し忘れて機能が動いてしまうことを避ける）。
 - フロントへは `PlatformService.GetCapabilities`（[バインディング仕様 §7.3](../api/endpoints.md#73-platformservice)）で渡す。画面は OS 名を比べず、`platformStore`（`frontend/src/stores/platform.ts`）の `supportsMcp` などで出し分ける（スマホ向けの画面 §16 も `touchUi` で切り替える）。読み込み前・失敗時はデスクトップ（全機能あり）の値。
 - **バインディングは OS で変えない**（§7）。`PlatformService` は全 OS で同じシグネチャで、値だけが変わる。MCP は登録の有無だけが変わるが、型は同じで、バインディングは既定のタグ（`purego`）で 1 つだけ生成する。
-- 通知の扱いは #88、添付・ログの保存先は §13。ここでは対象外。
+- 通知・バックグラウンド同期は §15、添付・ログの保存先は §13。ここでは対象外。
 
 ## 11. 資格情報の保管（#84）
 
@@ -209,7 +209,7 @@ String refreshToken = SecureStore.getInstance(getApplicationContext()).get("hito
 ```
 
 - Wails の `SecureGet`（Go）は、`WailsBridge`（Activity から作る）の `secureGet` を呼ぶ。Go は `libwails.so` が読み込まれた同じプロセスでしか動かないため、Activity が無いままプロセスだけが残っているとき（Worker 起動時）は Go の `Store` ではなく、Java から `SecureStore` を直接使う。`WailsBridge` は `SecureStore.getInstance(activity)` で `getApplicationContext()` を使い、Activity が破棄されたあとも保管先は使える。
-- この Issue では、コード（`SecureStore` が `Context` を引数に取り Activity に依存しないこと）と JVM 単体テスト（`SecureStoreTest.concurrentUseFromBackgroundThreadsIsSerialized`。Activity・Context なしのスレッドから同じ `SecureStore` を並行に使える）で示す。Worker からの実際の呼び出しは #88 で入れる。
+- Worker からの実際の呼び出しは #88 で入れた（§15.2。`SecretBridge` を Go が JNI で呼び戻す。エミュレーターで、Activity の無いプロセスの Worker が `found:false` を受け取り要再接続になるところまで確認した）。#84 の時点では、コード（`SecureStore` が `Context` を引数に取り Activity に依存しないこと）と JVM 単体テスト（`SecureStoreTest.concurrentUseFromBackgroundThreadsIsSerialized`。Activity・Context なしのスレッドから同じ `SecureStore` を並行に使える）で示す。Worker からの実際の呼び出しは #88 で入れる。
 
 ### 11.5 ログに出さない
 
@@ -225,7 +225,7 @@ String refreshToken = SecureStore.getInstance(getApplicationContext()).get("hito
 1. 往復: アカウントを接続（または設定で AI の API キーを登録）→ アプリを終了して再起動 → 接続・キーが残っている。`adb shell run-as jp.ousias.hitomado cat shared_prefs/hitomado_secrets.xml`（debug ビルド）に、トークンが**平文で無い**（キーも値も暗号化されている）。
 2. ログ: `adb logcat -d | grep -i -E "token|ya29|1//|sk-"` でトークン・キーが出ない（debug ビルドで、接続・キー登録・同期のあと）。
 3. 鍵の喪失: debug ビルドで接続 → `run-as` で `shared_prefs/hitomado_secrets.xml` を端末の外へ退避 → `adb shell pm clear jp.ousias.hitomado`（Keystore の鍵も消える）→ 一度起動して終了 → 退避したファイルを `run-as` で書き戻す → 起動。アカウントが「要再接続」になり、再接続で復旧する。logcat に `Keystore key lost; resetting secure storage (<例外クラス名>)` が出る。
-4. Worker: #88 の実装後に、Activity が無い状態（`adb shell am force-stop` のあとの定期実行）でトークンを読めること。
+4. Worker: Activity が無い状態の定期実行でトークンを読めること。#88 で入れた。ただしエミュレーターでは「値が無い」の経路（`found:false`）まで。実トークンを読んで同期できることは実機・本物の Google で未確認（§15.9）。
 
 ## 12. modernc.org/libc の android/amd64 問題（#83）
 
@@ -418,7 +418,7 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 | 検討したこと | 判断 |
 |--------------|------|
 | `state`・PKCE verifier を SecureStore に保存して、起動後に完了する | しない。保存しても認可コードを受け取る口（待受）が無く、コードはブラウザのアドレスバーにしか残らない。使えない verifier を暗号化ストアに残さない（カスタムスキーム方式なら Intent で受けた `code` と保存した verifier で完了できるが、(b)(c) は採らない） |
-| 前面サービス（`WailsForegroundService`、`dataSync`）でログイン中だけプロセスを生かす | しない。通知・前面サービスの扱いは #88 で決める（§6）。プロセスが止められる確率を下げるだけで、止められた後の扱いは結局必要。#88 で前面サービスを入れる場合の候補として残す |
+| 前面サービス（`WailsForegroundService`、`dataSync`）でログイン中だけプロセスを生かす | しない。前面サービスはこのアプリで使わない（§15.1。#88 で削除した）。プロセスが止められる確率を下げるだけで、止められた後の扱いは結局必要。#88 で前面サービスを入れる場合の候補として残す |
 | **止められたことを次の起動で検出して「やり直し」と案内する（採用）** | `internal/oauth` の `Tracker`。認可を始めるときに SecureStore へ印（時刻のみ。秘密は入れない。キー `hitomado/oauth_in_progress`）を保存し、成功・失敗・キャンセル・タイムアウトのどれでも `End()` で消す。プロセスが止められると印が残るので、次の起動の最初の `TakeInterruptedAuth` が一度だけ `true` を返し、フロント（`accounts` ストアの `start`）が「ログインの途中でアプリが終了したため、完了できませんでした。もう一度『アカウントを追加』（または『再接続』）からやり直してください」のトーストを出す |
 
 「ログイン中の状態を壊さない」: 認可の途中のデータはメモリ（待受・`state`・verifier・進行中フラグ）だけで、永続化は上の印（時刻）だけ。プロセスが止められても DB・トークン・既存アカウントには何も書かれておらず、再起動後の「別のアカウント認可が進行中です」の状態も残らない（進行中フラグはメモリ上）。トークン交換の後（アカウント保存）でプロセスが止められた場合は、保存の途中の状態が既存の経路で扱われる（アカウント作成→トークン保存の失敗時はロールバック。`account_auth.go`）。
@@ -477,3 +477,97 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 
 - ブラウザ（vite dev・Wails ランタイムをモック）で 390x844・800x900・1440x900 の画面を確認した（スクリーンショットは作業ログ）。`bun test` は、1 画面ずつの遷移（一覧 → スレッド → 返信 → 戻る）、幅を変えても選択・下書きが残ること、戻るの順序、受け口の登録を確認する。
 - **未確認**: 実機・エミュレーターでの表示（safe area・戻るボタン・ソフトキーボード・Fold の折り畳み）。Java は `task android:package`／`android:verify` でビルド・検査できるが、動作はエミュレーターか実機で確認が要る。
+
+## 15. バックグラウンド同期と新着通知（#88）
+
+### 15.1 方針
+
+- アプリが**前面にいる間**は今の 60 秒ループ（Go のゴルーチン。`internal/sync`）。**閉じている間**は WorkManager の定期実行（**15 分間隔**＝`PeriodicWorkRequest` の下限・条件は**ネットワーク接続**）が、Go の「1 回だけ同期して新着を返す」関数（`internal/headless`）を呼ぶ。通知は Java の `NotificationManager` で出し、タップでそのスレッドを開く。
+- **Pub/Sub・FCM は使わない**（公開者サーバーが要り、「サーバーを持たない」現行方針 [NF §4](../requirements/non-functional.md) と矛盾するため）。**前面サービス（`WailsForegroundService`・`FOREGROUND_SERVICE`・`FOREGROUND_SERVICE_DATA_SYNC`）も使わない**: 常時表示の通知が要る・targetSdk 35 以降は `dataSync` の前面サービスに時間の上限がある・Play の審査対象になるため。Wails のテンプレートにあった前面サービスの Java（`WailsForegroundService.java`・`WailsBridge.startForegroundService`／`stopForegroundService`）、manifest の権限 2 つとサービス宣言は削除した（Go 側の `application.Android.StartForegroundService` はこのアプリから呼ばない）。
+- 即時性は最大 15 分遅れる。Doze 中・省電力中は OS がさらに遅らせる。利用者向けの案内は F-10。
+
+### 15.2 Worker から Go を呼べる形（設計と理由）
+
+**前提（Wails の c-shared エントリの順序）**: `libwails.so` は `System.loadLibrary("wails")` で読み込まれた時点で Go のランタイムと各パッケージの `init` が始まる（Go のランタイムは 1 プロセスに 1 つ）。`main` は自動では動かない。`WailsBridge.nativeInit`（Activity の `bridge.initialize()`）が `RegisterAndroidMain` に登録された `main` をゴルーチンで起動して初めて、Wails のアプリ（`application.New`・ウィンドウ・同期ループ）が動き出す。WorkManager の Worker は**アプリと同じプロセス**のバックグラウンドスレッドで動き、プロセスが無ければ OS がプロセスだけを起こす（Activity も `nativeInit` も無い）。
+
+**設計**: Worker は Wails を通さず、`libwails.so` が export する別の JNI 関数 `Java_com_wails_app_HeadlessSync_nativeSyncOnce`（`internal/androidbg`。cgo。`headless_android.go` がパッケージを main に取り込む）を直接呼ぶ。この関数は Wails のアプリを作らず、`internal/headless` だけを動かす（store・gmail・sync。ウィンドウ・トレイ・Wails の通知サービス・イベントには触れない）。
+
+| 検討 | 判断 |
+|------|------|
+| `nativeInit` を Worker から呼んで Wails ごと起動する | しない。ウィンドウ・60 秒ループ・MCP などが動き続け、バックグラウンドで電池を使い続ける。`WailsBridge` は Activity を前提にする |
+| Go から資格情報を Wails の `application.Android.SecureGet` で読む | Worker では使えない。Wails の Java ブリッジ（`g_bridge`）は `nativeInit` が保持する `WailsBridge`（Activity から作る）で、Worker のプロセスでは `nil`。Go 側の `secrets.NewKeyring()` はそのままではここで失敗する |
+| **Worker が `SecretBridge`（Java。`SecureStore` を使う）を JNI の引数で渡し、Go が呼び戻して読む（採用）** | `internal/secrets/envelope.go`（`NewEnvelopeBridge`）が `secureGet`／`secureSet`／`secureDelete` を「JSON の封筒」で呼び、既存の `bridgeStore`（#84。鍵の喪失は `ErrKeyLost`＝再接続）にそのままつなぐ。`SecretBridge` は `WailsBridge.secure*` と同じ実装で、`SecureStore.getInstance(context)` は `applicationContext` だけを使う（§11.4）。リフレッシュトークンを更新したときの書き戻しも同じ経路 |
+| Worker が必要な資格情報を先に全部読んで JSON で渡す | しない。必要なキー（アカウントごとの Client Secret の行 ID）は Go が DB を読んで決めるため、Java が先回りできない。値を JNI の引数に長く載せるのも避ける |
+
+Go のゴルーチンは任意の OS スレッドで動くため、呼び戻しの C（`jni_android.go`）は `JNIEnv` が無ければアタッチし、終わったらデタッチする（Wails と同じ方法）。呼び出しごとにグローバル参照を作って解放する。ライブラリを読めない・例外が出たときは、例外のクラス名だけをログに残し（メッセージは出さない）、Worker は失敗として扱う。
+
+### 15.3 アプリ本体との排他（`headless.Gate`）
+
+同じ DB・同じ資格情報・同じプロセスを、アプリ本体（前面の 60 秒ループ）と Worker が使いうる。**プロセス内の mutex ではなく、プロセスの状態で 3 通りに分ける**（`internal/headless/gate.go`）:
+
+| 状況 | 動き |
+|------|------|
+| アプリ本体がこのプロセスで動いていない（OS がプロセスを止めていた・Worker が起こした） | Worker が自分の store・gmail（`headless.SyncOnce`）で 1 回同期し、終わったら DB を閉じる。同期状態（`history_id`）と新着の判定（`ApplyThread` が返す新規メッセージ ID）は DB が持つので、あとでアプリ本体が同じ DB を開いても、同じ新着を二重に通知しない。ヘッドレス同期同士は 1 つだけ（2 つ目は `busy`＝成功扱い） |
+| アプリ本体が動いている（Activity が破棄されただけでプロセスと同期ループは残っている場合を含む） | Worker は別の同期を始めず、アプリ本体のスケジューラに**「今すぐ 1 回更新」**（`Scheduler.Refresh`）を頼む。60 秒のタイマーが OS に止められていても、Worker が起きたときに追いつく。新着の通知はアプリ本体の通知経路が出す（結果の新着は空） |
+| ヘッドレス同期の実行中にアプリ本体が起動した | `run.go` が DB を開く前に `headless.AppStarting()` を呼び、実行中のヘッドレス同期を取り消して終わりを待つ（上限 10 秒）。その後は上の行になる |
+
+- ヘッドレス同期の組み立て: ログ（`Hitomado/logs`。アプリ本体と同じファイル）→ `store.Open` → `gmail.NewClient`（資格情報は `SecretBridge`）→ `syncer.New`（通知は**集めるだけ**の `Notifier`。トレイは無い）→ `RefreshAll`（再接続待ち以外の全アカウントを `Refresh`）→ `Shutdown`。60 秒ループと**同じ `cycle`**（初回・リセット同期は通知しない、通知を切ったアカウントは通知しない、1 スレッド 1 通知）なので、新着の判定は Windows・前面と同じ。DB がまだ無い（アカウント未登録）ときは何もしない（DB を作らない）。1 回の上限は 5 分（WorkManager のジョブの上限より短い）。
+- Worker が OS に止められたとき（制約が外れた・時間切れ）は `onStopped` → `nativeCancel` で Go の同期を取り消す。
+- 結果は JSON（`headless.Encode`。ASCII のみ。失敗は理由のコード `busy`／`failed` だけ）。新着の表示文字列は、Windows のトーストと同じ `notify.Text`（制御文字・不可視文字の除去と長さの切り詰め）で整形してから渡す。
+
+### 15.4 WorkManager
+
+- 依存: `androidx.work:work-runtime:2.10.5`。**2.10 系は minSdk 21 の最終の系列**（2.11 以降は minSdk 23、2.12 は 24。`work-runtime` の AAR の manifest で確認）。minSdk を 23 に上げる判断（§11）のあとで上げられる。WorkManager が manifest のマージで足す権限は `WAKE_LOCK`・`RECEIVE_BOOT_COMPLETED`（再起動後の再登録に要る）で、`FOREGROUND_SERVICE` は `tools:node="remove"` で取り除く（前面サービスは使わない）。`SystemForegroundService` の宣言は残るが、起動されない。
+- 登録: `SyncScheduler.schedule` が `enqueueUniquePeriodicWork("hitomado-sync", KEEP, 15 分・ネットワーク接続)`。**アプリの起動時**（`run.go` の `startBackground`。アカウントがあれば登録、無ければ解除）と**アカウント追加後**（`AccountService.StartAddAccount`）に、Go が `Background.ScheduleSync(true)` で Java の `scheduleSync` を呼ぶ。`KEEP` なので何度呼んでも 1 つ。最後のアカウントを削除したら解除する（アカウント 0 件では何もしない）。
+- 結果（`SyncPlan`）: すべて失敗（一時エラー）なら `Result.retry()`（WorkManager のバックオフ）。ただし 3 回目の試行からは `success`（次の定期実行に任せる）。**再接続が必要**（`needs_reauth`。リフレッシュトークンの失効・喪失、Client ID／Secret の拒否）は再試行しても直らないので `success` とし、「再接続が必要です」を**そのアカウントにつき 1 回だけ**通知する（`SharedPreferences hitomado_notify_state` に通知済みを保存。再び同期できたら消す）。別の同期が実行中（`busy`）も `success`。
+
+### 15.5 通知
+
+- **アカウント別チャネル**: チャネル ID は `mail_<アカウント ID>`、表示名はメールアドレス（`NotificationPlan`）。OS の通知設定でアカウントごとに音・重要度を変えられる。チャネルは通知を出すときに作り（既にあれば利用者の変更を保つ）、アカウント削除（`AccountService.RemoveAccount` → `Background.ForgetAccount`）でチャネルと表示中の通知を削除する。再接続の通知は固定のチャネル `reconnect`。
+- **グループ化**: スレッドごとに 1 通知（通知 ID はアカウント＋スレッド ID から決まり、同じスレッドの新着は更新される）、アカウントごとにサマリー通知を 1 つ（グループキー `account_<ID>`。表示中のスレッド通知の数を表示）。
+- **載せる内容**: 既存のデスクトップ通知の仕様（F-10）と同じ。見出しはアカウント名、本文は差出人と件名（`BigTextStyle`。折りたたみは 1 行）。**ロック画面は `VISIBILITY_PRIVATE`**（チャネルも通知も。公開版は「新着メールがあります」で、件名・差出人を含まない）。本文（メール本文）は通知に載せない（DB にも無い。NF-S08）。ログにも件名・差出人を出さない（NF-S10）。
+- **許可**（Android 13 以降の `POST_NOTIFICATIONS`）: **最初のアカウントの追加が済んだところ**で `RequestNotificationPermission`（`StartAddAccount` が既存 0 件のときだけ）。起動直後や、追加の途中では求めない（理由を伝えられる文脈が無いため）。許可されていない・OS の設定で通知がオフのときは、設定画面（一般）の「通知」に状態と案内（「通知を許可する」「OS の通知設定を開く」）を出す。永続的に拒否されるとダイアログは出ないため、「OS の通知設定を開く」（`ACTION_APP_NOTIFICATION_SETTINGS`）へ案内する。状態は設定を開いたとき・アプリへ戻ったとき（`focus`）に読み直す。許可されていない間も同期は行う（通知だけ出さない）。
+- **未読バッジ**: ランチャーのバッジは OS の通知件数に任せる。アプリ内の未読表示は従来のフロントのまま。トレイのバッジ（`notify.Notifier.SetUnread`）は、Android では `Tray` が `nil` で何もしない（`platform.Notifier.SetUnread` は `tray` が `nil` なら即戻る。§10）ので、空振りで失敗しない。
+
+### 15.6 ディープリンク（通知のタップでスレッドを開く）
+
+1. 通知の `PendingIntent` は `MainActivity` を開く（アクション `jp.ousias.hitomado.OPEN_THREAD`、extras はアカウント ID・スレッド ID だけ。件名・差出人は載せない）。
+2. `MainActivity.onCreate`（プロセスが無い・Activity が無い）／`onNewIntent`（`singleTask` の起動済み）が `OpenRequest`（プロセス内の 1 件の保持領域）へ入れる。**要求そのものは Java が保持し、Go が取りに来る**（Go（Wails）が起動する前に Java が発行したイベントは取りこぼされるため）。
+3. 起動済みのときは、Java が `hitomado:open-thread`（中身なしの合図）を Go へ送る。Go の `notify.OpenRequests.Wake` が `takeOpenRequest` で取り出し、フロントが準備済みなら `notify:open-thread` を発行する（既存のフロントのハンドラ `threadStore.onNotifyOpen` がそのスレッドを開く）。フロントが準備前なら最新の 1 件を保持する。
+4. コールドスタートでは、フロントが `thread.start()`（イベント購読）のあとに `NotifyService.TakePendingOpenThread` を 1 回呼び、保留中のスレッドを同じ `onNotifyOpen` で開く。Go はこの呼び出しで「フロントが準備できた」と記録し、以後の要求は `notify:open-thread` で発行する。**準備前に来た要求は、準備後に必ず `TakePendingOpenThread` が返す**（取りこぼさない。`internal/notify/openrequest_test.go`・`frontend` の `threadStore.test.ts`）。
+5. 狭幅（#87）の画面遷移は、フロントの「スレッドを開く」の既存の操作（`inbox.select`＋`open`）が選択中のスレッドから導くので、ここは何も足さない。
+
+### 15.7 manifest の整理
+
+- 削除: `FOREGROUND_SERVICE`・`FOREGROUND_SERVICE_DATA_SYNC`、`WailsForegroundService` の宣言（Wails の Java ブリッジが参照していたのは `startForegroundService`／`stopForegroundService` だけで、Go から呼ぶ箇所もこのアプリには無い）。Wails の `postNotification`（タップのデータを持たず、チャネルも 1 つ）も `NewMailNotifier` に置き換えて削除した。
+- 許可リスト（`verify-apk.sh`）: `INTERNET`・`VIBRATE`・`ACCESS_NETWORK_STATE`・`POST_NOTIFICATIONS`・`WAKE_LOCK`・`RECEIVE_BOOT_COMPLETED`（最後の 2 つは WorkManager）。`WailsForegroundService` が manifest に残っていたら失敗する検査も足した。
+
+### 15.8 自動テスト
+
+| テスト | 内容 |
+|--------|------|
+| `internal/headless/*_test.go` | `syncWith`（新着を返し通知しない・同じ新着を二重に返さない・通知オフのアカウント・失敗の分類〈再接続／一時／Client 拒否／再接続待ちは問い合わせない〉・アカウント 0 件・再接続待ちだけのとき `Refresh` に空を渡さない）、実際の SQLite での `SyncOnce`（DB が無ければ何もしない・資格情報が無ければ要再接続になり DB にも残る）、`Gate`（排他・アプリ本体への委譲・起動時の取り消しと待ち・取り消し）、`Encode`（ASCII のみ・失敗は理由のコードだけ・表示文字列の整形） |
+| `internal/secrets/envelope_test.go` | `SecretBridge` の封筒を Store にする部分（往復・鍵の喪失は `ErrKeyLost`・値をエラーに載せない・ASCII のみ・空のキー） |
+| `internal/notify/*_test.go` | `OpenRequests`（準備前の保持・コールドスタートの取り出し・Wake・準備後の発行）、`JavaBackground`、`Text`（旧 `noticeText`） |
+| `internal/app/apptests/notify_test.go` | 最初のアカウントの追加でだけ許可を求める・追加で同期を登録・削除でチャネルを消し 0 件で解除・許可状態・Windows（`Background` なし）は `unsupported` |
+| Java（`./gradlew testDebugUnitTest`。JVM のみ） | `NotificationPlan`（チャネル ID・表示名・グループ・通知 ID・extras）、`OpenRequest`、`SyncOutcome`（JSON の読み取り）、`SyncPlan`（通知・戻り値・再接続の通知は 1 回だけ）、`SecretBridge`（Activity なしで往復）、`SyncScheduler`（15 分・ネットワーク接続・`SyncWorker`） |
+| `frontend` | `threadStore.test.ts`（コールドスタートの保留スレッドを開く）、`settings.test.ts`（通知の許可の項目の出し分けとボタン） |
+
+### 15.9 確認の状況
+
+**エミュレーター（x86_64・API 35・KVM なしのソフト実行。自分用の AVD `a88sync`。確認後に停止・削除した）で確認したこと**（`adb root` で DB に偽のアカウント〈資格情報なし〉を入れて試した）:
+
+- アプリの起動で `scheduleSync` が呼ばれ、WorkManager のジョブ（ネットワーク接続の制約つき・周期 15 分・バックオフ 30 秒）が JobScheduler に登録される（`dumpsys jobscheduler`）。
+- プロセスを `kill -9` して、`cmd jobscheduler run -f -n androidx.work.systemjobscheduler jp.ousias.hitomado <id>` でジョブを強制実行すると、**Activity・Wails アプリの無いプロセスが起こされ**、`SyncWorker` が `System.loadLibrary("wails")` → `Java_com_wails_app_HeadlessSync_nativeSyncOnce` → Go の `headless.SyncOnce` まで動き、`Worker result SUCCESS` で終わる（クラッシュなし）。
+- 資格情報が無いアカウントは、Go が `SecretBridge`（`SecureStore`）を JNI で呼び戻して読み（`found:false`）、DB の状態が `needs_reauth`／「再接続が必要です」になり、Worker が**「再接続が必要」の通知を 1 回**出した（`dumpsys notification`: チャネル `reconnect`・`vis=PRIVATE`・`publicVersion` あり・`AUTO_CANCEL`・アカウント ID が tag）。通知済みは `shared_prefs/hitomado_notify_state.xml` に保存される。
+- 周期ジョブを続けて強制実行すると WorkManager は「周期より前の実行」として実行しない（`Delaying execution … because it is being executed before schedule`）。確認の再実行には WorkManager の DB の `last_enqueue_time` を書き換える必要がある（`adb root` で書くと所有者が root になりアプリが DB を開けなくなるので、`chown`・`restorecon` が要る）。
+
+**未確認**（ここでは確認できない）:
+
+- **実機・本物の Gmail での「アプリを閉じていても新着が最大 15 分ほどで通知される」**（新着が見つかる経路 — 実際の Gmail の `history.list`・`threads.get` — と、`NewMailNotifier.postNewMail` による新着の通知〈スレッドごとの通知・サマリー・グループ〉は、エミュレーターでは動かしていない。ホストの Go のテスト〈偽の Gmail〉と JVM のテストまで）。
+- **通知のタップでスレッドが開くこと**（`PendingIntent`→`MainActivity`→`OpenRequest`→Go→`notify:open-thread`／`TakePendingOpenThread`→フロント）。エミュレーターは負荷（ソフトウェア実行）で System UI が応答せず、画面で確認できなかった。起動時の `onCreate` が落ちないところまで。各段はホストのテスト（Go の `OpenRequests`・フロントの `threadStore`）と JVM のテスト（`OpenRequest`）。
+- **アプリ本体が同じプロセスで動いているときの Worker**（`Gate` の委譲。Go の単体テストのみ）。
+- **通知の許可のダイアログ**（Android 13 以降の実機の挙動）と、設定画面の案内の見た目。
+- **arm64 の実機**での `HeadlessSync`（arm64 は APK のビルドと JNI シンボルの export（`nm -D`）までで、実行は x86_64 のみ）。
+- Doze・アプリの待機バケット・メーカー独自の省電力（バッテリー最適化）による実際の実行間隔。WorkManager は 15 分を保証せず、OS が遅らせる。
+

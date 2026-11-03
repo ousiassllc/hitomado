@@ -208,6 +208,17 @@ export const settings = {
     unknown: '取得できていません',
   },
 
+  notifications: {
+    heading: '通知',
+    granted: '新着メールの通知は許可されています。',
+    denied:
+      '新着メールの通知が許可されていません。アプリを閉じているときの新着はお知らせできません。',
+    deniedHint: '「通知を許可する」を押すか、OS の通知設定で Hitomado の通知をオンにしてください。',
+    request: '通知を許可する',
+    openSettings: 'OS の通知設定を開く',
+    openFailed: 'OS の通知設定を開けませんでした。',
+  },
+
   mcp: {
     heading: 'MCP（エージェント連携）',
     intro:

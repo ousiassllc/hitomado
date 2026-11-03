@@ -187,8 +187,8 @@ func NewNotifier(svc *notifications.NotificationService, tray *Tray, window *app
 
 // NewMail はトーストを出す。本文・件名はログに出さない。
 func (n *Notifier) NewMail(_ context.Context, m notify.NewMailNotice) error {
-	title, body := noticeText(m)
-	if err := n.toast(m.AccountID, m.ThreadID, title, body); err != nil {
+	title, body := notify.Text(m)
+	if err := n.toast(m, title, body); err != nil {
 		return fmt.Errorf("send notification: %w", err)
 	}
 	return nil

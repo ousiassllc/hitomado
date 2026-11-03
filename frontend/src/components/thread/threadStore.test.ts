@@ -129,6 +129,29 @@ describe('threadStore', () => {
     expect(useInboxStore().selectedRef).toEqual(REF)
   })
 
+  test('通知のタップで起動された（コールドスタート）ときは、購読の開始後に保留中のスレッドを開く', async () => {
+    ctl.responses.TakePendingOpenThread = { accountId: 'a1', threadId: 't1' }
+    const s = useThreadStore()
+    s.start()
+    await until(() => s.current !== undefined)
+    expect(useInboxStore().selectedRef).toEqual(REF)
+    expect(callsOf('TakePendingOpenThread')).toHaveLength(1)
+  })
+
+  test('保留中のスレッドが無い・取り出しに失敗しても、通常どおり起動する', async () => {
+    const s = useThreadStore()
+    s.start()
+    await until(() => callsOf('TakePendingOpenThread').length === 1)
+    expect(s.current).toBeUndefined()
+    expect(useInboxStore().selectedRef).toBeUndefined()
+
+    s.stop()
+    ctl.failures.TakePendingOpenThread = appError('INTERNAL')
+    s.start()
+    await until(() => callsOf('TakePendingOpenThread').length === 2)
+    expect(s.current).toBeUndefined()
+  })
+
   test('一覧の選択に追従して open／close する', async () => {
     const inbox = useInboxStore()
     const s = useThreadStore()
