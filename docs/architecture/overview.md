@@ -265,7 +265,7 @@ sequenceDiagram
 | 下書き | Gmail 下書きのみ（ローカル保存なし） | 二重管理を避ける。編集中の異常終了は直近の自動保存分までとなる |
 | 送信前確認 | `PrepareSend` が確認トークンを発行し、`Send` がトークンと内容ハッシュを検証する（Go 側でも強制） | 確認ダイアログを経ない送信、確認後に宛先・本文を変えた送信をバックエンドで拒否できる。API は 2 段階になる。**送信元の整合性（`SENDER_MISMATCH`）も同時に検証**し、`From` は `accounts.email` のみから生成する |
 | 添付の受け渡し | ファイルパスをバインディングで渡し、Go が読む | 大きなデータをブリッジで往復しない。ドラッグ＆ドロップは Wails のファイルドロップイベントからパスを得る |
-| インライン画像（`cid:`） | Go が取得して `data:` URL に埋め込んで表示用 HTML を返す | 既定の表示は `img-src data:` のみで足りる。リモート画像は既定でブロックし、「画像を表示」を押したメッセージだけ WebView が HTTPS で直接取得する（**外部通信の例外**。`srcdoc` の iframe は親の CSP を継承するため、ホストの CSP に `img-src https:` が必要。取得先はメール本文が指定したホストで、本アプリ側のサーバーへの通信ではない） |
+| インライン画像（`cid:`） | Go が取得して `data:` URL に埋め込んで表示用 HTML を返す。画像 1 枚 5 MiB 超は取得せず、1 メッセージの `data:` URL 合計 10 MiB（`appcore.MaxInlineDataBytes`）を超える参照は `cid:` のまま残し、表示されない（通知なし。[F-03](../requirements/functional.md)） | 既定の表示は `img-src data:` のみで足りる。リモート画像は既定でブロックし、「画像を表示」を押したメッセージだけ WebView が HTTPS で直接取得する（**外部通信の例外**。`srcdoc` の iframe は親の CSP を継承するため、ホストの CSP に `img-src https:` が必要。取得先はメール本文が指定したホストで、本アプリ側のサーバーへの通信ではない） |
 | OAuth クライアント | 複数登録・アカウントごとに選択 | Workspace の「内部」アプリは他社アカウントで使えないため（F-01） |
 | 作成セッション | `ComposeService` が返信・転送・新規のセッション（送信元・スレッド・元メッセージ・添付・下書き ID）をメモリに保持する。フロントは本文などの入力内容のみ都度渡す | 送信元の整合・転送の元添付引き継ぎ・`In-Reply-To`／`References` を Go 側で完結できる。セッションの管理と破棄（最終操作から 24 時間）が必要。契約は [バインディング仕様 §5・§9](../api/endpoints.md#5-composeservice) |
 
@@ -292,3 +292,4 @@ sequenceDiagram
 | 1.10 | 2026-11-03 | §7.4 の AI 下書きのシーケンスを `GenerateReplyDraft(sessionId, requestId)` に直し、作成セッションから送信元とスレッドを引くこと・`CancelGenerate(requestId)` での中止を追記 | バインディング仕様 §6・実装（`internal/app/aicore`）との整合（#67） |
 | 1.11 | 2026-11-03 | §7.2 の同期シーケンスに、`invalid_client`／`unauthorized_client` による `needs_reauth`（理由つき・自動再試行を止める）を追記 | 実装（`internal/sync/cycle.go`）・バインディング仕様 §10 との整合（#43、#69） |
 | 1.12 | 2026-11-03 | 技術選定とデータ保存先に MCP・ログの形式・MCP トークンを追加 | #14 |
+| 1.13 | 2026-11-03 | §8 のインライン画像に、1 枚 5 MiB・1 メッセージ合計 10 MiB の上限と超過時の動作を追記 | 実装（`internal/gmail/message.go`、`internal/app/appcore/html.go`）との整合（#6） |
