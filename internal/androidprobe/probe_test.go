@@ -1,4 +1,4 @@
-//go:build android
+//go:build android && selfcheck
 
 // Package androidprobe は Android 試作（#81）の実機・エミュレータ向けプローブ。
 // 本番コードには含まれない（android ビルドタグのテストのみ）。結果は t.Log に出す。
