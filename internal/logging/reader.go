@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -85,10 +86,10 @@ func ReadEntries(dir string, q Query) ([]Entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	var newestFirst [][]Entry // ファイルごと（新しいファイルが先）
+	var newestFirst [][]Entry // ファイルごと（新しいファイルが先。各ファイルの中は書かれた順）
 	total := 0
 	for _, f := range files {
-		entries, err := readFile(f, q)
+		entries, err := readFile(f, q, limit-total)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +109,8 @@ func ReadEntries(dir string, q Query) ([]Entry, error) {
 	return out, nil
 }
 
-func readFile(path string, q Query) ([]Entry, error) {
+// readFile は path の末尾から逆順に走査し、条件に合う新しい方から最大 limit 件を（書かれた順で）返す。limit 件に達したら残りは読まない。
+func readFile(path string, q Query, limit int) ([]Entry, error) {
 	f, err := os.Open(path) //nolint:gosec // logFiles が返したログフォルダ内のパス
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil // 読む間にローテーションで消えた
@@ -117,19 +119,76 @@ func readFile(path string, q Query) ([]Entry, error) {
 		return nil, fmt.Errorf("open log: %w", err)
 	}
 	defer func() { _ = f.Close() }()
+	st, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat log: %w", err)
+	}
 	var out []Entry
-	err = eachLine(f, func(line []byte) {
+	err = eachLineReverse(f, st.Size(), func(line []byte) bool {
 		if !q.mayMatch(line) {
-			return
+			return true
 		}
 		if e, ok := parseLine(line); ok && q.match(e) {
 			out = append(out, e)
 		}
+		return len(out) < limit
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read log: %w", err)
 	}
+	slices.Reverse(out)
 	return out, nil
+}
+
+// reverseChunkBytes は eachLineReverse が 1 回に末尾から読む大きさ。
+const reverseChunkBytes = 64 * 1024
+
+// eachLineReverse は r（先頭から size バイト）の行を末尾から先頭へ向かって fn へ渡す。fn が false を返したら止める。
+// 行末の \r\n の \r は外す。末尾に改行が無い最後の行も 1 行として渡す。空行と、maxLineBytes を超える行は飛ばす（eachLine と同じ）。
+// fn に渡す line は次の呼び出しまでしか有効でない。
+func eachLineReverse(r io.ReaderAt, size int64, fn func(line []byte) bool) error {
+	buf := make([]byte, reverseChunkBytes)
+	var carry []byte // いま組み立て中の行の、読み終えた後ろ側（先頭側はまだ前のチャンクにある）
+	tooLong := false
+	emit := func(head []byte) bool {
+		line := head
+		if len(carry) > 0 {
+			line = append(append(make([]byte, 0, len(head)+len(carry)), head...), carry...)
+		}
+		line = bytes.TrimSuffix(line, []byte("\r"))
+		carry = carry[:0]
+		return len(line) == 0 || fn(line)
+	}
+	for pos := size; pos > 0; {
+		n := int(min(int64(len(buf)), pos))
+		pos -= int64(n)
+		chunk := buf[:n]
+		if _, err := r.ReadAt(chunk, pos); err != nil && !errors.Is(err, io.EOF) {
+			return err //nolint:wrapcheck // 呼び出し元がまとめて包む
+		}
+		for end := n; ; {
+			i := bytes.LastIndexByte(chunk[:end], '\n')
+			head := chunk[i+1 : end] // i < 0 のときはチャンクの先頭から（この行の先頭は前のチャンクにある）
+			switch {
+			case tooLong:
+			case len(head)+len(carry) > maxLineBytes:
+				tooLong, carry = true, carry[:0]
+			case i < 0:
+				carry = append(append(make([]byte, 0, len(head)+len(carry)), head...), carry...)
+			}
+			if i < 0 {
+				break
+			}
+			if !tooLong && !emit(head) {
+				return nil
+			}
+			tooLong, carry, end = false, carry[:0], i
+		}
+	}
+	if !tooLong && len(carry) > 0 {
+		emit(nil)
+	}
+	return nil
 }
 
 // eachLine は r を 1 行ずつ fn へ渡す。maxLineBytes を超える行は読み飛ばし、後ろの行は読み続ける。

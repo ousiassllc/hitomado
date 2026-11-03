@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -179,4 +180,123 @@ func TestExportZipScrubsLegacyLines(t *testing.T) {
 	assert.NotContains(t, out.String(), "EVADEX")
 	assert.NotContains(t, out.String(), "alice@legacy.example")
 	assert.Contains(t, out.String(), "oauth failed")
+}
+
+type countingReaderAt struct {
+	r     *bytes.Reader
+	bytes int64
+}
+
+func (c *countingReaderAt) ReadAt(p []byte, off int64) (int, error) {
+	n, err := c.r.ReadAt(p, off)
+	c.bytes += int64(n)
+	return n, err //nolint:wrapcheck // テスト用の素通し
+}
+
+func collectReverse(t *testing.T, data string, stopAfter int) []string {
+	t.Helper()
+	var got []string
+	err := eachLineReverse(bytes.NewReader([]byte(data)), int64(len(data)), func(l []byte) bool {
+		got = append(got, string(l))
+		return stopAfter <= 0 || len(got) < stopAfter
+	})
+	require.NoError(t, err)
+	return got
+}
+
+func TestEachLineReverseHandlesEdgeCases(t *testing.T) {
+	assert.Equal(t, []string{"c", "b", "a"}, collectReverse(t, "a\nb\nc\n", 0))
+	assert.Equal(t, []string{"c", "b", "a"}, collectReverse(t, "a\nb\nc", 0), "末尾に改行が無い最後の行も読む")
+	assert.Equal(t, []string{"c", "b", "a"}, collectReverse(t, "a\r\nb\r\n\r\nc\r\n", 0), "CRLF と空行")
+	assert.Equal(t, []string{"c", "b"}, collectReverse(t, "a\nb\nc\n", 2), "false で止まる")
+	assert.Empty(t, collectReverse(t, "", 0))
+
+	long := strings.Repeat("x", maxLineBytes+1)
+	assert.Equal(t, []string{"z", "a"}, collectReverse(t, "a\n"+long+"\nz\n", 0), "長すぎる行は飛ばして前後を読む")
+	assert.Equal(t, []string{"z", "a"}, collectReverse(t, "a\n"+long+"\nz", 0), "長すぎる行（チャンクをまたぐ）")
+	ok := strings.Repeat("y", maxLineBytes)
+	assert.Equal(t, []string{ok, "a"}, collectReverse(t, "a\n"+ok+"\n", 0), "上限ちょうどの行は読む（チャンクをまたぐ）")
+}
+
+func TestEachLineReverseSpansChunks(t *testing.T) {
+	var lines []string
+	var b strings.Builder
+	for i := range 5000 { // チャンク（64KiB）を何度もまたぐ量
+		l := fmt.Sprintf("line-%05d-%s", i, strings.Repeat("p", i%97))
+		lines = append(lines, l)
+		b.WriteString(l + "\n")
+	}
+	got := collectReverse(t, b.String(), 0)
+	slices.Reverse(lines)
+	assert.Equal(t, lines, got)
+}
+
+func TestEachLineReverseStopsWithoutReadingWholeFile(t *testing.T) {
+	var b strings.Builder
+	for i := range 100000 {
+		fmt.Fprintf(&b, "line-%06d %s\n", i, strings.Repeat("p", 90))
+	}
+	data := []byte(b.String())
+	cr := &countingReaderAt{r: bytes.NewReader(data)}
+	n := 0
+	require.NoError(t, eachLineReverse(cr, int64(len(data)), func([]byte) bool { n++; return n < 10 }))
+	assert.Equal(t, 10, n)
+	assert.LessOrEqual(t, cr.bytes, int64(reverseChunkBytes), "10 行ぶんなら末尾の 1 チャンクだけ読む（全 %d バイトは読まない）", len(data))
+}
+
+func TestReadEntriesReturnsNewestLimitMatches(t *testing.T) {
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
+	// 古い側にノイズ、新しい側に 3 件の ERROR。
+	var lines []string
+	for i := range 3000 {
+		lines = append(lines, line(base.Add(time.Duration(i)*time.Second), "INFO", "noise"))
+	}
+	lines = append(lines, line(base.Add(time.Hour), "ERROR", "e1"), line(base.Add(2*time.Hour), "ERROR", "e2"), line(base.Add(3*time.Hour), "ERROR", "e3"))
+	writeLines(t, filepath.Join(dir, FileName), lines...)
+
+	got, err := ReadEntries(dir, Query{Limit: 2, MinLevel: slog.LevelError})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"e2", "e3"}, messages(got), "新しい方から Limit 件を時刻の昇順で")
+}
+
+func TestReadEntriesTakesRemainderFromOlderFile(t *testing.T) {
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
+	writeLines(t, filepath.Join(dir, "hitomado-2026-11-02T00-00-00.000.log"),
+		line(base.Add(-3*time.Hour), "ERROR", "o1"), line(base.Add(-2*time.Hour), "ERROR", "o2"), line(base.Add(-time.Hour), "ERROR", "o3"))
+	writeLines(t, filepath.Join(dir, FileName), line(base, "ERROR", "n1"), line(base.Add(time.Minute), "ERROR", "n2"))
+
+	got, err := ReadEntries(dir, Query{Limit: 4})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"o2", "o3", "n1", "n2"}, messages(got))
+}
+
+// エラーの無い約 30MB のログ（6 ファイル分）でも get_status 相当の呼び出しが実用的な時間で返る。
+// 壁時計の上限は CI の遅さを見込んで 2 秒と十分に緩くしてある（実測は通常その数十分の一）。
+func TestReadEntriesErrorFreeLargeLogIsFast(t *testing.T) {
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
+	info := line(base, "INFO", strings.Repeat("m", 200)) + "\n"
+	chunk := strings.Repeat(info, 1000)
+	write := func(name string, size int) {
+		f, err := os.Create(filepath.Join(dir, name)) //nolint:gosec // t.TempDir 内
+		require.NoError(t, err)
+		for written := 0; written < size; written += len(chunk) {
+			_, err = f.WriteString(chunk)
+			require.NoError(t, err)
+		}
+		require.NoError(t, f.Close())
+	}
+	write(FileName, 5<<20)
+	for i := 1; i <= 5; i++ {
+		write(fmt.Sprintf("hitomado-2026-10-0%d.log", i), 5<<20)
+	}
+
+	start := time.Now()
+	got, err := ReadEntries(dir, Query{Limit: 1, MinLevel: slog.LevelError})
+	elapsed := time.Since(start)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+	assert.Less(t, elapsed, 2*time.Second)
 }
