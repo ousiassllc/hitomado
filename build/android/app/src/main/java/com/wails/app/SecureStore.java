@@ -26,6 +26,8 @@ import javax.crypto.BadPaddingException;
  *
  * <p>Keystore の鍵が失われた（端末の移行・ロック解除方法のリセット・鍵の無効化などで復号できない）ときは、
  * 暗号化ストアを消して作り直し、{@link Kind#KEY_LOST} を投げる（起動は落とさない。入っていた値はすべて失われる）。
+ * 鍵の喪失と確実に言える失敗（{@link #isDefiniteKeyLoss}）だけ即座に消す。Keystore の不調とも区別できない失敗
+ * （KeyStoreException・ProviderException。{@link #isAmbiguousKeystoreFailure}）は、短く再試行して同じ失敗が続いたときだけ消す。
  * Go 側はこれを「資格情報が無い」と同じに扱い、再ログインへ案内する。
  *
  * <p>値・キーの中身はログにもエラーメッセージにも出さない（例外のクラス名だけを出す）。
@@ -40,6 +42,9 @@ public final class SecureStore {
 
     private static final String ANDROID_KEYSTORE_EXCEPTION = "android.security.KeyStoreException";
     private static final int MAX_CAUSE_DEPTH = 16;
+    /** Keystore の不調かもしれない失敗の再試行回数（初回を除く）。 */
+    private static final int KEYSTORE_RETRIES = 2;
+    private static final long DEFAULT_RETRY_DELAY_MS = 100;
 
     /** 失敗の種類。{@link SecureStoreException#code()} の値は Go 側（internal/secrets）と一致させる。 */
     public enum Kind {
@@ -91,10 +96,21 @@ public final class SecureStore {
 
     private static SecureStore instance;
 
+    /** バックエンドへの 1 回の操作。 */
+    private interface Op<T> {
+        T run() throws Exception;
+    }
+
     private final Backend backend;
+    private final long retryDelayMs;
 
     SecureStore(Backend backend) {
+        this(backend, DEFAULT_RETRY_DELAY_MS);
+    }
+
+    SecureStore(Backend backend, long retryDelayMs) {
         this.backend = backend;
+        this.retryDelayMs = retryDelayMs;
     }
 
     /** プロセス内で共有する 1 インスタンス。applicationContext だけを保持する。 */
@@ -109,7 +125,7 @@ public final class SecureStore {
     public synchronized String get(String key) throws SecureStoreException {
         requireKey(key);
         try {
-            return backend.get(key);
+            return call(() -> backend.get(key));
         } catch (Exception e) {
             throw failure(e);
         }
@@ -119,7 +135,10 @@ public final class SecureStore {
     public synchronized void put(String key, String value) throws SecureStoreException {
         requireKey(key);
         try {
-            backend.put(key, value);
+            call(() -> {
+                backend.put(key, value);
+                return null;
+            });
             return;
         } catch (Exception e) {
             if (!isKeyLost(e)) {
@@ -128,7 +147,10 @@ public final class SecureStore {
             resetAfterKeyLoss(e);
         }
         try {
-            backend.put(key, value);
+            call(() -> {
+                backend.put(key, value);
+                return null;
+            });
         } catch (Exception e) {
             throw failure(e);
         }
@@ -138,12 +160,38 @@ public final class SecureStore {
     public synchronized void remove(String key) throws SecureStoreException {
         requireKey(key);
         try {
-            backend.remove(key);
+            call(() -> {
+                backend.remove(key);
+                return null;
+            });
         } catch (Exception e) {
             if (!isKeyLost(e)) {
                 throw failure(e);
             }
             resetAfterKeyLoss(e);
+        }
+    }
+
+    /**
+     * 操作を実行する。Keystore の不調かもしれない失敗（{@link #isRetryable}）は、短い間隔で再試行する。
+     * 再試行しても失敗が続けば、最後の例外をそのまま投げる（鍵の喪失かどうかは呼び出し側が {@link #isKeyLost} で決める）。
+     */
+    private <T> T call(Op<T> op) throws Exception {
+        for (int attempt = 0; ; attempt++) {
+            try {
+                return op.run();
+            } catch (Exception e) {
+                if (attempt >= KEYSTORE_RETRIES || !isRetryable(e)) {
+                    throw e;
+                }
+                Log.w(TAG, "Keystore operation failed; retrying (" + e.getClass().getName() + ")");
+                try {
+                    Thread.sleep(retryDelayMs);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw e;
+                }
+            }
         }
     }
 
@@ -181,39 +229,61 @@ public final class SecureStore {
     }
 
     /**
-     * Keystore の鍵が失われた・使えなくなったことによる失敗か（失敗の cause の連鎖をたどる。
+     * 呼び出し側が暗号化ストアを消して作り直すべき失敗か（失敗の cause の連鎖をたどる。
      * EncryptedSharedPreferences は復号の失敗を SecurityException などに包むため）。
      *
-     * <p>鍵の喪失とみなす: InvalidKeyException（KeyPermanentlyInvalidatedException を含む）、
-     * BadPaddingException（AEADBadTagException を含む。鍵が別物で復号できない）、UnrecoverableKeyException、
-     * java.security.KeyStoreException、ProviderException、android.security.KeyStoreException、
-     * Tink のキーセットが壊れて読めない InvalidProtocolBufferException。
-     * 鍵の喪失とみなさない: ディスクの IOException だけの失敗、それ以外の例外、
-     * Keystore が一時的に使えないだけの失敗（isTransientFailure）。資格情報を消すのは確実なときだけにする。
+     * <p>{@link #isDefiniteKeyLoss} は即座に真。{@link #isAmbiguousKeystoreFailure} は、一時的な失敗でない限り真
+     * （呼び出し側は {@link #call} で再試行したあとにこれを見るので、「再試行しても同じ失敗が続いた」ことを表す）。
+     * それ以外（ディスクの IOException だけの失敗、その他の例外、Keystore が一時的に使えないだけの失敗）は偽。
+     * 資格情報を消すのは確実なときだけにする。
      */
     static boolean isKeyLost(Throwable t) {
-        if (hasTransientKeystoreFailure(t)) {
-            return false;
+        if (isDefiniteKeyLoss(t)) {
+            return true;
         }
+        return isAmbiguousKeystoreFailure(t) && !hasTransientKeystoreFailure(t);
+    }
+
+    /** 再試行すれば直るかもしれない失敗か（鍵の喪失と確実に言えず、Keystore の不調の可能性がある）。 */
+    private static boolean isRetryable(Throwable t) {
+        return !isDefiniteKeyLoss(t) && isAmbiguousKeystoreFailure(t);
+    }
+
+    /**
+     * 鍵の喪失と確実に言える失敗: InvalidKeyException（KeyPermanentlyInvalidatedException を含む）、
+     * BadPaddingException（AEADBadTagException を含む。鍵が別物で復号できない）、UnrecoverableKeyException、
+     * Tink のキーセットが壊れて読めない InvalidProtocolBufferException。
+     */
+    static boolean isDefiniteKeyLoss(Throwable t) {
         int depth = 0;
         for (Throwable c = t; c != null && depth < MAX_CAUSE_DEPTH; c = c.getCause(), depth++) {
             if (c instanceof InvalidKeyException
                     || c instanceof BadPaddingException
                     || c instanceof UnrecoverableKeyException
-                    || c instanceof KeyStoreException
-                    || c instanceof ProviderException) {
-                return true;
-            }
-            String name = c.getClass().getName();
-            // android.security.KeyStoreException は API 33 以降の公開クラスだが、古い API では内部クラスなので名前で見る。
-            if (ANDROID_KEYSTORE_EXCEPTION.equals(name) || name.endsWith(".InvalidProtocolBufferException")) {
+                    || c.getClass().getName().endsWith(".InvalidProtocolBufferException")) {
                 return true;
             }
         }
         return false;
     }
 
-    /** 連鎖の中に、再試行すれば直りうる（一時的な）android.security.KeyStoreException があるか。 */
+    /**
+     * 鍵の喪失か Keystore の一時的な不調かを区別できない失敗: java.security.KeyStoreException、ProviderException、
+     * android.security.KeyStoreException（API 33 以降の公開クラスだが、古い API では内部クラスなので名前で見る）。
+     */
+    static boolean isAmbiguousKeystoreFailure(Throwable t) {
+        int depth = 0;
+        for (Throwable c = t; c != null && depth < MAX_CAUSE_DEPTH; c = c.getCause(), depth++) {
+            if (c instanceof KeyStoreException
+                    || c instanceof ProviderException
+                    || ANDROID_KEYSTORE_EXCEPTION.equals(c.getClass().getName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** 連鎖の中に、再試行すれば直りうる（一時的な）android.security.KeyStoreException があるか（API 33 以降のみ分かる）。 */
     private static boolean hasTransientKeystoreFailure(Throwable t) {
         int depth = 0;
         for (Throwable c = t; c != null && depth < MAX_CAUSE_DEPTH; c = c.getCause(), depth++) {
@@ -225,7 +295,7 @@ public final class SecureStore {
                     return true;
                 }
             } catch (ReflectiveOperationException | RuntimeException ignored) {
-                // API 33 未満には無いメソッド。一時的かどうか分からないときは、鍵の喪失として扱う。
+                // API 33 未満には無いメソッド。一時的かどうか分からないときは、再試行しても続く失敗だけを鍵の喪失として扱う。
             }
         }
         return false;

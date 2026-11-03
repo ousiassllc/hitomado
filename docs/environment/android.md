@@ -190,11 +190,14 @@ Go の secrets.Store（internal/secrets/bridge.go。純 Go。鍵の喪失を Err
 
 ### 11.3 Keystore の鍵が失われたとき
 
-バックアップ復元・端末の変更・画面ロックのリセット・鍵の無効化などで、保存済みの値を復号できなくなることがある（`InvalidKeyException`／`KeyPermanentlyInvalidatedException`／`AEADBadTagException`／`UnrecoverableKeyException`／`KeyStoreException`／`ProviderException`、Tink のキーセットの破損〔`InvalidProtocolBufferException`〕。EncryptedSharedPreferences は復号の失敗を `SecurityException` などに包むため、`cause` の連鎖をたどって判定する）。
+バックアップ復元・端末の変更・画面ロックのリセット・鍵の無効化などで、保存済みの値を復号できなくなることがある。失敗は 2 つに分けて扱う（EncryptedSharedPreferences は復号の失敗を `SecurityException` などに包むため、どちらも `cause` の連鎖をたどって判定する）。
+
+- **確実な鍵の喪失**: `InvalidKeyException`（`KeyPermanentlyInvalidatedException` を含む）／`AEADBadTagException`（`BadPaddingException`）／`UnrecoverableKeyException`、Tink のキーセットの破損（`InvalidProtocolBufferException`）。再試行せず、すぐにストアを作り直す。
+- **鍵の喪失か Keystore の一時的な不調か区別できない失敗**: `java.security.KeyStoreException`／`ProviderException`／`android.security.KeyStoreException`。`isTransientFailure()` は API 33 以上でしか使えないため、API を問わず、間を置いて 2 回まで再試行する（最大 3 回の実行）。再試行で直ればストアは消さない。**3 回とも失敗したときだけ**鍵の喪失として作り直す（`isTransientFailure()` が真と分かるときは、続いても消さない）。バックグラウンドの同期 Worker が、Keystore の一時的な不調で全アカウントを黙って `needs_reauth` にしないための扱い。
 
 | 層 | 動作 |
 |----|------|
-| Java（`SecureStore`） | 暗号化ストア（ファイルと Keystore の鍵）を消して作り直し、**起動は落とさない**。読み出しは `key_lost` を返す。書き込み・削除で見つけたときは、作り直したうえで続きを実行する（保存は 1 回だけ再試行）。Keystore が一時的に使えないだけの失敗（`KeyStoreException.isTransientFailure()`）や、ディスクの `IOException` だけの失敗は鍵の喪失とみなさず、ストアも消さない（`failed`。資格情報を消すのは確実なときだけ） |
+| Java（`SecureStore`） | 暗号化ストア（ファイルと Keystore の鍵）を消して作り直し、**起動は落とさない**。読み出しは `key_lost` を返す。書き込み・削除で見つけたときは、作り直したうえで続きを実行する（保存は 1 回だけ再試行）。Keystore が一時的に使えないだけの失敗（`KeyStoreException.isTransientFailure()` が真）や、ディスクの `IOException` だけの失敗は鍵の喪失とみなさず、ストアも消さない（`failed`。資格情報を消すのは確実なときと、再試行しても Keystore の失敗が続くときだけ） |
 | Go（`secrets.Store`） | `key_lost` を `secrets.ErrKeyLost` にする。`ErrKeyLost` は `errors.Is(err, secrets.ErrNotFound)` も真になる。ストアは作り直されて空なので、2 回目以降は通常の `ErrNotFound` |
 | アプリ | 既存の呼び出し側が `ErrNotFound` で扱う。**リフレッシュトークン**は `gmail.ErrNeedsReauth`（`internal/gmail/options.go`）→ アカウントが `needs_reauth` になり、受信箱の「要再接続」とアカウント設定の「再接続」へ案内される（F-01。新しい UI は無い）。**Client Secret** は未設定（`hasSecret=false`。「再接続」では OAuth クライアントの Secret の登録を案内する）。**API キー**は未設定。**ChatGPT** は未ログイン。**MCP トークン**は未発行（再発行する） |
 

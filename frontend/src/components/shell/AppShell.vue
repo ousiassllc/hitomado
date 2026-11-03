@@ -176,12 +176,16 @@ onBeforeUnmount(() => {
 }
 
 .detail {
-  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+/* .cover（作成画面を詳細に重ねる）の基準。1 画面ずつのレイアウトだけが使う。 */
+.layout-stack .detail {
+  position: relative;
 }
 
 .cover {

@@ -55,6 +55,14 @@ static char* hs_call(jobject target, const char* method, const char* arg) {
         jmethodID mid = (*env)->GetMethodID(env, cls, method, "(Ljava/lang/String;)Ljava/lang/String;");
         if (mid != NULL) {
             jstring jarg = (*env)->NewStringUTF(env, arg);
+            if (jarg == NULL || (*env)->ExceptionCheck(env)) {
+                // OutOfMemoryError など。保留中の例外を残したまま JNI を呼ばない。呼び出し側（callTarget）は NULL を失敗として扱う。
+                if ((*env)->ExceptionCheck(env)) (*env)->ExceptionClear(env);
+                if (jarg != NULL) (*env)->DeleteLocalRef(env, jarg);
+                (*env)->DeleteLocalRef(env, cls);
+                if (detach) (*hs_vm)->DetachCurrentThread(hs_vm);
+                return NULL;
+            }
             jstring jres = (jstring)(*env)->CallObjectMethod(env, target, mid, jarg);
             if ((*env)->ExceptionCheck(env)) {
                 (*env)->ExceptionClear(env);

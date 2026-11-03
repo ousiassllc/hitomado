@@ -204,6 +204,60 @@ public class SecureStoreTest {
         assertEquals("v", s.get("k"));
     }
 
+    /** Keystore の一時的な不調（ProviderException）は、再試行で直れば、ストアを消さない（全アカウントを再ログインにしない）。 */
+    @Test
+    public void transientProviderExceptionDoesNotWipeStore() throws Exception {
+        FakeBackend b = new FakeBackend();
+        SecureStore s = new SecureStore(b, 0);
+        s.put("k", "v");
+        b.failNext.add(new java.security.ProviderException("Keystore operation failed"));
+        assertEquals("v", s.get("k"));
+        b.failNext.add(new java.security.KeyStoreException("Keystore not ready"));
+        b.failNext.add(new java.security.ProviderException("Keystore operation failed"));
+        s.put("k2", "v2");
+        assertEquals("v2", s.get("k2"));
+        b.failNext.add(new java.security.ProviderException("Keystore operation failed"));
+        s.remove("k2");
+        assertNull(s.get("k2"));
+        assertEquals(0, b.resets);
+        assertEquals("v", s.get("k"));
+    }
+
+    /** 再試行しても ProviderException が続くときだけ、鍵の喪失として作り直す。 */
+    @Test
+    public void persistentProviderExceptionIsKeyLostAfterRetries() throws Exception {
+        FakeBackend b = new FakeBackend();
+        SecureStore s = new SecureStore(b, 0);
+        s.put("k", "v");
+        for (int i = 0; i < 3; i++) { // 初回 + 再試行 2 回
+            b.failNext.add(new java.security.ProviderException("Keystore operation failed"));
+        }
+        try {
+            s.get("k");
+            fail();
+        } catch (SecureStore.SecureStoreException e) {
+            assertEquals(SecureStore.Kind.KEY_LOST, e.kind());
+        }
+        assertEquals(1, b.resets);
+        assertNull(s.get("k"));
+    }
+
+    /** 確実な鍵の喪失は再試行せずに即作り直す（失敗は 1 回しか仕込まないので、再試行すれば成功してしまう）。 */
+    @Test
+    public void definiteKeyLossIsNotRetried() throws Exception {
+        FakeBackend b = new FakeBackend();
+        SecureStore s = new SecureStore(b, 0);
+        s.put("k", "v");
+        b.failNext.add(new InvalidKeyException("Key permanently invalidated"));
+        try {
+            s.get("k");
+            fail();
+        } catch (SecureStore.SecureStoreException e) {
+            assertEquals(SecureStore.Kind.KEY_LOST, e.kind());
+        }
+        assertEquals(1, b.resets);
+    }
+
     @Test
     public void keyLostClassification() {
         assertTrue(SecureStore.isKeyLost(new InvalidKeyException()));
