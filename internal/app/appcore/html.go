@@ -17,7 +17,7 @@ var cidRef = regexp.MustCompile(`(?i)\bcid:([^"'\s()<>]+)`)
 var imageMIME = regexp.MustCompile(`^image/[a-z0-9.+-]+$`)
 
 // MaxInlineDataBytes は 1 メッセージで data: URL に置換する base64 の合計上限。超えた分は置換せず cid: のまま残す
-// （表示側で読み込めない＝ブロックされる）。
+// （表示側で読み込めない＝ブロックされる）。利用者向けの仕様は docs/requirements/functional.md F-03 に記載（上限を変えたら更新する）。
 const MaxInlineDataBytes = 10 << 20
 
 // InlineCIDImages は本文中の cid: 参照を、対応するインライン画像の data: URL に置換する。
