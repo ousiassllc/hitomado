@@ -34,6 +34,7 @@ export function installMocks(): void {
     ListAccounts: binding('ListAccounts'),
     ListOAuthClients: binding('ListOAuthClients'),
     CancelAddAccount: binding('CancelAddAccount'),
+    TakeInterruptedAuth: binding('TakeInterruptedAuth'),
   }))
   mock.module(`${B}/appservice`, () => ({
     GetInboxFilter: binding('GetInboxFilter'),
@@ -127,6 +128,7 @@ export function resetKit(): void {
   Object.assign(responses, {
     ListAccounts: [],
     ListOAuthClients: [],
+    TakeInterruptedAuth: false,
     GetInboxFilter: { accountIds: null, unreadOnly: false },
     SetInboxFilter: undefined,
     ListInbox: () => page(base.filter((t) => !gone.has(t.threadId))),

@@ -98,10 +98,11 @@ func run() error {
 	cache := threadcache.New(gm, threadcache.DefaultCapacity)
 	events := cache.Emitter(emitter)
 	sched := syncer.New(syncer.Deps{Store: st, Gmail: gm, Notifier: notifier, Events: events, Clock: clk, Logger: logger})
-	flow := oauth.NewFlow(oauth.Options{OpenBrowser: platform.NewBrowser(wapp).Open})
+	oauthTracker := newOAuthTracker(sec)
+	flow := oauth.NewFlow(oauth.Options{OpenBrowser: platform.NewBrowser(wapp).Open, Tracker: oauthTracker})
 
 	deps := &app.Deps{
-		Store: st, Gmail: gm, Secrets: sec, OAuth: flow, Sync: sched, Notifier: notifier,
+		Store: st, Gmail: gm, Secrets: sec, OAuth: flow, OAuthTracker: oauthTracker, Sync: sched, Notifier: notifier,
 		Update: update.NewGitHub(update.Options{UserAgent: "Hitomado/" + version}),
 		Events: events, Clock: clk,
 		Files:   platform.NewFiles(wapp, func() application.Window { return win }),

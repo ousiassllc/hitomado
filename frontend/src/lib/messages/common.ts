@@ -46,6 +46,8 @@ export const common = {
     waiting: 'ブラウザで Google の認可を完了してください…',
     waitingHint: '認可は 5 分以内に完了してください。',
     cancelWaiting: '認可をキャンセル',
+    interrupted:
+      'ログインの途中でアプリが終了したため、完了できませんでした。もう一度「アカウントを追加」（または「再接続」）からやり直してください。',
     customizeTitle: '表示名と色',
     displayName: '表示名',
     colorLabel: 'アカウント色',

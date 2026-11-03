@@ -22,21 +22,18 @@ export const useLayoutStore = defineStore('layout', () => {
   )
   const isWide = computed(() => mode.value === 'wide')
   const isStack = computed(() => mode.value === 'stack')
-  /** サイドバーを常時表示せず、ドロワーで開くレイアウトか。 */
-  const hasDrawer = computed(() => mode.value !== 'wide')
+  const hasDrawer = computed(() => mode.value !== 'wide') // サイドバーをドロワーで開くレイアウト
 
   /** 幅の監視と、CSS 用の属性（html の data-touch-ui・data-layout）の反映を始める（冪等）。 */
   function start(): void {
     if (stop) return
-    const wide = window.matchMedia?.(WIDE_QUERY)
-    const medium = window.matchMedia?.(MEDIUM_QUERY)
+    const queries = [WIDE_QUERY, MEDIUM_QUERY].map((q) => window.matchMedia?.(q))
     const sync = (): void => {
-      wideMatches.value = wide?.matches ?? true
-      mediumMatches.value = medium?.matches ?? true
+      wideMatches.value = queries[0]?.matches ?? true
+      mediumMatches.value = queries[1]?.matches ?? true
     }
     sync()
-    wide?.addEventListener('change', sync)
-    medium?.addEventListener('change', sync)
+    for (const q of queries) q?.addEventListener('change', sync)
     const stopAttrs = watch(
       [mode, () => platform.touchUi],
       ([m, touch]) => {
@@ -49,8 +46,7 @@ export const useLayoutStore = defineStore('layout', () => {
       { immediate: true, flush: 'sync' },
     )
     stop = () => {
-      wide?.removeEventListener('change', sync)
-      medium?.removeEventListener('change', sync)
+      for (const q of queries) q?.removeEventListener('change', sync)
       stopAttrs()
       stop = undefined
     }

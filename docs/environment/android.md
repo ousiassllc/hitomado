@@ -2,7 +2,7 @@
 
 > 関連: [環境構築](setup.md) / [プロジェクト概要](../overview.md) / [アーキテクチャ設計](../architecture/overview.md)
 
-本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。ストレージの保存先（#85）、通知（#88）、`modernc.org/libc` の android/amd64 問題は §12（#83）で決めた。
+本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。ストレージの保存先（#85）、通知（#88）、スマホ向けの画面（#87）、`modernc.org/libc` の android/amd64 問題は §12（#83）、Google OAuth のリダイレクト方式は §14（#86）で決めた。
 
 ## 1. 必要なもの
 
@@ -59,7 +59,7 @@ Wails v3.1.0 のテンプレートは `compileSdk = 36`・`targetSdk = 36`（`ap
 
 - Google Play は **2026-08-31 以降、新規アプリも更新も targetSdk 36（Android 16）以上を要求する**（[Target API level requirements for Google Play apps](https://support.google.com/googleplay/android-developer/answer/11926878)）。35 のままだと配布の直前に上げ直すことになる。
 - テンプレート（Wails の Java ブリッジ・androidx の依存）が 36 で書かれており、35 へ下げる利点が無い。
-- 36 では、エッジ・ツー・エッジの強制など targetSdk 36 の挙動変更が入る。UI への影響は §14（スマホ向けの画面。safe area は Activity が insets を当てる）で扱う。
+- 36 では、エッジ・ツー・エッジの強制など targetSdk 36 の挙動変更が入る。UI への影響は §16（スマホ向けの画面。safe area は Activity が insets を当てる）で扱う。
 
 `minSdk` は 21（テンプレートの既定）。`Taskfile.yml` の `MIN_SDK` は NDK の clang の API レベル（`aarch64-linux-android21-clang`）で、`app/build.gradle` の `minSdk` と同じ値にしておく。
 
@@ -145,7 +145,7 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 
 - 機能の有無は `internal/capability` の `Capabilities`（`SupportsMCP`・`SupportsTray`・`SupportsAutoUpdate`・`SupportsWindowState`・`SingleInstance`）で表す。値を決めるのは、ビルドタグで分けた薄い 2 ファイル（`current_android.go`＝すべて無効、`current_other.go`＝すべて有効）だけで、判定の中身はタグなしの純粋な関数・値（`Desktop`／`Android`）なので、ホストでテストできる（Android のビルドはホストで実行できない）。
 - `run.go` が `capability.Current()` を 1 回だけ読み、`app.Deps.Capabilities` と各部品の生成へ渡す。`Deps.Capabilities` のゼロ値は全機能が無効（設定し忘れて機能が動いてしまうことを避ける）。
-- フロントへは `PlatformService.GetCapabilities`（[バインディング仕様 §7.3](../api/endpoints.md#73-platformservice)）で渡す。画面は OS 名を比べず、`platformStore`（`frontend/src/stores/platform.ts`）の `supportsMcp` などで出し分ける（スマホ向けの画面 §14 も `touchUi` で切り替える）。読み込み前・失敗時はデスクトップ（全機能あり）の値。
+- フロントへは `PlatformService.GetCapabilities`（[バインディング仕様 §7.3](../api/endpoints.md#73-platformservice)）で渡す。画面は OS 名を比べず、`platformStore`（`frontend/src/stores/platform.ts`）の `supportsMcp` などで出し分ける（スマホ向けの画面 §16 も `touchUi` で切り替える）。読み込み前・失敗時はデスクトップ（全機能あり）の値。
 - **バインディングは OS で変えない**（§7）。`PlatformService` は全 OS で同じシグネチャで、値だけが変わる。MCP は登録の有無だけが変わるが、型は同じで、バインディングは既定のタグ（`purego`）で 1 つだけ生成する。
 - 通知の扱いは #88、添付・ログの保存先は §13。ここでは対象外。
 
@@ -379,28 +379,101 @@ Android: exportfile.Saver（純 Go。待ち合わせ・一時ファイル・後�
 5. ファイルを開く（`ACTION_VIEW`）: ログ 1 ファイルを開く導線は現状の UI に無い（`OpenLogFolder` のみ）。`documentOpen` の `ACTION_VIEW` は、導線を足す Issue の確認で扱う。
 6. `go:linkname` が実機の cgo ビルド（`libwails.so`）でリンクされ動くこと（`task android:package` でのリンクは確認、実行は未確認）。
 
-## 14. スマホ向けの画面（#87）
+## 14. Google OAuth のリダイレクト方式（#86）
+
+### 14.1 決定
+
+**ループバック（`http://127.0.0.1:<一時ポート>/callback`）＋ PKCE ＋ `state` を、Android でも今のまま使う。** OAuth クライアントは Windows と同じ **「デスクトップ アプリ」種別**（Client ID と Client Secret）で、利用者が自分の Google Cloud に作る（BYO。README「OAuth クライアントの作り方」）。Android 専用のクライアントは作らない。
+
+| 案 | 判断 | 理由（一次情報。2026-11-03 に確認） |
+|----|------|------|
+| **(a) ループバック（デスクトップ アプリ種別）** | **採用** | [Google の OAuth 2.0 for Desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app)（2026-11-03 取得）の「Loopback IP address」は、アプリケーションの種類を **Desktop app** にする方式として載っている。非推奨（DEPRECATED）と書かれているのは **Android・iOS・Chrome アプリの「クライアント種別」** で、[ループバックの移行ガイド](https://developers.google.com/identity/protocols/oauth2/resources/loopback-migration)（同日取得）は「Desktop app クライアントでのループバックは**引き続きサポートされる**。対応は不要」と明記している。Google の認可サーバーが見るのは `client_id`（＝種別）と `redirect_uri` で、端末の OS は要求に含まれない（[INFERENCE] 文書にこの点の明記はなく、要求の中身からの推測。実機で確認する）。現在のコード（`internal/oauth`）がそのまま使え、Windows と同じクライアントを共用できる |
+| (b) Android クライアント種別（パッケージ名＋署名鍵の SHA-1）＋カスタムスキーム | 採らない | ネイティブアプリ向け文書の `redirect_uri` の表に「**Custom URI schemes are no longer supported on Android and Chrome apps**」とあり、エラー表にも `Custom URI scheme is not supported on Android or Chrome apps` がある。Android 種別のクライアントには `client_secret` が無く（同文書の `client_secret` の行）、この種別が想定する取得方法は Google Identity Services の `AuthorizationClient`（Play 開発者サービス）。リフレッシュトークンが要る（サーバー側アクセス）場合は `requestOfflineAccess(webClientId)` で認可コードを受け、Web クライアントの Secret で交換する形になり（[Android の認可ガイド](https://developer.android.com/identity/authorization)・移行ガイド）、Play 開発者サービスが前提で、利用者ごとに Android クライアント＋Web クライアントの 2 つを作り、APK の署名鍵の SHA-1 を登録する手間が加わる。コードの変更も Java 側の認可クライアント呼び出し・Go の「Secret 無し」「サーバー認可コード」対応と大きい |
+| (c) Web クライアント＋カスタムスキーム | 採らない | 上の (b) と同じ理由でカスタムスキームが使えない。Web クライアントはリダイレクト先に `https` の公開 URL を要し、公開者サーバーを持たない方針（NF）に合わない |
+
+**BYO と署名鍵の SHA-1**: (a) を採ると、クライアントにパッケージ名（`jp.ousias.hitomado`）も署名鍵の SHA-1 も**登録しない**。そのため「デバッグ鍵で入れた APK と release 鍵の APK で SHA-1 が違い、クライアントを作り直す」という問題は起きない（どちらの APK でも同じ Client ID で認可できる）。署名鍵が違う APK の入れ替えで要るのは、`adb uninstall`（データも消える。§2）だけ。
+
+**リスク**: Google が「モバイルでのループバック」の扱いを厳しくし、Desktop app クライアントでも Android から来た要求を拒否するようになる可能性がある（`native-app` 文書の `redirect_uri` の表に「mobile apps でのループバックは DEPRECATED」という一般的な注記もあるが、ここでいう対象はクライアント種別、と移行ガイドは区別している）。拒否されたら `invalid_request`（認可画面のエラー）になる。その場合の代替は (b) の `AuthorizationClient` 方式で、別 Issue になる。**実機・本物の Google での確認は未実施**（§14.6）。
+
+### 14.2 ブラウザに出ている間の流れ
+
+```
+利用者が「アカウントを追加」→ StartAddAccount（Go）
+  → 127.0.0.1:<一時ポート> で待受（Go の net/http。プロセス内）
+  → Tracker.Begin()（「認可の途中」の印を SecureStore に保存）
+  → Android.OpenURL（Intent ACTION_VIEW）で既定のブラウザへ
+  → 利用者が Google で同意 → ブラウザが http://127.0.0.1:<ポート>/callback?code=…&state=… へ GET
+  → 待受が code を受け取り、完了ページ「このタブを閉じて Hitomado に戻ってください」を返す
+  → 利用者がアプリへ戻る（アプリ切替・戻る）→ トークン交換 → userinfo → アカウント作成 → Tracker.End()
+```
+
+- ブラウザからアプリへ**自動では戻らない**。完了ページの案内どおり、利用者がアプリ切替などで戻る（アプリ側は待受が受け取った時点で完了処理を進め、戻ったときには受信箱にアカウントが追加済みの画面が出る）。ブラウザからアプリを呼び戻すには `https` のアプリリンク（公開ドメインの `assetlinks.json`）かカスタムスキームの intent-filter が要り、公開者サーバーを持たない・Google がカスタムスキームを許可しない（§14.1）ため、採らない。manifest・`verify-apk.sh`・`CUSTOMIZATIONS.md` は変えていない（Java は変更なし）。
+- Android の 127.0.0.1 は端末内のループバック。試作（#81）では、アプリ内の待受へ `adb shell` の別プロセス（`nc`）から GET して、完了まで動くことを確認した（ブラウザからの GET と本物の Google は未確認）。
+- `state` を検証し（一致しない要求は無視して待受を続ける）、PKCE（S256）を使う。コードの扱いは Windows と同じ（`internal/oauth/callback.go`）。
+
+### 14.3 プロセスが止められたとき（決定）
+
+Android はブラウザが前面に出ている間、アプリのプロセス（バックグラウンド）を、メモリ不足などで終了させうる。Go の待受はプロセスと一緒に消え、ブラウザが後から `127.0.0.1:<ポート>` に接続しても拒否される。**この認可は続きからは完了できない。**
+
+| 検討したこと | 判断 |
+|--------------|------|
+| `state`・PKCE verifier を SecureStore に保存して、起動後に完了する | しない。保存しても認可コードを受け取る口（待受）が無く、コードはブラウザのアドレスバーにしか残らない。使えない verifier を暗号化ストアに残さない（カスタムスキーム方式なら Intent で受けた `code` と保存した verifier で完了できるが、(b)(c) は採らない） |
+| 前面サービス（`WailsForegroundService`、`dataSync`）でログイン中だけプロセスを生かす | しない。通知・前面サービスの扱いは #88 で決める（§6）。プロセスが止められる確率を下げるだけで、止められた後の扱いは結局必要。#88 で前面サービスを入れる場合の候補として残す |
+| **止められたことを次の起動で検出して「やり直し」と案内する（採用）** | `internal/oauth` の `Tracker`。認可を始めるときに SecureStore へ印（時刻のみ。秘密は入れない。キー `hitomado/oauth_in_progress`）を保存し、成功・失敗・キャンセル・タイムアウトのどれでも `End()` で消す。プロセスが止められると印が残るので、次の起動の最初の `TakeInterruptedAuth` が一度だけ `true` を返し、フロント（`accounts` ストアの `start`）が「ログインの途中でアプリが終了したため、完了できませんでした。もう一度『アカウントを追加』（または『再接続』）からやり直してください」のトーストを出す |
+
+「ログイン中の状態を壊さない」: 認可の途中のデータはメモリ（待受・`state`・verifier・進行中フラグ）だけで、永続化は上の印（時刻）だけ。プロセスが止められても DB・トークン・既存アカウントには何も書かれておらず、再起動後の「別のアカウント認可が進行中です」の状態も残らない（進行中フラグはメモリ上）。トークン交換の後（アカウント保存）でプロセスが止められた場合は、保存の途中の状態が既存の経路で扱われる（アカウント作成→トークン保存の失敗時はロールバック。`account_auth.go`）。
+
+- 印の読み書きに失敗（Keystore の鍵の喪失など）しても認可は続け、検出を諦めるだけ（`ErrKeyLost` は印が無いのと同じ）。
+- 印は起動直後ではなく、最初に必要になったとき（フロントの `TakeInterruptedAuth`、または認可の開始）に読む。起動直後に Java へ JNI で問い合わせないため。
+- Windows（デスクトップ）は `Tracker` を作らない（`nil`。`oauthtracker_other.go`）。Windows の認可の動きは変わらない。バインディング `TakeInterruptedAuth` は常に `false` を返す。
+
+### 14.4 送信元の固定
+
+リダイレクト方式は認可コードを受け取る経路だけを変える。アカウントのアドレスは、認可後に Google の userinfo から取った値（小文字に正規化）で決まり、返信・転送の送信元は `accounts.email` から作る（変更できない。[バインディング仕様 §5](../api/endpoints.md)・[アーキテクチャ設計 §7.3](../architecture/overview.md)）。`Reconnect` は認可されたアドレスが既存のアカウントと違えば拒否する。テスト: `internal/app/composecore/compose_oauth_sender_test.go`（OAuth で追加したアカウントの返信が、Google が返したアドレスに固定され、`SENDER_LOCKED`／`SENDER_MISMATCH` で変えられず、`From` がそのアドレスになる）、`internal/app/apptests/account_test.go`（`TestReconnectRejectsDifferentAddress`）。
+
+### 14.5 自動テスト
+
+| テスト | 内容 |
+|--------|------|
+| `internal/oauth/flow_test.go`・`callback`（既存） | 偽 IdP（httptest）で、ループバックの待受・PKCE・`state` の検証（不一致は無視）・`access_denied`・スコープ不足・トークン交換の失敗・タイムアウト・キャンセルを試す。Android でもこのコードがそのまま動く（ビルドタグなし） |
+| `internal/oauth/tracker_test.go` | 印がブラウザに出ている間だけ存在し、成功・拒否・タイムアウト・ブラウザ起動失敗・キャンセルのどれでも消える。印に `state`・verifier・コード・トークンを含まない。**プロセスが止められた（`End` が呼ばれない）ときに、次の起動の `Tracker` が一度だけ検出する**。検出の前に新しい認可を始めても完了でき、前回の中断も案内される。ストアの失敗が認可を壊さない。`nil` の `Tracker` は何もしない（Windows） |
+| `internal/app/apptests/account_interrupted_test.go` | `TakeInterruptedAuth` の一度だけの検出と、`nil`（Windows）での `false`。検出後のやり直しが完了する |
+| `frontend/test/accountsInterrupted.test.ts` | 検出時にやり直しのトーストを 1 回だけ出す。呼び出しの失敗で起動を止めない |
+
+### 14.6 実機で確認する手順（未確認）
+
+**この Issue では、実機と本物の Google アカウントを使っていないため、次は未確認。** 自動テストで確かめたのは偽 IdP 越しの Go のフローとプロセス停止の検出までで、本物の Google に対するフローと、Android の挙動は確認していない。
+
+1. README の手順で、**デスクトップ アプリ種別**の OAuth クライアントを作り（同意画面が外部・「テスト」ならテストユーザーに自分の Gmail を登録）、Client ID と Client Secret を実機のアプリの設定 → OAuth クライアントに登録する。
+2. 設定 → アカウントを追加 → 認可を開始。ブラウザが開き、Google の同意画面が出る（`redirect_uri` が拒否される `invalid_request` や `redirect_uri_mismatch` にならない）。
+3. 同意すると、ブラウザに「認可の操作が完了しました。このタブを閉じて Hitomado に戻ってください」が出る（127.0.0.1 へ届いた）。アプリへ戻ると、アカウントが追加されて同期が始まる。
+4. 追加したアカウントのスレッドを返信で開き、送信元がそのアドレスに固定され、変更できないこと。
+5. 別の鍵（debug／release）の APK に入れ替えたあとも、同じ Client ID で認可できること（SHA-1 を登録していないため）。
+6. プロセス停止: 認可を開始してブラウザが出たら、`adb shell am kill jp.ousias.hitomado`（バックグラウンドのプロセスだけを終了する）でアプリを止め、ブラウザで同意（`127.0.0.1` への接続は失敗する）。アプリを開くと「ログインの途中でアプリが終了したため…やり直してください」のトーストが出る。もう一度アカウントを追加して完了できる。debug ビルドなら `adb shell run-as jp.ousias.hitomado cat shared_prefs/hitomado_secrets.xml` に平文のトークン・`state` が無いこと。
+7. Google がモバイルのループバックを拒否した場合（§14.1 のリスク）: 認可画面に `invalid_request` が出る。この結果を Issue に記録し、(b) の `AuthorizationClient` 方式を別 Issue で起こす。
+
+## 16. スマホ向けの画面（#87）
 
 画面のコードは Windows 版と共通（同じ Vue）。幅による 3 ペイン／2 ペイン／1 画面ずつの切り替え、戻る、タッチ、のフロント側の設計は [コンポーネント設計 §5.1](../components/overview.md#51-画面幅によるレイアウトの切り替えandroid)、画面の仕様は [機能要件 §5.1](../requirements/functional.md#51-androidスマホの画面)。ここでは Android 側（Go・Java）の取り決めを書く。
 
-### 14.1 OS による切り替え（`TouchUI`）
+### 16.1 OS による切り替え（`TouchUI`）
 
 - `capability.Capabilities.TouchUI`（JSON `touchUi`）を足した。`Android()` だけ `true`、`Desktop()`・ゼロ値は `false`。フロントは `platformStore.touchUi`（OS 名ではなく機能）で、幅による切り替えと `styles/touch.css`（タップ領域 44px 以上）を有効にする。Windows 版は `false` なので、幅に関わらず今の 3 ペインのまま。
 - **最小幅 960px の制限を Android では外す**: 制限は 2 か所にあった。①Go の `internal/platform` の `MinWidth`・`MinHeight`（ウィンドウ作成時の `MinWidth`／`MinHeight`、保存した状態の補正 `windowstate.go`）、②フロントの `.shell { min-width: 960px }`（`AppShell.vue`）。①は `platform.MinWindowSize(caps)` が `TouchUI` の OS では 0（制限なし）を返す。保存した状態の補正は Android では `WindowKeeper` を作らないので効かない。②は `layout-wide`（3 ペイン）のときだけ付ける。なお Wails の Android 実装（`webview_window_android.go`）の `setMinSize` は何もしないので、①は意図を明示するためのもの。
 
-### 14.2 safe area（エッジ・ツー・エッジ）
+### 16.2 safe area（エッジ・ツー・エッジ）
 
 - targetSdk 36 では、Activity のウィンドウがステータスバー・ナビゲーションバーの背後まで広がる（エッジ・ツー・エッジが強制される）。テンプレートの `MainActivity` は insets を扱っておらず、そのままでは WebView の上端・下端がバーに隠れる。
 - **Activity 側で insets を当てる方式を選んだ**（`MainActivity.applyWindowInsets()`）。system bars・display cutout・IME の insets を、WebView を入れた `main_container` の padding に当てる。CSS の `env(safe-area-inset-*)` と `viewport-fit=cover` は使わない: Android の WebView では `env()` の値が端末・WebView のバージョンで 0 のままになることがあり、信頼できないため。Java で 1 か所に当てれば、フロントの CSS は safe area を知らなくてよい（`index.html` の viewport も変えない）。IME の insets も同じ padding に含めるので、ソフトキーボードが出たときも入力欄が隠れない（`adjustResize` は 36 のエッジ・ツー・エッジでは効かないため）。
 - バーの背景色は `app_background`（`values`＝`#FFFFFF`、`values-night`＝`#14171C`。フロントの `--color-bg` のライト／ダークと同じ値）。バーのアイコンの明暗は `updateSystemBarIcons()` が uiMode に合わせる。フロントの配色を変える（`tokens.css`）ときはここも合わせる。
 
-### 14.3 戻るボタン
+### 16.3 戻るボタン
 
 - `MainActivity` は `OnBackPressedCallback`（`getOnBackPressedDispatcher()`）で戻るを受ける。テンプレートの `onBackPressed()` の上書きは、targetSdk 36 では呼ばれないので削除した。
 - コールバックは `webView.evaluateJavascript` で `window.hitomadoHandleBack()` を呼ぶ。フロントの `lib/androidBack.ts` が `AppShell` で登録する関数で、一つ前の画面へ戻したら `true` を返す（オーバーレイ → ドロワー → 返信・作成 → スレッド → 検索結果の順）。`true` ならアプリは何もしない。`false`・未登録（起動中）・失敗のときは、WebView の履歴があればそれに戻り（`canGoBack`）、無ければ `moveTaskToBack(true)` でアプリをバックグラウンドへ送る（終了しない）。
 - Wails のイベント（Java → Go → `Events.Emit`）も `window.history`（`pushState`＋`popstate`）も使わない。前者は Go を経由する分遅れて「消費したか」を Java へ返せず、後者は履歴の積み方と `canGoBack` が一致しないとアプリが終了するため。1 つの関数の戻り値で「消費したか」を同期的に受け取る方が確実。
 
-### 14.4 確認の状況
+### 16.4 確認の状況
 
 - ブラウザ（vite dev・Wails ランタイムをモック）で 390x844・800x900・1440x900 の画面を確認した（スクリーンショットは作業ログ）。`bun test` は、1 画面ずつの遷移（一覧 → スレッド → 返信 → 戻る）、幅を変えても選択・下書きが残ること、戻るの順序、受け口の登録を確認する。
 - **未確認**: 実機・エミュレーターでの表示（safe area・戻るボタン・ソフトキーボード・Fold の折り畳み）。Java は `task android:package`／`android:verify` でビルド・検査できるが、動作はエミュレーターか実機で確認が要る。

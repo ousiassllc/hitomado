@@ -2,8 +2,8 @@
 import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
 import { effectScope } from 'vue'
-import { BACK_HANDLER_NAME, installBackHandler } from '../../lib/androidBack'
-import { BREAKPOINT_MEDIUM, BREAKPOINT_WIDE } from '../../lib/layout'
+import { BACK_HANDLER_NAME, installBackHandler } from '../../src/lib/androidBack'
+import { BREAKPOINT_MEDIUM, BREAKPOINT_WIDE } from '../../src/lib/layout'
 import {
   h,
   installMocks,
@@ -14,14 +14,14 @@ import {
   useComposeStore,
   useInboxStore,
   useUiStore,
-} from './composeHarness'
+} from '../../src/stores/__tests__/composeHarness'
 
 installMocks()
 afterAll(restoreMocks)
 
-const { useNavigation } = await import('../../composables/useNavigation')
-const { useLayoutStore } = await import('../layout')
-const { usePlatformStore } = await import('../platform')
+const { useNavigation } = await import('../../src/composables/useNavigation')
+const { useLayoutStore } = await import('../../src/stores/layout')
+const { usePlatformStore } = await import('../../src/stores/platform')
 
 const flushPromises = () => new Promise<void>((r) => setTimeout(r, 0))
 
