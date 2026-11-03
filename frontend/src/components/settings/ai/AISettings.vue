@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { parseBindingError } from '../../lib/api'
-import { settings as msg } from '../../lib/messages'
-import { useSettingsStore } from '../../stores/settings'
-import { useUiStore } from '../../stores/ui'
-import BaseButton from '../ui/BaseButton.vue'
-import BaseSelect from '../ui/BaseSelect.vue'
+import { parseBindingError } from '../../../lib/api'
+import { settings as msg } from '../../../lib/messages'
+import { useSettingsStore } from '../../../stores/settings'
+import { useUiStore } from '../../../stores/ui'
+import BaseButton from '../../ui/BaseButton.vue'
+import BaseSelect from '../../ui/BaseSelect.vue'
+import SettingsInput from '../SettingsInput.vue'
 import AIDestinationBox from './AIDestinationBox.vue'
 import { providerLabel } from './aiDestination'
-import SettingsInput from './SettingsInput.vue'
 
 const store = useSettingsStore()
 const ui = useUiStore()

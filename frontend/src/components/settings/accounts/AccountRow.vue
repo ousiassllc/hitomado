@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { Account } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { isClientRejectedMessage } from '../../lib/clientRejected'
-import { settings as msg } from '../../lib/messages'
-import AccountChip from '../account/AccountChip.vue'
-import BaseButton from '../ui/BaseButton.vue'
-import BaseIconButton from '../ui/BaseIconButton.vue'
-import BaseSwitch from '../ui/BaseSwitch.vue'
+import type { Account } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { isClientRejectedMessage } from '../../../lib/clientRejected'
+import { settings as msg } from '../../../lib/messages'
+import AccountChip from '../../account/AccountChip.vue'
+import BaseButton from '../../ui/BaseButton.vue'
+import BaseIconButton from '../../ui/BaseIconButton.vue'
+import BaseSwitch from '../../ui/BaseSwitch.vue'
+import SettingsInput from '../SettingsInput.vue'
 import ColorPicker from './ColorPicker.vue'
-import SettingsInput from './SettingsInput.vue'
 
 const props = defineProps<{
   account: Account

@@ -124,7 +124,7 @@ type ThreadPage = {
 | `StartAddAccount(oauthClientId)` | string | `Account` | 認可フローを開始し、**完了またはキャンセル・タイムアウトまでブロック**する。システムブラウザを開く。完了後に初回同期を開始 |
 | `CancelAddAccount()` | — | — | 進行中の認可を中断（`StartAddAccount` は `OAUTH_CANCELLED` で reject） |
 | `Reconnect(accountId)` | string | `Account` | `needs_reauth` のアカウントを再認可。**認可されたアドレスが `accounts.email` と異なる場合は拒否**（`VALIDATION`） |
-| `RemoveAccount(accountId)` | string | — | DB カスケード削除＋資格情報削除＋トークン revoke（失敗しても削除は成功扱い） |
+| `RemoveAccount(accountId)` | string | — | 同期ワーカーを停止（実行中の周期の終了を待つ）→DB カスケード削除→資格情報削除＋トークン revoke（失敗しても削除は成功扱い）。DB 削除に失敗したときは同期を再開してエラーを返す |
 | `UpdateAccount(accountId, patch)` | `{ displayName?, color?, notifyEnabled? }` | `Account` | 表示名・色・通知設定 |
 | `SetSignature(accountId, signatureHtml)` | string ×2 | `Account` | 署名。許可タグ（`p, br, strong, b, em, i, u, a[href], ul, ol, li`）以外はサーバー側で除去 |
 | `ReorderAccounts(accountIds)` | `string[]` | `Account[]` | 並び順を更新。全アカウント ID を過不足なく指定 |
