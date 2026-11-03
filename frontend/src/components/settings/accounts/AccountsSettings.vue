@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
-import type { Account } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { parseBindingError } from '../../lib/api'
-import { settings as msg } from '../../lib/messages'
-import { useAccountsStore } from '../../stores/accounts'
-import { useUiStore } from '../../stores/ui'
-import BaseButton from '../ui/BaseButton.vue'
-import BaseDialog from '../ui/BaseDialog.vue'
+import type { Account } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { parseBindingError } from '../../../lib/api'
+import { settings as msg } from '../../../lib/messages'
+import { useAccountsStore } from '../../../stores/accounts'
+import { useUiStore } from '../../../stores/ui'
+import BaseButton from '../../ui/BaseButton.vue'
+import BaseDialog from '../../ui/BaseDialog.vue'
 import AccountRow from './AccountRow.vue'
 
 const accountsStore = useAccountsStore()

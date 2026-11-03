@@ -101,8 +101,11 @@ func (s *AppService) SetUpdateCheckEnabled(ctx context.Context, enabled bool) er
 	return nil
 }
 
-// CheckForUpdate は更新確認を今すぐ行う。無効のときは通信せず {available:false}。
+// CheckForUpdate は更新確認を今すぐ行う。無効のとき、および dev・ローカルビルド（版 update.DevVersion）のときは通信せず {available:false}。
 func (s *AppService) CheckForUpdate(ctx context.Context) (dto.UpdateInfo, error) {
+	if update.IsDev(s.d.Version) {
+		return dto.UpdateInfo{}, nil
+	}
 	enabled, err := s.updateCheckEnabled(ctx)
 	if err != nil || !enabled {
 		return dto.UpdateInfo{}, err

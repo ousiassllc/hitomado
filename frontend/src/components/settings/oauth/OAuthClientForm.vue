@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import type { OAuthClient } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { parseBindingError } from '../../lib/api'
-import { settings as msg } from '../../lib/messages'
-import { useAccountsStore } from '../../stores/accounts'
-import { useUiStore } from '../../stores/ui'
-import BaseButton from '../ui/BaseButton.vue'
-import SettingsInput from './SettingsInput.vue'
+import type { OAuthClient } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { parseBindingError } from '../../../lib/api'
+import { settings as msg } from '../../../lib/messages'
+import { useAccountsStore } from '../../../stores/accounts'
+import { useUiStore } from '../../../stores/ui'
+import BaseButton from '../../ui/BaseButton.vue'
+import SettingsInput from '../SettingsInput.vue'
 
 const props = defineProps<{ client?: OAuthClient }>()
 const emit = defineEmits<{ saved: []; cancel: [] }>()

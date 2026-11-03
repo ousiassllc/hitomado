@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import type { ThreadSummary } from '../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import AccountChip from '../src/components/account/AccountChip.vue'
+import ThreadList from '../src/components/inbox/ThreadList.vue'
 import ThreadRow from '../src/components/inbox/ThreadRow.vue'
 import BaseButton from '../src/components/ui/BaseButton.vue'
 import BaseDialog from '../src/components/ui/BaseDialog.vue'
@@ -160,5 +161,32 @@ describe('BaseDialog', () => {
     await nextTick()
     expect(document.querySelector('button[aria-label="閉じる"]')).toBeNull()
     w.unmount()
+  })
+})
+
+describe('ThreadList の「さらに読み込む」', () => {
+  const props = {
+    items: [],
+    checkedKeys: [],
+    loading: false,
+    hasMore: true,
+    loadingMore: false,
+    emptyText: '空',
+  }
+
+  test('一覧が 0 件でも続きがあればボタンを出し、押すと loadMore を通知する', async () => {
+    const w = mount(ThreadList, { props })
+    const btn = w.find('button')
+    expect(btn.text()).toBe('さらに読み込む')
+    await btn.trigger('click')
+    expect(w.emitted('loadMore')).toHaveLength(1)
+  })
+
+  test('取得中は無効化して「続きを読み込み中…」を表示し、続きが無ければ出さない', async () => {
+    const w = mount(ThreadList, { props: { ...props, loadingMore: true } })
+    expect(w.find('button').attributes('disabled')).toBeDefined()
+    expect(w.text()).toContain('続きを読み込み中…')
+    await w.setProps({ hasMore: false, loadingMore: false })
+    expect(w.find('button').exists()).toBe(false)
   })
 })

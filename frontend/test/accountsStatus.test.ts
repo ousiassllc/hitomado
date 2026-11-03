@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { mount } from '@vue/test-utils'
 import type { Account } from '../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import AccountRow from '../src/components/settings/AccountRow.vue'
+import AccountRow from '../src/components/settings/accounts/AccountRow.vue'
 import { installMocks, resetKit, responses, restoreMocks } from './inboxKit'
 
 installMocks()

@@ -136,10 +136,17 @@ func run() error {
 	// 終了処理は 1 か所にまとめる: 更新確認ループの停止と完了待ち → 同期の停止 → （呼び出し元の defer で）ストア・ログを閉じる。
 	var loops sync.WaitGroup
 	shutdown := sync.OnceFunc(func() {
-		cancel()
-		loops.Wait()
-		svc.MCP.Shutdown()
-		sched.Shutdown()
+		// Run がトレイ終了を経由せず戻った場合、flush 中の tray.SetIcon（InvokeSync）で sched.Shutdown が戻らないことがある。
+		// 終了処理全体（ループ・MCP・同期の停止）に上限を付け、超えたら打ち切って先へ進む。
+		stopped := platform.WaitBounded(func() {
+			cancel()
+			loops.Wait()
+			svc.MCP.Shutdown()
+			sched.Shutdown()
+		}, platform.ShutdownGrace)
+		if !stopped {
+			logger.Warn("shutdown timed out; continuing", "grace", platform.ShutdownGrace.String())
+		}
 	})
 	quitter = platform.NewQuitter(emitter, func() {
 		keeper.Flush() // 終了でウィンドウが壊れる前に位置・サイズを保存する

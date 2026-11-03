@@ -180,3 +180,60 @@ func TestExportZipScrubsLegacyLines(t *testing.T) {
 	assert.NotContains(t, out.String(), "alice@legacy.example")
 	assert.Contains(t, out.String(), "oauth failed")
 }
+
+func TestReadEntriesReturnsNewestLimitMatches(t *testing.T) {
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
+	// 古い側にノイズ、新しい側に 3 件の ERROR。
+	var lines []string
+	for i := range 3000 {
+		lines = append(lines, line(base.Add(time.Duration(i)*time.Second), "INFO", "noise"))
+	}
+	lines = append(lines, line(base.Add(time.Hour), "ERROR", "e1"), line(base.Add(2*time.Hour), "ERROR", "e2"), line(base.Add(3*time.Hour), "ERROR", "e3"))
+	writeLines(t, filepath.Join(dir, FileName), lines...)
+
+	got, err := ReadEntries(dir, Query{Limit: 2, MinLevel: slog.LevelError})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"e2", "e3"}, messages(got), "新しい方から Limit 件を時刻の昇順で")
+}
+
+func TestReadEntriesTakesRemainderFromOlderFile(t *testing.T) {
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
+	writeLines(t, filepath.Join(dir, "hitomado-2026-11-02T00-00-00.000.log"),
+		line(base.Add(-3*time.Hour), "ERROR", "o1"), line(base.Add(-2*time.Hour), "ERROR", "o2"), line(base.Add(-time.Hour), "ERROR", "o3"))
+	writeLines(t, filepath.Join(dir, FileName), line(base, "ERROR", "n1"), line(base.Add(time.Minute), "ERROR", "n2"))
+
+	got, err := ReadEntries(dir, Query{Limit: 4})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"o2", "o3", "n1", "n2"}, messages(got))
+}
+
+// エラーの無い約 30MB のログ（6 ファイル分）でも get_status 相当の呼び出しが実用的な時間で返る。
+// 壁時計の上限は CI の遅さを見込んで 2 秒と十分に緩くしてある（実測は通常その数十分の一）。
+func TestReadEntriesErrorFreeLargeLogIsFast(t *testing.T) {
+	dir := t.TempDir()
+	base := time.Date(2026, 11, 3, 0, 0, 0, 0, time.UTC)
+	info := line(base, "INFO", strings.Repeat("m", 200)) + "\n"
+	chunk := strings.Repeat(info, 1000)
+	write := func(name string, size int) {
+		f, err := os.Create(filepath.Join(dir, name)) //nolint:gosec // t.TempDir 内
+		require.NoError(t, err)
+		for written := 0; written < size; written += len(chunk) {
+			_, err = f.WriteString(chunk)
+			require.NoError(t, err)
+		}
+		require.NoError(t, f.Close())
+	}
+	write(FileName, 5<<20)
+	for i := 1; i <= 5; i++ {
+		write(fmt.Sprintf("hitomado-2026-10-0%d.log", i), 5<<20)
+	}
+
+	start := time.Now()
+	got, err := ReadEntries(dir, Query{Limit: 1, MinLevel: slog.LevelError})
+	elapsed := time.Since(start)
+	require.NoError(t, err)
+	assert.Empty(t, got)
+	assert.Less(t, elapsed, 2*time.Second)
+}

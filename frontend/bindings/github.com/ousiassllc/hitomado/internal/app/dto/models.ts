@@ -71,13 +71,17 @@ export interface AppInfo {
 
 /**
  * ClientError はフロントが Go のログへ送るエラー報告。メール本文・件名・宛先は送らない
- * （画面側が組み立てるのはエラーの種類・メッセージ・スタック・エラーコードだけ。Go 側でも伏せて長さを切る）。
+ * （画面側が組み立てるのはエラーの種類コード・位置だけのスタック・エラーコードだけで、例外のメッセージ文は送らない。Go 側でも伏せて長さを切る）。
  */
 export interface ClientError {
     /**
      * error / unhandledrejection / vue / binding
      */
     "kind": string;
+
+    /**
+     * 例外の文面ではなく種類のコード（TypeError / unknown / render-error:コンポーネント名 / binding のエラーコード）
+     */
     "message": string;
     "stack"?: string;
 

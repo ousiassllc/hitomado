@@ -20,8 +20,8 @@ import { useInboxSelection } from './inboxSelection'
 import { useUiStore } from './ui'
 
 const PAGE_SIZE = 50
-/** 行が 0 件のページが続いても 1 回の読み込みで辿る最大ページ数 */
-const MAX_EMPTY_PAGES = 10
+/** 行が 0 件のページが続いても、1 回の操作（起動・フィルタ変更・続きの読み込み）で自動的に辿る最大ページ数。超えたら止め、続きは「さらに読み込む」で利用者が読む */
+const MAX_AUTO_EMPTY_PAGES = 3
 
 export const useInboxStore = defineStore('inbox', () => {
   const ui = useUiStore()
@@ -125,7 +125,7 @@ export const useInboxStore = defineStore('inbox', () => {
     loadingMore.value = true
     try {
       // 条件に合う行が 0 件でも Gmail 側に続きがあれば NextCursor が返る。追加できるまで（上限付きで）続ける。
-      for (let i = 0; i < MAX_EMPTY_PAGES && hasMore.value; i++) {
+      for (let i = 0; i < MAX_AUTO_EMPTY_PAGES && hasMore.value; i++) {
         const page = await fetchPage(nextCursor.value)
         if (gen !== generation) return
         const have = new Set(items.value.map(keyOf))

@@ -2,7 +2,6 @@ package logging
 
 import (
 	"archive/zip"
-	"bufio"
 	"bytes"
 	"encoding/json"
 	"errors"
@@ -12,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -85,10 +85,10 @@ func ReadEntries(dir string, q Query) ([]Entry, error) {
 	if err != nil {
 		return nil, err
 	}
-	var newestFirst [][]Entry // ファイルごと（新しいファイルが先）
+	var newestFirst [][]Entry // ファイルごと（新しいファイルが先。各ファイルの中は書かれた順）
 	total := 0
 	for _, f := range files {
-		entries, err := readFile(f, q)
+		entries, err := readFile(f, q, limit-total)
 		if err != nil {
 			return nil, err
 		}
@@ -108,7 +108,8 @@ func ReadEntries(dir string, q Query) ([]Entry, error) {
 	return out, nil
 }
 
-func readFile(path string, q Query) ([]Entry, error) {
+// readFile は path の末尾から逆順に走査し、条件に合う新しい方から最大 limit 件を（書かれた順で）返す。limit 件に達したら残りは読まない。
+func readFile(path string, q Query, limit int) ([]Entry, error) {
 	f, err := os.Open(path) //nolint:gosec // logFiles が返したログフォルダ内のパス
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil // 読む間にローテーションで消えた
@@ -117,49 +118,25 @@ func readFile(path string, q Query) ([]Entry, error) {
 		return nil, fmt.Errorf("open log: %w", err)
 	}
 	defer func() { _ = f.Close() }()
+	st, err := f.Stat()
+	if err != nil {
+		return nil, fmt.Errorf("stat log: %w", err)
+	}
 	var out []Entry
-	err = eachLine(f, func(line []byte) {
+	err = eachLineReverse(f, st.Size(), func(line []byte) bool {
 		if !q.mayMatch(line) {
-			return
+			return true
 		}
 		if e, ok := parseLine(line); ok && q.match(e) {
 			out = append(out, e)
 		}
+		return len(out) < limit
 	})
 	if err != nil {
 		return nil, fmt.Errorf("read log: %w", err)
 	}
+	slices.Reverse(out)
 	return out, nil
-}
-
-// eachLine は r を 1 行ずつ fn へ渡す。maxLineBytes を超える行は読み飛ばし、後ろの行は読み続ける。
-func eachLine(r io.Reader, fn func(line []byte)) error {
-	br := bufio.NewReaderSize(r, 64*1024)
-	var buf []byte
-	tooLong := false
-	for {
-		chunk, isPrefix, err := br.ReadLine()
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
-			return err //nolint:wrapcheck // 呼び出し元がまとめて包む
-		}
-		if !tooLong {
-			if len(buf)+len(chunk) > maxLineBytes {
-				tooLong = true
-			} else {
-				buf = append(buf, chunk...)
-			}
-		}
-		if isPrefix {
-			continue
-		}
-		if !tooLong {
-			fn(buf)
-		}
-		buf, tooLong = buf[:0], false
-	}
 }
 
 // mayMatch は JSON を読む前の安い絞り込み。MinLevel が info より上のとき、水準名が行に無ければ読まない。

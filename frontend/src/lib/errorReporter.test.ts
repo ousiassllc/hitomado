@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { createApp } from 'vue'
 import type { ClientError } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { call } from './api'
-import { createErrorReporter, describeThrown } from './errorReporter'
+import { createErrorReporter, describeThrown, sanitizeStack } from './errorReporter'
 
 class FakeWindow {
   private handlers = new Map<string, Set<(e: Event) => void>>()
@@ -23,6 +23,7 @@ function setup() {
     sent.push(e)
   })
   const app = createApp({ render: () => null })
+  app.config.errorHandler = () => {} // 既定のハンドラは console.error に出すので、無害な元ハンドラに差し替える
   const win = new FakeWindow()
   const uninstall = reporter.install(app, win as unknown as Window)
   return { sent, reporter, app, win, uninstall }
@@ -34,8 +35,8 @@ describe('errorReporter', () => {
     const err = new Error('boom')
     win.dispatch('error', { error: err, message: 'boom', filename: 'app.js', lineno: 3, colno: 7 })
     expect(sent).toHaveLength(1)
-    expect(sent[0]).toMatchObject({ kind: 'error', message: 'boom', source: 'app.js:3:7' })
-    expect(sent[0]?.stack).toContain('boom')
+    expect(sent[0]).toMatchObject({ kind: 'error', message: 'Error', source: 'app.js:3:7' })
+    expect(sent[0]?.stack).not.toContain('boom')
   })
 
   test('Promise の reject を送る（Error 以外の値は中身を文字列化せず型だけ）', () => {
@@ -43,8 +44,8 @@ describe('errorReporter', () => {
     win.dispatch('unhandledrejection', { reason: new Error('rejected') })
     win.dispatch('unhandledrejection', { reason: { to: 'alice@example.com', body: 'secret' } })
     expect(sent.map((s) => s.kind)).toEqual(['unhandledrejection', 'unhandledrejection'])
-    expect(sent[0]?.message).toBe('rejected')
-    expect(sent[1]?.message).toBe('non-error value (object)')
+    expect(sent[0]?.message).toBe('Error')
+    expect(sent[1]?.message).toBe('unknown')
     expect(JSON.stringify(sent[1])).not.toContain('alice@example.com')
   })
 
@@ -72,11 +73,11 @@ describe('errorReporter', () => {
     const seen: unknown[] = []
     app.config.errorHandler = (e) => seen.push(e)
     reporter.install(app, new FakeWindow() as unknown as Window)
-    const err = new Error('render failed')
+    const err = new TypeError('render failed')
     app.config.errorHandler?.(err, null, 'render function')
     expect(sent[0]).toMatchObject({
       kind: 'vue',
-      message: 'render failed',
+      message: 'render-error:anonymous',
       source: 'render function',
     })
     expect(seen).toEqual([err])
@@ -98,7 +99,7 @@ describe('errorReporter', () => {
       kind: 'binding',
       code: 'GMAIL_ERROR',
       accountId: '01HX',
-      message: 'm',
+      message: 'GMAIL_ERROR',
     })
   })
 
@@ -143,7 +144,126 @@ describe('errorReporter', () => {
   })
 
   test('describeThrown', () => {
-    expect(describeThrown('plain')).toEqual({ message: 'plain', stack: '' })
-    expect(describeThrown(42).message).toBe('non-error value (number)')
+    expect(describeThrown('plain')).toEqual({ message: 'unknown', stack: '' })
+    expect(describeThrown(42).message).toBe('unknown')
+    expect(describeThrown(new RangeError('x')).message).toBe('RangeError')
+  })
+
+  describe('例外メッセージを送らない', () => {
+    // 件名・本文・宛先の断片が例外メッセージに混ざった状況の模擬（実在のメールではない）。
+    const LEAK = '件名: 来週の打ち合わせ / 本文: 見積もりは下記のとおりです / alice@example.com'
+    const leaky = () => new TypeError(`Cannot read ${LEAK}`)
+
+    function expectNoLeak(sent: ClientError[]): void {
+      expect(sent).toHaveLength(1)
+      const json = JSON.stringify(sent[0])
+      for (const frag of ['来週の打ち合わせ', '見積もり', 'alice@example.com', 'Cannot read']) {
+        expect(json).not.toContain(frag)
+      }
+    }
+
+    test('error イベント', () => {
+      const { sent, win } = setup()
+      const err = leaky()
+      win.dispatch('error', {
+        error: err,
+        message: err.message,
+        filename: 'app.js',
+        lineno: 1,
+        colno: 2,
+      })
+      expectNoLeak(sent)
+      expect(sent[0]?.message).toBe('TypeError')
+    })
+
+    test('error イベントの Error 無し（message だけ）', () => {
+      const { sent, win } = setup()
+      win.dispatch('error', { message: LEAK })
+      expectNoLeak(sent)
+      expect(sent[0]?.message).toBe('unknown')
+    })
+
+    test('unhandledrejection（Error・文字列・オブジェクト）', () => {
+      const { sent, win } = setup()
+      win.dispatch('unhandledrejection', { reason: leaky() })
+      win.dispatch('unhandledrejection', { reason: LEAK })
+      win.dispatch('unhandledrejection', { reason: { message: LEAK } })
+      expect(sent.map((s) => s.message)).toEqual(['TypeError', 'unknown', 'unknown'])
+      expect(JSON.stringify(sent)).not.toContain('alice@example.com')
+      expect(JSON.stringify(sent)).not.toContain('来週の打ち合わせ')
+    })
+
+    test('Vue の描画エラーはコンポーネント名だけ', () => {
+      const { sent, app } = setup()
+      const instance = { $options: { name: 'MailComposer' } }
+      app.config.errorHandler?.(leaky(), instance as never, 'render function')
+      expectNoLeak(sent)
+      expect(sent[0]).toMatchObject({ kind: 'vue', message: 'render-error:MailComposer' })
+    })
+
+    test('Vue のコンポーネント名に任意の文字列は載せない', () => {
+      const { sent, app } = setup()
+      app.config.errorHandler?.(leaky(), { $options: { name: LEAK } } as never, 'setup function')
+      expectNoLeak(sent)
+      expect(sent[0]?.message).toBe('render-error:anonymous')
+    })
+
+    test('独自のエラー名（name にメッセージ由来の文字列）は Error にまとめる', () => {
+      const { sent, win } = setup()
+      const err = leaky()
+      err.name = LEAK
+      win.dispatch('error', { error: err, message: err.message })
+      expectNoLeak(sent)
+      expect(sent[0]?.message).toBe('Error')
+    })
+
+    test('binding はメッセージを送らずコードだけ（コードも列挙形式のみ）', async () => {
+      const { sent } = setup()
+      await expect(
+        call(Promise.reject({ code: 'GMAIL_ERROR', message: LEAK, retryable: false })),
+      ).rejects.toBeDefined()
+      await expect(
+        call(Promise.reject({ code: LEAK, message: LEAK, retryable: false })),
+      ).rejects.toBeDefined()
+      expect(JSON.stringify(sent)).not.toContain('alice@example.com')
+      expect(JSON.stringify(sent)).not.toContain('来週の打ち合わせ')
+      expect(sent.map((s) => s.code)).toEqual(['GMAIL_ERROR', 'INTERNAL'])
+    })
+  })
+
+  describe('sanitizeStack', () => {
+    function withStack(stack: string, message = 'x'): Error {
+      const e = new Error(message)
+      e.stack = stack
+      return e
+    }
+
+    test('V8 形式: 先頭のメッセージ行（複数行でも）を捨てて位置だけ残す', () => {
+      const message = '件名: 秘密\n本文: 内容 alice@example.com'
+      const e = withStack(
+        `Error: ${message}\n    at render (file:///app/main.js:10:5)\n    at file:///app/a.js:1:2`,
+        message,
+      )
+      expect(sanitizeStack(e)).toBe('render@file:///app/main.js:10:5\n@file:///app/a.js:1:2')
+    })
+
+    test('JavaScriptCore 形式', () => {
+      const e = withStack(
+        'render@http://localhost/assets/main.js:10:5\nglobal code@http://x/a.js:1:2',
+      )
+      expect(sanitizeStack(e)).toBe('render@http://localhost/assets/main.js:10:5')
+    })
+
+    test('フレームでない行・Error 以外は捨てる', () => {
+      expect(sanitizeStack(withStack('Error: alice@example.com\nsome free text'))).toBe('')
+      expect(sanitizeStack('Error: alice@example.com')).toBe('')
+    })
+
+    test('フレーム数を切る', () => {
+      const frames = Array.from({ length: 80 }, (_, i) => `    at f${i} (a.js:${i}:1)`)
+      expect(sanitizeStack(withStack(['Error: x', ...frames].join('\n'))).split('\n')).toHaveLength(
+        50,
+      )
+    })
   })
 })

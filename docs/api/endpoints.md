@@ -124,7 +124,7 @@ type ThreadPage = {
 | `StartAddAccount(oauthClientId)` | string | `Account` | 認可フローを開始し、**完了またはキャンセル・タイムアウトまでブロック**する。システムブラウザを開く。完了後に初回同期を開始 |
 | `CancelAddAccount()` | — | — | 進行中の認可を中断（`StartAddAccount` は `OAUTH_CANCELLED` で reject） |
 | `Reconnect(accountId)` | string | `Account` | `needs_reauth` のアカウントを再認可。**認可されたアドレスが `accounts.email` と異なる場合は拒否**（`VALIDATION`） |
-| `RemoveAccount(accountId)` | string | — | DB カスケード削除＋資格情報削除＋トークン revoke（失敗しても削除は成功扱い） |
+| `RemoveAccount(accountId)` | string | — | 同期ワーカーを停止（実行中の周期の終了を待つ）→DB カスケード削除→資格情報削除＋トークン revoke（失敗しても削除は成功扱い）。DB 削除に失敗したときは同期を再開してエラーを返す |
 | `UpdateAccount(accountId, patch)` | `{ displayName?, color?, notifyEnabled? }` | `Account` | 表示名・色・通知設定 |
 | `SetSignature(accountId, signatureHtml)` | string ×2 | `Account` | 署名。許可タグ（`p, br, strong, b, em, i, u, a[href], ul, ol, li`）以外はサーバー側で除去 |
 | `ReorderAccounts(accountIds)` | `string[]` | `Account[]` | 並び順を更新。全アカウント ID を過不足なく指定 |
@@ -365,14 +365,14 @@ type AIConfig = {
 | `SetInboxFilter(filter)` | 同上 | — | 保存 |
 | `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; dataDir: string }` | |
 | `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03 |
-| `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時は `{ available: false }` |
+| `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時、および版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは通信せず `{ available: false }` |
 | `AckBeforeQuit()` | — | — | `app:before-quit` を受けたフロントが、未保存の作成セッションを `SaveDraft` し終えたことを Go に伝える（§9）。Go はこれを受けるか猶予 3 秒の経過で終了処理に進む |
 
 ### 7.1 LogService
 
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
-| `ReportClientError(error)` | `ClientError` | — | フロントの未処理例外・Promise の reject・Vue の描画エラー・バインディング呼び出しの失敗を Go のログへ記録する。`ClientError` は `{ kind: 'error' \| 'unhandledrejection' \| 'vue' \| 'binding'; message: string; stack?: string; source?: string; code?: string; accountId?: string }`。本文・件名・宛先の項目は持たない。メッセージ・スタックはログの伏せ処理（NF-S10）を通り、長さを切る。1 秒に 1 件（瞬間 30 件）を超える報告は捨てる（エラーにしない）。`kind` が不正なら `VALIDATION`。`binding` は `code` が `INTERNAL` のときだけ Error、それ以外は Warn |
+| `ReportClientError(error)` | `ClientError` | — | フロントの未処理例外・Promise の reject・Vue の描画エラー・バインディング呼び出しの失敗を Go のログへ記録する。`ClientError` は `{ kind: 'error' \| 'unhandledrejection' \| 'vue' \| 'binding'; message: string; stack?: string; source?: string; code?: string; accountId?: string }`。本文・件名・宛先の項目は持たない。画面側は例外のメッセージ文を送らず、`message` は種類のコード（`TypeError` などのエラークラス名・`unknown`・`render-error:コンポーネント名`・`binding` のエラーコード）、`stack` は関数名とファイル:行:列のフレームだけ。Go 側は 2 枚目の防御として、メッセージ・スタックはログの伏せ処理（NF-S10）を通り、長さを切る。1 秒に 1 件（瞬間 30 件）を超える報告は捨てる（エラーにしない）。`kind` が不正なら `VALIDATION`。`binding` は `code` が `INTERNAL` のときだけ Error、それ以外は Warn |
 | `OpenLogFolder()` | — | — | ログフォルダ（`%APPDATA%\Hitomado\logs`）を OS の標準の方法で開く |
 | `ExportLogs()` | — | `{ saved: boolean; path?: string }` | 保存ダイアログで選んだ先に、ログ（現行とローテーション済み）を zip で書き出す。キャンセルは `saved=false` |
 
@@ -448,3 +448,6 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.10 | 2026-11-03 | §10 の Gmail API 一覧に `users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ）を追加 | `internal/gmail` の呼び出しとの整合（#51） |
 | 1.11 | 2026-11-03 | §1.2・§5.2 の `OFFLINE`／`CANCELLED`／`SEND_UNCERTAIN` の振り分けを実装に合わせて修正。送信後の呼び出し側キャンセルも送信済みの確認の対象とし、送信前の失敗は期限切れが `OFFLINE`、キャンセルが `CANCELLED` と明記 | `internal/gmail/errors.go`・`call.go`・`send_confirm.go`・`apperr` との整合（#66） |
 | 1.12 | 2026-11-03 | `LogService`（§7.1）・`MCPService`（§7.2）を追加 | #14 |
+| 1.13 | 2026-11-03 | `CheckForUpdate` に、版が `0.0.0`（dev・ローカルビルド）のときは通信せず `{ available: false }` を返す旨を追記 | #21 |
+| 1.14 | 2026-11-03 | `RemoveAccount` の手順を、同期ワーカーの停止（実行中の周期の終了待ち）→DB 削除に改め、DB 削除に失敗したときは同期を再開してエラーを返す旨を追記 | 実装（`internal/app/account.go`）との整合（#4） |
+| 1.15 | 2026-11-03 | `ReportClientError` の `message`・`stack` を、例外のメッセージ文ではなく種類のコード・位置だけのフレームにしたことを追記 | 実装（`frontend/src/lib/errorReporter.ts`）との整合（#24） |

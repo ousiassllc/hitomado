@@ -84,6 +84,7 @@ async function toggleLabel(labelId: string): Promise<void> {
       :checked-keys="inbox.checkedKeys"
       :loading="inbox.loading"
       :has-more="inbox.hasMore"
+      :loading-more="inbox.loadingMore"
       :empty-text="emptyText"
       @open="inbox.select"
       @toggle="inbox.toggleChecked"

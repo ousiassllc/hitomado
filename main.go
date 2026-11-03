@@ -7,6 +7,7 @@ import (
 
 	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/platform"
+	"github.com/ousiassllc/hitomado/internal/update"
 )
 
 //go:embed all:frontend/dist
@@ -16,8 +17,9 @@ var assets embed.FS
 var appIcon []byte
 
 // version は -ldflags "-X main.version=..." で上書きする（リリースではタグから注入する）。
-// 注入しない dev 実行（wails3 dev）・ローカルビルドの既定値は、VERSION の既定値（build/windows/Taskfile.yml の 0.0.0）と同じにする。
-var version = "0.0.0"
+// 注入しない dev 実行（wails3 dev）・ローカルビルドの既定値は update.DevVersion（0.0.0）で、更新確認を行わない。
+// VERSION の既定値（ルートの Taskfile.yml の includes の vars）と同じにする。
+var version = update.DevVersion
 
 func main() {
 	if err := runRecovered(); err != nil {

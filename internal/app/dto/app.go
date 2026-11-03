@@ -28,10 +28,10 @@ type AccountPatch struct {
 }
 
 // ClientError はフロントが Go のログへ送るエラー報告。メール本文・件名・宛先は送らない
-// （画面側が組み立てるのはエラーの種類・メッセージ・スタック・エラーコードだけ。Go 側でも伏せて長さを切る）。
+// （画面側が組み立てるのはエラーの種類コード・位置だけのスタック・エラーコードだけで、例外のメッセージ文は送らない。Go 側でも伏せて長さを切る）。
 type ClientError struct {
-	Kind      string `json:"kind"` // error / unhandledrejection / vue / binding
-	Message   string `json:"message"`
+	Kind      string `json:"kind"`    // error / unhandledrejection / vue / binding
+	Message   string `json:"message"` // 例外の文面ではなく種類のコード（TypeError / unknown / render-error:コンポーネント名 / binding のエラーコード）
 	Stack     string `json:"stack,omitempty"`
 	Source    string `json:"source,omitempty"`    // error イベントの発生元（ファイル:行:列）
 	Code      string `json:"code,omitempty"`      // binding のとき AppError.code

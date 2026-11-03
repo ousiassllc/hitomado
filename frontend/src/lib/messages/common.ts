@@ -61,6 +61,7 @@ export const common = {
     empty: '表示するスレッドがありません。',
     emptyUnread: '未読のスレッドはありません。',
     emptySearch: '一致するスレッドがありません。',
+    loadMore: 'さらに読み込む',
     loadingMore: '続きを読み込み中…',
     noSubject: '(件名なし)',
     noSender: '(差出人不明)',

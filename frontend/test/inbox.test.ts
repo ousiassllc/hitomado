@@ -95,13 +95,30 @@ describe('空ページ＋cursor', () => {
     ])
   })
 
-  test('空ページが延々続いても上限で止まる', async () => {
+  test('空ページが延々続いても 1 回の操作の自動継続は上限（先頭＋3 ページ）で止まる', async () => {
     responses.ListInbox = () => page([], 'next')
     const s = useInboxStore()
     await s.load()
     expect(s.items).toEqual([])
-    expect(callsOf('ListInbox').length).toBeLessThanOrEqual(12)
+    expect(callsOf('ListInbox')).toHaveLength(4)
     expect(s.hasMore).toBe(true)
+    expect(s.loadingMore).toBe(false)
+  })
+
+  test('上限で止まった続きは loadMore（さらに読み込む）で利用者が読み進められる', async () => {
+    let n = 0
+    responses.ListInbox = () => {
+      n++
+      return n === 6 ? page([thread('a1', 't9', 100)]) : page([], `c${n}`)
+    }
+    const s = useInboxStore()
+    await s.start()
+    expect(callsOf('ListInbox')).toHaveLength(4) // 起動 1 回の取得は上限で止まる
+    expect(s.items).toEqual([])
+    await s.loadMore() // 手動 1 回: さらに 3 ページまで
+    expect(callsOf('ListInbox')).toHaveLength(6)
+    expect(ids(s)).toEqual(['t9'])
+    expect(s.hasMore).toBe(false)
   })
 })
 

@@ -1,14 +1,13 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
-import * as realBindings from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
-import * as realEvents from '../lib/events'
+import * as realBindings from '../bindings/github.com/ousiassllc/hitomado/internal/app'
+import * as realEvents from '../src/lib/events'
 
-const BINDINGS = '../../bindings/github.com/ousiassllc/hitomado/internal/app'
+const BINDINGS = '../bindings/github.com/ousiassllc/hitomado/internal/app'
 
 type Handler = (payload: unknown) => void
 const handlers = new Map<string, Handler>()
 const unsubscribed: string[] = []
-
 const calls: { name: string; args: unknown[] }[] = []
 let responses: Record<string, unknown> = {}
 let failures: Record<string, unknown> = {}
@@ -44,7 +43,7 @@ mock.module(BINDINGS, () => ({
   LogService: { OpenLogFolder: binding('OpenLogFolder'), ExportLogs: binding('ExportLogs') },
 }))
 
-mock.module('../lib/events', () => ({
+mock.module('../src/lib/events', () => ({
   EVENTS: { UPDATE_AVAILABLE: 'update:available' },
   onEvent: (name: string, h: Handler) => {
     handlers.set(name, h)
@@ -59,11 +58,11 @@ mock.module('../lib/events', () => ({
 // 他のテストファイルへモックが漏れないよう、終了時に本物へ戻す。
 afterAll(() => {
   mock.module(BINDINGS, () => ({ ...realBindings }))
-  mock.module('../lib/events', () => ({ ...realEvents }))
+  mock.module('../src/lib/events', () => ({ ...realEvents }))
 })
 
-const { useSettingsStore } = await import('./settings')
-const { useUiStore } = await import('./ui')
+const { useSettingsStore } = await import('../src/stores/settings')
+const { useUiStore } = await import('../src/stores/ui')
 
 const baseAI = { provider: 'anthropic', model: 'm', hasApiKey: false, consentedProviders: null }
 const baseMcp = {

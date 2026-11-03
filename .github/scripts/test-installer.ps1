@@ -79,6 +79,7 @@ try {
   Assert ((Install $OldInstaller) -eq 0) 'old installer exits 0'
   Assert (Test-Path "$installDir\hitomado.exe") 'hitomado.exe is installed'
   Assert (Test-Path "$installDir\uninstall.exe") 'uninstall.exe is installed'
+  Assert (Test-Path "$installDir\NOTICE.txt") 'NOTICE.txt is installed'
   Assert (Test-Path $startMenuLink) 'Start Menu shortcut exists'
   Assert ((Displayed-Version) -eq $OldVersion) "Apps & features shows $OldVersion"
   Assert ((Get-ItemProperty $uninstKey).DisplayName -eq 'Hitomado') 'Apps & features shows the name'

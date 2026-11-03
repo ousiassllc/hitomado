@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { useId } from 'vue'
-import { settings as msg } from '../../lib/messages'
-import { ACCOUNT_COLOR_KEYS, accountColorVar, accountTextVar } from '../../lib/palette'
+import { settings as msg } from '../../../lib/messages'
+import { ACCOUNT_COLOR_KEYS, accountColorVar, accountTextVar } from '../../../lib/palette'
 
 defineProps<{ modelValue: string; disabled?: boolean }>()
 defineEmits<{ 'update:modelValue': [key: string] }>()
