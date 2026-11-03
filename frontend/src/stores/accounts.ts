@@ -8,6 +8,7 @@ import type {
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { call, list, parseBindingError } from '../lib/api'
 import { type AccountStatus, type AccountStatusPayload, EVENTS, onEvent } from '../lib/events'
+import { common } from '../lib/messages'
 import { makeApi } from './apiCall'
 import { useUiStore } from './ui'
 
@@ -165,6 +166,20 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
+  /**
+   * 前回の起動が Google の認可の途中で止められていたら（Android がブラウザに出ている間にプロセスを終了させた場合）、
+   * 待受が消えていて認可は完了できないため、やり直しを案内する。検出は Go が 1 回だけ返す。失敗しても何もしない。
+   */
+  async function notifyInterruptedAuth(): Promise<void> {
+    try {
+      if (await AccountService.TakeInterruptedAuth()) {
+        ui.pushToast('info', common.addAccount.interrupted)
+      }
+    } catch {
+      // 案内できなくても通常の利用には影響しない。
+    }
+  }
+
   /** イベント購読と初期ロード（冪等）。 */
   async function start(): Promise<void> {
     if (started) return
@@ -175,6 +190,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     } catch {
       // 失敗の通知（オフライン表示等）は api() が済ませている。次の成功で復帰する。
     }
+    await notifyInterruptedAuth()
   }
 
   function stop(): void {

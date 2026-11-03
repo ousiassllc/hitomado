@@ -10,7 +10,7 @@
 |----|------|------|
 | NF-S01 | 必須 | OAuth のリフレッシュトークン、OAuth クライアントの Client Secret、AI の API キー、ChatGPT ログインのトークン（アクセス・リフレッシュ・ID）は **OS の資格情報ストア（Windows 資格情報マネージャー）** に保存する。Android では Android Keystore の鍵で暗号化した EncryptedSharedPreferences にだけ保存し、バックアップ・端末間移行の対象にしない（Keystore の鍵が失われて読めなくなったときは、保存済みの値を破棄してアカウントを「要再接続」にする）。SQLite・設定ファイル・ログ（logcat を含む）に平文で保存しない |
 | NF-S02 | 必須 | Gmail スコープは `gmail.modify` のみ（加えて `openid email profile`）。`mail.google.com`（完全削除）や連絡先スコープは要求しない |
-| NF-S03 | 必須 | OAuth は認可コードフロー＋PKCE、リダイレクトは `127.0.0.1` のループバック（一時ポート）。`state` を検証する。待受は認可完了またはタイムアウト（5 分）で閉じる |
+| NF-S03 | 必須 | OAuth は認可コードフロー＋PKCE、リダイレクトは `127.0.0.1` のループバック（一時ポート）。`state` を検証する。待受は認可完了またはタイムアウト（5 分）で閉じる。Android も同じ方式（[Android ビルド §14](../environment/android.md#14-google-oauth-のリダイレクト方式86)）で、認可の途中でプロセスが止められたことの検出のために資格情報ストアへ残すのは時刻だけ（`state`・PKCE verifier は残さない） |
 | NF-S04 | 必須 | HTML メールは DOMPurify 等でサニタイズした上、`sandbox` 属性付き iframe（`srcdoc`）内に表示する。`sandbox` は **`allow-scripts`・`allow-forms`・`allow-popups`・`allow-top-navigation` を付けない**（メール内スクリプトは実行されない）。ホストが高さ計測とリンク捕捉をするため `allow-same-origin` のみ付ける（スクリプト実行が不可能なことが前提。[コンポーネント設計 §3.8](../components/overview.md)）。iframe 内の CSP は `default-src 'none'`。スクリプト・フォーム・外部 CSS・iframe・`<base>` は除去する |
 | NF-S05 | 必須 | リモート画像（`http(s)` の `img`・CSS `url()`）はデフォルトでブロックする（[F-03](functional.md#f-03-スレッド閲覧)） |
 | NF-S06 | 必須 | WebView の Content Security Policy を厳格に設定し、外部オリジンの読み込み（スクリプト・接続）を許可しない。外部通信はすべて Go バックエンド経由で行う |
@@ -138,3 +138,4 @@
 | 1.9 | 2026-11-03 | NF-S01 に ChatGPT ログインのトークンを追加。§2 に auth.openai.com／api.openai.com の通信先と ChatGPT プランの規約順守（公式フロー・Cookie／パスワードを受け取らない・Codex CLI の認証情報を使わない・名乗らない）、モデル一覧の取得の扱いを追記。§12 に ChatGPT プランを追記 | #75、#76 |
 | 1.10 | 2026-11-03 | §5 の多重起動に Android 版の扱いを追記。NF-D05（Android 版はアプリ内の更新確認をしない）を追加 | Android 版で使わない機能の無効化（#89） |
 | 1.11 | 2026-11-03 | NF-S01 に Android の資格情報の保管（EncryptedSharedPreferences・バックアップ対象外・鍵の喪失時の再接続・logcat を含むログに出さない）を追記 | #84 |
+| 1.12 | 2026-11-03 | NF-S03 に、Android の認可もループバックで、認可の途中の印は時刻だけを資格情報ストアへ残す旨を追記 | #86 |

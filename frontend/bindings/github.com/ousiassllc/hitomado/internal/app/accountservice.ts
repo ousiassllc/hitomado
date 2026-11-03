@@ -90,6 +90,13 @@ export function StartAddAccount(oauthClientID: string): $CancellablePromise<dto$
 }
 
 /**
+ * TakeInterruptedAuth は前回の起動が認可の途中で止められていたか（Android）を一度だけ返す。画面が「やり直し」を案内する。Windows は常に false。
+ */
+export function TakeInterruptedAuth(): $CancellablePromise<boolean> {
+    return $Call.ByID(1824336271);
+}
+
+/**
  * UpdateAccount は表示名・色・通知設定を更新する。
  */
 export function UpdateAccount(accountID: string, patch: dto$0.AccountPatch): $CancellablePromise<dto$0.Account> {
