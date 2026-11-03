@@ -5,6 +5,7 @@ import type { ThreadRef, ThreadSummary } from '../../../bindings/github.com/ousi
 import { keyOf } from '../../lib/inboxItems'
 import { common } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'
+import BaseButton from '../ui/BaseButton.vue'
 import Spinner from '../ui/Spinner.vue'
 import ThreadRow from './ThreadRow.vue'
 
@@ -20,6 +21,8 @@ const props = defineProps<{
   checkedKeys: string[]
   loading: boolean
   hasMore: boolean
+  /** 続きを取得中（自動継続・手動とも） */
+  loadingMore: boolean
   emptyText: string
 }>()
 
@@ -128,8 +131,11 @@ function onKeydown(ev: KeyboardEvent): void {
         />
       </div>
     </div>
-    <div v-if="hasMore && items.length > 0" class="more" role="status">
-      <Spinner :size="14" /> {{ common.list.loadingMore }}
+    <!-- 自動継続が上限で止まった場合（未読のみで 0 件等）も、続きを利用者が手動で読める -->
+    <div v-if="hasMore && !loading" class="more">
+      <BaseButton :loading="loadingMore" @click="emit('loadMore')">{{
+        loadingMore ? common.list.loadingMore : common.list.loadMore
+      }}</BaseButton>
     </div>
   </div>
 </template>
