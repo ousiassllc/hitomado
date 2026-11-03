@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import './styles/tokens.css'
 import './styles/reset.css'
+import './styles/touch.css'
 import { onMounted } from 'vue'
 import AppShell from './components/shell/AppShell.vue'
 import { useQuitFlush } from './composables/useQuitFlush'
@@ -28,5 +29,6 @@ onMounted(() => {
 </script>
 
 <template>
-  <AppShell />
+  <!-- 機能の読み込み（Android かどうか）が終わってから描く。Android で一瞬 3 ペインを出さない。 -->
+  <AppShell v-if="platform.settled" />
 </template>

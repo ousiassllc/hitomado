@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import { TooltipContent, TooltipPortal, TooltipProvider, TooltipRoot, TooltipTrigger } from 'reka-ui'
+import { usePlatformStore } from '../../stores/platform'
 
-/** text 未指定ならツールチップなしでスロットをそのまま描画する */
+/**
+ * text 未指定ならツールチップなしでスロットをそのまま描画する。
+ * タッチ UI（Android）ではホバーできず、ツールチップの中身（ショートカットキー）も使えないため出さない。
+ */
 defineProps<{ text?: string }>()
+const platform = usePlatformStore()
 </script>
 
 <template>
-  <slot v-if="!text" />
+  <slot v-if="!text || platform.touchUi" />
   <TooltipProvider v-else :delay-duration="400">
     <TooltipRoot>
       <TooltipTrigger as-child>

@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useNavigation } from '../../composables/useNavigation'
 import { useShortcuts } from '../../composables/useShortcuts'
+import { installBackHandler } from '../../lib/androidBack'
 import { common } from '../../lib/messages'
 import { clampList, clampSidebar, LIST, SIDEBAR } from '../../lib/paneWidth'
 import { useComposeStore } from '../../stores/compose'
+import { useLayoutStore } from '../../stores/layout'
+import { usePlatformStore } from '../../stores/platform'
+import { useUiStore } from '../../stores/ui'
 import AddAccountDialog from '../account/AddAccountDialog.vue'
 import ComposePane from '../compose/ComposePane.vue'
 import SendConfirmDialog from '../compose/SendConfirmDialog.vue'
@@ -16,20 +21,41 @@ import Sidebar from './Sidebar.vue'
 import ToastHost from './ToastHost.vue'
 
 const compose = useComposeStore()
+const layout = useLayoutStore()
+const platform = usePlatformStore()
+const ui = useUiStore()
+const { screen, goBack } = useNavigation()
 useShortcuts()
 
 const total = ref(window.innerWidth)
 const sidebarWidth = ref<number>(SIDEBAR.initial)
 const listWidth = ref<number>(LIST.initial)
 
-const columns = computed(() => `${sidebarWidth.value}px ${listWidth.value}px minmax(0, 1fr)`)
+/** wide は 3 ペイン、medium はサイドバーをドロワーにした 2 ペイン、stack は 1 画面ずつ（一覧・スレッド・作成が同じ場所に重なる）。 */
+const columns = computed(() => {
+  switch (layout.mode) {
+    case 'wide':
+      return `${sidebarWidth.value}px ${listWidth.value}px minmax(0, 1fr)`
+    case 'medium':
+      return `${listWidth.value}px minmax(0, 1fr)`
+    default:
+      return 'minmax(0, 1fr)'
+  }
+})
 /** 新規作成は右ペイン全面に ComposePane（ThreadPane は隠す）。返信・転送は ThreadPane 内に埋め込まれる。 */
 const composingNew = computed(() => compose.session?.mode === 'new')
+/** 1 画面ずつのとき、作成・返信は画面全体を覆う ComposePane（下の ThreadPane は残して、戻ったときに読んでいた位置を保つ）。 */
+const covering = computed(() => screen.value === 'compose' || screen.value === 'reply')
 
 function onWindowResize(): void {
   total.value = window.innerWidth
   sidebarWidth.value = clampSidebar(sidebarWidth.value, listWidth.value, total.value)
-  listWidth.value = clampList(listWidth.value, sidebarWidth.value, total.value)
+  listWidth.value = clampList(listWidth.value, inlineSidebarWidth(), total.value)
+}
+
+/** 一覧の幅の計算に使うサイドバーの幅（ドロワーのときは 0）。 */
+function inlineSidebarWidth(): number {
+  return layout.isWide ? sidebarWidth.value : 0
 }
 
 function resizeSidebar(delta: number): void {
@@ -37,18 +63,29 @@ function resizeSidebar(delta: number): void {
 }
 
 function resizeList(delta: number): void {
-  listWidth.value = clampList(listWidth.value + delta, sidebarWidth.value, total.value)
+  listWidth.value = clampList(listWidth.value + delta, inlineSidebarWidth(), total.value)
 }
 
-onMounted(() => window.addEventListener('resize', onWindowResize))
-onBeforeUnmount(() => window.removeEventListener('resize', onWindowResize))
+let removeBackHandler: (() => void) | undefined
+
+onMounted(() => {
+  window.addEventListener('resize', onWindowResize)
+  layout.start()
+  // Android の戻るボタン（MainActivity.java が呼ぶ）。タッチ UI の OS だけ受ける。
+  if (platform.touchUi) removeBackHandler = installBackHandler(goBack)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', onWindowResize)
+  layout.dispose()
+  removeBackHandler?.()
+})
 </script>
 
 <template>
-  <div class="shell">
+  <div class="shell" :class="`layout-${layout.mode}`">
     <BannerStack />
     <div class="panes" :style="{ gridTemplateColumns: columns }">
-      <div class="col">
+      <div v-if="layout.isWide" class="col">
         <Sidebar />
         <PaneSplitter
           class="split split-1"
@@ -59,9 +96,10 @@ onBeforeUnmount(() => window.removeEventListener('resize', onWindowResize))
           @resize="resizeSidebar"
         />
       </div>
-      <div class="col">
+      <div class="col" :class="{ off: layout.isStack && screen !== 'list' }">
         <ThreadListPane />
         <PaneSplitter
+          v-if="!layout.isStack"
           class="split split-2"
           :label="common.shell.listResize"
           :value="listWidth"
@@ -70,11 +108,23 @@ onBeforeUnmount(() => window.removeEventListener('resize', onWindowResize))
           @resize="resizeList"
         />
       </div>
-      <main class="detail" :aria-label="common.shell.detail">
-        <ComposePane v-if="composingNew" />
-        <ThreadPane v-else />
+      <main class="detail" :class="{ off: layout.isStack && screen === 'list' }" :aria-label="common.shell.detail">
+        <template v-if="layout.isStack">
+          <ThreadPane :class="{ off: covering }" />
+          <ComposePane v-if="covering" class="cover" />
+        </template>
+        <template v-else>
+          <ComposePane v-if="composingNew" />
+          <ThreadPane v-else />
+        </template>
       </main>
     </div>
+    <template v-if="layout.hasDrawer && ui.menuOpen">
+      <div class="scrim" aria-hidden="true" @click="ui.closeMenu()" />
+      <div class="drawer" data-testid="sidebar-drawer">
+        <Sidebar />
+      </div>
+    </template>
     <SendConfirmDialog />
     <SettingsDialog />
     <AddAccountDialog />
@@ -87,10 +137,19 @@ onBeforeUnmount(() => window.removeEventListener('resize', onWindowResize))
   display: flex;
   flex-direction: column;
   height: 100vh;
-  min-width: 960px;
   overflow: hidden;
   background: var(--color-bg);
   color: var(--color-text);
+}
+
+.layout-wide {
+  min-width: 960px;
+}
+
+/* モバイル幅（Android）では、ソフトキーボードで縮む表示領域の高さに合わせる。 */
+.layout-medium,
+.layout-stack {
+  height: 100dvh;
 }
 
 .panes {
@@ -112,11 +171,45 @@ onBeforeUnmount(() => window.removeEventListener('resize', onWindowResize))
   bottom: 0;
 }
 
+.off {
+  visibility: hidden;
+}
+
 .detail {
+  position: relative;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.cover {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+}
+
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: var(--color-overlay);
+}
+
+.drawer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 51;
+  width: min(320px, 85vw);
+  box-shadow: var(--shadow-popup);
+}
+
+/* 1 画面ずつ: 一覧・スレッド・作成は同じ場所に重ねる。出ていない画面は visibility で隠す（レイアウト・スクロール位置を保ち、フォーカスと読み上げからは外れる）。 */
+.layout-stack .col,
+.layout-stack .detail {
+  grid-area: 1 / 1;
 }
 </style>

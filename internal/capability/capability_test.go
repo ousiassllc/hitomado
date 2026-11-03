@@ -10,19 +10,20 @@ import (
 	"github.com/ousiassllc/hitomado/internal/capability"
 )
 
-func TestDesktopEnablesEverything(t *testing.T) {
+func TestDesktopEnablesEverythingButTouchUI(t *testing.T) {
 	assert.Equal(t, capability.Capabilities{
 		OS: "windows", SupportsMCP: true, SupportsTray: true, SupportsAutoUpdate: true, SupportsWindowState: true, SingleInstance: true,
 	}, capability.Desktop("windows"))
+	assert.False(t, capability.Desktop("windows").TouchUI, "デスクトップは 3 ペイン固定（タッチ UI なし）")
 }
 
-func TestAndroidDisablesEverything(t *testing.T) {
-	assert.Equal(t, capability.Capabilities{OS: "android"}, capability.Android())
+func TestAndroidDisablesDesktopFeaturesAndEnablesTouchUI(t *testing.T) {
+	assert.Equal(t, capability.Capabilities{OS: "android", TouchUI: true}, capability.Android())
 }
 
 func TestZeroValueDisablesEverything(t *testing.T) {
 	c := capability.Capabilities{}
-	assert.False(t, c.SupportsMCP || c.SupportsTray || c.SupportsAutoUpdate || c.SupportsWindowState || c.SingleInstance)
+	assert.False(t, c.SupportsMCP || c.SupportsTray || c.SupportsAutoUpdate || c.SupportsWindowState || c.SingleInstance || c.TouchUI)
 }
 
 // このテストを実行するホスト（Android ではない）の Current はデスクトップの機能になる。
@@ -39,5 +40,5 @@ func TestPlatformServiceReturnsGivenCapabilities(t *testing.T) {
 func TestCapabilitiesJSONKeys(t *testing.T) {
 	b, err := json.Marshal(capability.Android())
 	require.NoError(t, err)
-	assert.JSONEq(t, `{"os":"android","supportsMcp":false,"supportsTray":false,"supportsAutoUpdate":false,"supportsWindowState":false,"singleInstance":false}`, string(b))
+	assert.JSONEq(t, `{"os":"android","supportsMcp":false,"supportsTray":false,"supportsAutoUpdate":false,"supportsWindowState":false,"singleInstance":false,"touchUi":true}`, string(b))
 }

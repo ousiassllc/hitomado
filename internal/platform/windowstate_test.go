@@ -5,6 +5,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ousiassllc/hitomado/internal/capability"
 )
 
 func TestWindowStateRoundTrip(t *testing.T) {
@@ -75,4 +77,14 @@ func TestOnScreen(t *testing.T) {
 			assert.Equal(t, tt.want, OnScreen(tt.win, tt.areas))
 		})
 	}
+}
+
+func TestMinWindowSize(t *testing.T) {
+	w, h := MinWindowSize(capability.Desktop("windows"))
+	assert.Equal(t, MinWidth, w)
+	assert.Equal(t, MinHeight, h)
+
+	w, h = MinWindowSize(capability.Android())
+	assert.Zero(t, w, "Android は最小幅の制限なし")
+	assert.Zero(t, h)
 }

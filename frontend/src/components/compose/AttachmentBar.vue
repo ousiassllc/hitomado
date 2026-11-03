@@ -6,6 +6,7 @@ import { onEvent } from '../../lib/events'
 import { formatSize } from '../../lib/format'
 import { compose as msg } from '../../lib/messages'
 import { useComposeStore } from '../../stores/compose'
+import { usePlatformStore } from '../../stores/platform'
 import { useUiStore } from '../../stores/ui'
 import BaseButton from '../ui/BaseButton.vue'
 
@@ -14,6 +15,7 @@ const LIMIT_BYTES = 25 * 1024 * 1024
 
 const compose = useComposeStore()
 const ui = useUiStore()
+const platform = usePlatformStore()
 
 const total = computed(() => compose.attachments.reduce((sum, a) => sum + a.size, 0))
 const disabled = computed(() => compose.sending || compose.preview !== undefined)
@@ -53,7 +55,7 @@ onBeforeUnmount(() => stopDrop?.())
       <span v-if="compose.attachments.length > 0" class="attach-total">
         {{ msg.attachments.total(formatSize(total)) }} / {{ msg.attachments.limit(formatSize(LIMIT_BYTES)) }}
       </span>
-      <span v-else class="attach-hint">{{ msg.attachments.dropHint }}</span>
+      <span v-else-if="!platform.touchUi" class="attach-hint">{{ msg.attachments.dropHint }}</span>
     </div>
     <p v-if="compose.attachmentError" class="attach-error" role="alert">{{ compose.attachmentError }}</p>
     <ul v-if="compose.attachments.length > 0" class="attach-list">
