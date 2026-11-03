@@ -28,19 +28,6 @@ import (
 	"github.com/ousiassllc/hitomado/internal/update"
 )
 
-// dataDir は %APPDATA%\Hitomado（他 OS では os.UserConfigDir 配下）。
-func dataDir() (string, error) {
-	base, err := os.UserConfigDir()
-	if err != nil {
-		return "", fmt.Errorf("user config dir: %w", err)
-	}
-	dir := filepath.Join(base, "Hitomado")
-	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return "", fmt.Errorf("create data dir: %w", err)
-	}
-	return dir, nil
-}
-
 // run は composition root。Wails アプリを最初に作る（多重起動の判定は application.New の中で行われ、
 // 2 つ目のプロセスは DB・ログ・同期に触れる前に既存ウィンドウを前面に出して終了する）。
 // そのあとストアやサービスを組み立て、Run の前にサービスを登録する。
@@ -135,8 +122,11 @@ func run() error {
 		application.NewService(svc.Thread), application.NewService(svc.Compose),
 		application.NewService(svc.AI), application.NewService(svc.App),
 		application.NewService(svc.Log), application.NewService(svc.MCP),
-		application.NewService(notifSvc),
 	} {
+		wapp.RegisterService(s)
+	}
+	// Wails の通知サービスは Android では D-Bus に接続しようとして起動に失敗するため、Android では登録しない（notifsvc_android.go）。
+	if s, ok := notificationService(notifSvc); ok {
 		wapp.RegisterService(s)
 	}
 

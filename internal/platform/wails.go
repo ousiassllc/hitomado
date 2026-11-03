@@ -47,46 +47,17 @@ func NewFiles(app *application.App, window func() application.Window) *Files {
 	return &Files{app: app, window: window}
 }
 
-// SaveFile は保存先を選ばせる。キャンセルは ok=false。
-func (f *Files) SaveFile(_ context.Context, suggestedName string) (string, bool, error) {
-	d := f.app.Dialog.SaveFile().SetFilename(suggestedName).CanCreateDirectories(true)
-	if w := f.window(); w != nil {
-		d = d.AttachToWindow(w)
-	}
-	path, err := d.PromptForSingleSelection()
-	if err != nil {
-		return "", false, fmt.Errorf("save dialog: %w", err)
-	}
-	return path, path != "", nil
-}
-
 // Browser はシステムブラウザ／メーラーで URL を開く（app.URLOpener の実装）。
 type Browser struct{ app *application.App }
 
 // NewBrowser は URLOpener を返す。スキーム検証は呼び出し側が行う。
 func NewBrowser(app *application.App) *Browser { return &Browser{app: app} }
 
-// Open は URL を開く。
-func (b *Browser) Open(url string) error {
-	if err := b.app.Browser.OpenURL(url); err != nil {
-		return fmt.Errorf("open url: %w", err)
-	}
-	return nil
-}
-
 // Paths はファイル・フォルダを OS の標準の方法で開く（app.PathOpener の実装）。
 type Paths struct{ app *application.App }
 
 // NewPaths は PathOpener を返す。呼び出し側がアプリ自身のデータフォルダのパスだけを渡すこと。
 func NewPaths(app *application.App) *Paths { return &Paths{app: app} }
-
-// OpenPath はパスを開く。
-func (p *Paths) OpenPath(path string) error {
-	if err := p.app.Browser.OpenFile(path); err != nil {
-		return fmt.Errorf("open path: %w", err)
-	}
-	return nil
-}
 
 // ShowMainWindow はウィンドウを表示して前面に出す（通知クリック・トレイ・多重起動時）。
 func ShowMainWindow(w *application.WebviewWindow) {
@@ -194,13 +165,7 @@ func NewNotifier(svc *notifications.NotificationService, tray *Tray, window *app
 // NewMail はトーストを出す。本文・件名はログに出さない。
 func (n *Notifier) NewMail(_ context.Context, m notify.NewMailNotice) error {
 	title, body := noticeText(m)
-	err := n.svc.SendNotification(notifications.NotificationOptions{
-		ID:    m.AccountID + ":" + m.ThreadID,
-		Title: title,
-		Body:  body,
-		Data:  map[string]any{"accountId": m.AccountID, "threadId": m.ThreadID},
-	})
-	if err != nil {
+	if err := n.toast(m.AccountID, m.ThreadID, title, body); err != nil {
 		return fmt.Errorf("send notification: %w", err)
 	}
 	return nil

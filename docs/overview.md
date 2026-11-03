@@ -74,7 +74,7 @@ flowchart LR
 | バインディング仕様（API 仕様） | [`docs/api/endpoints.md`](api/endpoints.md) | Go↔フロントのバインディング契約、エラーコード、送信確認トークン、外部 API 利用 |
 | コンポーネント設計 | [`docs/components/overview.md`](components/overview.md) | Go／Vue のコンポーネント責務・依存・ショートカット・要件対応表 |
 | MCP 連携とログ | [`docs/mcp.md`](mcp.md) | 内蔵 MCP サーバー（既定オフ・トークン必須・送信なし）の設定・ツール、ログの場所・形式・伏せ処理 |
-| 環境構築 | [`docs/environment/setup.md`](environment/setup.md) | 開発ツール・bun 固定・CI（ubuntu／windows）・Biome／golangci-lint・Linterly・Lefthook |
+| 環境構築 | [`docs/environment/setup.md`](environment/setup.md) | 開発ツール・bun 固定・CI（ubuntu／windows）・Biome／golangci-lint・Linterly・Lefthook。Android のビルドは [`android.md`](environment/android.md) |
 
 ## マイルストーン / リリース計画
 
