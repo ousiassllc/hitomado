@@ -111,7 +111,7 @@ flowchart LR
 
 | ジョブ | 実行環境 | 内容 |
 |--------|----------|------|
-| `lint` | ubuntu-latest | `go mod tidy -diff`、`golangci-lint run`、android タグ側の `golangci-lint run`（`GOOS=android`・CGO なし）、`bunx biome ci`、`vue-tsc --noEmit`、`bunx linterly check`、**android タグ側の Go lint**（`GOOS=android`）、**生成物の差分検査**（`sqlc generate` と `wails3 generate bindings` のあと `git diff --exit-code`）、**`NOTICE` の最新性検査**（`bun .github/scripts/gen-notice.ts --check`。§4.3） |
+| `lint` | ubuntu-latest | `go mod tidy -diff`、`golangci-lint run`、**android タグ側の Go lint**（`GOOS=android`・CGO なしの `golangci-lint run`）、`bunx biome ci`、`vue-tsc --noEmit`、`bunx linterly check`、**生成物の差分検査**（`sqlc generate` と `wails3 generate bindings` のあと `git diff --exit-code`）、**`NOTICE` の最新性検査**（`bun .github/scripts/gen-notice.ts --check`。§4.3） |
 | `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため） |
 | `android` | ubuntu-latest | `pull_request` のみ（`release.yml` からの呼び出しでは動かさない）。release APK（arm64）と AAB を作って検査し、アーティファクトに上げる（使い捨ての署名鍵。[Android ビルド §8](android.md)） |
 | `build` | windows-latest | `needs: [lint, test]`。`wails3 package` でインストーラーを作り（版 `0.99.1` と `0.99.2` の 2 つ）、`.github/scripts/test-installer.ps1` で **インストール → 起動中の上書き拒否 → 上書き → アンインストール** を実機で検証する（§4.3）。新しい方のインストーラーを Actions のアーティファクトに保存 |
@@ -235,9 +235,11 @@ ignore:
   # 生成物（Wails のバインディング・sqlc の出力）。
   - "frontend/bindings/**"
   - "internal/store/db/**"
+  # Wails が出力する Android プロジェクト一式（Java・Gradle）。
+  - "build/android/**"
 ```
 
-- `.linterlyignore` は作らない（Linterly は `.linterlyignore` と `.linterly.yml` の `ignore` が両方あると後者を無視するため、除外は `.linterly.yml` の `ignore` に一本化する）。手書きソースコードの除外パターンは追加しない。除外は、ソースコードでないもの（`docs/**`・`LICENSE`・`NOTICE`・`frontend/bun.lock`）と生成物（`frontend/bindings/**`・`internal/store/db/**`）に限る
+- `.linterlyignore` は作らない（Linterly は `.linterlyignore` と `.linterly.yml` の `ignore` が両方あると後者を無視するため、除外は `.linterly.yml` の `ignore` に一本化する）。手書きソースコードの除外パターンは追加しない。除外は、ソースコードでないもの（`docs/**`・`LICENSE`・`NOTICE`・`frontend/bun.lock`）、生成物（`frontend/bindings/**`・`internal/store/db/**`）、Wails が出力する Android プロジェクト一式（`build/android/**`。Java・Gradle。[Android ビルド](android.md)）に限る
 - 生成物（`sqlc` の出力、Wails のバインディング）は、手書きでなく明確な理由があるため、上の `ignore` で除外している
 - `count_mode: all` は変更しない
 - 実行: `bunx linterly check`（pre-commit ではステージ済みファイル、CI では全体）
@@ -296,3 +298,4 @@ pre-push:
 | 1.9 | 2026-11-03 | §4.3 の版番号に、`VERSION` の既定値の定義を `Taskfile.yml` の `includes` の `vars` 1 か所にまとめたこと、`frontend/package.json` の `version` を `0.0.0` に揃えたこと、版が `0.0.0`（dev・ローカルビルド）のときは更新確認をしないことを反映 | #19、#20、#21 |
 | 1.10 | 2026-11-03 | Android ビルド基盤を [android.md](android.md) に分けて追加し、§3.3 に導線を足した。CI（`ci.yml`）に `Go lint (android)` と `android` ジョブを追加（§4.1） | #82 |
 | 1.11 | 2026-11-04 | §4.1 に Android の E2E（`android-e2e.yml`。手動実行のみ）の補足を追記 | #90 |
+| 1.12 | 2026-11-04 | §4.1 の `lint` の行で重複していた android タグ側の lint の記述を 1 つにし、§7 の `.linterly.yml` の例と除外の説明に `build/android/**` を追加 | 実際の `.linterly.yml` との整合（統合の研磨） |
