@@ -13,6 +13,23 @@ import (
 	"github.com/ousiassllc/hitomado/internal/update"
 )
 
+func TestIsDev(t *testing.T) {
+	for _, tc := range []struct {
+		version string
+		want    bool
+	}{
+		{update.DevVersion, true},
+		{"0.0.0", true},
+		{"0.0.1", false},
+		{"0.1.0", false},
+		{"0.99.2", false},
+		{"1.2.3", false},
+		{"", false},
+	} {
+		assert.Equal(t, tc.want, update.IsDev(tc.version), "IsDev(%q)", tc.version)
+	}
+}
+
 func TestIsNewer(t *testing.T) {
 	cases := []struct {
 		current, latest string

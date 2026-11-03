@@ -5,7 +5,8 @@ includes:
 
 # 版番号は、リリースではタグから v を除いた値を VERSION で渡す（例: wails3 package VERSION=0.1.1。既定は 0.0.0）。
 # exe の -X main.version、exe のファイルプロパティ、インストーラーの表示（DisplayVersion）が同じ値になる。
-# コマンドラインの VERSION はファイル先頭の vars からは見えないため、APP_VERSION は各タスクの vars に置く。
+# APP_VERSION（VERSION の既定値 0.0.0 を含む）はルートの Taskfile.yml の includes（windows）の vars で 1 か所だけ定義して渡す。
+# コマンドラインの VERSION は、このファイル先頭の vars からは見えない（include 側の vars からは見える）ため。
 tasks:
   build:
     summary: Builds the Windows executable (native Go cross-compilation, CGO off)
@@ -29,7 +30,6 @@ tasks:
       - cmd: rm -f *.syso
         platforms: [linux, darwin]
     vars:
-      APP_VERSION: '{{.VERSION | default "0.0.0"}}'
       BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="-w -s -H windowsgui -X main.version={{.APP_VERSION}}"{{end}}'
     env:
       GOOS: windows
@@ -48,8 +48,6 @@ tasks:
   installer:nsis:
     summary: Packs the already built bin/hitomado.exe into the per-user NSIS installer (needs makensis)
     dir: build/windows/nsis
-    vars:
-      APP_VERSION: '{{.VERSION | default "0.0.0"}}'
     preconditions:
       - sh: '{{if regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+$" .APP_VERSION}}true{{else}}false{{end}}'
         msg: "VERSION must look like X.Y.Z (no leading v), got '{{.APP_VERSION}}'"
@@ -64,8 +62,6 @@ tasks:
   generate:info:
     summary: Writes the Windows version resource (info.generated.json) with the release version
     dir: build/windows
-    vars:
-      APP_VERSION: '{{.VERSION | default "0.0.0"}}'
     cmds:
       # Windows の task には cat などの外部コマンドが無いので、組み込みの printf だけで書く。
       - >-

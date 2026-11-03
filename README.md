@@ -140,7 +140,7 @@ task check                      # CI と同等の検査（生成物の差分な�
 ```
 
 - 動作保証の対象は Windows です。Linux／macOS では Go の単体テスト・フロントのテスト・lint を実行できますが、アプリ本体の実行確認は Windows で行ってください。Linux で Go をビルド・テストするときは GTK を使わない `CGO_ENABLED=0 go test -tags purego ./...` を使います。
-- `task dev`・`task build`（`VERSION` なし）の版は `0.0.0` です（`task package VERSION=X.Y.Z` で渡した値だけが配布物の版になります）。`0.0.0` はリリース済みのどの版よりも古いため、設定画面の更新確認には常に新しい版が出ます。
+- `task dev`・`task build`（`VERSION` なし）の版は `0.0.0` です（`task package VERSION=X.Y.Z` で渡した値だけが配布物の版になります）。`0.0.0` の dev・ローカルビルドは更新確認をしません（設定画面にも新しい版は出ません）。
 - 仕様書は [docs/overview.md](docs/overview.md) のドキュメントマップから辿れます。
 - マージは squash／rebase せず、マージコミット方式です。コミットには `git commit -s`（Signed-off-by）を付けます。
 - リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けのインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）と `SHA256SUMS.txt` を Releases に添付します（コード署名なし）。手元でインストーラーを作るときは、Windows で [NSIS](https://nsis.sourceforge.io/)（`makensis`）を入れて `task package VERSION=X.Y.Z` を実行します（`bin/` に出力）。手でタグを打つ必要はありません。

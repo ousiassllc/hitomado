@@ -96,6 +96,30 @@ func TestCheckForUpdate(t *testing.T) {
 	_ = requireCode(t, apperr.Offline, err)
 }
 
+// dev・ローカルビルド（版 0.0.0）は更新確認をしない（通信せず・新版の状態も作らない）。配布物（X.Y.Z）は従来どおり確認する。
+func TestCheckForUpdateSkipsDevBuild(t *testing.T) {
+	for _, tc := range []struct {
+		name, version string
+		wantCalls     int
+		want          dto.UpdateInfo
+	}{
+		{"dev 0.0.0", "0.0.0", 0, dto.UpdateInfo{}},
+		{"配布物 X.Y.Z", "1.2.3", 1, dto.UpdateInfo{Available: true, Version: "9.9.9", URL: "https://example.com/r"}},
+		{"CI の 0.99.x", "0.99.2", 1, dto.UpdateInfo{Available: true, Version: "9.9.9", URL: "https://example.com/r"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, e := newAppSvc(t)
+			e.Deps.Version = tc.version
+			e.Update.Release = update.Release{Version: "9.9.9", URL: "https://example.com/r"}
+
+			info, err := svc.CheckForUpdate(t.Context())
+			require.NoError(t, err)
+			assert.Equal(t, tc.want, info)
+			assert.Equal(t, tc.wantCalls, e.Update.CallCount())
+		})
+	}
+}
+
 func TestAckBeforeQuit(t *testing.T) {
 	svc, e := newAppSvc(t)
 	require.NoError(t, svc.AckBeforeQuit(t.Context()), "QuitAck が nil でも成功")
