@@ -2,7 +2,7 @@
 
 > 関連: [環境構築](setup.md) / [プロジェクト概要](../overview.md) / [アーキテクチャ設計](../architecture/overview.md)
 
-本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。ストレージの保存先（#85）、資格情報の強化（#84）、通知（#88）、`modernc.org/libc` の android/amd64 問題（#83）は別の Issue が扱う。本書の対象外。
+本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。ストレージの保存先（#85）、資格情報の強化（#84）、通知（#88）、`modernc.org/libc` の android/amd64 問題は §10（#83）で決めた。
 
 ## 1. 必要なもの
 
@@ -123,7 +123,91 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 
 ## 9. 既知の事項
 
-- **x86_64（`ARCH=amd64`）はビルドできるが、アプリ内では起動しない**: `modernc.org/libc` の android/amd64 実装が旧式の syscall を直接呼び、Android の seccomp に拒否される（`SIGSYS`）。#83 が扱う。arm64（実機）はこの問題の対象外と見ているが、実機では未確認。x86_64 のエミュレーターでの起動確認は #83 の後。
+- **x86_64（`ARCH=amd64`）は、パッチ済みの `modernc.org/libc` でビルドする**（§10）。パッチなしだと SQLite の最初のファイル操作で `SIGSYS` で落ちる。arm64（実機）はこの問題の対象外で、アプリ内の SQLite の実行は**実機で未確認**（§10.3）。
 - Android の最小実装（アプリが起動してクラッシュしないための土台）: `dataDir` は `getFilesDir()` 配下（`datadir_android.go`。保存先の本実装は #85）、資格情報は EncryptedSharedPreferences（`internal/secrets/keyring_android.go`。強化は #84）、通知サービスは未登録で `Android.Notify` を直接呼ぶ（`internal/platform/toast_android.go`。#88）、保存ダイアログは `files/exports` へ保存（`savefile_android.go`。#85）。
 - `build/android/` は Wails のテンプレートを取り込んだもので、`.linterly.yml` の対象外。Gradle は `build/android/gradlew`（Gradle 9.2.1）を使う。
 - `build/android/overlay.json`・`build/android/gen/`・`jniLibs/*/libwails.so` などの生成物は git 管理外（`.gitignore`）。
+
+## 10. modernc.org/libc の android/amd64 問題（#83）
+
+### 10.1 問題と上流の状況
+
+`modernc.org/libc`（`modernc.org/sqlite` が使う C ランタイム）の `linux/amd64` 実装は、musl の C を ccgo で変換したもので、x86_64 にしか無い旧式のシステムコール番号（`lstat`、`access`、`mkdir`、`unlink`、`rename`、`pipe`、`dup2` ほか）を直接呼ぶ。Android のアプリには seccomp フィルターがかかっており、bionic の `SYSCALLS.TXT` と許可リストにある番号しか通さない。x86_64 では `*at` 系（`openat`、`newfstatat` …）だけが載っていて、旧式の番号のうち許可されているのは `open`・`stat`・`readlink` だけなので、それ以外を呼ぶとプロセスが `SIGSYS (SYS_SECCOMP)` で落ちる（実測: `syscall 6` ＝ `lstat`）。arm64 のカーネル ABI には旧式の番号が無く、`ccgo_linux_arm64.go` は `*at` 系だけを使う。
+
+- 上流には**同じ問題の issue がある**: [cznic/libc#41](https://gitlab.com/cznic/libc/-/issues/41)（2024-08 に報告。「No feedback, closing.」で 2025-04 に閉じられた。修正はない）。
+- **直っていない**: `go.mod` の v1.79.0 と、最新の v1.80.0（2026-11-01）・v1.79.1 のいずれも、`ccgo_linux_amd64.go` の旧式 syscall の呼び出し 15 か所が同じで、`syscall_musl.go` は v1.79.0 と v1.80.0 で同一（2026-11-03 に確認）。上流が直す見込みは薄い。
+- 試作（#81）の `libc_linux_amd64.go` を書き換えたパッチは、そのファイルのビルドタグが `!(linux && amd64)` で amd64 では**使われない**ので効かない。効くのは `syscall_musl.go` 側（`___syscall_cp`・`X__syscall1`〜`3`）の読み替えである。ここのパッチはその形にしてある。
+- 上流への報告文は下書きを [android-libc-upstream.md](android-libc-upstream.md) に置いた（**まだ送っていない**。外部サービスへの投稿はこの Issue の範囲外）。
+
+### 10.2 x86_64 の扱い（決定）
+
+**x86_64 をアプリとして残し、`modernc.org/libc` に小さなパッチを当てて android/amd64 でも動かす。** パッチは android/amd64 のビルドにだけ当たる。arm64・Linux・Windows のビルドとテストは変わらない。
+
+| 案 | 判断 |
+|----|------|
+| (a) パッチ版 libc を `go.mod` の `replace` で全 OS に効かせる | 採らない。`replace` は全 OS・全ターゲットに効き、`go.sum`・NOTICE（依存のライセンス表記）・Windows ビルドの入力が変わる。 |
+| **(a') パッチを `-modfile` の `replace` で android/amd64 のときだけ当てる**（採用） | `go.mod`・`go.sum` は変えない（`go mod tidy -diff`・NOTICE 生成の結果が同じ）。Windows・Linux・arm64 は上流の libc のまま。 |
+| (b) x86_64 を対象外にして、AAB を arm64 だけにする | 採らない。コストは最も低いが、x86_64 の端末（Chromebook・x86_64 エミュレーター）で起動しなくなる。このホストで動かせる Android のエミュレーターは x86_64 だけ（`/dev/kvm` が使えず `-accel off`）なので、#89 などのエミュレーターでの確認ができなくなる。 |
+
+採用理由（コストが低い）: パッチは libc の新ファイル 2 つ（android/amd64 の読み替え、それ以外のスタブ）と、`syscall_musl.go` の 4 関数の入口に足す 3 行ずつ（計約 140 行）だけ。libc の版を上げるとパッチの版チェックが**ビルドを失敗させる**ので、黙って古いパッチが当たることはない。CI の `android` ジョブは `bundle:fat`（amd64 を含む）をビルドするため、libc の更新（Renovate など）でパッチが当たらなくなると CI で気づく。
+
+仕組み:
+
+| 場所 | 内容 |
+|------|------|
+| `build/android/libc/amd64.patch` | libc v1.79.0 へのパッチ（`patch -p1`）。`legacy_android_amd64.go`（`//go:build android && amd64`。旧式の番号を `*at` 系に読み替える）、`legacy_other.go`（`!(android && amd64)`。何もしない）、`syscall_musl.go` の編集 |
+| `build/android/scripts/libc-overlay.go` | libc をモジュールキャッシュから `build/android/gen/libc-amd64/libc` へ複製してパッチを当て、`go.mod`・`go.sum` の複製に `replace modernc.org/libc => …` を足した `build/android/gen/libc-amd64/go.mod` を作る。`go.mod` の libc の版が `libcVersion`（v1.79.0）と違えば失敗する |
+| `build/android/Taskfile.yml` の `compile:go:shared` | `ARCH=amd64` のときだけ上のスクリプトを実行し、`go build -modfile=…/go.mod` で作る。`ARCH=arm64` では何もしない |
+
+`go build -overlay` はモジュールキャッシュ内のファイルを置き換えられないため、`-modfile`（ビルドごとの別 `go.mod`）を使っている。生成物は `build/android/gen/`（git 管理外）の下だけ。
+
+読み替える番号: `open`・`stat`・`lstat`・`access`・`pipe`・`dup2`・`rename`・`mkdir`・`rmdir`・`link`・`unlink`・`symlink`・`readlink`・`chmod`・`chown`・`lchown`・`mknod`（許可されている `open`・`stat`・`readlink` も、Android の版に依らず動くよう読み替える）。bionic の許可リストと照らして、残る未許可の番号（`poll`・`select`・`epoll_*`・`eventfd`・`inotify_init`・`fork`・`utimes`・`pause`・`signalfd`・`msg*`/`sem*`/`shm*` など）は SQLite が使わないので読み替えていない。ここに挙げたものをアプリのコードが `modernc.org/libc` 経由で呼ぶようになったら、パッチに足す。
+
+**libc の版を上げるとき**: `go.mod` の libc を上げるとパッチの版チェックで `android:build ARCH=amd64` が失敗する。新しい版の `syscall_musl.go` に同じ編集をし直して `amd64.patch` を作り直し、`libc-overlay.go` の `libcVersion` を更新する。上流が直したら（§10.1 の issue）、パッチ・スクリプト・Taskfile の分岐ごと削除する。
+
+### 10.3 検証した範囲（2026-11-03）
+
+**x86_64（android/amd64）: アプリ内で確認した。** API 35（google_apis x86_64）のエミュレーター（`-accel off`、`hitomado-a83` 用 AVD・ポート 5584。確認後に停止）で、`task android:build ARCH=amd64` → `android:assemble:apk` の debug APK を入れて起動した。
+
+| 場合 | 結果 |
+|------|------|
+| パッチあり（`task android:build ARCH=amd64`） | プロセスが生き続け、アプリ内に `files/Hitomado/hitomado.db`（と `-wal`・`-shm`）ができる。取り出して `sqlite3` で見ると、`goose_db_version` に 0・1 の 2 行が適用済み、テーブル 11 個（`accounts`・`threads`・`messages` ほか）、`PRAGMA integrity_check` は `ok`（`journal_mode=wal`）＝ `store.Open` のマイグレーションと書き込みがアプリ内で動いた |
+| パッチなし（対照。`go build` に `-modfile` を付けない） | `Fatal signal 31 (SIGSYS), code 1 (SYS_SECCOMP), syscall 6`。`hitomado.db` はできない |
+
+**arm64（実機の Android）: アプリ内の SQLite の実行は未確認。** 実機と KVM が無い。arm64 のエミュレーターは、このホスト（x86_64）では Android Emulator が拒否する（`FATAL | Avd's CPU Architecture 'arm64' is not supported by the QEMU2 emulator on x86_64 host. System image must match the host architecture.`。`-accel off` でも同じ。arm64 の system-image は取得済みだが起動できない）。したがって「arm64 のアプリ内で `hitomado.db` の作成・マイグレーション・読み書きができる」は**未確認**で、実機で確認する（§10.4）。
+
+静的に確認できたこと（arm64）:
+
+- `modernc.org/libc` v1.79.0 の `ccgo_linux_arm64.go` は、旧式の番号の定数（`SYS_open`・`SYS_stat`・`SYS_lstat`・`SYS_access`・`SYS_mkdir`・`SYS_unlink`・`SYS_rename`・`SYS_rmdir`・`SYS_pipe`・`SYS_dup2`・`SYS_readlink`・`SYS_link`・`SYS_symlink`・`SYS_chmod`・`SYS_chown`・`SYS_mknod`）を**1 つも定義していない**（amd64 の `ccgo_linux_amd64.go` はすべて定義している）。ファイル操作は `openat`（56）・`newfstatat`（79）・`mkdirat`（34）・`unlinkat`（35）・`faccessat`（48）・`renameat2`（276）を使う（`_fstatat_kstat`、`Xopen`、`mkdir` で確認）。
+- 手書き側（`abort_linux.go` と `libc_musl_linux_arm64.go`）が直接呼ぶのは `rt_sigaction`・`rt_sigprocmask`・`renameat2` だけ。
+- `X__syscall*` から呼ばれる番号（arm64、201 個）を bionic の許可リスト（`SYSCALLS.TXT`＋`SECCOMP_ALLOWLIST_*`）と照合すると、許可リストに無いのは `faccessat2`・`fchmodat2`・`fanotify_*`・`msg*`/`sem*`/`shm*`・`name_to_handle_at`・`open_by_handle_at`・`remap_file_pages`・`vhangup` だけで、SQLite のファイル・ロック・mmap・スレッドの経路は使わない（musl の `faccessat` はフラグ 0 なら `faccessat` を使う）。amd64 は同じ照合で旧式の番号が多数引っかかる（§10.1）。
+- `GOOS=android GOARCH=arm64 CGO_ENABLED=1 CC=<NDK clang> go build -buildmode=c-shared` で `libwails.so`（`ELF 64-bit … ARM aarch64`）ができ、`go tool nm` で `modernc.org/libc.X__syscall2`・`Xopen`・`_fstatat_kstat` を含むこと、パッチの `androidLegacySyscall` を含まないことを確認した。
+- ストア層は android/arm64・android/amd64 でビルド・`go vet` が通る（§10.5）。
+
+### 10.4 arm64 の実機で確認する手順
+
+リリース APK は debuggable ではないので `adb shell run-as` は使えない。確認用に **debug APK**（`task android:run:device`。debuggable。起動時に自己確認のコードは入れていない）を実機へ入れて確かめる。
+
+```bash
+task android:run:device                       # arm64 の debug APK を実機へ入れて起動（既存のアプリは消える）
+adb shell pidof jp.ousias.hitomado            # プロセスが生きている（SIGSYS で落ちていない）
+adb logcat -d | grep -E "SIGSYS|SYS_SECCOMP|Fatal signal"   # 何も出ない
+adb shell run-as jp.ousias.hitomado ls -la files/Hitomado    # hitomado.db・hitomado.db-wal がある
+adb exec-out run-as jp.ousias.hitomado cat files/Hitomado/hitomado.db > hitomado.db
+adb exec-out run-as jp.ousias.hitomado cat files/Hitomado/hitomado.db-wal > hitomado.db-wal
+sqlite3 hitomado.db "select version_id,is_applied from goose_db_version; pragma integrity_check;"
+```
+
+マイグレーション（`goose_db_version` の全行が適用済み）と `integrity_check = ok` が見えれば、作成・マイグレーション・書き込みは通っている。読み取りは、アプリで Google アカウントを追加して同期させ（本物の Google が要る）、`accounts` や `threads` の行が増えることを `sqlite3` で確かめる。`logcat` には Wails のログ（`Page loaded: https://wails.localhost/`）が出る。debug APK の署名は debug 鍵なので、実機にリリース鍵のアプリが入っていれば先に `adb uninstall jp.ousias.hitomado` が要る（データも消える）。
+
+### 10.5 Linux・Windows への影響がないことの確認
+
+| 確認 | 結果 |
+|------|------|
+| `go mod tidy -diff` | 差分なし（`go.mod`・`go.sum` は変更していない） |
+| NOTICE の生成（`bun .github/scripts/gen-notice.ts --check`） | 差分なし |
+| `GOOS=windows go build ./...`・`go vet ./internal/store/...` | 通る |
+| Linux の `go vet ./internal/store/...`・`go test ./internal/store/...` | 通る |
+| `GOOS=android GOARCH=arm64 CGO_ENABLED=1 CC=<NDK clang> go vet ./internal/store/...` | 通る |
+| `GOOS=android GOARCH=amd64 CGO_ENABLED=1 CC=<NDK clang> go vet ./internal/store/...`（パッチなし／`-modfile` でパッチあり） | どちらも通る |
+| `-modfile`（パッチ済み libc）で `go vet ./internal/store/...` を android/arm64・linux/amd64・windows/amd64、`go test ./internal/store/...` を linux/amd64 | 通る（パッチの `legacy_other.go` が何もしないため、android/amd64 以外ではコードが同じ） |
