@@ -139,7 +139,10 @@ func run() error {
 		cancel()
 		loops.Wait()
 		svc.MCP.Shutdown()
-		sched.Shutdown()
+		// Run がトレイ終了を経由せず戻った場合、flush 中の tray.SetIcon（InvokeSync）で sched.Shutdown が戻らないことがある。上限で打ち切って先へ進む。
+		if !platform.WaitBounded(sched.Shutdown, platform.ShutdownGrace) {
+			logger.Warn("sync shutdown timed out; continuing", "grace", platform.ShutdownGrace.String())
+		}
 	})
 	quitter = platform.NewQuitter(emitter, func() {
 		keeper.Flush() // 終了でウィンドウが壊れる前に位置・サイズを保存する
