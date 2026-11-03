@@ -7,6 +7,7 @@ import (
 
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/threadcache"
+	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/events"
 	"github.com/ousiassllc/hitomado/internal/gmail"
@@ -62,6 +63,9 @@ type Deps struct {
 	Logger   *slog.Logger
 	DataDir  string // %APPDATA%\Hitomado
 	Version  string
+
+	// Capabilities はこの OS で提供する機能（MCP・自動更新など。Android では無効）。ゼロ値は全機能が無効。
+	Capabilities capability.Capabilities
 
 	// QuitAck は AppService.AckBeforeQuit から呼ばれる（フロントの未保存下書き保存の完了通知。nil 可）。
 	QuitAck func()

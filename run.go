@@ -16,6 +16,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/threadcache"
+	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/logging"
@@ -31,7 +32,10 @@ import (
 // run は composition root。Wails アプリを最初に作る（多重起動の判定は application.New の中で行われ、
 // 2 つ目のプロセスは DB・ログ・同期に触れる前に既存ウィンドウを前面に出して終了する）。
 // そのあとストアやサービスを組み立て、Run の前にサービスを登録する。
+// MCP サーバー・トレイ・多重起動の防止・ウィンドウ状態の保存復元・アプリ内の自動更新は、OS の機能（capability.Current）が
+// 持つときだけ動かす（Android では動かさない。#89）。
 func run() error {
+	caps := capability.Current()
 	mainWindow := &windowRef{}
 	wapp := application.New(application.Options{
 		Name:         "Hitomado",
@@ -43,14 +47,7 @@ func run() error {
 		PanicHandler: func(p *application.PanicDetails) {
 			logging.LogPanic(slog.Default(), "wails", p.Error, []byte(p.StackTrace))
 		},
-		SingleInstance: &application.SingleInstanceOptions{
-			UniqueID: "jp.ousias.hitomado",
-			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
-				if w := mainWindow.get(); w != nil {
-					platform.ShowMainWindow(w)
-				}
-			},
-		},
+		SingleInstance: singleInstanceOptions(caps, mainWindow),
 	})
 
 	dir, err := dataDir()
@@ -73,15 +70,22 @@ func run() error {
 	}
 	defer func() { _ = st.Close() }()
 
-	win, keeper := platform.NewMainWindow(wapp, loadWindowState(ctx, st, logger), windowStateSaver(st, logger))
+	saved, save := platform.DefaultWindowState(), (func(platform.WindowState))(nil)
+	if caps.SupportsWindowState {
+		saved, save = loadWindowState(ctx, st, logger), windowStateSaver(st, logger)
+	}
+	win, keeper := platform.NewMainWindow(wapp, caps, saved, save)
 	mainWindow.set(win)
 	emitter := platform.NewEmitter(wapp)
 	notifSvc := notifications.New()
 
 	var quitter *platform.Quitter
-	tray, err := platform.NewTray(wapp, win, appIcon, func() { quitter.Request() })
-	if err != nil {
-		return err
+	var tray *platform.Tray
+	if caps.SupportsTray {
+		tray, err = platform.NewTray(wapp, win, appIcon, func() { quitter.Request() })
+		if err != nil {
+			return err
+		}
 	}
 	notifier := platform.NewNotifier(notifSvc, tray, win, emitter, logger)
 
@@ -112,17 +116,12 @@ func run() error {
 		ChatGPT: siwc.New(siwc.Options{
 			OpenBrowser: platform.NewBrowser(wapp).Open, Secrets: sec, Settings: st, Clock: clk, Logger: logger,
 		}),
-		Logger: logger, DataDir: dir, Version: version,
+		Logger: logger, DataDir: dir, Version: version, Capabilities: caps,
 		QuitAck: func() { quitter.Ack() },
 		Threads: cache,
 	}
 	svc := app.NewServices(deps)
-	for _, s := range []application.Service{
-		application.NewService(svc.Account), application.NewService(svc.Inbox),
-		application.NewService(svc.Thread), application.NewService(svc.Compose),
-		application.NewService(svc.AI), application.NewService(svc.App),
-		application.NewService(svc.Log), application.NewService(svc.MCP),
-	} {
+	for _, s := range bindingServices(svc, caps) {
 		wapp.RegisterService(s)
 	}
 	// Wails の通知サービスは Android では D-Bus に接続しようとして起動に失敗するため、Android では登録しない（notifsvc_android.go）。
@@ -162,9 +161,10 @@ func run() error {
 	return nil
 }
 
-// startBackground は MCP サーバー（設定でオンのときだけ）・同期ワーカー（needs_reauth 以外）・更新確認ループを起動する。
+// startBackground は MCP サーバー（OS が持ち、設定でオンのときだけ）・同期ワーカー（needs_reauth 以外）・
+// 更新確認ループ（OS が持つときだけ）を起動する。
 func startBackground(ctx context.Context, d *app.Deps, svc *app.Services, loops *sync.WaitGroup, logger *slog.Logger) {
-	svc.MCP.Start(ctx) // 設定でオンのときだけ待ち受ける（既定はオフ）
+	svc.MCP.Start(ctx) // OS が持ち、設定でオンのときだけ待ち受ける（既定はオフ。Android では保存値がオンでも待ち受けない）
 	accounts, err := d.Store.ListAccounts(ctx)
 	if err != nil {
 		logger.Error("list accounts failed", "err", err.Error())
@@ -174,6 +174,9 @@ func startBackground(ctx context.Context, d *app.Deps, svc *app.Services, loops 
 		if a.Status != store.StatusNeedsReauth {
 			d.Sync.Start(a.ID)
 		}
+	}
+	if !d.Capabilities.SupportsAutoUpdate {
+		return
 	}
 	loops.Add(1)
 	go func() {

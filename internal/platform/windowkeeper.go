@@ -94,7 +94,11 @@ func (k *WindowKeeper) schedule() {
 }
 
 // Flush は今の状態を直ちに保存する。ウィンドウが無い（破棄済み）ときは直近に取れた値を保存する。
+// k が nil（ウィンドウ状態を保存しない OS）のときは何もしない。
 func (k *WindowKeeper) Flush() {
+	if k == nil {
+		return
+	}
 	k.capture()
 	k.mu.Lock()
 	normal, maximized := k.normal, k.maximized

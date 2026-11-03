@@ -23,7 +23,7 @@ export function AckBeforeQuit(): $CancellablePromise<void> {
 }
 
 /**
- * CheckForUpdate は更新確認を今すぐ行う。無効のとき、および dev・ローカルビルド（版 update.DevVersion）のときは通信せず {available:false}。
+ * CheckForUpdate は更新確認を今すぐ行う。無効のとき（アプリ内の更新確認を持たない OS を含む）、および dev・ローカルビルド（版 update.DevVersion）のときは通信せず {available:false}。
  */
 export function CheckForUpdate(): $CancellablePromise<dto$0.UpdateInfo> {
     return $Call.ByID(338931324);
