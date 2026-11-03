@@ -449,3 +449,5 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.11 | 2026-11-03 | §1.2・§5.2 の `OFFLINE`／`CANCELLED`／`SEND_UNCERTAIN` の振り分けを実装に合わせて修正。送信後の呼び出し側キャンセルも送信済みの確認の対象とし、送信前の失敗は期限切れが `OFFLINE`、キャンセルが `CANCELLED` と明記 | `internal/gmail/errors.go`・`call.go`・`send_confirm.go`・`apperr` との整合（#66） |
 | 1.12 | 2026-11-03 | `LogService`（§7.1）・`MCPService`（§7.2）を追加 | #14 |
 | 1.13 | 2026-11-03 | `CheckForUpdate` に、版が `0.0.0`（dev・ローカルビルド）のときは通信せず `{ available: false }` を返す旨を追記 | #21 |
+| 1.14 | 2026-11-03 | `RemoveAccount` の手順を、同期ワーカーの停止（実行中の周期の終了待ち）→DB 削除に改め、DB 削除に失敗したときは同期を再開してエラーを返す旨を追記 | 実装（`internal/app/account.go`）との整合（#4） |
+| 1.15 | 2026-11-03 | `ReportClientError` の `message`・`stack` を、例外のメッセージ文ではなく種類のコード・位置だけのフレームにしたことを追記 | 実装（`frontend/src/lib/errorReporter.ts`）との整合（#24） |
