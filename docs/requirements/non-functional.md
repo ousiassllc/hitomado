@@ -89,7 +89,7 @@
 |----|------|------|
 | NF-D01 | 必須 | GitHub Releases に Windows 向けインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）と `SHA256SUMS.txt` を公開する。インストールは利用者ごと（管理者権限なし）で、スタートメニューへ登録し、「アプリと機能」からアンインストールでき、上書きインストールで更新できる。アンインストールは利用者のデータ（`%APPDATA%\Hitomado`・資格情報マネージャーの秘密）を消さない（[setup.md §4.3](../environment/setup.md#43-windows-インストーラー)）。版番号はインストーラー・アプリ・exe のプロパティで一致させる |
 | NF-D02 | 必須 | コード署名は行わない（インストーラーも）。SmartScreen の警告が出ることを README に明記し、実行手順と `SHA256SUMS.txt` での確認を案内する |
-| NF-D03 | 必須 | 起動時と 24 時間ごとに GitHub Releases API（`api.github.com/repos/ousiassllc/hitomado/releases/latest`）で最新版を確認し、新しければ設定画面・通知領域にリンクを表示する。自動ダウンロード・自動インストールは行わない。設定でオフにできる |
+| NF-D03 | 必須 | 起動時と 24 時間ごとに GitHub Releases API（`api.github.com/repos/ousiassllc/hitomado/releases/latest`）で最新版を確認し、新しければ設定画面・通知領域にリンクを表示する。自動ダウンロード・自動インストールは行わない。設定でオフにできる。版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは確認しない（通信せず、新しい版の表示も出さない） |
 | NF-D04 | 必須 | ビルドは GitHub Actions で再現可能にする |
 
 ## 9. 外部サービスの制約（README で案内する）
@@ -129,3 +129,4 @@
 | 1.4 | 2026-11-03 | §4 に `messages.send`／`drafts.create` が 5xx を再試行しない例外を追記（履歴に未記録だった分） | 二重送信・重複作成を避ける実装（`internal/gmail/call.go`）との整合（#46。記録漏れの補正 #53） |
 | 1.5 | 2026-11-03 | §2 に、AI プロバイダへの HTTP が 3xx を追従せず `AI_FAILED` とすることと、Base URL には最終的な URL を指定する旨を追記 | 実装（`internal/ai/provider.go` の既定クライアント）との整合（#58） |
 | 1.6 | 2026-11-03 | NF-S10 に伏せ処理の方式を追記。NF-S13〜NF-S15（MCP の既定オフ・トークン必須・送信なし・呼び出しの記録）を追加 | #14 |
+| 1.7 | 2026-11-03 | NF-D03 に、版が `0.0.0`（dev・ローカルビルド）のときは更新確認をしない旨を追記 | #21 |

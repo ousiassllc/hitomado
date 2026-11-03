@@ -5,6 +5,13 @@ import (
 	"strings"
 )
 
+// DevVersion は -X main.version を注入しない dev 実行・ローカルビルドの版。
+// VERSION の既定値（ルートの Taskfile.yml の includes の vars）と揃える。リリース済みのどの版よりも古いため、更新確認の対象にしない。
+const DevVersion = "0.0.0"
+
+// IsDev は version が注入なしの dev・ローカルビルドの版（DevVersion）かを返す。
+func IsDev(version string) bool { return version == DevVersion }
+
 // semver は比較に必要な部分だけを持つ解析済みバージョン（ビルドメタデータは無視する）。
 type semver struct {
 	core [3]uint64

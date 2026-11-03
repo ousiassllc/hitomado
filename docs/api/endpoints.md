@@ -365,7 +365,7 @@ type AIConfig = {
 | `SetInboxFilter(filter)` | 同上 | — | 保存 |
 | `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; dataDir: string }` | |
 | `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03 |
-| `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時は `{ available: false }` |
+| `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時、および版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは通信せず `{ available: false }` |
 | `AckBeforeQuit()` | — | — | `app:before-quit` を受けたフロントが、未保存の作成セッションを `SaveDraft` し終えたことを Go に伝える（§9）。Go はこれを受けるか猶予 3 秒の経過で終了処理に進む |
 
 ### 7.1 LogService
@@ -448,3 +448,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.10 | 2026-11-03 | §10 の Gmail API 一覧に `users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ）を追加 | `internal/gmail` の呼び出しとの整合（#51） |
 | 1.11 | 2026-11-03 | §1.2・§5.2 の `OFFLINE`／`CANCELLED`／`SEND_UNCERTAIN` の振り分けを実装に合わせて修正。送信後の呼び出し側キャンセルも送信済みの確認の対象とし、送信前の失敗は期限切れが `OFFLINE`、キャンセルが `CANCELLED` と明記 | `internal/gmail/errors.go`・`call.go`・`send_confirm.go`・`apperr` との整合（#66） |
 | 1.12 | 2026-11-03 | `LogService`（§7.1）・`MCPService`（§7.2）を追加 | #14 |
+| 1.13 | 2026-11-03 | `CheckForUpdate` に、版が `0.0.0`（dev・ローカルビルド）のときは通信せず `{ available: false }` を返す旨を追記 | #21 |

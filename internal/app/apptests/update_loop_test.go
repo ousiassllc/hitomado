@@ -74,6 +74,19 @@ func TestUpdateLoopSkipsWhenDisabled(t *testing.T) {
 	assert.Empty(t, e.Events.Named(events.UpdateAvailable))
 }
 
+func TestUpdateLoopSkipsDevBuild(t *testing.T) {
+	_, e := newAppSvc(t)
+	tick := tickerFor(e)
+	e.Deps.Version = update.DevVersion
+	e.Update.Release = update.Release{Version: "9.0.0", URL: "u"}
+	runLoop(t, e)
+
+	tick <- time.Now() // 受け取られた時点で、起動時の確認は完了している
+	tick <- time.Now() // 同様に 2 回目の確認が完了している
+	assert.Zero(t, e.Update.CallCount(), "dev ビルドは通信しない")
+	assert.Empty(t, e.Events.Named(events.UpdateAvailable))
+}
+
 func TestUpdateLoopDoesNotEmitForSameVersion(t *testing.T) {
 	_, e := newAppSvc(t)
 	tick := tickerFor(e)
