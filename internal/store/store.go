@@ -194,6 +194,7 @@ const (
 	SettingInboxFilter = "inbox.filter"
 	SettingAIConfig    = "ai.config"
 	SettingAIConsent   = "ai.consent"
+	SettingAIChatGPT   = "ai.chatgpt"
 	SettingUpdateCheck = "update.check_enabled"
 	SettingLastChecked = "update.last_checked_at"
 	SettingWindowState = "window.state"

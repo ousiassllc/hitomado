@@ -13,6 +13,8 @@ import (
 const (
 	ProviderAnthropic = "anthropic"
 	ProviderOpenAI    = "openai"
+	// ProviderChatGPT は Sign in with ChatGPT の OAuth アクセストークンで Responses API を呼ぶプロバイダ。
+	ProviderChatGPT = "chatgpt"
 )
 
 const (
@@ -24,28 +26,33 @@ const (
 	defaultHTTPTimeout = 2 * time.Minute
 )
 
-// New は provider（anthropic／openai）に応じた Provider を返す。baseURL は openai（互換エンドポイント）のみ
-// 有効で、空なら OpenAI 既定。anthropic では無視される。
+// New は provider（anthropic／openai／chatgpt）に応じた Provider を返す。baseURL は openai（互換エンドポイント）のみ
+// 有効で、空なら OpenAI 既定。anthropic・chatgpt では無視される。chatgpt の apiKey は OAuth アクセストークン。
 func New(provider, model, baseURL, apiKey string) (Provider, error) {
-	if provider == ProviderAnthropic {
+	if provider == ProviderAnthropic || provider == ProviderChatGPT {
 		baseURL = ""
 	}
 	return NewWithClient(provider, model, baseURL, apiKey, nil)
 }
 
-// NewWithClient は http.Client とベース URL を指定して Provider を作る（テスト用に anthropic の
+// newHTTPClient は既定の http.Client を返す。
+// リダイレクトは追従しない。307／308 は POST の本文ごと別ホスト・別 scheme へ再送されるため、
+// 同意・検証済みの送信先（scheme＋ホスト）以外にスレッド内容が届き得る。3xx は ErrFailed になる。
+func newHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout:       defaultHTTPTimeout,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
+	}
+}
+
+// NewWithClient は http.Client とベース URL を指定して Provider を作る（テスト用に anthropic・chatgpt の
 // ベース URL も上書きできる）。hc が nil なら既定のクライアントを使う。
 func NewWithClient(provider, model, baseURL, apiKey string, hc *http.Client) (Provider, error) {
 	if model == "" {
 		return nil, errors.New("ai: モデルが指定されていません")
 	}
 	if hc == nil {
-		// リダイレクトは追従しない。307／308 は POST の本文ごと別ホスト・別 scheme へ再送されるため、
-		// 同意・検証済みの送信先（scheme＋ホスト）以外にスレッド内容が届き得る。3xx は ErrFailed になる。
-		hc = &http.Client{
-			Timeout:       defaultHTTPTimeout,
-			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-		}
+		hc = newHTTPClient()
 	}
 	c := client{hc: hc, model: model, apiKey: apiKey}
 	switch provider {
@@ -63,6 +70,13 @@ func NewWithClient(provider, model, baseURL, apiKey string, hc *http.Client) (Pr
 		}
 		c.base = base
 		return &openAI{client: c}, nil
+	case ProviderChatGPT:
+		base, err := normalizeBase(baseURL, defaultOpenAIBaseURL)
+		if err != nil {
+			return nil, err
+		}
+		c.base = base
+		return &chatGPT{client: c}, nil
 	default:
 		return nil, fmt.Errorf("ai: 未対応のプロバイダです: %q", provider)
 	}

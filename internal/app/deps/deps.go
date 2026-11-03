@@ -13,6 +13,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/notify"
 	"github.com/ousiassllc/hitomado/internal/oauth"
 	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/hitomado/internal/siwc"
 	"github.com/ousiassllc/hitomado/internal/store"
 	syncer "github.com/ousiassllc/hitomado/internal/sync"
 	"github.com/ousiassllc/hitomado/internal/update"
@@ -37,6 +38,10 @@ type PathOpener interface {
 // provider は anthropic／openai、baseURL は openai のみ（空なら OpenAI 既定）。
 type AIFactory func(provider, model, baseURL, apiKey string) (ai.Provider, error)
 
+// AIModelsLister はプロバイダのモデル一覧を取得する（テストではフェイクに差し替える）。
+// credential は API キー（chatgpt では ChatGPT ログインのアクセストークン）。baseURL は openai のみ（空なら既定）。
+type AIModelsLister func(ctx context.Context, provider, baseURL, credential string) ([]ai.ModelInfo, error)
+
 // Deps はサービス層が使う外部依存。具象は main.go（composition root）で組み立てる。
 type Deps struct {
 	Store    store.Store
@@ -52,6 +57,8 @@ type Deps struct {
 	Browser  URLOpener
 	Paths    PathOpener
 	AI       AIFactory
+	AIModels AIModelsLister
+	ChatGPT  siwc.Auth // Sign in with ChatGPT（ログイン・更新・ログアウト）
 	Logger   *slog.Logger
 	DataDir  string // %APPDATA%\Hitomado
 	Version  string

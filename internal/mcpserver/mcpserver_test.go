@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"reflect"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -180,4 +181,19 @@ func TestManagerConcurrentApply(t *testing.T) {
 	wg.Wait()
 	m.Close()
 	assert.False(t, m.State().Listening)
+}
+
+// MCP からは ChatGPT のログイン・トークン・AI 設定を操作できない（#75）。ツールと Backend のどちらにも、それらに当たる名前を足せない。
+func TestMCPCannotTouchChatGPTLoginOrTokens(t *testing.T) {
+	names := slices.Clone(ToolNames)
+	typ := reflect.TypeFor[Backend]()
+	for i := range typ.NumMethod() {
+		names = append(names, typ.Method(i).Name)
+	}
+	for _, n := range names {
+		l := strings.ToLower(n)
+		for _, banned := range []string{"chatgpt", "openai", "signin", "sign_in", "login", "token", "oauth", "apikey", "api_key", "ai_", "aiconfig", "consent"} {
+			assert.NotContains(t, l, banned, n)
+		}
+	}
 }

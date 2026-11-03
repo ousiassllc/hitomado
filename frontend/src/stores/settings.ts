@@ -9,6 +9,7 @@ import {
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
 import type {
   AIConfig,
+  AIModelList,
   AppInfo,
   ExportLogsResult,
   MCPConfig,
@@ -30,6 +31,8 @@ function normalizeAIConfig(c: AIConfig): AIConfig {
 export const useSettingsStore = defineStore('settings', () => {
   const ui = useUiStore()
   const aiConfig = ref<AIConfig>()
+  /** プロバイダごとの、最後に取得したモデル一覧（API キー・Base URL の変更後と「更新」のときだけ取得する）。 */
+  const aiModels = ref<Record<string, AIModelList>>({})
   const appInfo = ref<AppInfo>()
   const update = ref<UpdateInfo>()
   const mcp = ref<MCPStatus>()
@@ -147,6 +150,29 @@ export const useSettingsStore = defineStore('settings', () => {
     aiConfig.value = normalizeAIConfig(await call(AIService.RecordAIConsent(provider)))
   }
 
+  /** モデル一覧を取得する。取得できないときも例外にせず、reason つきの空の一覧が入る（手入力へ切り替える）。 */
+  async function loadAIModels(provider: string): Promise<AIModelList> {
+    const r = await call(AIService.ListAIModels(provider))
+    const res = { ...r, models: list(r.models) }
+    aiModels.value = { ...aiModels.value, [provider]: res }
+    return res
+  }
+
+  async function signInChatGPT(differentAccount: boolean): Promise<void> {
+    aiConfig.value = normalizeAIConfig(await call(AIService.SignInChatGPT(differentAccount)))
+  }
+
+  async function cancelSignInChatGPT(): Promise<void> {
+    await call(AIService.CancelSignInChatGPT())
+  }
+
+  /** ログアウトする。OpenAI 側の失効を確認できたかを返す。 */
+  async function signOutChatGPT(): Promise<boolean> {
+    const r = await call(AIService.SignOutChatGPT())
+    aiConfig.value = normalizeAIConfig(r.config)
+    return r.revocationConfirmed
+  }
+
   async function setUpdateCheckEnabled(enabled: boolean): Promise<void> {
     await call(AppService.SetUpdateCheckEnabled(enabled))
     if (appInfo.value) appInfo.value = { ...appInfo.value, updateCheckEnabled: enabled }
@@ -180,6 +206,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   return {
     aiConfig,
+    aiModels,
     appInfo,
     update,
     mcp,
@@ -197,6 +224,10 @@ export const useSettingsStore = defineStore('settings', () => {
     setAIApiKey,
     clearAIApiKey,
     recordAIConsent,
+    loadAIModels,
+    signInChatGPT,
+    cancelSignInChatGPT,
+    signOutChatGPT,
     setUpdateCheckEnabled,
     checkUpdate,
   }

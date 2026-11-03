@@ -3,12 +3,15 @@ import { settings as msg } from '../../../lib/messages'
 
 const ANTHROPIC_URL = 'https://api.anthropic.com'
 const OPENAI_DEFAULT_URL = 'https://api.openai.com'
+const CHATGPT_URL = 'https://api.openai.com'
 
 export interface AIDestination {
   providerLabel: string
   url: string
   /** Base URL をユーザーが指定している（既定ではない） */
   custom: boolean
+  /** 送信先の補足（既定・Base URL の注記の代わりに出す）。 */
+  note?: string
 }
 
 export function providerLabel(provider: string): string {
@@ -18,6 +21,14 @@ export function providerLabel(provider: string): string {
 /** 保存済み（または入力中）のプロバイダ・Base URL から、データの送信先を決める。Base URL は openai のみ有効。 */
 export function aiDestination(provider: string, baseUrl?: string): AIDestination {
   const label = providerLabel(provider)
+  if (provider === 'chatgpt') {
+    return {
+      providerLabel: label,
+      url: CHATGPT_URL,
+      custom: false,
+      note: msg.ai.destinationChatGPTNote,
+    }
+  }
   if (provider === 'openai') {
     const custom = (baseUrl ?? '').trim()
     return custom

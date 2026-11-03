@@ -63,9 +63,9 @@ type AppError = {
 | `CONFIRM_EXPIRED` | 確認トークンの期限切れ（5 分）または使用済み | false | Send |
 | `CONFIRM_MISMATCH` | 確認時と送信時で送信内容が異なる | false | Send |
 | `SEND_UNCERTAIN` | リクエストを送った後に `Send` の応答を受け取れず（切断・タイムアウト・期限切れ・呼び出し側のキャンセル）、Gmail 側の送信済みに同じ送信を確認できなかった。送信済みの可能性があるため、送信済みフォルダーを確認してから、必要な場合だけ再送する。接続前の失敗（名前解決・接続拒否・トークン更新の通信失敗）や、リクエストを送る前の期限切れは本文を送れていないので、これではなく `OFFLINE`（再試行可）。送る前のキャンセルは `CANCELLED` | false | Send |
-| `AI_NOT_CONFIGURED` | API キー・プロバイダ未設定 | false | AIService |
+| `AI_NOT_CONFIGURED` | API キー・プロバイダ・モデル未設定。ChatGPT プランでは、未ログイン、または再ログインが必要（更新できない・トークンが失効した） | false | AIService |
 | `AI_CONSENT_REQUIRED` | 当該プロバイダへの送信に未同意 | false | AIService |
-| `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト・リダイレクト応答（3xx。追従しない）等） | 状況による | AIService |
+| `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト・リダイレクト応答（3xx。追従しない）等）。ChatGPT プランでは、利用枠の超過（`subscription_sharing_usage_limit_exceeded`）・このアカウントでは使えない（`subscription_sharing_user_not_eligible`）・ログインの検証失敗も含む | 状況による | AIService |
 | `CANCELLED` | 呼び出し側がキャンセルした | false | AIService |
 | `INTERNAL` | 想定外の内部エラー | false | 全般 |
 
@@ -332,30 +332,66 @@ sequenceDiagram
 ## 6. AIService
 
 ```ts
-type AIProvider = 'anthropic' | 'openai';   // openai は OpenAI 互換（baseUrl 指定可）
+type AIProvider = 'anthropic' | 'openai' | 'chatgpt';   // openai は OpenAI 互換（baseUrl 指定可）。chatgpt は Sign in with ChatGPT（利用者自身の ChatGPT プラン）
 
 type AIConfig = {
   provider: AIProvider;
   model: string;
   baseUrl?: string;           // openai のみ。未指定は OpenAI 既定
-  hasApiKey: boolean;         // キー自体は返さない
+  hasApiKey: boolean;         // 現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。キー・トークン自体は返さない
   consentedProviders: AIProvider[];
+  chatgptSignedIn: boolean;   // 選択中のプロバイダに関わらず、ChatGPT にログイン済みか
+  chatgptEmail?: string;      // 表示用（検証済み ID トークンのメールアドレス）
 };
+
+type AIModel = { id: string; displayName?: string };
+type AIModelList = {
+  provider: AIProvider;
+  models: AIModel[];          // 取得できないときは空（null にしない）
+  reason?: 'no_credentials' | 'consent_required' | 'invalid_base_url' | 'unsupported' | 'unauthorized' | 'rate_limited' | 'network' | 'failed';
+  message?: string;           // reason の短い説明（利用者に表示してよい。キー・応答本文・URL は含めない）
+};
+type ChatGPTSignOutResult = { config: AIConfig; revocationConfirmed: boolean };
 ```
 
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
 | `GetAIConfig()` | — | `AIConfig` | |
 | `SetAIConfig(provider, model, baseUrl?)` | | `AIConfig` | `app_settings.ai.config` を更新。`baseUrl` は `openai` のみ有効で、`https://` の URL か、ホストが `localhost`／`127.0.0.1`／`::1` に完全一致する `http://` の URL に限る。それ以外（外部ホストへの `http://`、userinfo・クエリ・フラグメント付き等）は `VALIDATION`（メッセージに URL は含めない）。Base URL が変わって送信先（scheme＋ホスト）が変わると、そのプロバイダの同意は無効になる |
-| `SetAIApiKey(provider, apiKey)` | string ×2 | `AIConfig` | 資格情報ストアへ保存 |
-| `ClearAIApiKey(provider)` | string | `AIConfig` | キーを削除 |
-| `RecordAIConsent(provider)` | string | `AIConfig` | 「スレッド内容が当該プロバイダへ送信される」ことの同意を保存（`app_settings.ai.consent`） |
+| `SetAIApiKey(provider, apiKey)` | string ×2 | `AIConfig` | 資格情報ストアへ保存。`chatgpt` は API キーを使わないので `VALIDATION` |
+| `ClearAIApiKey(provider)` | string | `AIConfig` | キーを削除。`chatgpt` は `VALIDATION`（ログアウトは `SignOutChatGPT`） |
+| `RecordAIConsent(provider)` | string | `AIConfig` | 「スレッド内容が当該プロバイダへ送信される」ことの同意を保存（`app_settings.ai.consent`）。同意は「プロバイダ＋送信先」単位で、`openai`（api.openai.com）と `chatgpt`（api.openai.com）は別の同意として取る |
+| `ListAIModels(provider)` | string | `AIModelList` | 保存済みの設定の送信先から、使えるモデルの一覧を取得する（下記）。MCP からは呼べない |
+| `SignInChatGPT(differentAccount)` | boolean | `AIConfig` | OpenAI の公式画面（システムブラウザ）で ChatGPT にログインする。完了・中止・時間切れまでブロックする（下記）。`differentAccount` が真なら保存済みの登録を使わず、別の ChatGPT アカウントとして登録し直す |
+| `CancelSignInChatGPT()` | — | — | 進行中のログインを中止（`SignInChatGPT` は `OAUTH_CANCELLED` で reject） |
+| `SignOutChatGPT()` | — | `ChatGPTSignOutResult` | OpenAI 側のセッションを失効させてから、ローカルのトークンを消す。失効を確認できなくてもローカルは消え、`revocationConfirmed = false` を返す（利用者には ChatGPT の設定から連携を解除できると伝える） |
 | `GenerateReplyDraft(sessionId, requestId)` | string ×2 | `{ bodyHtml: string }` | 返信系セッション（`reply`／`reply_all`）のスレッドから下書きを生成する。署名・引用は含めない。`new`／`forward` は `VALIDATION` |
 | `CancelGenerate(requestId)` | string | — | 生成を中止（`GenerateReplyDraft` は `CANCELLED` で reject） |
 
-- `GenerateReplyDraft` の前提: キー設定済み（`AI_NOT_CONFIGURED`）・同意済み（`AI_CONSENT_REQUIRED`）。タイムアウトは 60 秒（`AI_FAILED`）。プロバイダの応答が 3xx のときは、同意した送信先以外へ内容を再送しないよう追従せず `AI_FAILED` とする（Base URL にはリダイレクト後の最終的な URL を指定する）
+- `GenerateReplyDraft` の前提: キー設定済み（`AI_NOT_CONFIGURED`。`chatgpt` ではログイン済み）・同意済み（`AI_CONSENT_REQUIRED`）。タイムアウトは 60 秒（`AI_FAILED`）。プロバイダの応答が 3xx のときは、同意した送信先以外へ内容を再送しないよう追従せず `AI_FAILED` とする（Base URL にはリダイレクト後の最終的な URL を指定する）
 - 送信するコンテキスト: 直近 5 メッセージ・合計 20,000 文字以内（NF §12）。HTML はテキスト化して送る。機密のログ出力は禁止（NF-S10）
 - 自動送信・自動生成は行わない。本メソッドはボタン押下からのみ呼ばれる
+
+### 6.1 モデル一覧（`ListAIModels`）
+
+- 取得先: `openai` は保存済みの Base URL（空なら既定）の `GET {base}/models`、`anthropic` は `GET https://api.anthropic.com/v1/models`（`limit=1000`、`has_more` の間 `after_id` で最大 5 ページ）、`chatgpt` は `GET https://api.openai.com/v1/models`（ログインのアクセストークン。`visibility == "list"` のモデルだけを、サーバーの順で）。キーは資格情報ストアから読み、フロントには渡さない
+- 呼ぶ契機は、API キーの登録・変更のあと、Base URL の変更のあと、ChatGPT のログインのあと、設定画面の「一覧を更新」だけ（フロントの責務。定期的には呼ばない）
+- 一覧が取れなくてもエラーにしない（`models` が空で `reason`／`message` を返し、画面は手入力へ切り替える）。**同意前の送信先（`consent_required`）・使えない Base URL（`invalid_base_url`）・キー未登録／未ログイン（`no_credentials`）には取得の通信を送らない**。https のみ（loopback の http を除く）・リダイレクトに従わない・本文の上限、という `GenerateReplyDraft` と同じ規則を適用する。Models API が無い（404／405／501）は `unsupported`、401／403 は `unauthorized`、429 は `rate_limited`、通信失敗・時間切れは `network`。呼び出し側のキャンセルだけが `CANCELLED`
+- 保存済みのモデルが一覧に無くても、設定は変えない（画面はそのモデルを選択肢に残す）。一覧は使えることの保証ではなく、選んだモデルが使えるかは下書きの生成が成功して初めて分かる（ChatGPT プランのモデル一覧は特に、アカウントの権限の確認ではない）
+- ログには件数（成功）と理由コード（失敗）だけを残す。キー・トークン・応答の中身・モデル名は残さない
+
+### 6.2 ChatGPT プラン（Sign in with ChatGPT）
+
+OpenAI の公式ドキュメント（[Token sharing for open source](https://developers.openai.com/siwc/token-sharing-open-source)）のオープンソース向けフローに従う。規約（[Sign in with ChatGPT Terms](https://openai.com/policies/sign-in-with-chatgpt-terms/)）の要件として、**トークンは公式のサインインフローだけで取得する／パスワードもセッション Cookie も受け取らない／OpenAI やほかのアプリを名乗らない／Codex CLI など他アプリの認証情報は読まない・使わない／プラン枠やトークンを共有しない**。
+
+- **ログイン**（`SignInChatGPT`）: ブラウザで `https://auth.openai.com/api/accounts/authorize`（エンドポイントは `/.well-known/openid-configuration` から取得）を開く。PKCE（S256）・`state`・`nonce` を試行ごとに作り、リダイレクト先は `http://127.0.0.1:<一時ポート>/auth/callback`（`localhost` は使わない。`state` が合わない要求は無視）。`scope` は `openid profile email offline_access resource.invoke chatgpt.tokens.use.direct`、`resource` は `https://api.openai.com/v1`。client secret は持たない公開クライアント
+- **クライアント登録**: 初回は `client_id=dynamic_agent_client`・`agent_name_hint=Hitomado`・ホスト ID（`ext_agent_host_id`。`urn:uuid:<UUIDv4>`。初回ログインの前に作って `app_settings.ai.chatgpt` に保存し、以後同じ値）で動的登録し、コールバックが返す発行済みの `client_id`（`oaiapp_…`）を保存して以後の認可・更新・失効に使う（発行されなければ未完了として失敗）。再ログインは保存済みの `client_id`（`agent_name_hint` は付けない）と、`login_hint`（メール）・保持している `id_token_hint` を使う。この登録に事前の申請や承認は要らない（OSS 向けの動的登録）
+- **検証**: コードをトークンに交換したあと、ID トークンの署名（OpenAI の JWKS）・`iss`・`aud`（発行済みの `client_id`）・`exp`・`nonce` を検証し、`sub` を本人の識別とする。付与された `scope` に `chatgpt.tokens.use.direct` が無ければ ChatGPT プランは使えないとして、得たトークンは保存せず（リフレッシュトークンは失効させる）`OAUTH_DENIED` を返す。ログイン中のセッションがあればそれは変えない。無いときは登録（クライアント ID）だけを残し、次のログインでは `prompt=consent` で同意画面を求め直す。保存済みの登録と別の `sub` でのログインは `VALIDATION` で拒否し、何も上書きしない（別のアカウントへ切り替えるには `differentAccount`）。ブラウザで拒否（`access_denied`）は `OAUTH_DENIED`、5 分の時間切れは `OAUTH_TIMEOUT`
+- **保存**: アクセストークン・リフレッシュトークン・ID トークンは資格情報ストア（`hitomado/chatgpt_token/{access,refresh,id}`。1 件の上限を超える値は分割して保存）にだけ置く。ホスト ID・`client_id`・`sub`・メール・アクセストークンの期限（秘密ではない）は `app_settings.ai.chatgpt`。トークンはログ・エラーメッセージ・`AIConfig`・MCP のどこにも出さない（エラーはエラーコード名だけを持ち、応答本文は捨てる）
+- **更新**: アクセストークンは 1 時間。期限の 60 秒前から、`grant_type=refresh_token`・発行済みの `client_id`・`resource` で更新し、アクセス・リフレッシュ（置き換え）・ID トークンをまとめて保存する（更新は直列化）。`invalid_grant`・`invalid_refresh_token`・`token_expired`・`refresh_token_expired`・`refresh_token_invalidated`・`refresh_token_reused` はトークンを消して再ログインを案内（`AI_NOT_CONFIGURED`）。通信失敗・5xx ではトークンを消さない。生成中に 401 を受けたときだけ、1 度更新してやり直し、それでも 401 なら `AI_FAILED`（ログインの確認を案内）。403（`subscription_sharing_user_not_eligible` 以外の方針・権限・地域の拒否など）・429・5xx では更新も再送もしない（公式ドキュメントが同じ要求の繰り返しを求めていないため）。トークンは同意の確認が済んでから取得・更新する。エラーコードは `error` が文字列・`error.code`・トップレベルの `code` のいずれでも判定する
+- **ログアウト**（`SignOutChatGPT`）: 失効エンドポイントへ `token_type_hint=refresh_token` で POST（通信失敗・5xx は最大 3 回）し、成否に関わらずローカルのトークンを消す。ホスト ID と発行済みの `client_id` は残す
+- **生成**: `POST https://api.openai.com/v1/responses`（`Authorization: Bearer <アクセストークン>`）。`store: false`・`stream: true`・`instructions`・`input`（配列）だけを送り、公式が未対応とする項目（`max_output_tokens`・`temperature`・`user`・`metadata` など）は送らない。`response.completed` を受けて初めて成功とし、`response.failed`／`response.incomplete`／途中で切れたストリームは失敗。`subscription_sharing_usage_limit_exceeded`（429）は `AI_FAILED`（ChatGPT の使用状況の画面を案内）、`subscription_sharing_user_not_eligible`（403）は `AI_FAILED`（このアカウントでは使えない旨）。既存の Chat Completions の経路（`openai`）とは別の実装
+- 使える対象: 公式ドキュメントが示すのは ChatGPT Plus／Pro。Business などほかのプランは、公式ドキュメントでは確認できていない（使えない場合は `subscription_sharing_user_not_eligible` で分かる）。使えるモデルは `ListAIModels('chatgpt')` が返す一覧による
 
 ## 7. AppService
 
@@ -451,3 +487,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.13 | 2026-11-03 | `CheckForUpdate` に、版が `0.0.0`（dev・ローカルビルド）のときは通信せず `{ available: false }` を返す旨を追記 | #21 |
 | 1.14 | 2026-11-03 | `RemoveAccount` の手順を、同期ワーカーの停止（実行中の周期の終了待ち）→DB 削除に改め、DB 削除に失敗したときは同期を再開してエラーを返す旨を追記 | 実装（`internal/app/account.go`）との整合（#4） |
 | 1.15 | 2026-11-03 | `ReportClientError` の `message`・`stack` を、例外のメッセージ文ではなく種類のコード・位置だけのフレームにしたことを追記 | 実装（`frontend/src/lib/errorReporter.ts`）との整合（#24） |
+| 1.16 | 2026-11-03 | `AIProvider` に `chatgpt` を追加し、`AIConfig` に `chatgptSignedIn`／`chatgptEmail` を追加。`SignInChatGPT`／`CancelSignInChatGPT`／`SignOutChatGPT`／`ListAIModels` と、§6.1 モデル一覧・§6.2 ChatGPT プランを追記。§1.2 の `AI_NOT_CONFIGURED`／`AI_FAILED` の説明を拡張 | Sign in with ChatGPT（#75）とモデル一覧からの選択（#76） |

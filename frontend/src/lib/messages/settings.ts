@@ -119,16 +119,27 @@ export const settings = {
     destination: (provider: string, url: string) => `${provider}（${url}）`,
     destinationDefaultNote: '既定の送信先です。',
     destinationCustomNote: 'Base URL で指定した送信先です。',
+    destinationChatGPTNote:
+      'スレッドの内容は OpenAI の API（Responses）へ送信されます。ログインだけは auth.openai.com の公式画面で行います。',
     destinationPending: (dest: string) =>
       `入力中の送信先（${dest}）は未保存です。「設定を保存」するまで、上の送信先が使われます。`,
     provider: 'プロバイダ',
     providerOptions: {
       anthropic: 'Anthropic',
       openai: 'OpenAI 互換',
+      chatgpt: 'ChatGPT プラン（ChatGPT でログイン）',
     } as Record<string, string>,
     model: 'モデル',
     modelPlaceholder: '例: claude-sonnet-4-5',
     modelRequired: 'モデルを入力してください。',
+    modelSelectPlaceholder: 'モデルを選択',
+    modelNotListed: (id: string) => `${id}（一覧にありません）`,
+    modelsRefresh: '一覧を更新',
+    modelsRefreshing: '取得中…',
+    modelsLoaded: (n: number) => `使えるモデルを ${n} 件取得しました。`,
+    modelsNeedSave:
+      'プロバイダや Base URL を変更した場合は、先に「設定を保存」すると一覧を取得できます。',
+    modelsManualHint: '一覧から選べないときは、モデル名を直接入力できます。',
     baseUrl: 'Base URL（OpenAI 互換のみ）',
     baseUrlPlaceholder: '空欄で OpenAI の既定（https://api.openai.com）',
     baseUrlHint: 'OpenAI 互換のサービスを使うときだけ指定します。',
@@ -148,6 +159,31 @@ export const settings = {
     apiKeyNeedsSavedProvider:
       'プロバイダを変更した場合は、先に「設定を保存」してから API キーを設定してください。',
     apiKeyStored: 'API キーは資格情報ストアに保存され、画面には再表示されません。',
+    chatgpt: {
+      heading: 'ChatGPT プラン',
+      intro:
+        'ChatGPT Plus／Pro のプランの範囲で下書きを作ります。API キーは要りません。ログインは OpenAI の公式画面（ブラウザ）で行い、Hitomado はパスワードも Cookie も受け取りません。',
+      notOfficial:
+        'Hitomado は OpenAI の公式アプリではありません。ログインの許可は ChatGPT の設定からいつでも取り消せます。',
+      login: 'Continue with ChatGPT',
+      loginWaiting: 'ブラウザで ChatGPT のログインを完了してください…',
+      loginCancel: 'ログインを中止',
+      loginDifferent: '別のアカウントでログイン',
+      logout: 'ログアウト',
+      statusSignedIn: (email: string) => (email ? `ログイン済み（${email}）` : 'ログイン済み'),
+      statusSignedOut: '未ログインです。',
+      usingPlan: 'Using ChatGPT plan',
+      manageUsage: 'Manage usage',
+      usageUrl: 'https://chatgpt.com/settings/usage',
+      signedIn: 'ChatGPT にログインしました。',
+      signedOut: 'ChatGPT からログアウトしました。',
+      revokeUnconfirmed:
+        'ログアウトしました（OpenAI 側の連携の解除は確認できませんでした）。ChatGPT の設定の連携アプリから解除できます。',
+      saveBeforeUse:
+        '「設定を保存」でプロバイダを ChatGPT プランに切り替えてから、モデルを選んで保存してください。',
+    },
+    consentAgreeNow: (dest: string) => `${dest} への送信に同意する`,
+    consentAgreed: '同意しました。',
     consentHeading: '送信への同意',
     consentGiven: (provider: string) => `${provider} への送信に同意済みです。`,
     consentNone: (provider: string) =>

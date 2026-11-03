@@ -6,17 +6,45 @@
 import * as model$0 from "../../domain/model/models.js";
 
 /**
- * AIConfig は AI 設定。API キー自体は返さない。BaseURL は openai のみ。
+ * AIConfig は AI 設定。API キー・トークン自体は返さない。BaseURL は openai のみ。
  */
 export interface AIConfig {
     /**
-     * anthropic / openai
+     * anthropic / openai / chatgpt
      */
     "provider": string;
     "model": string;
     "baseUrl"?: string;
+
+    /**
+     * HasAPIKey は現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。
+     */
     "hasApiKey": boolean;
     "consentedProviders": string[] | null;
+
+    /**
+     * ChatGPTSignedIn は選択中のプロバイダに関わらず、ChatGPT にログイン済みか。ChatGPTEmail は表示用のメールアドレス。
+     */
+    "chatgptSignedIn": boolean;
+    "chatgptEmail"?: string;
+}
+
+/**
+ * AIModel はモデル一覧の 1 件。
+ */
+export interface AIModel {
+    "id": string;
+    "displayName"?: string;
+}
+
+/**
+ * AIModelList はモデル一覧の取得結果。取得できないときは Models が空で Reason と Message を持ち、手入力に切り替える（エラーではない）。
+ */
+export interface AIModelList {
+    "provider": string;
+    "models": AIModel[] | null;
+    "reason"?: string;
+    "message"?: string;
 }
 
 /**
@@ -67,6 +95,18 @@ export interface AppInfo {
     "version": string;
     "updateCheckEnabled": boolean;
     "dataDir": string;
+}
+
+/**
+ * ChatGPTSignOutResult は ChatGPT ログアウトの結果。ローカルのトークンは常に消えている。
+ */
+export interface ChatGPTSignOutResult {
+    "config": AIConfig;
+
+    /**
+     * RevocationConfirmed は OpenAI 側でセッションの失効を確認できたか。false のときは ChatGPT の設定で連携を解除できる旨を伝える。
+     */
+    "revocationConfirmed": boolean;
 }
 
 /**

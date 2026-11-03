@@ -22,6 +22,13 @@ export function CancelGenerate(requestID: string): $CancellablePromise<void> {
     return $Call.ByID(624546058, requestID);
 }
 
+/**
+ * CancelSignInChatGPT は進行中の ChatGPT ログインを中止する（SignInChatGPT は OAUTH_CANCELLED で終わる）。
+ */
+export function CancelSignInChatGPT(): $CancellablePromise<void> {
+    return $Call.ByID(3955981226);
+}
+
 export function ClearAIApiKey(provider: string): $CancellablePromise<dto$0.AIConfig> {
     return $Call.ByID(1793260813, provider);
 }
@@ -37,6 +44,13 @@ export function GetAIConfig(): $CancellablePromise<dto$0.AIConfig> {
     return $Call.ByID(792522765);
 }
 
+/**
+ * ListAIModels は provider のモデル一覧を取得する。取得できないときはエラーではなく Reason つきの空の一覧を返す（手入力へ切り替える）。
+ */
+export function ListAIModels(provider: string): $CancellablePromise<dto$0.AIModelList> {
+    return $Call.ByID(1674781123, provider);
+}
+
 export function RecordAIConsent(provider: string): $CancellablePromise<dto$0.AIConfig> {
     return $Call.ByID(1816542130, provider);
 }
@@ -47,4 +61,19 @@ export function SetAIApiKey(provider: string, apiKey: string): $CancellablePromi
 
 export function SetAIConfig(provider: string, model: string, baseURL: string): $CancellablePromise<dto$0.AIConfig> {
     return $Call.ByID(101858289, provider, model, baseURL);
+}
+
+/**
+ * SignInChatGPT は OpenAI の公式画面（システムブラウザ）で ChatGPT にログインする。完了・中止・時間切れまでブロックする。
+ * differentAccount が true なら、保存済みの登録を使わず別の ChatGPT アカウントとして登録し直す。
+ */
+export function SignInChatGPT(differentAccount: boolean): $CancellablePromise<dto$0.AIConfig> {
+    return $Call.ByID(392229644, differentAccount);
+}
+
+/**
+ * SignOutChatGPT は ChatGPT からログアウトする（OpenAI 側の失効を試み、ローカルのトークンを消す）。
+ */
+export function SignOutChatGPT(): $CancellablePromise<dto$0.ChatGPTSignOutResult> {
+    return $Call.ByID(1327661325);
 }

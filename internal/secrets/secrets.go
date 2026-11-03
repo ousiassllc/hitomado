@@ -28,3 +28,7 @@ func AIAPIKeyKey(provider string) string { return "hitomado/ai_api_key/" + provi
 
 // MCPTokenKey は内蔵 MCP サーバーの Bearer トークンのキー。
 func MCPTokenKey() string { return "hitomado/mcp_token" }
+
+// ChatGPTTokenKey は Sign in with ChatGPT のトークンのキー。kind は access／refresh／id。
+// Windows 資格情報マネージャーの 1 件あたりの上限（約 2.5KB）を超える値は呼び出し側で分割する。
+func ChatGPTTokenKey(kind string) string { return "hitomado/chatgpt_token/" + kind }

@@ -3,6 +3,7 @@ module github.com/ousiassllc/hitomado
 go 1.26.0
 
 require (
+	github.com/coreos/go-oidc/v3 v3.21.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/jhillyerd/enmime/v2 v2.5.0
 	github.com/modelcontextprotocol/go-sdk v1.8.0
@@ -34,6 +35,7 @@ require (
 	github.com/ebitengine/purego v0.11.1 // indirect
 	github.com/fatih/color v1.19.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
+	github.com/go-jose/go-jose/v4 v4.1.4 // indirect
 	github.com/go-logr/logr v1.4.4 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-ole/go-ole v1.3.0 // indirect

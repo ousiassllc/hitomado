@@ -18,6 +18,8 @@ import (
 const (
 	defaultAnthropicHost = "https://api.anthropic.com"
 	defaultOpenAIHost    = "https://api.openai.com"
+	// chatgpt の送信先（Responses API）。ログインは別ホスト（auth.openai.com）だが、スレッド内容を送るのはここだけ。
+	defaultChatGPTHost = "https://api.openai.com"
 )
 
 // consentEntry は同意 1 件。同意は「プロバイダ＋送信先（Base URL の scheme とホスト）」単位。
@@ -76,8 +78,11 @@ func hostKey(raw, def string) string {
 
 // destination は同意の照合キー（プロバイダ＋送信先 scheme://ホスト）。anthropic に Base URL は無い。
 func destination(provider, baseURL string) string {
-	if provider == providerOpenAI {
+	switch provider {
+	case providerOpenAI:
 		return provider + "|" + hostKey(baseURL, defaultOpenAIHost)
+	case providerChatGPT:
+		return provider + "|" + defaultChatGPTHost
 	}
 	return provider + "|" + defaultAnthropicHost
 }

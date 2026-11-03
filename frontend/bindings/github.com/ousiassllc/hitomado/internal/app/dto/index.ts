@@ -3,10 +3,13 @@
 
 export type {
     AIConfig,
+    AIModel,
+    AIModelList,
     Account,
     AccountFailure,
     AccountPatch,
     AppInfo,
+    ChatGPTSignOutResult,
     ClientError,
     ComposeAttachment,
     ComposeContent,
