@@ -5,8 +5,13 @@ includes:
 
 vars:
   APP_ID: '{{.APP_ID | default "com.wails.app"}}'
+  # minSdk。app/build.gradle の minSdk と同じ値にする（ここでは NDK の clang の API レベルに使う）。
+  # compileSdk / targetSdk は app/build.gradle の 1 か所だけで決める（36。理由は docs/environment/android.md）。
   MIN_SDK: '21'
-  TARGET_SDK: '35'
+  # 使う NDK。ANDROID_NDK_HOME があればそれを優先し、無ければ $SDK_ROOT/ndk/<この版>。最新の NDK を自動で選ぶことはしない。
+  NDK_VERSION: '26.3.11579264'
+  # VERSION=X.Y.Z（ルートの Taskfile.yml の includes（android）の vars が渡す。既定 0.0.0）。
+  # versionName / versionCode の決め方は app/build.gradle と docs/environment/android.md。
   # The emulator runs the host architecture; physical devices are arm64
   HOST_ARCH:
     sh: '[ "$(uname -m)" = "x86_64" ] && echo "amd64" || echo "arm64"'
@@ -36,23 +41,41 @@ tasks:
     prompt: This will check and install Android development dependencies. Continue?
 
   build:
-    summary: Creates a debug build of the application for Android
+    summary: Builds libwails.so for Android (arm64 by default; ARCH=amd64 for the x86_64 emulator)
+    desc: |
+      Real devices are arm64, so arm64 is the default. libwails.so for other ABIs left
+      by earlier builds is removed first, so the APK only contains the requested ABI.
+      The Wails bindings (frontend/bindings) are NOT regenerated here: they are generated
+      only with the default tags by `task generate` (see docs/environment/android.md).
     deps:
-      - task: common:go:mod:tidy
       - task: generate:android:overlay
-      - task: common:build:frontend
+      - task: build:frontend
         vars:
-          BUILD_FLAGS:
-            ref: .BUILD_FLAGS
           PRODUCTION:
             ref: .PRODUCTION
     cmds:
-      - echo "Building Android app {{.APP_NAME}}..."
+      - echo "Building Android app {{.APP_NAME}} {{.APP_VERSION}} ({{.ARCH | default "arm64"}})..."
+      - rm -f build/android/app/src/main/jniLibs/*/libwails.so
       - task: compile:go:shared
         vars:
-          ARCH: '{{.ARCH | default .HOST_ARCH}}'
-    vars:
-      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,android -trimpath -buildvcs=false -ldflags="-w -s"{{else}}-tags android,debug -buildvcs=false -gcflags=all="-l"{{end}}'
+          ARCH: '{{.ARCH | default "arm64"}}'
+          # 呼び出し先には親の変数が渡らないため明示する（渡さないと release でも debug タグ・最適化なしでビルドされる）。
+          PRODUCTION: '{{.PRODUCTION | default "false"}}'
+    env:
+      PRODUCTION: '{{.PRODUCTION | default "false"}}'
+    preconditions:
+      - sh: '{{if regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+$" .APP_VERSION}}true{{else}}false{{end}}'
+        msg: "VERSION must look like X.Y.Z (no leading v), got '{{.APP_VERSION}}'"
+
+  build:frontend:
+    internal: true
+    summary: Builds the frontend. Unlike common:build:frontend it does not regenerate the bindings.
+    run: once
+    dir: frontend
+    deps:
+      - task: common:install:frontend:deps
+    cmds:
+      - bun run {{if eq .PRODUCTION "true"}}build{{else}}build:dev{{end}}
     env:
       PRODUCTION: '{{.PRODUCTION | default "false"}}'
 
@@ -60,15 +83,14 @@ tasks:
     summary: Compile Go code to shared library (.so)
     cmds:
       - |
-        # Locate the NDK: $ANDROID_NDK_HOME, or the newest installed NDK
+        # Locate the NDK: $ANDROID_NDK_HOME, else the pinned version under the SDK
         NDK_ROOT="$ANDROID_NDK_HOME"
         if [ -z "$NDK_ROOT" ]; then
-          SDK_ROOT="{{.SDK_ROOT}}"
-          NDK_ROOT=$(ls -d "$SDK_ROOT"/ndk/* 2>/dev/null | sort -V | tail -1)
+          NDK_ROOT="{{.SDK_ROOT}}/ndk/{{.NDK_VERSION}}"
         fi
-        if [ -z "$NDK_ROOT" ] || [ ! -d "$NDK_ROOT" ]; then
-          echo "Error: Android NDK not found"
-          echo "Install one with: sdkmanager 'ndk;26.3.11579264' (or set ANDROID_NDK_HOME)"
+        if [ ! -d "$NDK_ROOT" ]; then
+          echo "Error: Android NDK not found at $NDK_ROOT"
+          echo "Install it with: sdkmanager 'ndk;{{.NDK_VERSION}}' (or set ANDROID_NDK_HOME)"
           exit 1
         fi
 
@@ -110,17 +132,7 @@ tasks:
         go build -buildmode=c-shared -overlay build/android/overlay.json {{.BUILD_FLAGS}} \
           -o build/android/app/src/main/jniLibs/$JNI_DIR/libwails.so
     vars:
-      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,android -trimpath -buildvcs=false -ldflags="-w -s"{{else}}-tags android,debug -buildvcs=false -gcflags=all="-l"{{end}}'
-
-  compile:go:all-archs:
-    summary: Compile Go code for all Android architectures (fat APK)
-    cmds:
-      - task: compile:go:shared
-        vars:
-          ARCH: arm64
-      - task: compile:go:shared
-        vars:
-          ARCH: amd64
+      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,android -trimpath -buildvcs=false -ldflags="-w -s -X main.version={{.APP_VERSION}}"{{else}}-tags android,debug -buildvcs=false -gcflags=all="-l"{{end}}'
 
   package:
     summary: Packages a production build of the application into a signed release APK
@@ -176,33 +188,54 @@ tasks:
           PRODUCTION: "true"
       - task: assemble:aab:release
 
+  signing:notice:
+    internal: true
+    silent: true
+    summary: Prints which key the release build will be signed with (never prints a secret)
+    cmds:
+      - |
+        if [ -n "$ANDROID_KEYSTORE_FILE" ]; then
+          echo "Signing: RELEASE key from ANDROID_KEYSTORE_FILE (alias: ${ANDROID_KEY_ALIAS:-<unset>})"
+        else
+          echo "WARNING: Signing: DEBUG key (ANDROID_KEYSTORE_FILE is not set)."
+          echo "         This is a local-install build for your own device. It is NOT a release signature:"
+          echo "         Google Play rejects it, and it cannot update an app installed with a release key."
+          echo "         For a release build set ANDROID_KEYSTORE_FILE, ANDROID_KEYSTORE_PASSWORD,"
+          echo "         ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD (see docs/environment/android.md)."
+        fi
+
   assemble:apk:
     summary: Assembles a debug APK using Gradle
     preconditions:
       - sh: 'command -v java >/dev/null || [ -n "$JAVA_HOME" ]'
-        msg: "Java not found. Install a JDK (e.g. brew install openjdk@21) and/or set JAVA_HOME"
+        msg: "Java not found. Install a JDK 17 and/or set JAVA_HOME"
     cmds:
       - |
         cd build/android
         # The exec bit is lost when gradlew is extracted from the embedded
         # build assets, so restore it before invoking the wrapper.
         chmod +x ./gradlew
-        ./gradlew assembleDebug
-        cp app/build/outputs/apk/debug/app-debug.apk "../../{{.BIN_DIR}}/{{.APP_NAME}}.apk"
-        echo "APK created: {{.BIN_DIR}}/{{.APP_NAME}}.apk"
+        ./gradlew -PappVersion={{.APP_VERSION}} assembleDebug
+        mkdir -p "../../{{.BIN_DIR}}"
+        cp app/build/outputs/apk/debug/app-debug.apk "../../{{.BIN_DIR}}/{{.APP_NAME}}-debug.apk"
+        echo "Debug APK created: {{.BIN_DIR}}/{{.APP_NAME}}-debug.apk"
 
   assemble:apk:release:
-    summary: Assembles a release APK using Gradle (signed with the debug keystore unless ANDROID_KEYSTORE_FILE is set)
+    summary: Assembles a release APK using Gradle (release key from ANDROID_KEYSTORE_FILE, else the debug key)
     preconditions:
       - sh: 'command -v java >/dev/null || [ -n "$JAVA_HOME" ]'
-        msg: "Java not found. Install a JDK (e.g. brew install openjdk@21) and/or set JAVA_HOME"
+        msg: "Java not found. Install a JDK 17 and/or set JAVA_HOME"
     cmds:
+      - task: signing:notice
       - |
         cd build/android
         # The exec bit is lost when gradlew is extracted from the embedded
         # build assets, so restore it before invoking the wrapper.
         chmod +x ./gradlew
-        ./gradlew assembleRelease
+        # Only the (non-secret) version goes on the command line. The keystore passwords are read by
+        # Gradle from the environment so they never show up in `ps` or in the build log.
+        ./gradlew -PappVersion={{.APP_VERSION}} assembleRelease
+        mkdir -p "../../{{.BIN_DIR}}"
         cp app/build/outputs/apk/release/app-release.apk "../../{{.BIN_DIR}}/{{.APP_NAME}}.apk"
         echo "Release APK created: {{.BIN_DIR}}/{{.APP_NAME}}.apk"
 
@@ -210,40 +243,50 @@ tasks:
     summary: Assembles a debug AAB (Android App Bundle) using Gradle
     preconditions:
       - sh: 'command -v java >/dev/null || [ -n "$JAVA_HOME" ]'
-        msg: "Java not found. Install a JDK (e.g. brew install openjdk@21) and/or set JAVA_HOME"
+        msg: "Java not found. Install a JDK 17 and/or set JAVA_HOME"
     cmds:
       - |
         cd build/android
-        # The exec bit is lost when gradlew is extracted from the embedded
-        # build assets, so restore it before invoking the wrapper.
         chmod +x ./gradlew
-        ./gradlew bundleDebug
-        cp app/build/outputs/bundle/debug/app-debug.aab "../../{{.BIN_DIR}}/{{.APP_NAME}}.aab"
-        echo "AAB created: {{.BIN_DIR}}/{{.APP_NAME}}.aab"
+        ./gradlew -PappVersion={{.APP_VERSION}} bundleDebug
+        mkdir -p "../../{{.BIN_DIR}}"
+        cp app/build/outputs/bundle/debug/app-debug.aab "../../{{.BIN_DIR}}/{{.APP_NAME}}-debug.aab"
+        echo "Debug AAB created: {{.BIN_DIR}}/{{.APP_NAME}}-debug.aab"
 
   assemble:aab:release:
-    summary: Assembles a release AAB for Play Store upload (signed with the debug keystore unless ANDROID_KEYSTORE_FILE is set)
+    summary: Assembles a release AAB for Play Store upload (release key from ANDROID_KEYSTORE_FILE, else the debug key)
     preconditions:
       - sh: 'command -v java >/dev/null || [ -n "$JAVA_HOME" ]'
-        msg: "Java not found. Install a JDK (e.g. brew install openjdk@21) and/or set JAVA_HOME"
+        msg: "Java not found. Install a JDK 17 and/or set JAVA_HOME"
     cmds:
+      # With Play App Signing, the keystore configured here is your UPLOAD key: Google verifies
+      # the upload with it, then re-signs the app with the app signing key it manages.
+      - task: signing:notice
       - |
-        # With Play App Signing, the keystore configured here is your UPLOAD
-        # key: Google verifies the upload with it, then re-signs the app with
-        # the app signing key it manages for distribution.
-        if [ -z "$ANDROID_KEYSTORE_FILE" ]; then
-          echo "WARNING: ANDROID_KEYSTORE_FILE is not set, so this AAB will be"
-          echo "signed with the debug keystore. Google Play rejects debug-signed"
-          echo "bundles. Set ANDROID_KEYSTORE_FILE, ANDROID_KEYSTORE_PASSWORD,"
-          echo "ANDROID_KEY_ALIAS and ANDROID_KEY_PASSWORD before uploading."
-        fi
         cd build/android
-        # The exec bit is lost when gradlew is extracted from the embedded
-        # build assets, so restore it before invoking the wrapper.
         chmod +x ./gradlew
-        ./gradlew bundleRelease
+        ./gradlew -PappVersion={{.APP_VERSION}} bundleRelease
+        mkdir -p "../../{{.BIN_DIR}}"
         cp app/build/outputs/bundle/release/app-release.aab "../../{{.BIN_DIR}}/{{.APP_NAME}}.aab"
         echo "Release AAB created: {{.BIN_DIR}}/{{.APP_NAME}}.aab"
+
+  lint:
+    summary: Runs golangci-lint for the android build tag (what the CI "Go lint (android)" step does)
+    desc: |
+      build/android/gen is created by the overlay generation and has no main of its own, so it is
+      removed first (the next android:build regenerates it).
+    cmds:
+      - rm -rf build/android/gen build/android/overlay.json
+      - cmd: golangci-lint run
+        env:
+          GOOS: android
+          GOARCH: arm64
+          CGO_ENABLED: "0"
+
+  verify:
+    summary: Checks bin/hitomado.apk (package, version, permissions, backup, signature). Pass APK=<path> to check another file
+    cmds:
+      - bash build/android/scripts/verify-apk.sh "{{.APK | default (printf "%s/%s.apk" .BIN_DIR .APP_NAME)}}" "{{.APP_ID}}" "{{.APP_VERSION}}" "{{.SDK_ROOT}}"
 
   generate:android:overlay:
     internal: true
@@ -255,23 +298,6 @@ tasks:
       - build/android/gen/main_android.gen.go
     cmds:
       - wails3 android overlay:gen -out build/android/overlay.json -config build/config.yml
-
-  generate:android:bindings:
-    internal: true
-    summary: Generates bindings for Android
-    sources:
-      - "**/*.go"
-      - go.mod
-      - go.sum
-    generates:
-      - frontend/bindings/**/*
-    cmds:
-      # Bindings are generated from the Go AST; CGO is disabled so the NDK
-      # is not required for this step
-      - wails3 generate bindings -f '-tags android' -clean=true
-    env:
-      GOOS: android
-      CGO_ENABLED: 0
 
   ensure-emulator:
     internal: true
@@ -355,14 +381,16 @@ tasks:
       - '"{{.ADB}}" shell am start -n {{.APP_ID}}/com.wails.app.MainActivity'
 
   run:
-    summary: Build, install and launch a debug build in the Android Emulator
+    summary: Build, install and launch a debug build in the Android Emulator (host architecture)
     deps:
       - task: ensure-emulator
       - task: build
+        vars:
+          ARCH: '{{.ARCH | default .HOST_ARCH}}'
     cmds:
       - task: assemble:apk
       - '"{{.ADB}}" uninstall {{.APP_ID}} 2>/dev/null || true'
-      - '"{{.ADB}}" install "{{.BIN_DIR}}/{{.APP_NAME}}.apk"'
+      - '"{{.ADB}}" install "{{.BIN_DIR}}/{{.APP_NAME}}-debug.apk"'
       - '"{{.ADB}}" shell am start -n {{.APP_ID}}/com.wails.app.MainActivity'
 
   device:list:
@@ -371,21 +399,19 @@ tasks:
       - '"{{.ADB}}" devices -l'
 
   run:device:
-    summary: Build, install and launch a debug build on a connected physical Android device
+    summary: Build, install and launch a debug build on a connected physical Android device (uninstalls the app first)
     deps:
       - task: build
         vars:
           ARCH: arm64
+    vars:
+      DEVICE:
+        sh: |
+          if [ -n "{{.DEVICE_ID}}" ]; then echo "{{.DEVICE_ID}}"; else "{{.ADB}}" devices | awk 'NR > 1 && $2 == "device" && $1 !~ /^emulator-/ { print $1; exit }'; fi
     cmds:
       - task: assemble:apk
       - |
-        DEVICE='{{.DEVICE_ID | default ""}}'
-        if [ -z "$DEVICE" ]; then
-          DEVICE="${DEVICE_ID:-}"
-        fi
-        if [ -z "$DEVICE" ]; then
-          DEVICE=$("{{.ADB}}" devices | awk 'NR > 1 && $2 == "device" && $1 !~ /^emulator-/ { print $1; exit }')
-        fi
+        DEVICE='{{.DEVICE}}'
         if [ -z "$DEVICE" ]; then
           echo "Error: no connected physical Android device found."
           echo "Pass DEVICE_ID=<serial> to target a device explicitly."
@@ -393,40 +419,45 @@ tasks:
           exit 1
         fi
 
-        echo "Deploying {{.BIN_DIR}}/{{.APP_NAME}}.apk to device $DEVICE..."
+        echo "Deploying {{.BIN_DIR}}/{{.APP_NAME}}-debug.apk to device $DEVICE..."
         "{{.ADB}}" -s "$DEVICE" uninstall {{.APP_ID}} 2>/dev/null || true
-        "{{.ADB}}" -s "$DEVICE" install "{{.BIN_DIR}}/{{.APP_NAME}}.apk"
+        "{{.ADB}}" -s "$DEVICE" install "{{.BIN_DIR}}/{{.APP_NAME}}-debug.apk"
         "{{.ADB}}" -s "$DEVICE" shell am start -n {{.APP_ID}}/com.wails.app.MainActivity
     preconditions:
       - sh: '[ -x "{{.ADB}}" ] || command -v adb'
         msg: "adb not found. Install the Android SDK platform-tools (or set ANDROID_HOME)"
 
-  deploy-device:
-    summary: Deploy the packaged release APK to a connected physical Android device
-    deps:
-      - task: package
-        vars:
-          ARCH: arm64
+  install:
+    summary: Installs the APK built by android:package (bin/hitomado.apk) on a connected physical device with adb
+    desc: |
+      Keeps the app's data (adb install -r). Run `task android:package ARCH=arm64 VERSION=X.Y.Z` first.
+      DEVICE_ID=<serial> picks the device when several are connected; APK=<path> installs another file.
+      An app signed with a different key cannot be replaced: uninstall it first (this deletes its data).
+    vars:
+      DEVICE:
+        sh: |
+          if [ -n "{{.DEVICE_ID}}" ]; then echo "{{.DEVICE_ID}}"; else "{{.ADB}}" devices | awk 'NR > 1 && $2 == "device" && $1 !~ /^emulator-/ { print $1; exit }'; fi
+      APK_FILE: '{{.APK | default (printf "%s/%s.apk" .BIN_DIR .APP_NAME)}}'
     cmds:
       - |
-        DEVICE='{{.DEVICE_ID | default ""}}'
-        if [ -z "$DEVICE" ]; then
-          DEVICE="${DEVICE_ID:-}"
-        fi
-        if [ -z "$DEVICE" ]; then
-          DEVICE=$("{{.ADB}}" devices | awk 'NR > 1 && $2 == "device" && $1 !~ /^emulator-/ { print $1; exit }')
-        fi
+        DEVICE='{{.DEVICE}}'
         if [ -z "$DEVICE" ]; then
           echo "Error: no connected physical Android device found."
           echo "Pass DEVICE_ID=<serial> to target a device explicitly."
           echo "Find connected device serials with: {{.ADB}} devices"
           exit 1
         fi
-
-        echo "Deploying {{.BIN_DIR}}/{{.APP_NAME}}.apk to device $DEVICE..."
-        "{{.ADB}}" -s "$DEVICE" uninstall {{.APP_ID}} 2>/dev/null || true
-        "{{.ADB}}" -s "$DEVICE" install "{{.BIN_DIR}}/{{.APP_NAME}}.apk"
-        "{{.ADB}}" -s "$DEVICE" shell am start -n {{.APP_ID}}/com.wails.app.MainActivity
+        if [ ! -f "{{.APK_FILE}}" ]; then
+          echo "Error: {{.APK_FILE}} not found. Build it first: task android:package ARCH=arm64 VERSION=X.Y.Z"
+          exit 1
+        fi
+        echo "Installing {{.APK_FILE}} on device $DEVICE..."
+        if ! "{{.ADB}}" -s "$DEVICE" install -r "{{.APK_FILE}}"; then
+          echo "adb install failed. INSTALL_FAILED_UPDATE_INCOMPATIBLE means the installed app was signed with a"
+          echo "different key (e.g. debug vs release): uninstall it first with"
+          echo "  adb -s $DEVICE uninstall {{.APP_ID}}   (this deletes the app's data)"
+          exit 1
+        fi
     preconditions:
       - sh: '[ -x "{{.ADB}}" ] || command -v adb'
         msg: "adb not found. Install the Android SDK platform-tools (or set ANDROID_HOME)"

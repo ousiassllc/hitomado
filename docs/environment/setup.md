@@ -87,6 +87,7 @@ task dev                        # 開発サーバー（wails3 dev）
 | `task fmt` | `golangci-lint fmt`、`bunx biome format --write` |
 | `task test` | `go test ./...`、`bun test`（`frontend/` で実行） |
 | `task check` | `generate` の差分なし確認＋`lint`＋`test`（CI と同等） |
+| `task android:package` ほか | Android 版（APK／AAB）。手順・署名・版番号・CI は [Android ビルド](android.md) |
 
 - `frontend/package.json` の `scripts`: `dev`、`build`（`vue-tsc --noEmit && vite build --mode production`）、`build:dev`（`vue-tsc --noEmit && vite build --minify false --mode development`。`build/Taskfile.yml` が `DEV=true` のときに使う）、`typecheck`（`vue-tsc --noEmit`）。テストは `frontend/` で `bun test` を直接実行する（`vitest` は使わない）
 - Wails v3 のテンプレートが `npm`／`npx` を呼ぶ箇所（`Taskfile.yml`、`build/` 配下のタスク）は、すべて `bun`／`bunx` に置換する
@@ -110,8 +111,9 @@ flowchart LR
 
 | ジョブ | 実行環境 | 内容 |
 |--------|----------|------|
-| `lint` | ubuntu-latest | `go mod tidy -diff`、`golangci-lint run`、`bunx biome ci`、`vue-tsc --noEmit`、`bunx linterly check`、**生成物の差分検査**（`sqlc generate` と `wails3 generate bindings` のあと `git diff --exit-code`）、**`NOTICE` の最新性検査**（`bun .github/scripts/gen-notice.ts --check`。§4.3） |
+| `lint` | ubuntu-latest | `go mod tidy -diff`、`golangci-lint run`、android タグ側の `golangci-lint run`（`GOOS=android`・CGO なし）、`bunx biome ci`、`vue-tsc --noEmit`、`bunx linterly check`、**android タグ側の Go lint**（`GOOS=android`）、**生成物の差分検査**（`sqlc generate` と `wails3 generate bindings` のあと `git diff --exit-code`）、**`NOTICE` の最新性検査**（`bun .github/scripts/gen-notice.ts --check`。§4.3） |
 | `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため） |
+| `android` | ubuntu-latest | `pull_request` のみ（`release.yml` からの呼び出しでは動かさない）。release APK（arm64）と AAB を作って検査し、アーティファクトに上げる（使い捨ての署名鍵。[Android ビルド §8](android.md)） |
 | `build` | windows-latest | `needs: [lint, test]`。`wails3 package` でインストーラーを作り（版 `0.99.1` と `0.99.2` の 2 つ）、`.github/scripts/test-installer.ps1` で **インストール → 起動中の上書き拒否 → 上書き → アンインストール** を実機で検証する（§4.3）。新しい方のインストーラーを Actions のアーティファクトに保存 |
 
 - セットアップ: `actions/setup-go`（`go.mod` のバージョン。Go のモジュール・ビルドキャッシュは既定で効く）、`oven-sh/setup-bun`（bun 1.3.14 を固定）、`bun install --frozen-lockfile`。フロントの依存は明示的にキャッシュしない
@@ -290,3 +292,4 @@ pre-push:
 | 1.7 | 2026-11-03 | 冒頭の「設定ファイルはまだ存在しない」を削除し、§7 の YAML 例を実際の `.linterly.yml`（有効な `ignore`）に揃えた。§3.3 に `build:dev`、§4.1 のセットアップのキャッシュ（Go のみ既定、フロントは明示なし）、§5.2 の Biome の対象範囲、§5.3 のテスト配置（`frontend/test/`）を実装に合わせた | #27、#28 |
 | 1.8 | 2026-11-03 | §4.3 に第三者ライセンスの表記（`NOTICE`）の作り方と配布（インストーラー同梱・Release 添付）、§4.1 の `lint` に最新性検査、§4.2 の成果物に `NOTICE` を追記。§7 の除外に `NOTICE` を追加 | #3 |
 | 1.9 | 2026-11-03 | §4.3 の版番号に、`VERSION` の既定値の定義を `Taskfile.yml` の `includes` の `vars` 1 か所にまとめたこと、`frontend/package.json` の `version` を `0.0.0` に揃えたこと、版が `0.0.0`（dev・ローカルビルド）のときは更新確認をしないことを反映 | #19、#20、#21 |
+| 1.10 | 2026-11-03 | Android ビルド基盤を [android.md](android.md) に分けて追加し、§3.3 に導線を足した。CI（`ci.yml`）に `Go lint (android)` と `android` ジョブを追加（§4.1） | #82 |

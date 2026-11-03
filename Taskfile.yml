@@ -14,11 +14,13 @@ includes:
     # 版の既定値（main.go の version・build/config.yml と揃える）。コマンドラインの VERSION を上書きとして使うため、ここで定義する。
     vars:
       APP_VERSION: '{{.VERSION | default "0.0.0"}}'
-  # 試作（#81）: Android 版。APP_ID は build/config.yml の productIdentifier と同じ。
+  # Android 版（docs/environment/android.md）。APP_ID は build/config.yml の productIdentifier と同じ。
+  # APP_VERSION は windows と同じ理由でここに置く（VERSION を渡さなければ 0.0.0）。versionName・versionCode は VERSION から決まる。
   android:
     taskfile: ./build/android/Taskfile.yml
     vars:
       APP_ID: jp.ousias.hitomado
+      APP_VERSION: '{{.VERSION | default "0.0.0"}}'
 
 tasks:
   build:

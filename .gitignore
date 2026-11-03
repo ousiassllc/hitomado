@@ -8,7 +8,7 @@ frontend/node_modules
 build/windows/nsis/*.exe
 build/windows/info.generated.json
 
-# Android 試作（#81）の生成物
+# Android ビルドの生成物（docs/environment/android.md）
 build/android/overlay.json
 build/android/gen/
 build/android/.gradle/

@@ -2,8 +2,27 @@ plugins {
     id 'com.android.application'
 }
 
+// ---- 版（#82）----
+// `task android:* VERSION=X.Y.Z` が -PappVersion=X.Y.Z を渡す（Windows の APP_VERSION と同じ値）。
+// versionName は X.Y.Z そのまま、versionCode は major*10_000_000 + minor*10_000 + patch（単調増加）。
+// 0.0.0（VERSION 未指定のローカルビルド）は versionCode が 0 になり不正なので 1 にする。
+def appVersion = (findProperty('appVersion') ?: '0.0.0').toString()
+def versionMatch = (appVersion =~ /^(\d+)\.(\d+)\.(\d+)$/)
+if (!versionMatch.matches()) {
+    throw new GradleException("appVersion must look like X.Y.Z (no leading v), got '${appVersion}'")
+}
+def vMajor = versionMatch.group(1).toInteger()
+def vMinor = versionMatch.group(2).toInteger()
+def vPatch = versionMatch.group(3).toInteger()
+if (vMajor > 209 || vMinor > 999 || vPatch > 9999) {
+    throw new GradleException("appVersion '${appVersion}' is out of range for versionCode (major <= 209, minor <= 999, patch <= 9999)")
+}
+def appVersionCode = Math.max(1, vMajor * 10_000_000 + vMinor * 10_000 + vPatch)
+
 android {
     namespace = 'com.wails.app'
+    // compileSdk / targetSdk は 36 に揃える（Google Play は 2026-08-31 以降、新規・更新ともに targetSdk 36 以上を要求。
+    // Wails v3.1.0 のテンプレートも 36）。docs/environment/android.md を参照。
     compileSdk = 36
 
     buildFeatures {
@@ -14,8 +33,8 @@ android {
         applicationId = "jp.ousias.hitomado"
         minSdk = 21
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = appVersionCode
+        versionName = appVersion
 
         // Configure supported ABIs
         ndk {
@@ -23,13 +42,24 @@ android {
         }
     }
 
+    // 署名鍵はリポジトリに入れない。パスワードは環境変数だけから読む（-P やコマンドライン引数に載せると ps に見える）。
+    // ANDROID_KEYSTORE_FILE が無いときは、ローカルで実機へ入れるためのデバッグ鍵（~/.android/debug.keystore）で署名する。
+    // その場合は Play にアップロードできない。署名の種類は Taskfile（android:signing:notice）が表示する。
     def keystoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
     def hasKeystore = keystoreFile != null && !keystoreFile.trim().isEmpty()
+    if (hasKeystore) {
+        if (!file(keystoreFile).isFile()) {
+            throw new GradleException("ANDROID_KEYSTORE_FILE does not exist: ${keystoreFile}")
+        }
+        ["ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"].each { name ->
+            def value = System.getenv(name)
+            if (value == null || value.isEmpty()) {
+                throw new GradleException("${name} must be set when ANDROID_KEYSTORE_FILE is set")
+            }
+        }
+    }
 
     signingConfigs {
-        // A real keystore can be provided via environment variables; without
-        // one, release builds are signed with the debug keystore so they can
-        // be installed for testing (not suitable for Play Store uploads).
         release {
             if (hasKeystore) {
                 storeFile = file(keystoreFile)
