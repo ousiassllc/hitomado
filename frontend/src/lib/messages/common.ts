@@ -111,5 +111,7 @@ export const common = {
     sidebarResize: 'サイドバーの幅',
     listResize: 'スレッド一覧の幅',
     detail: 'スレッド',
+    menu: 'メニュー',
+    backToList: '一覧に戻る',
   },
 } as const

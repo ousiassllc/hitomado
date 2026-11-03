@@ -35,4 +35,9 @@ export interface Capabilities {
      * 多重起動の防止（2 つ目のプロセスは既存ウィンドウを前面に出して終了する）
      */
     "singleInstance": boolean;
+
+    /**
+     * タッチ操作中心の画面（幅に応じて 1 画面ずつ進む表示・44px のタップ領域）。有効なら最小ウィンドウ幅の制限も外す
+     */
+    "touchUi": boolean;
 }

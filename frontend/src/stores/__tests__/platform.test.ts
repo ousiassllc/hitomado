@@ -12,6 +12,7 @@ const ANDROID = {
   supportsAutoUpdate: false,
   supportsWindowState: false,
   singleInstance: false,
+  touchUi: true,
 }
 
 let calls = 0
@@ -44,6 +45,8 @@ describe('usePlatformStore', () => {
     expect(p.supportsAutoUpdate).toBe(true)
     expect(p.supportsWindowState).toBe(true)
     expect(p.singleInstance).toBe(true)
+    expect(p.touchUi).toBe(false)
+    expect(p.settled).toBe(false)
   })
 
   test('start は Go の機能を読み、Android では各機能が無効になる。2 回呼んでも読むのは 1 回', async () => {
@@ -58,6 +61,8 @@ describe('usePlatformStore', () => {
     expect(p.supportsAutoUpdate).toBe(false)
     expect(p.supportsWindowState).toBe(false)
     expect(p.singleInstance).toBe(false)
+    expect(p.touchUi).toBe(true)
+    expect(p.settled).toBe(true)
   })
 
   test('読み込みに失敗したらエラートーストを出し、既定（デスクトップ）のまま', async () => {
@@ -67,6 +72,8 @@ describe('usePlatformStore', () => {
     const p = usePlatformStore()
     await p.start()
     expect(p.loaded).toBe(false)
+    expect(p.settled).toBe(true) // 失敗しても画面は出す（デスクトップの構成で）
+    expect(p.touchUi).toBe(false)
     expect(p.supportsMcp).toBe(true)
     expect(useUiStore().toasts.at(-1)?.kind).toBe('error')
   })

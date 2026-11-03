@@ -5,14 +5,20 @@ import * as InboxService from '../../../bindings/github.com/ousiassllc/hitomado/
 import { call, list, parseBindingError } from '../../lib/api'
 import { keyOf } from '../../lib/inboxItems'
 import { common } from '../../lib/messages'
+import { useComposeStore } from '../../stores/compose'
 import { useInboxStore } from '../../stores/inbox'
+import { useLayoutStore } from '../../stores/layout'
 import { useUiStore } from '../../stores/ui'
+import BaseButton from '../ui/BaseButton.vue'
+import BaseIconButton from '../ui/BaseIconButton.vue'
 import ListToolbar from './ListToolbar.vue'
 import SearchBar from './SearchBar.vue'
 import ThreadList from './ThreadList.vue'
 
 const inbox = useInboxStore()
 const ui = useUiStore()
+const layout = useLayoutStore()
+const compose = useComposeStore()
 
 const labels = ref<Label[]>([])
 const labelsLoading = ref(false)
@@ -61,11 +67,20 @@ async function toggleLabel(labelId: string): Promise<void> {
 
 <template>
   <section class="pane" :aria-label="common.list.label">
+    <!-- サイドバーをドロワーにするレイアウト（2 ペイン・1 画面ずつ）の上部バー -->
+    <header v-if="layout.hasDrawer" class="head">
+      <BaseIconButton :label="common.shell.menu" data-testid="open-menu" @click="ui.openMenu()">
+        <span aria-hidden="true">☰</span>
+      </BaseIconButton>
+      <span class="app-name">{{ common.appName }}</span>
+      <BaseButton variant="primary" data-testid="head-compose" @click="compose.open({ mode: 'new' })">{{ common.sidebar.compose }}</BaseButton>
+    </header>
     <SearchBar :active="inbox.mode === 'search'" :query="inbox.searchQuery" @search="inbox.runSearch" @clear="inbox.clearSearch" />
     <ListToolbar
       :selected-count="targets.length"
       :refreshing="inbox.refreshing"
       :search-query="inbox.mode === 'search' ? inbox.searchQuery : undefined"
+      :compact="layout.isStack"
       :label-enabled="labelEnabled"
       :labels="labelItems"
       :labels-loading="labelsLoading"
@@ -80,7 +95,7 @@ async function toggleLabel(labelId: string): Promise<void> {
     <ThreadList
       :items="inbox.items"
       :selected-key="inbox.selectedKey"
-      :cursor-key="inbox.cursorKey"
+      :cursor-key="layout.isStack ? undefined : inbox.cursorKey"
       :checked-keys="inbox.checkedKeys"
       :loading="inbox.loading"
       :has-more="inbox.hasMore"
@@ -104,5 +119,19 @@ async function toggleLabel(labelId: string): Promise<void> {
   min-height: 0;
   background: var(--color-bg);
   border-right: 1px solid var(--color-border);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.app-name {
+  flex: 1;
+  font-size: var(--font-size-lg);
+  font-weight: 600;
 }
 </style>

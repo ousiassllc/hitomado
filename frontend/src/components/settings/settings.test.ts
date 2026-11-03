@@ -145,6 +145,7 @@ const ANDROID_CAPS: Capabilities = {
   supportsAutoUpdate: false,
   supportsWindowState: false,
   singleInstance: false,
+  touchUi: true,
 }
 
 describe('SettingsDialog（Android: 機能が無い OS）', () => {

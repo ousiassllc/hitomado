@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { compose as msg } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'
 import { useComposeStore } from '../../stores/compose'
+import { useLayoutStore } from '../../stores/layout'
 import BaseButton from '../ui/BaseButton.vue'
 import AiDraftButton from './AiDraftButton.vue'
 import AttachmentBar from './AttachmentBar.vue'
@@ -13,6 +14,7 @@ import SignatureConflictDialog from './SignatureConflictDialog.vue'
 
 const compose = useComposeStore()
 const accounts = useAccountsStore()
+const layout = useLayoutStore()
 
 const session = computed(() => compose.session)
 const title = computed(() => {
@@ -147,7 +149,7 @@ function send(archive: boolean): void {
 
     <footer class="compose-foot">
       <span v-if="session.accountId === undefined" class="foot-hint" role="note">{{ msg.senderRequiredHint }}</span>
-      <span v-else class="foot-hint">{{ msg.shortcutHint }}</span>
+      <span v-else-if="!layout.isStack" class="foot-hint">{{ msg.shortcutHint }}</span>
       <span class="spacer" />
       <BaseButton
         v-if="compose.canArchive"

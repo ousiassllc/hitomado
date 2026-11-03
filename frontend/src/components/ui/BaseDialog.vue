@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from 'reka-ui'
 import { common } from '../../lib/messages'
+import { useLayoutStore } from '../../stores/layout'
 
 const props = withDefaults(
   defineProps<{
@@ -22,6 +23,7 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
+const layout = useLayoutStore()
 
 function onUpdate(v: boolean): void {
   if (!v && !props.closable) return
@@ -39,7 +41,7 @@ function guard(e: Event): void {
       <DialogOverlay class="dlg-overlay" />
       <DialogContent
         class="dlg"
-        :class="`dlg-${size}`"
+        :class="[`dlg-${size}`, { 'dlg-full': layout.isStack }]"
         :aria-describedby="description ? undefined : ''"
         @escape-key-down="guard"
         @pointer-down-outside="guard"
@@ -81,6 +83,16 @@ function guard(e: Event): void {
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-popup);
   z-index: 101;
+}
+
+/* 1 画面ずつのレイアウト（スマホ幅）では、ダイアログを全画面にする。 */
+.dlg-full {
+  inset: 0;
+  transform: none;
+  width: auto;
+  max-height: none;
+  border: none;
+  border-radius: 0;
 }
 
 .dlg-sm {

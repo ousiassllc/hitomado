@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { thread as msg } from '../../lib/messages'
 import { useComposeStore } from '../../stores/compose'
+import { useLayoutStore } from '../../stores/layout'
 import { useThreadStore } from '../../stores/thread'
 import ComposePane from '../compose/ComposePane.vue'
 import BaseButton from '../ui/BaseButton.vue'
@@ -13,10 +14,14 @@ import { nextExpanded } from './threadView'
 
 const store = useThreadStore()
 const compose = useComposeStore()
+const layout = useLayoutStore()
 
 const detail = computed(() => store.current)
 const messages = computed(() => detail.value?.messages ?? [])
-const editing = computed(() => store.currentRef !== undefined && compose.isOpenForThread(store.currentRef))
+/** 返信・転送の編集を、スレッドの下に埋め込んで出す。1 画面ずつのレイアウトでは AppShell が全画面で出す。 */
+const editing = computed(
+  () => !layout.isStack && store.currentRef !== undefined && compose.isOpenForThread(store.currentRef),
+)
 
 /** 展開中のメッセージ ID。別スレッドでは規則（最新と未読）で作り直し、同一スレッドの再取得では開閉を保つ。 */
 const expanded = ref<Set<string>>(new Set())
