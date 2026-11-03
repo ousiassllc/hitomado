@@ -10,6 +10,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/events"
+	"github.com/ousiassllc/hitomado/internal/exportfile"
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/notify"
 	"github.com/ousiassllc/hitomado/internal/oauth"
@@ -20,9 +21,11 @@ import (
 	"github.com/ousiassllc/hitomado/internal/update"
 )
 
-// FileDialog はネイティブの保存ダイアログ。キャンセルは ok=false。
+// FileDialog は保存先を利用者に選ばせる。キャンセルは ok=false。
+// 返した Target の Path へ内容を書いて Commit する（Windows は選ばれたパスそのもの、Android は一時ファイルで、
+// Commit が選ばれた保存先へ確定する）。呼び出し側は Target の Close を必ず呼ぶ。
 type FileDialog interface {
-	SaveFile(ctx context.Context, suggestedName string) (path string, ok bool, err error)
+	SaveFile(ctx context.Context, suggestedName string) (target exportfile.Target, ok bool, err error)
 }
 
 // URLOpener はシステムブラウザ／メーラーで URL を開く。スキーム検証は呼び出し側（ThreadService）が行う。

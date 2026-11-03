@@ -72,30 +72,6 @@ func (f *FakeFlow) Revoke(_ context.Context, refreshToken string) error {
 	return f.RevokeErr
 }
 
-// FakeFiles は app.FileDialog のフェイク。Cancel=true で「キャンセル」、それ以外は Path を返す。
-type FakeFiles struct {
-	mu sync.Mutex
-
-	Path      string
-	Cancel    bool
-	Err       error
-	Suggested []string // SaveFile に渡された suggestedName
-}
-
-// SaveFile は設定どおりの結果を返す。
-func (f *FakeFiles) SaveFile(_ context.Context, suggestedName string) (string, bool, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.Suggested = append(f.Suggested, suggestedName)
-	if f.Err != nil {
-		return "", false, f.Err
-	}
-	if f.Cancel {
-		return "", false, nil
-	}
-	return f.Path, true, nil
-}
-
 // FakeBrowser は app.URLOpener のフェイク。開いた URL を記録する。
 type FakeBrowser struct {
 	mu sync.Mutex

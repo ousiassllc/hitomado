@@ -56,6 +56,8 @@ import androidx.fragment.app.FragmentActivity;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.OutputStream;
 import java.util.Locale;
 import java.util.concurrent.Executor;
 
@@ -842,6 +844,186 @@ public class WailsBridge {
             return secureFailure(e.code());
         } catch (Exception e) {
             return secureFailure("failed");
+        }
+    }
+
+    // MARK: - Documents: save (ACTION_CREATE_DOCUMENT) and open (ACTION_VIEW + FileProvider) (#85)
+
+    /**
+     * 添付の保存・ログの書き出し（保存先を利用者が選ぶ）と、ファイルを既定のアプリで開く操作。Go は application.Android の
+     * 公開 API に無いので、internal/platform の savefile_android.go／open_android.go が go:linkname で
+     * このメソッド群を呼ぶ（Wails の他のメソッドと同じ、名前で引く JNI 経由）。
+     *
+     * 同期で返す値は {"ok":true,"value":"…"} か {"ok":false,"error":"<コード>"}。コードだけで、パス・Uri・例外メッセージは含めない。
+     * 保存先を選んだ結果・コピーの結果は、Activity の結果が非同期に来るので hitomado:document イベント
+     * {"id":n,"status":"picked|cancelled|saved|failed","name":"…","error":"…"} で Go へ知らせる。
+     * 状態の流れと理由は {@link DocumentExporter}。
+     */
+    private static final String DOCUMENT_EVENT = "hitomado:document";
+    /** FileProvider（res/xml/file_paths.xml）が公開する、開いてよいディレクトリ（files/ 配下）。両方を揃えること。 */
+    private static final String OPENABLE_DIR = "Hitomado/logs";
+
+    private final DocumentExporter.Host documentHost = new DocumentExporter.Host() {
+        @Override public File exportsDir() {
+            return new File(activity.getCacheDir(), "exports");
+        }
+
+        @Override public void runOnMain(Runnable r) {
+            if (Looper.myLooper() == Looper.getMainLooper()) r.run(); else mainHandler.post(r);
+        }
+
+        @Override public void runAsync(Runnable r) {
+            new Thread(r, "hitomado-document-copy").start();
+        }
+
+        @Override public void launchPicker(String name, String mime) throws Exception {
+            if (!(activity instanceof MainActivity)) throw new IllegalStateException("not a MainActivity");
+            try {
+                ((MainActivity) activity).launchCreateDocument(name, mime);
+            } catch (android.content.ActivityNotFoundException e) {
+                throw new DocumentExporter.NoPickerException();
+            }
+        }
+
+        @Override public OutputStream openOutput(Object uri) throws Exception {
+            // "wt": 既存の内容を切り詰めて書く（同名を選んだとき、前の内容の尻尾が残らない）。
+            OutputStream out = activity.getContentResolver().openOutputStream((Uri) uri, "wt");
+            if (out == null) throw new java.io.IOException("provider returned no stream");
+            return out;
+        }
+
+        @Override public String displayName(Object uri) {
+            try (android.database.Cursor c = activity.getContentResolver().query(
+                    (Uri) uri, new String[]{android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                if (c != null && c.moveToFirst()) return c.getString(0);
+            } catch (Exception ignored) {
+            }
+            return null;
+        }
+
+        @Override public void deleteDocument(Object uri) {
+            try {
+                android.provider.DocumentsContract.deleteDocument(activity.getContentResolver(), (Uri) uri);
+            } catch (Exception ignored) {
+                // 消せなくても（プロバイダーが対応しない・すでに無い）保存の失敗の扱いは変わらない。
+            }
+        }
+
+        @Override public void emit(int id, String status, String name, String error) {
+            try {
+                JSONObject o = new JSONObject().put("id", id).put("status", status);
+                if (name != null) o.put("name", name);
+                if (error != null) o.put("error", error);
+                emitEvent(DOCUMENT_EVENT, DocumentPaths.escapeNonAscii(o.toString()));
+            } catch (Exception e) {
+                Log.e(TAG, "emit document event failed", e);
+            }
+        }
+    };
+
+    private static String documentOk(String value) {
+        try {
+            JSONObject o = new JSONObject().put("ok", true);
+            if (value != null) o.put("value", value);
+            return DocumentPaths.escapeNonAscii(o.toString());
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+    }
+
+    private static String documentFail(String code) {
+        return "{\"ok\":false,\"error\":\"" + code + "\"}";
+    }
+
+    /** 一時ファイルを置くディレクトリ（cache/exports。無ければ作る）を返す。引数は使わない（名前で引く呼び出しの形に合わせる）。 */
+    public String documentTempDir(final String unused) {
+        File dir = documentHost.exportsDir();
+        if (!dir.isDirectory() && !dir.mkdirs()) {
+            return documentFail("unavailable");
+        }
+        return documentOk(dir.getAbsolutePath());
+    }
+
+    /** 保存先の選択を始める。json: {"id":n,"name":"…","mime":"…"}。結果は hitomado:document イベント。 */
+    public String documentBegin(final String json) {
+        try {
+            JSONObject o = new JSONObject(json);
+            String err = DocumentExporter.INSTANCE.begin(documentHost, o.getInt("id"), o.optString("name", ""), o.optString("mime", ""));
+            return err == null ? documentOk(null) : documentFail(err);
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+    }
+
+    /** 一時ファイルを選ばれた保存先へコピーさせる。json: {"id":n,"path":"…"}。結果は hitomado:document イベント。 */
+    public String documentCommit(final String json) {
+        try {
+            JSONObject o = new JSONObject(json);
+            String err = DocumentExporter.INSTANCE.commit(documentHost, o.getInt("id"), o.optString("path", ""));
+            return err == null ? documentOk(null) : documentFail(err);
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+    }
+
+    /** 保存を取りやめる。json: {"id":n}。 */
+    public String documentAbort(final String json) {
+        try {
+            DocumentExporter.INSTANCE.abort(documentHost, new JSONObject(json).getInt("id"));
+            return documentOk(null);
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+    }
+
+    /** MainActivity.onActivityResult から。保存先の選択画面の結果（キャンセルは uri なし）。 */
+    void documentPickerResult(boolean ok, Intent data) {
+        Uri uri = ok && data != null ? data.getData() : null;
+        DocumentExporter.INSTANCE.onPickerResult(documentHost, uri);
+    }
+
+    /**
+     * ファイルを既定のアプリで開く（ACTION_VIEW + FileProvider）。json: {"path":"…","mime":"…"}。
+     * 開いてよいのは files/Hitomado/logs の配下のファイルだけ。コード: bad_path／is_directory／no_app／failed。
+     * 開けるアプリが無ければ no_app（Intent を投げた結果で判断する。Android 11 以降は他のアプリが見えず事前確認できない）。
+     */
+    public String documentOpen(final String json) {
+        final String path;
+        final String mime;
+        try {
+            JSONObject o = new JSONObject(json);
+            path = o.optString("path", "");
+            mime = o.optString("mime", "");
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+        final java.util.concurrent.FutureTask<String> task = new java.util.concurrent.FutureTask<>(() -> openDocument(path, mime));
+        documentHost.runOnMain(task);
+        try {
+            return task.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+    }
+
+    private String openDocument(String path, String mime) {
+        File root = new File(activity.getFilesDir(), OPENABLE_DIR);
+        File file = DocumentPaths.resolveUnder(root, path);
+        if (file == null) return documentFail("bad_path");
+        if (file.isDirectory()) return documentFail("is_directory");
+        try {
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(activity, activity.getPackageName() + ".fileprovider", file);
+            Intent view = new Intent(Intent.ACTION_VIEW);
+            view.setDataAndType(uri, mime.isEmpty() ? "*/*" : mime);
+            view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            activity.startActivity(view);
+            return documentOk(null);
+        } catch (android.content.ActivityNotFoundException e) {
+            return documentFail("no_app");
+        } catch (IllegalArgumentException e) {
+            return documentFail("bad_path"); // FileProvider の公開範囲の外
+        } catch (Exception e) {
+            return documentFail("failed");
         }
     }
 

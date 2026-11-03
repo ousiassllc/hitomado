@@ -200,7 +200,7 @@ type ThreadDetail = {
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
 | `GetThread(ref)` | `ThreadRef` | `ThreadDetail` | `threads.get(format=full)`。メモリ LRU に保持。**状態は変更しない**（既読化は、スレッドを開いて表示した後にフロントが `MarkRead` を呼ぶ。F-03） |
-| `SaveAttachment(ref, attachmentId, suggestedName)` | `MessageRef`, string ×2 | `{ saved: boolean; path?: string }` | ネイティブの保存ダイアログを開き、選択先に書き込む。キャンセルは `saved=false`。ファイル名は `suggestedName` を OS の禁止文字で正規化する。保存先と同じディレクトリの一時ファイルへ書いて置き換え、置換後のファイルに Windows の Mark-of-the-Web（`Zone.Identifier` の `ZoneId=3`）を付ける（付けられなくても保存は成功） |
+| `SaveAttachment(ref, attachmentId, suggestedName)` | `MessageRef`, string ×2 | `{ saved: boolean; path?: string }` | ネイティブの保存ダイアログ（Android は Storage Access Framework の保存先選択。[Android ビルド §13](../environment/android.md#13-添付の保存ログの書き出しファイルを開く85)）を開き、選択先に書き込む。キャンセルは `saved=false`。Android では保存先選択のあとに添付を取得し、選ばれた場所へコピーしてから返す。`path` は Windows では保存したパス、Android では選ばれた保存先のファイル名。ファイル名は `suggestedName` を OS の禁止文字で正規化する。保存先と同じディレクトリの一時ファイルへ書いて置き換え、置換後のファイルに Windows の Mark-of-the-Web（`Zone.Identifier` の `ZoneId=3`）を付ける（付けられなくても保存は成功） |
 | `OpenExternal(url)` | string | — | システムブラウザ／メーラーで開く。許可スキームは `http`／`https`／`mailto` のみ（それ以外は `VALIDATION`、NF-S07） |
 
 - 本文の取得は毎回 Gmail に問い合わせ、ディスクには保存しない（NF-S08／S09）。メモリ LRU にあれば再利用し、`history` で当該スレッドが変更されたら破棄する
@@ -412,8 +412,8 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
 | `ReportClientError(error)` | `ClientError` | — | フロントの未処理例外・Promise の reject・Vue の描画エラー・バインディング呼び出しの失敗を Go のログへ記録する。`ClientError` は `{ kind: 'error' \| 'unhandledrejection' \| 'vue' \| 'binding'; message: string; stack?: string; source?: string; code?: string; accountId?: string }`。本文・件名・宛先の項目は持たない。画面側は例外のメッセージ文を送らず、`message` は種類のコード（`TypeError` などのエラークラス名・`unknown`・`render-error:コンポーネント名`・`binding` のエラーコード）、`stack` は関数名とファイル:行:列のフレームだけ。Go 側は 2 枚目の防御として、メッセージ・スタックはログの伏せ処理（NF-S10）を通り、長さを切る。1 秒に 1 件（瞬間 30 件）を超える報告は捨てる（エラーにしない）。`kind` が不正なら `VALIDATION`。`binding` は `code` が `INTERNAL` のときだけ Error、それ以外は Warn |
-| `OpenLogFolder()` | — | — | ログフォルダ（`%APPDATA%\Hitomado\logs`）を OS の標準の方法で開く |
-| `ExportLogs()` | — | `{ saved: boolean; path?: string }` | 保存ダイアログで選んだ先に、ログ（現行とローテーション済み）を zip で書き出す。キャンセルは `saved=false` |
+| `OpenLogFolder()` | — | — | ログフォルダ（`%APPDATA%\Hitomado\logs`）を OS の標準の方法で開く。Android ではフォルダを開く手段が無く `UNSUPPORTED`（メッセージで「ログを書き出す」を案内する） |
+| `ExportLogs()` | — | `{ saved: boolean; path?: string }` | 保存ダイアログ（Android は保存先選択）で選んだ先に、ログ（現行とローテーション済み）を zip で書き出す。キャンセルは `saved=false`。`path` は `SaveAttachment` と同じ |
 
 ### 7.2 MCPService
 
@@ -501,4 +501,5 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.15 | 2026-11-03 | `ReportClientError` の `message`・`stack` を、例外のメッセージ文ではなく種類のコード・位置だけのフレームにしたことを追記 | 実装（`frontend/src/lib/errorReporter.ts`）との整合（#24） |
 | 1.16 | 2026-11-03 | `AIProvider` に `chatgpt` を追加し、`AIConfig` に `chatgptSignedIn`／`chatgptEmail` を追加。`SignInChatGPT`／`CancelSignInChatGPT`／`SignOutChatGPT`／`ListAIModels` と、§6.1 モデル一覧・§6.2 ChatGPT プランを追記。§1.2 の `AI_NOT_CONFIGURED`／`AI_FAILED` の説明を拡張 | Sign in with ChatGPT（#75）とモデル一覧からの選択（#76） |
 | 1.17 | 2026-11-03 | `PlatformService`（§7.3）と `UNSUPPORTED`（§1.2）を追加。§7 の `SetUpdateCheckEnabled` と §7.2 に、Android での扱いを追記 | Android 版で使わない機能の無効化（#89） |
-| 1.18 | 2026-11-03 | `AccountService.TakeInterruptedAuth` を追加 | Android の Google OAuth（#86） |
+| 1.18 | 2026-11-03 | `SaveAttachment`・`ExportLogs` の保存先に Android（Storage Access Framework）の動作を、`OpenLogFolder` に Android で `UNSUPPORTED` となる旨を追記 | #85 |
+| 1.19 | 2026-11-03 | `AccountService.TakeInterruptedAuth` を追加 | Android の Google OAuth（#86） |
