@@ -91,7 +91,7 @@ func Encode(r Result, err error) string {
 		})
 	}
 	for _, a := range r.Accounts {
-		out.Accounts = append(out.Accounts, jsonAccount{ID: a.ID, Email: a.Email, Status: a.Status})
+		out.Accounts = append(out.Accounts, jsonAccount(a))
 	}
 	s, mErr := asciijson.Marshal(out)
 	if mErr != nil {

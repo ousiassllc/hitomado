@@ -89,7 +89,7 @@ import (
 // dataDir は Worker が getFilesDir() から組み立てたデータフォルダ、secrets は SecretBridge（資格情報の読み書き）。
 //
 //export Java_com_wails_app_HeadlessSync_nativeSyncOnce
-func Java_com_wails_app_HeadlessSync_nativeSyncOnce(env *C.JNIEnv, _ C.jclass, jdir C.jstring, jver C.jstring, target C.jobject) C.jstring {
+func Java_com_wails_app_HeadlessSync_nativeSyncOnce(env *C.JNIEnv, cls C.jclass, jdir C.jstring, jver C.jstring, target C.jobject) C.jstring {
 	dir := goString(env, jdir)
 	version := goString(env, jver)
 	ref := C.hs_newGlobal(env, target)
@@ -108,7 +108,7 @@ func Java_com_wails_app_HeadlessSync_nativeSyncOnce(env *C.JNIEnv, _ C.jclass, j
 // Java_com_wails_app_HeadlessSync_nativeCancel は実行中のヘッドレス同期を取り消す（WorkManager が Worker を止めたとき）。
 //
 //export Java_com_wails_app_HeadlessSync_nativeCancel
-func Java_com_wails_app_HeadlessSync_nativeCancel(_ *C.JNIEnv, _ C.jclass) {
+func Java_com_wails_app_HeadlessSync_nativeCancel(env *C.JNIEnv, cls C.jclass) {
 	headless.Cancel()
 }
 

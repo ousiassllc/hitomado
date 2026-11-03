@@ -31,12 +31,10 @@ func TestBindingServicesFollowCapability(t *testing.T) {
 
 	desktop := instances(capability.Desktop("windows"))
 	assert.Contains(t, desktop, any(svc.MCP))
-	assert.Contains(t, desktop, any(svc.Notify), "NotifyService は全 OS で登録する（Windows は unsupported を返す）")
 	assert.True(t, hasPlatform(desktop))
 
 	android := instances(capability.Android())
 	assert.NotContains(t, android, any(svc.MCP), "Android では MCPService を登録しない")
 	assert.True(t, hasPlatform(android), "PlatformService は全 OS で登録する")
 	assert.Contains(t, android, any(svc.App))
-	assert.Contains(t, android, any(svc.Notify))
 }

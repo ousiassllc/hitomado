@@ -23,6 +23,7 @@ Hitomado は HTTP サーバーを持たない。フロントエンド（Vue）�
 | `LogService` | フロントのエラーの記録、ログフォルダを開く、ログの書き出し |
 | `MCPService` | 内蔵 MCP サーバーの設定・トークン・状態 |
 | `PlatformService`（`internal/capability`） | 実行中の OS で提供する機能 |
+| `NotifyService`（`internal/app/notifycore`） | 通知の許可状態・OS の通知設定・通知のタップで開くスレッド |
 
 ### 1.2 エラー
 
@@ -438,6 +439,17 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 |----------|------|--------|------|
 | `GetCapabilities()` | — | `{ os: string; supportsMcp: boolean; supportsTray: boolean; supportsAutoUpdate: boolean; supportsWindowState: boolean; singleInstance: boolean; touchUi: boolean }` | `os` は `runtime.GOOS` と同じ表記（表示・ログ用）。Windows は `touchUi` 以外が `true`、Android は `touchUi` だけが `true`（MCP サーバー・トレイ・アプリ内の自動更新・ウィンドウ状態の保存復元・多重起動の防止を持たない）。`touchUi` はタッチ操作中心の画面（幅による 1 画面ずつ・2 ペインの表示、44px のタップ領域）を使うか。`true` の OS は最小ウィンドウ幅の制限も外す |
 
+### 7.4 NotifyService
+
+通知の許可（Android 13 以降の `POST_NOTIFICATIONS` と OS のアプリの通知設定）と、通知のタップで開くスレッド。バインディングは全 OS で同じで、Windows では許可を管理しないため `unsupported` を返す（設定画面は項目を出さない）。
+
+| メソッド | 引数 | 戻り値 | 内容 |
+|----------|------|--------|------|
+| `GetNotificationPermission()` | — | `'granted' \| 'denied' \| 'unsupported'` | 通知を出せるか。`denied` は未許可・OS の設定で通知がオフ |
+| `RequestNotificationPermission()` | — | — | 許可のダイアログを出す（許可済み・永続的に拒否済みでは何も出ない）。結果は待たない。最初のアカウントの追加後は Go が自動で呼ぶ |
+| `OpenNotificationSettings()` | — | — | OS の「このアプリの通知設定」を開く。開けなければ `UNSUPPORTED` |
+| `TakePendingOpenThread()` | — | `{ accountId, threadId } \| null` | フロントが購読を始めた**あと**に 1 回呼ぶ。通知のタップで起動されて（コールドスタート）まだ開いていないスレッドがあれば返す。以後のタップは `notify:open-thread` で届く（フロントの準備前に発行したイベントの取りこぼしを避ける） |
+
 ## 8. イベント（Go → フロント）
 
 Wails のイベントとして発行する。ペイロードに本文・件名・宛先などの機密を載せない。フロントは受信後に該当バインディングを再呼び出しして再描画する。
@@ -446,7 +458,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 |-----------|------------|------|
 | `sync:updated` | `{ accountId: string; changedThreadIds: string[] }` | 差分同期・リセット同期でキャッシュが更新された |
 | `account:status` | `{ accountId: string; status: 'active' \| 'syncing' \| 'needs_reauth' \| 'error'; message?: string }` | アカウント状態の変化（`syncing` は一時状態で DB に保存しない） |
-| `notify:open-thread` | `{ accountId: string; threadId: string }` | 通知クリック（トレイ操作ではウィンドウを前面に出すだけで、このイベントは発行しない） |
+| `notify:open-thread` | `{ accountId: string; threadId: string }` | 通知クリック（トレイ操作ではウィンドウを前面に出すだけで、このイベントは発行しない）。Android では、起動済みのアプリが通知のタップで前面に出たとき（フロントが準備済みなら）。起動前のタップは `TakePendingOpenThread` で受け取る |
 | `update:available` | `{ version: string; url: string }` | 新バージョン検出 |
 | `app:before-quit` | なし | トレイの「終了」。フロントは未保存の下書きを保存して `AckBeforeQuit` を呼ぶ |
 | `files-dropped` | `{ files: string[] }` | ウィンドウへのファイルドロップ（`data-file-drop-target` 属性の要素上のみ）。フロントは `AddAttachments` に渡す |
@@ -504,3 +516,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.18 | 2026-11-03 | `SaveAttachment`・`ExportLogs` の保存先に Android（Storage Access Framework）の動作を、`OpenLogFolder` に Android で `UNSUPPORTED` となる旨を追記 | #85 |
 | 1.19 | 2026-11-03 | `AccountService.TakeInterruptedAuth` を追加 | Android の Google OAuth（#86） |
 | 1.20 | 2026-11-03 | `GetCapabilities` の戻り値に `touchUi` を追加 | Android のスマホ向け画面（#87） |
+| 1.21 | 2026-11-03 | `NotifyService`（§7.4。通知の許可・OS の通知設定・通知のタップで開くスレッド）を追加。`notify:open-thread` の契機に Android の通知のタップを追記 | Android のバックグラウンド同期と通知（#88） |

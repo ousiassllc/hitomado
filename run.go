@@ -15,6 +15,8 @@ import (
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
+	appdeps "github.com/ousiassllc/hitomado/internal/app/deps"
+	"github.com/ousiassllc/hitomado/internal/app/notifycore"
 	"github.com/ousiassllc/hitomado/internal/app/threadcache"
 	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/clock"
@@ -135,6 +137,8 @@ func run() error {
 	for _, s := range bindingServices(svc, caps) {
 		wapp.RegisterService(s)
 	}
+	// 通知の許可・OS の通知設定・通知のタップで開くスレッド（全 OS で登録。Windows は unsupported を返す）。
+	wapp.RegisterService(application.NewService(notifycore.NewNotifyService((*appdeps.Deps)(deps))))
 	// Wails の通知サービスは Android では D-Bus に接続しようとして起動に失敗するため、Android では登録しない（notifsvc_android.go）。
 	if s, ok := notificationService(notifSvc); ok {
 		wapp.RegisterService(s)

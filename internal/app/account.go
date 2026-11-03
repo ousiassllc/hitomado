@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
+	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/domain/palette"
 	"github.com/ousiassllc/hitomado/internal/domain/signature"
@@ -62,12 +63,7 @@ func (s *AccountService) RemoveAccount(ctx context.Context, accountID string) er
 	if s.d.Threads != nil {
 		s.d.Threads.InvalidateAccount(accountID)
 	}
-	// 通知チャネルと表示中の通知を消し、アカウントが 0 件になったらバックグラウンド同期を解除する。
-	bg := background(s.d)
-	bg.ForgetAccount(accountID)
-	if rest, err := s.d.Store.ListAccounts(ctx); err == nil && len(rest) == 0 {
-		bg.ScheduleSync(false)
-	}
+	(*deps.Deps)(s.d).AccountRemoved(ctx, accountID) // 通知チャネルの削除と、0 件になったときの同期の解除
 	return nil
 }
 

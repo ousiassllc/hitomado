@@ -87,3 +87,31 @@ type Deps struct {
 	// Threads は NewServices が作成する共有のスレッド本文 LRU（Deps に渡す値は不要）。
 	Threads *threadcache.Cache
 }
+
+// BackgroundOrNop は Background（未設定なら何もしない実装。Windows）。
+func (d *Deps) BackgroundOrNop() notify.Background {
+	if d.Background != nil {
+		return d.Background
+	}
+	return notify.NopBackground{}
+}
+
+// AccountAdded はアカウントの追加が済んだあとに呼ぶ。バックグラウンド同期（Android の WorkManager）を登録し（冪等）、
+// 最初のアカウント（first）の追加が済んだところで通知の許可を求める。
+func (d *Deps) AccountAdded(first bool) {
+	bg := d.BackgroundOrNop()
+	bg.ScheduleSync(true)
+	if first {
+		bg.RequestPermission()
+	}
+}
+
+// AccountRemoved はアカウントの削除が済んだあとに呼ぶ。そのアカウントの通知チャネルと表示中の通知を消し、
+// アカウントが 0 件になったらバックグラウンド同期を解除する。
+func (d *Deps) AccountRemoved(ctx context.Context, accountID string) {
+	bg := d.BackgroundOrNop()
+	bg.ForgetAccount(accountID)
+	if rest, err := d.Store.ListAccounts(ctx); err == nil && len(rest) == 0 {
+		bg.ScheduleSync(false)
+	}
+}

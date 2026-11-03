@@ -15,8 +15,7 @@ func bindingServices(svc *app.Services, caps capability.Capabilities) []applicat
 		application.NewService(svc.Account), application.NewService(svc.Inbox),
 		application.NewService(svc.Thread), application.NewService(svc.Compose),
 		application.NewService(svc.AI), application.NewService(svc.App),
-		application.NewService(svc.Log), application.NewService(svc.Notify),
-		application.NewService(capability.NewPlatformService(caps)),
+		application.NewService(svc.Log), application.NewService(capability.NewPlatformService(caps)),
 	}
 	if caps.SupportsMCP {
 		out = append(out, application.NewService(svc.MCP))

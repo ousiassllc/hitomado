@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { parseBindingError } from '../../lib/api'
 import { settings as msg } from '../../lib/messages'
+import { useNotificationsStore } from '../../stores/notifications'
 import { usePlatformStore } from '../../stores/platform'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
@@ -11,6 +12,17 @@ import BaseSwitch from '../ui/BaseSwitch.vue'
 const store = useSettingsStore()
 const ui = useUiStore()
 const platform = usePlatformStore()
+const notifications = useNotificationsStore()
+
+// 通知の許可は OS の設定画面で変えられるため、設定を開いたとき・アプリへ戻ったときに読み直す。
+function refreshPermission(): void {
+  void notifications.refresh()
+}
+onMounted(() => {
+  refreshPermission()
+  window.addEventListener('focus', refreshPermission)
+})
+onBeforeUnmount(() => window.removeEventListener('focus', refreshPermission))
 
 const info = computed(() => store.appInfo)
 const update = computed(() => store.update)
@@ -72,6 +84,29 @@ function openUpdate(): void {
         </p>
         <p v-else-if="checked" class="hint" role="status">{{ msg.general.upToDate }}</p>
       </div>
+    </div>
+
+    <!-- 通知の許可を管理する OS（Android）だけ。許可されていないと、閉じているあいだの新着をお知らせできない。 -->
+    <div
+      v-if="notifications.permission !== 'unsupported'"
+      class="block"
+      data-testid="notification-permission"
+      :data-state="notifications.permission"
+    >
+      <strong>{{ msg.notifications.heading }}</strong>
+      <p v-if="notifications.permission === 'granted'" class="hint" role="status">
+        {{ msg.notifications.granted }}
+      </p>
+      <template v-else>
+        <p class="hint" role="status">{{ msg.notifications.denied }}</p>
+        <p class="hint">{{ msg.notifications.deniedHint }}</p>
+        <div class="check">
+          <BaseButton @click="notifications.request()">{{ msg.notifications.request }}</BaseButton>
+          <BaseButton @click="notifications.openSettings()">
+            {{ msg.notifications.openSettings }}
+          </BaseButton>
+        </div>
+      </template>
     </div>
 
     <dl class="info">

@@ -12,7 +12,6 @@ type Services struct {
 	App     *AppService
 	Log     *LogService
 	MCP     *MCPService
-	Notify  *NotifyService
 }
 
 // NewServices は各サービスを組み立てる。共有のスレッド本文 LRU（d.Threads）が未設定なら作る
@@ -32,6 +31,5 @@ func NewServices(d *Deps) *Services {
 		App:     NewAppService(d),
 		Log:     NewLogService(d),
 		MCP:     NewMCPService(d, newMCPBackend(d, inbox)),
-		Notify:  NewNotifyService(d),
 	}
 }

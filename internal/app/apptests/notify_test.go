@@ -7,9 +7,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/app"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/apptest"
+	"github.com/ousiassllc/hitomado/internal/app/deps"
+	"github.com/ousiassllc/hitomado/internal/app/notifycore"
 	"github.com/ousiassllc/hitomado/internal/notify"
 	"github.com/ousiassllc/hitomado/internal/oauth"
 )
@@ -62,7 +63,7 @@ func TestRemoveAccountForgetsChannelAndUnschedulesWhenLast(t *testing.T) {
 
 func TestNotifyServicePermission(t *testing.T) {
 	e := apptest.NewEnv(t)
-	svc := app.NewNotifyService(e.Deps)
+	svc := notifycore.NewNotifyService((*deps.Deps)(e.Deps))
 	assert.Equal(t, "granted", svc.GetNotificationPermission())
 
 	e.Background.State = notify.PermissionDenied
@@ -82,7 +83,7 @@ func TestNotifyServicePermission(t *testing.T) {
 func TestNotifyServiceWithoutBackgroundIsUnsupported(t *testing.T) {
 	e := apptest.NewEnv(t)
 	e.Deps.Background = nil
-	svc := app.NewNotifyService(e.Deps)
+	svc := notifycore.NewNotifyService((*deps.Deps)(e.Deps))
 	assert.Equal(t, "unsupported", svc.GetNotificationPermission(), "Windows では許可の項目を出さない")
 	svc.RequestNotificationPermission()
 	assert.NoError(t, svc.OpenNotificationSettings())
@@ -93,7 +94,7 @@ func TestTakePendingOpenThread(t *testing.T) {
 	e := apptest.NewEnv(t)
 	var delivered []notify.OpenRef
 	e.Deps.OpenRequests = notify.NewOpenRequests(func(r notify.OpenRef) { delivered = append(delivered, r) }, nil)
-	svc := app.NewNotifyService(e.Deps)
+	svc := notifycore.NewNotifyService((*deps.Deps)(e.Deps))
 
 	e.Deps.OpenRequests.Offer(notify.OpenRef{AccountID: "a", ThreadID: "t1"}) // フロントの準備前（コールドスタートでのタップ）
 	ref := svc.TakePendingOpenThread()

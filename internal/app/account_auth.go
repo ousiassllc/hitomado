@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
+	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/domain/palette"
 	"github.com/ousiassllc/hitomado/internal/events"
@@ -80,7 +81,7 @@ func (s *AccountService) StartAddAccount(ctx context.Context, oauthClientID stri
 	for _, a := range existing {
 		if a.Email == res.Email {
 			s.revokeUnsaved(ctx, res, oauthClientID)
-			return dto.Account{}, duplicateAccount()
+			return dto.Account{}, apperr.DuplicateAccount()
 		}
 		used = append(used, a.Color)
 	}
@@ -96,7 +97,7 @@ func (s *AccountService) StartAddAccount(ctx context.Context, oauthClientID stri
 	if err := s.d.Store.CreateAccount(ctx, acc); err != nil {
 		s.revokeUnsaved(ctx, res, oauthClientID)
 		if errors.Is(err, store.ErrDuplicate) {
-			return dto.Account{}, duplicateAccount()
+			return dto.Account{}, apperr.DuplicateAccount()
 		}
 		return dto.Account{}, apperr.FromInfra(err, "")
 	}
@@ -108,21 +109,12 @@ func (s *AccountService) StartAddAccount(ctx context.Context, oauthClientID stri
 		return dto.Account{}, apperr.FromInfra(err, "")
 	}
 	s.d.Sync.Start(acc.ID)
-	// バックグラウンド同期（Android の WorkManager）を登録し、最初のアカウントの追加が済んだところで通知の許可を求める。
-	bg := background(s.d)
-	bg.ScheduleSync(true)
-	if len(existing) == 0 {
-		bg.RequestPermission()
-	}
+	(*deps.Deps)(s.d).AccountAdded(len(existing) == 0) // バックグラウンド同期の登録と、最初のアカウントでの通知の許可の要求
 	saved, err := s.d.Store.GetAccount(ctx, acc.ID)
 	if err != nil {
 		return dto.Account{}, apperr.FromInfra(err, acc.ID)
 	}
 	return accountDTO(saved), nil
-}
-
-func duplicateAccount() *apperr.Error {
-	return apperr.New(apperr.AccountDuplicate, "このアドレスのアカウントはすでに登録されています。")
 }
 
 // CancelAddAccount は進行中の認可（追加・再接続）を中断する。進行中でなければ何もしない。

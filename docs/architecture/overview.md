@@ -199,6 +199,31 @@ sequenceDiagram
   end
 ```
 
+#### Android のバックグラウンド同期（#88）
+
+Android は前面にいないアプリを止めるため、アプリを閉じている間は WorkManager の定期実行（15 分間隔・ネットワーク接続が条件）が `SyncWorker` を起こし、Go の `internal/headless`（Wails に依存せず、store・gmail・sync だけを組む）で「1 回だけ同期して新着を返す」。通知は Java の `NotificationManager`（アカウント別チャネル・グループ化）が出し、タップで `MainActivity` を開いて `notify:open-thread` でスレッドを開く。アプリ本体と同じプロセスで Worker が動くときは、Go の `Gate` が二重の同期を避ける。Pub/Sub・FCM・前面サービスは使わない。詳細は [Android ビルド §15](../environment/android.md#15-バックグラウンド同期と新着通知88)。
+
+```mermaid
+sequenceDiagram
+  participant WM as WorkManager（15 分）
+  participant SW as SyncWorker（Java）
+  participant HL as headless.SyncOnce（Go）
+  participant GM as gmail.Client
+  participant DB as store
+  participant NM as NotificationManager
+
+  WM->>SW: 起動（プロセスが無ければ OS が起こす）
+  SW->>HL: JNI（libwails.so。資格情報は SecureStore を呼び戻して読む）
+  alt アプリ本体が同じプロセスで動いている
+    HL->>HL: アプリ本体のスケジューラに「今すぐ 1 回更新」を頼む（通知はアプリ本体の経路）
+  else
+    HL->>GM: アカウントごとに差分同期（60 秒ループと同じ cycle）
+    GM->>DB: 反映（新着の判定は DB の ApplyThread）
+    HL-->>SW: 新着・アカウントごとの結果（JSON）
+    SW->>NM: スレッドごとの通知＋アカウントのサマリー、要再接続は 1 回だけ
+  end
+```
+
 ### 7.3 返信送信（送信元強制・確認トークン）
 
 ```mermaid
@@ -302,3 +327,4 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 | 1.14 | 2026-11-03 | §5 の AI に ChatGPT プラン（`internal/siwc`・Responses API）とモデル一覧を、§6 の保存先に ChatGPT ログインのトークンを、§7.4 に ChatGPT プランでの認証・更新を追記 | Sign in with ChatGPT（#75）、モデル一覧（#76） |
 | 1.15 | 2026-11-03 | §5 に、OS ごとの機能差を `internal/capability`（`Capabilities`・`PlatformService`）で表し、Android では MCP・トレイ・多重起動の防止・ウィンドウ状態・自動更新を動かさない旨を追記 | Android 版で使わない機能の無効化（#89） |
 | 1.16 | 2026-11-03 | §7.1 に、Android の認可（`Tracker` による、プロセスが止められた認可の検出）を追記 | #86 |
+| 1.17 | 2026-11-03 | §7.2 に Android のバックグラウンド同期（WorkManager・`internal/headless`・Java の通知・二重同期の排他）を追記 | #88 |

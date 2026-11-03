@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import type { Capabilities } from '../../../bindings/github.com/ousiassllc/hitomado/internal/capability'
 import { useAccountsStore } from '../../stores/accounts'
+import { useNotificationsStore } from '../../stores/notifications'
 import { usePlatformStore } from '../../stores/platform'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
@@ -189,6 +190,55 @@ describe('GeneralSettings', () => {
     expect(w.findAll('button').some((b) => b.text() === '今すぐ確認')).toBe(false)
     expect(w.get('[data-testid="app-version"]').text()).toBe('1.2.3')
     expect(w.get('[data-testid="app-datadir"]').text()).toBe('/data/Hitomado')
+    w.unmount()
+  })
+})
+
+describe('GeneralSettings の通知の許可（Android）', () => {
+  const info = { version: '1.2.3', updateCheckEnabled: true, dataDir: '/data/Hitomado' }
+
+  function mountWith(permission: 'granted' | 'denied' | 'unsupported') {
+    const pinia = setup()
+    useSettingsStore().appInfo = info
+    const n = useNotificationsStore()
+    // マウント時の読み直し（バインディング）は Go が無いテストでは失敗して unsupported になるため、読み直しを差し替える。
+    n.refresh = async () => {}
+    n.permission = permission
+    const calls: string[] = []
+    n.request = async () => {
+      calls.push('request')
+    }
+    n.openSettings = async () => {
+      calls.push('openSettings')
+    }
+    return { w: mount(GeneralSettings, { global: { plugins: [pinia] } }), calls }
+  }
+
+  test('許可を管理しない OS（Windows）では項目を出さない', () => {
+    const { w } = mountWith('unsupported')
+    expect(w.find('[data-testid="notification-permission"]').exists()).toBe(false)
+    w.unmount()
+  })
+
+  test('許可済みなら状態だけを出し、ボタンは出さない', () => {
+    const { w } = mountWith('granted')
+    const box = w.get('[data-testid="notification-permission"]')
+    expect(box.attributes('data-state')).toBe('granted')
+    expect(box.text()).toContain('許可されています')
+    expect(box.findAll('button')).toHaveLength(0)
+    w.unmount()
+  })
+
+  test('拒否されていれば案内と、許可の要求・OS の設定を開くボタンを出す', async () => {
+    const { w, calls } = mountWith('denied')
+    const box = w.get('[data-testid="notification-permission"]')
+    expect(box.attributes('data-state')).toBe('denied')
+    expect(box.text()).toContain('許可されていません')
+    const buttons = box.findAll('button')
+    expect(buttons.map((b) => b.text())).toEqual(['通知を許可する', 'OS の通知設定を開く'])
+    await buttons[0].trigger('click')
+    await buttons[1].trigger('click')
+    expect(calls).toEqual(['request', 'openSettings'])
     w.unmount()
   })
 })
