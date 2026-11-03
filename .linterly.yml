@@ -19,3 +19,5 @@ ignore:
   # 生成物（Wails のバインディング・sqlc の出力）。
   - "frontend/bindings/**"
   - "internal/store/db/**"
+  # Wails が出力する Android プロジェクト一式（Java・Gradle。試作 #81）。
+  - "build/android/**"
