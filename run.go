@@ -77,6 +77,11 @@ func run() error {
 		return fmt.Errorf("データベースを開けませんでした（%s）: %w", filepath.Join(dir, "hitomado.db"), err)
 	}
 	defer func() { _ = st.Close() }()
+	// AppStopped は st.Close より先に実行する（defer は後入れ先出し）。st を閉じたあとに来た Worker が、閉じた DB に対して
+	// SetAppRefresh の更新を呼ばないように、先にアプリ本体の窓口を外して、Worker が自分で同期する側へ倒す。
+	// 上の AppStopped は、DB を開く前に戻る経路のため（冪等。両方走っても害はない）。sched は shutdown() で停止済み。
+	// run は Wails の Run を伴うためテストでは順序を検査できない。
+	defer headless.AppStopped()
 
 	saved, save := platform.DefaultWindowState(), (func(platform.WindowState))(nil)
 	if caps.SupportsWindowState {
