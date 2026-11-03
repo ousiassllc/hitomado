@@ -2,7 +2,6 @@ package com.wails.app;
 
 import android.content.Context;
 import android.content.SharedPreferences;
-import android.os.Build;
 import android.util.Log;
 
 import androidx.security.crypto.EncryptedSharedPreferences;
@@ -50,8 +49,6 @@ public final class SecureStore {
     public enum Kind {
         /** Keystore の鍵が失われ、復号できない。ストアは作り直し済み。 */
         KEY_LOST("key_lost"),
-        /** 暗号化ストアを使えない（API 23 未満）。 */
-        UNAVAILABLE("unavailable"),
         /** それ以外（ディスク書き込みの失敗など）。ストアは消さない。 */
         FAILED("failed");
 
@@ -75,7 +72,7 @@ public final class SecureStore {
             return kind;
         }
 
-        /** Go 側へ返すコード（"key_lost"／"unavailable"／"failed"）。 */
+        /** Go 側へ返すコード（"key_lost"／"failed"）。 */
         public String code() {
             return kind.code;
         }
@@ -315,9 +312,6 @@ public final class SecureStore {
             if (prefs != null) {
                 return prefs;
             }
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-                throw new SecureStoreException(Kind.UNAVAILABLE);
-            }
             MasterKey key = new MasterKey.Builder(context, MASTER_KEY_ALIAS)
                     .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                     .build();
@@ -350,11 +344,9 @@ public final class SecureStore {
         public void reset() throws Exception {
             prefs = null;
             // 暗号化せずに同じファイルを開いて空にする（Tink のキーセットもこのファイルにあるため一緒に消える）。
-            // 先に空にするのは、deleteSharedPreferences が使えない API 23 でもメモリ上の保持を捨てるため。
+            // 先に空にするのは、deleteSharedPreferences がファイルを消せなかった場合でも中身（メモリ上の保持を含む）を残さないため。
             context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE).edit().clear().commit();
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                context.deleteSharedPreferences(PREFS_NAME);
-            }
+            context.deleteSharedPreferences(PREFS_NAME);
             KeyStore ks = KeyStore.getInstance("AndroidKeyStore");
             ks.load(null);
             if (ks.containsAlias(MASTER_KEY_ALIAS)) {

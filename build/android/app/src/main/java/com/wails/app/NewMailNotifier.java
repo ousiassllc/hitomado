@@ -72,11 +72,8 @@ final class NewMailNotifier {
         }
     }
 
-    /** アカウントのチャネル（なければ作る）。表示名はメールアドレス。API 26 未満は何もしない。 */
+    /** アカウントのチャネル（なければ作る）。表示名はメールアドレス。 */
     private void ensureChannel(String accountId, String email) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
-            return;
-        }
         NotificationChannel ch = new NotificationChannel(NotificationPlan.channelId(accountId),
                 NotificationPlan.channelName(email, accountId), NotificationManager.IMPORTANCE_DEFAULT);
         ch.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
@@ -155,9 +152,6 @@ final class NewMailNotifier {
 
     /** 表示中のこのアカウントのスレッド通知の数（サマリーを除く）。 */
     private int activeThreadCount(String accountId) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return 1;
-        }
         int summaryId = NotificationPlan.summaryNotificationId(accountId);
         int n = 0;
         for (StatusBarNotification s : manager.getActiveNotifications()) {
@@ -173,12 +167,10 @@ final class NewMailNotifier {
         if (!canNotify()) {
             return;
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            NotificationChannel ch = new NotificationChannel(NotificationPlan.RECONNECT_CHANNEL_ID,
-                    "再接続が必要", NotificationManager.IMPORTANCE_DEFAULT);
-            ch.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
-            manager.createNotificationChannel(ch);
-        }
+        NotificationChannel ch = new NotificationChannel(NotificationPlan.RECONNECT_CHANNEL_ID,
+                "再接続が必要", NotificationManager.IMPORTANCE_DEFAULT);
+        ch.setLockscreenVisibility(Notification.VISIBILITY_PRIVATE);
+        manager.createNotificationChannel(ch);
         Notification n = new NotificationCompat.Builder(context, NotificationPlan.RECONNECT_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_mail)
                 .setContentTitle(context.getString(R.string.app_name))
@@ -194,16 +186,12 @@ final class NewMailNotifier {
 
     /** アカウント削除: 通知チャネルと、そのアカウントの表示中の通知（スレッド・サマリー・再接続）を消す。 */
     void forgetAccount(String accountId) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            for (StatusBarNotification s : manager.getActiveNotifications()) {
-                if (accountId.equals(s.getTag())) {
-                    manager.cancel(s.getTag(), s.getId());
-                }
+        for (StatusBarNotification s : manager.getActiveNotifications()) {
+            if (accountId.equals(s.getTag())) {
+                manager.cancel(s.getTag(), s.getId());
             }
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            manager.deleteNotificationChannel(NotificationPlan.channelId(accountId));
-        }
+        manager.deleteNotificationChannel(NotificationPlan.channelId(accountId));
     }
 
     /** 折りたたみ表示の 1 行（差出人と件名の改行を区切りに置き換える）。 */

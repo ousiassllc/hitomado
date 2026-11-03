@@ -42,7 +42,7 @@ grep '^native-code:' <<<"$badging" || true
 check "packageName=$app_id" grep -q "name='$app_id'" <<<"$package_line"
 check "versionName=$version" grep -q "versionName='$version'" <<<"$package_line"
 check "versionCode=$want_code" grep -q "versionCode='$want_code'" <<<"$package_line"
-check "minSdkVersion=21" grep -q "^minSdkVersion:'21'" <<<"$badging"
+check "minSdkVersion=31" grep -q "^minSdkVersion:'31'" <<<"$badging"
 check "targetSdkVersion=36" grep -q "^targetSdkVersion:'36'" <<<"$badging"
 
 # 権限は許可リスト。増えたらここと AndroidManifest.xml を一緒に直す（意図しない権限の混入を防ぐ）。

@@ -62,7 +62,13 @@ Wails v3.1.0 のテンプレートは `compileSdk = 36`・`targetSdk = 36`（`ap
 - テンプレート（Wails の Java ブリッジ・androidx の依存）が 36 で書かれており、35 へ下げる利点が無い。
 - 36 では、エッジ・ツー・エッジの強制など targetSdk 36 の挙動変更が入る。UI への影響は §16（スマホ向けの画面。safe area は Activity が insets を当てる）で扱う。
 
-`minSdk` は 21（テンプレートの既定）。`Taskfile.yml` の `MIN_SDK` は NDK の clang の API レベル（`aarch64-linux-android21-clang`）で、`app/build.gradle` の `minSdk` と同じ値にしておく。
+`minSdk` は **31（Android 12）**。2026-11-04 に悠太さんが決め、テンプレートの既定（21）から上げた。`Taskfile.yml` の `MIN_SDK` は NDK の clang の API レベル（`aarch64-linux-android31-clang`）で、`app/build.gradle` の `minSdk` と同じ値にしておく（NDK 26.3 に `aarch64-linux-android31-clang`／`x86_64-linux-android31-clang` がある）。理由:
+
+- 最低対応を Android 12（API 31）以上にするという悠太さんの決定（2026-11-04）。
+- 暗号化ストア（§11。EncryptedSharedPreferences）は API 23 以上を要し、minSdk 21 では API 21〜22 で資格情報を保存できない矛盾があった。31 ならこの矛盾が無く、API 23 未満向けの分岐・失敗コード（`unavailable`）も要らない。
+- 対応する Android の主版を 12 以上に絞ることで、挙動の比較・実機確認の範囲が小さくなる（同じメジャー版の系列で比べられる。API 26 未満の通知チャネルの分岐なども不要になる）。
+
+自前のコードの API 31 未満向けの分岐は外した。Wails のテンプレート由来の `SDK_INT` の分岐（`WailsBridge.java` など）は、テンプレートとの差分を増やさないため残している（`build/android/CUSTOMIZATIONS.md`）。
 
 ## 4. 署名
 
@@ -105,7 +111,7 @@ Wails v3.1.0 のテンプレートは `compileSdk = 36`・`targetSdk = 36`（`ap
 - 削除した権限: `CAMERA`、`ACCESS_FINE_LOCATION`、`ACCESS_COARSE_LOCATION`、`USE_BIOMETRIC`。`androidx.biometric`（`WailsBridge.java` が参照する）がマージ時に `USE_BIOMETRIC`／`USE_FINGERPRINT` を足すため、`tools:node="remove"` で取り除く。カメラ用の `<queries>` も削除した。
 - `allowBackup="false"`、`fullBackupContent="false"`、`dataExtractionRules`（`res/xml/data_extraction_rules.xml`。クラウドバックアップ・端末間移行ともすべて除外）。DB（メール本文のメタデータを含む）と、Android Keystore の鍵に紐づく暗号化済み資格情報は、別の端末に復元しても使えないため。
 
-`task android:verify` は `aapt2 dump badging`／`dump xmltree` と `apksigner verify --print-certs` で、packageName、versionName、versionCode、minSdk（21）、targetSdk（36）、権限が**許可リスト**に収まること（新しい権限が入ると失敗する。意図して増やすときは `verify-apk.sh` の許可リストと manifest を一緒に直す）、`allowBackup=false`、`dataExtractionRules` の有無、debuggable でないこと、署名の種類（`EXPECT_SIGNING=debug|release` を付けるとその種類でなければ失敗）を確認する。
+`task android:verify` は `aapt2 dump badging`／`dump xmltree` と `apksigner verify --print-certs` で、packageName、versionName、versionCode、minSdk（31）、targetSdk（36）、権限が**許可リスト**に収まること（新しい権限が入ると失敗する。意図して増やすときは `verify-apk.sh` の許可リストと manifest を一緒に直す）、`allowBackup=false`、`dataExtractionRules` の有無、debuggable でないこと、署名の種類（`EXPECT_SIGNING=debug|release` を付けるとその種類でなければ失敗）を確認する。
 
 AAB の検査には `bundletool` が要る（SDK に含まれない）。`https://github.com/google/bundletool/releases` の `bundletool-all-<版>.jar`（CI は 1.18.3）を取得して `java -jar bundletool-all-1.18.3.jar validate --bundle bin/hitomado.aab` を実行する。`dump manifest --bundle` で manifest を見られる。
 
@@ -172,19 +178,19 @@ Go の secrets.Store（internal/secrets/bridge.go。純 Go。鍵の喪失を Err
 | キーの暗号化／値の暗号化 | `AES256_SIV`／`AES256_GCM`（security-crypto の標準） |
 | 名前空間 | キー名は Windows と同じ `hitomado/<種別>/<ID>`（[ER §1](../architecture/er.md)）。保存先のファイルが専用なので、Windows の「サービス名 `Hitomado`」に当たる区切りは別にいらない |
 | 値の大きさ | SharedPreferences に Windows 資格情報マネージャーのような 2.5KB の上限は無い。4096 バイトを超える値（ChatGPT の JWT など）もそのまま往復できる（`bridge_test.go`・`SecureStoreTest`）。`internal/siwc` の分割保存は上限が無くても動く |
-| API レベル | minSdk 21 のうち、暗号化ストアを使えるのは **API 23 以上**。API 21〜22 は `unavailable` で保存・読み出しとも失敗する（資格情報を平文で置くフォールバックは作らない） |
+| API レベル | minSdk は 31（§3）。暗号化ストア（EncryptedSharedPreferences・Android Keystore の AES256-GCM）が要る API 23 を常に満たすので、「暗号化ストアを使えない」失敗コードも分岐も無い（資格情報を平文で置くフォールバックも作らない） |
 | 削除 | 無いキーの削除はエラーにしない（`secrets.Store` の契約） |
 
 ### 11.2 security-crypto の版（alpha06 → 1.1.0）
 
 | 版 | 状態 | 内容 |
 |----|------|------|
-| 1.0.0（2021-04） | 安定。**minSdk 23** | `MasterKey` クラスが無い（`MasterKeys`〔deprecated〕のみ）。minSdk 21 のこのアプリでは、マニフェストのマージで minSdk の衝突になる |
+| 1.0.0（2021-04） | 安定。**minSdk 23** | `MasterKey` クラスが無い（`MasterKeys`〔deprecated〕のみ）。minSdk 31 のこのアプリでは minSdk は問題にならないが、`MasterKey` が無い |
 | 1.1.0-alpha06（2023-04。旧） | alpha | `MasterKey` あり、minSdk 21。Tink 1.8.0 |
 | 1.1.0-alpha07／beta01（2025） | — | **全 API を deprecated にしただけ**（機能の変更なし。プラットフォームの API と Android Keystore の直接利用へ移行する方針） |
 | **1.1.0（2025-07-30）** | **安定（採用）** | alpha07 以降と同じ。minSdk 21、`MasterKey` あり |
 
-- **1.1.0 を採用する**。alpha を外せること、minSdk 21 を保てること（1.0.0 は minSdk 23 になり、`MasterKey` も無い）、保存形式が alpha06 と同じで互換が切れないことが理由。出典: [AndroidX Security のリリースノート](https://developer.android.com/jetpack/androidx/releases/security)。
+- **1.1.0 を採用する**。alpha を外せること、`MasterKey` があること（1.0.0 には無い。`MasterKeys`〔deprecated〕のみ）、保存形式が alpha06 と同じで互換が切れないことが理由。minSdk は 31 なので、1.0.0 の minSdk 23 は障害にならない（残る理由は `MasterKey` の有無）。出典: [AndroidX Security のリリースノート](https://developer.android.com/jetpack/androidx/releases/security)。
 - **deprecated であることの扱い**: 1.1.0 は全 API が deprecated（置き換えは Android Keystore を直接使った AES-GCM）だが、安定版として公開済みで、ここでの使い方（`MasterKey` ＋ `EncryptedSharedPreferences.create`）は動く。`SecureStore` の本番の保存先（`AndroidBackend`）に `@SuppressWarnings("deprecation")` を付け、deprecated な API の使用をこの 1 クラスに閉じ込めてある。Keystore の直接利用へ移す場合も、`SecureStore.Backend` を差し替えるだけで済む（呼び出し側の Go・WailsBridge は変えない）。移行は、security-crypto に不具合・非互換が出たとき、または targetSdk の引き上げで動かなくなったときに行う。今は行わない（自前の暗号は検証の負担が大きい）。
 - 版の更新は `build/android/app/build.gradle` の 1 行。
 
@@ -219,7 +225,7 @@ String refreshToken = SecureStore.getInstance(getApplicationContext()).get("hito
 ### 11.5 ログに出さない
 
 - Go: `Store` のエラーは `secrets: <操作> "<キー名>": <Java の失敗コード>` だけで、値を含まない（キー名は `hitomado/<種別>/<ID>` で秘密ではない）。`slog` に値を渡している箇所は無い（`internal/` を grep して確認）。
-- Java: `SecureStore`／`WailsBridge` の失敗コードは `key_lost`／`unavailable`／`failed`／`empty key` だけで、例外のメッセージ（値を含みうる）は返さず、logcat にも例外のクラス名だけを出す。
+- Java: `SecureStore`／`WailsBridge` の失敗コードは `key_lost`／`failed`／`empty key` だけで、例外のメッセージ（値を含みうる）は返さず、logcat にも例外のクラス名だけを出す。
 - **Wails のテンプレートが debug ビルドで logcat に出していた JS からの呼び出しの本文を、長さだけに変えた**（`WailsBridge.handleMessage`／`handleRuntimeCall`、`WailsJSBridge.invoke`／`invokeAsync`）。バインディング呼び出しの引数（`SetAIApiKey` の API キー、`AddOAuthClient` の Client Secret）が本文に入るため。release ビルド（`BuildConfig.DEBUG` が偽）は元から出さない。`MainActivity` の `Wails API call`（パスとクエリだけ）、WebView のコンソールのメッセージ（debug のみ）は、フロントが `console.error(err)` を出す 1 か所（`errorReporter.ts`。AppError のメッセージで、値は含まない）を除き、値を出す箇所が無い。
 - Go 側の Wails のフレームワークのログ（`[JS message]`、`runtime call returned status`）は `production` タグで無効になる（release のビルドは `-tags production,android`）。debug ビルド（`android:run`）では `[JS message]`（ウィンドウのメッセージ）が logcat に出る。
 
@@ -496,7 +502,7 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 
 ### 15.4 WorkManager
 
-- 依存: `androidx.work:work-runtime:2.10.5`。**2.10 系は minSdk 21 の最終の系列**（2.11 以降は minSdk 23、2.12 は 24。`work-runtime` の AAR の manifest で確認）。minSdk を 23 に上げる判断（§11）のあとで上げられる。WorkManager が manifest のマージで足す権限は `WAKE_LOCK`・`RECEIVE_BOOT_COMPLETED`（再起動後の再登録に要る）で、`FOREGROUND_SERVICE` は `tools:node="remove"` で取り除く（前面サービスは使わない）。`SystemForegroundService` の宣言は残るが、起動されない。
+- 依存: `androidx.work:work-runtime:2.10.5`。**2.10 系は minSdk 21 の最終の系列**（2.11 以降は minSdk 23、2.12 は 24。`work-runtime` の AAR の manifest で確認）。minSdk を 31 に上げた（§3）ので 2.11／2.12 も使えるが、**上げていない**（版の判断は別）。WorkManager が manifest のマージで足す権限は `WAKE_LOCK`・`RECEIVE_BOOT_COMPLETED`（再起動後の再登録に要る）で、`FOREGROUND_SERVICE` は `tools:node="remove"` で取り除く（前面サービスは使わない）。`SystemForegroundService` の宣言は残るが、起動されない。
 - 登録: `SyncScheduler.schedule` が `enqueueUniquePeriodicWork("hitomado-sync", KEEP, 15 分・ネットワーク接続)`。**アプリの起動時**（`run.go` の `startBackground`。アカウントがあれば登録、無ければ解除）と**アカウント追加後**（`AccountService.StartAddAccount`）に、Go が `Background.ScheduleSync(true)` で Java の `scheduleSync` を呼ぶ。`KEEP` なので何度呼んでも 1 つ。最後のアカウントを削除したら解除する（アカウント 0 件では何もしない）。
 - 結果（`SyncPlan`）: すべて失敗（一時エラー）なら `Result.retry()`（WorkManager のバックオフ）。ただし 3 回目の試行からは `success`（次の定期実行に任せる）。**再接続が必要**（`needs_reauth`。リフレッシュトークンの失効・喪失、Client ID／Secret の拒否）は再試行しても直らないので `success` とし、「再接続が必要です」を**そのアカウントにつき 1 回だけ**通知する（`SharedPreferences hitomado_notify_state` に通知済みを保存。再び同期できたら消す）。別の同期が実行中（`busy`）も `success`。
 

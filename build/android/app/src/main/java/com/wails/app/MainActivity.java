@@ -39,7 +39,6 @@ import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
-import androidx.annotation.RequiresApi;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
@@ -285,13 +284,12 @@ public class MainActivity extends AppCompatActivity {
              * 落とされない（false・未実装だと「Render process crash wasn't handled」でアプリ全体が終了する）。
              * 落ちた WebView は使えないので、破棄して新しい WebView を作り直す（#90）。
              */
-            @RequiresApi(Build.VERSION_CODES.O)
             @Override
             public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
                 return handleRenderProcessGone(view, detail.didCrash());
             }
 
-            /** メインフレームの読み込み失敗（API 23 以降は他のリソースの失敗では呼ばれない）。アプリの URL だけを扱う。 */
+            /** メインフレームの読み込み失敗（この 4 引数版は、他のリソースの失敗では呼ばれない）。アプリの URL だけを扱う。 */
             @SuppressWarnings("deprecation")
             @Override
             public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {

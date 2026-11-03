@@ -7,7 +7,7 @@ vars:
   APP_ID: '{{.APP_ID | default "com.wails.app"}}'
   # minSdk。app/build.gradle の minSdk と同じ値にする（ここでは NDK の clang の API レベルに使う）。
   # compileSdk / targetSdk は app/build.gradle の 1 か所だけで決める（36。理由は docs/environment/android.md）。
-  MIN_SDK: '21'
+  MIN_SDK: '31'
   # 使う NDK。ANDROID_NDK_HOME があればそれを優先し、無ければ $SDK_ROOT/ndk/<この版>。最新の NDK を自動で選ぶことはしない。
   NDK_VERSION: '26.3.11579264'
   # VERSION=X.Y.Z（ルートの Taskfile.yml の includes（android）の vars が渡す。既定 0.0.0）。

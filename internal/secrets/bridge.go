@@ -10,7 +10,7 @@ import (
 // （実際の接続は keyring_android.go）。
 
 // bridgeErrPrefix は Wails の SecureGet/SecureSet/SecureDelete が Java 側の失敗に付ける接頭辞。
-// 残りの部分は Java の SecureStore が返すコード（key_lost／unavailable／failed）で、値やキーの中身は含まれない。
+// 残りの部分は Java の SecureStore が返すコード（key_lost／failed）で、値やキーの中身は含まれない。
 const bridgeErrPrefix = "secure storage: "
 
 // Java の SecureStore.Kind.KEY_LOST のコードと一致させる（build/android/.../SecureStore.java）。

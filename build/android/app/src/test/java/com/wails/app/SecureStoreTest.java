@@ -266,7 +266,7 @@ public class SecureStoreTest {
         assertTrue(SecureStore.isKeyLost(new java.security.ProviderException("Keystore operation failed")));
         assertFalse(SecureStore.isKeyLost(new IOException("disk")));
         assertFalse(SecureStore.isKeyLost(new IllegalStateException()));
-        assertFalse(SecureStore.isKeyLost(new SecureStore.SecureStoreException(SecureStore.Kind.UNAVAILABLE)));
+        assertFalse(SecureStore.isKeyLost(new SecureStore.SecureStoreException(SecureStore.Kind.FAILED)));
     }
 
     /** Activity も Context も無いスレッド（Worker 相当）から、同じ SecureStore を並行に使っても壊れない。 */

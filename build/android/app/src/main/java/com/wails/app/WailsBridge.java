@@ -739,7 +739,7 @@ public class WailsBridge {
      * Secure storage (hitomado #84): Wails の既定実装（Activity に紐づく EncryptedSharedPreferences）を
      * SecureStore（applicationContext だけを使う static なシングルトン）への委譲に置き換えた。
      * Activity の無い Worker（WorkManager。#88）からも同じストアを SecretBridge（同じ実装）で使える。
-     * 失敗は {"ok":false,"error":"<コード>"} で返す。コードは key_lost／unavailable／failed／empty key だけで、
+     * 失敗は {"ok":false,"error":"<コード>"} で返す。コードは key_lost／failed／empty key だけで、
      * 値・キー・例外メッセージは含めない（Go 側が internal/secrets/bridge.go で解釈する）。
      */
 

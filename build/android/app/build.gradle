@@ -31,7 +31,7 @@ android {
 
     defaultConfig {
         applicationId = "jp.ousias.hitomado"
-        minSdk = 21
+        minSdk = 31
         targetSdk = 36
         versionCode = appVersionCode
         versionName = appVersion
@@ -116,8 +116,8 @@ dependencies {
     implementation 'androidx.biometric:biometric:1.1.0'
     // 安定版 1.1.0（alpha06 から変更。全 API が deprecated だが動作・保存形式は同じ。理由は docs/environment/android.md §11）。
     implementation 'androidx.security:security-crypto:1.1.0'
-    // 定期同期（#88。15 分間隔・ネットワーク接続が条件）。2.10.5 は minSdk 21 の最終の安定版系列（2.11 以降は minSdk 23。
-    // minSdk を 23 に上げたあとで上げる）。理由は docs/environment/android.md §15。
+    // 定期同期（#88。15 分間隔・ネットワーク接続が条件）。2.10.5 は 2.10 系の最終（minSdk 21 の最終の系列）。minSdk を 31 に上げたので
+    // 2.11 以降（minSdk 23 以上）も使えるが、上げていない（版の判断は docs/environment/android.md §15）。
     implementation 'androidx.work:work-runtime:2.10.5'
 
     // SecureStore の JVM 単体テスト（./gradlew testDebugUnitTest。docs/environment/android.md §11）
