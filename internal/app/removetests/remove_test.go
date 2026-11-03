@@ -147,5 +147,16 @@ func TestRemoveAccountRestartsSyncWhenDeleteFails(t *testing.T) {
 	assert.NotEmpty(t, tok, "資格情報は消さない")
 }
 
+func TestRemoveAccountDoesNotRestartSyncOfNeedsReauthAccountWhenDeleteFails(t *testing.T) {
+	e := apptest.NewEnv(t)
+	svc := app.NewAccountService(e.Deps)
+	a := e.AddAccount(t, "me@a.example")
+	require.NoError(t, e.Store.SetAccountStatus(t.Context(), a.ID, store.StatusNeedsReauth, "expired"))
+	e.Deps.Store = failingDelete{e.Store}
+
+	require.Error(t, svc.RemoveAccount(t.Context(), a.ID))
+	assert.Empty(t, e.Sync.StartedAccounts(), "再接続待ちのアカウントは元々同期していないので再開しない")
+}
+
 // open は ListHistory を解放する（複数回呼んでよい）。
 func (g *gatedGmail) open() { g.openOnce.Do(func() { close(g.release) }) }

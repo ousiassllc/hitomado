@@ -3,6 +3,7 @@ package gmailtests
 import (
 	"context"
 	"net/http"
+	"sync"
 	"testing"
 	"time"
 
@@ -29,8 +30,11 @@ func TestTransferCallsAreNotCutByClientTimeout(t *testing.T) {
 	e := newTestEnvWith(t, func(o *gmail.Options) { o.HTTPClient = &http.Client{Timeout: 50 * time.Millisecond} })
 	uploadStarted := make(chan struct{}, 1)
 	releaseUpload := make(chan struct{})
+	var releaseOnce sync.Once
+	release := func() { releaseOnce.Do(func() { close(releaseUpload) }) }
 	releaseProfile := make(chan struct{})
-	t.Cleanup(func() { close(releaseProfile) }) // サーバーの Close より先に、ブロック中のハンドラを解放する
+	// サーバーの Close より先に、ブロック中のハンドラを解放する（アサーション失敗時も詰まらせない）。
+	t.Cleanup(func() { close(releaseProfile); release() })
 	e.f.Handle("POST "+sendUpload, func(w http.ResponseWriter, _ *http.Request) {
 		select {
 		case uploadStarted <- struct{}{}:
@@ -50,7 +54,11 @@ func TestTransferCallsAreNotCutByClientTimeout(t *testing.T) {
 		got, err := e.c.Send(context.Background(), testAccount, []byte(sentRaw), "t1")
 		sent <- sendResult{got, err}
 	}()
-	<-uploadStarted // 送信は始まっていて、サーバー側で止められている
+	select { // 送信は始まっていて、サーバー側で止められている（上限は無応答時の安全網）
+	case <-uploadStarted:
+	case <-time.After(10 * time.Second):
+		t.Fatal("送信がサーバーへ届かなかった")
+	}
 
 	// 同じクライアントの通常呼び出しが Timeout で打ち切られた時点で、Timeout は送信の開始後に経過済み（固定の待ちは使わない）。
 	_, err := e.c.Profile(context.Background(), testAccount)
@@ -61,8 +69,13 @@ func TestTransferCallsAreNotCutByClientTimeout(t *testing.T) {
 		t.Fatalf("転送系の呼び出しがクライアントのタイムアウトで打ち切られた: %+v, %v", r.got, r.err)
 	default:
 	}
-	close(releaseUpload)
-	r := <-sent
+	release()
+	var r sendResult
+	select {
+	case r = <-sent:
+	case <-time.After(10 * time.Second):
+		t.Fatal("解放後も送信が戻らなかった")
+	}
 	require.NoError(t, r.err, "転送系の呼び出しには総時間の上限を掛けない")
 	assert.Equal(t, gmail.SentMessage{MessageID: "sent-1", ThreadID: "t1"}, r.got)
 }
