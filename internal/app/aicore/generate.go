@@ -75,6 +75,9 @@ func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key string, 
 	}
 	key, rerr := s.d.ChatGPT.ForceRefresh(ctx)
 	if rerr != nil {
+		if context.Cause(ctx) != nil {
+			return "", s.mapError(ctx, rerr, "") // 中止は CANCELLED、期限切れは AI_FAILED
+		}
 		return "", mapChatGPTError(rerr)
 	}
 	text, err = s.callProvider(ctx, cfg, key, in)
@@ -124,7 +127,16 @@ func (s *Service) precheck(ctx context.Context) (storedAIConfig, string, error) 
 	if err != nil {
 		return cfg, "", err
 	}
-	key, ok, err := s.credential(ctx, cfg.Provider)
+	// ChatGPT のトークンは、同意の確認が済むまで取得（更新）しない。まずはログイン済みかだけを見る。
+	var (
+		key string
+		ok  bool
+	)
+	if cfg.Provider == providerChatGPT {
+		ok, _, err = s.chatGPTStatus(ctx)
+	} else {
+		key, ok, err = s.apiKey(cfg.Provider)
+	}
 	if err != nil {
 		return cfg, "", err
 	}
@@ -146,6 +158,15 @@ func (s *Service) precheck(ctx context.Context) (storedAIConfig, string, error) 
 	}
 	if !slices.Contains(consented, cfg.Provider) {
 		return cfg, "", apperr.New(apperr.AIConsentRequired, "スレッドの内容が AI プロバイダへ送信されることへの同意が必要です。")
+	}
+	if cfg.Provider == providerChatGPT {
+		key, ok, err = s.credential(ctx, cfg.Provider)
+		if err != nil {
+			return cfg, "", err
+		}
+		if !ok {
+			return cfg, "", apperr.New(apperr.AINotConfigured, "ChatGPT にログインし、モデルを設定画面で設定してください。")
+		}
 	}
 	return cfg, key, nil
 }

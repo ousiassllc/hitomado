@@ -71,7 +71,7 @@ func mapChatGPTError(err error) error {
 		return err
 	}
 	switch {
-	case errors.Is(err, siwc.ErrCancelled), errors.Is(err, context.Canceled):
+	case errors.Is(err, siwc.ErrCancelled):
 		return apperr.Wrap(apperr.OAuthCancelled, "ChatGPT のログインをキャンセルしました。", err)
 	case errors.Is(err, siwc.ErrDenied):
 		return apperr.Wrap(apperr.OAuthDenied, "ChatGPT のログインが許可されませんでした。", err)

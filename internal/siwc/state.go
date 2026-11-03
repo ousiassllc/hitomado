@@ -108,26 +108,54 @@ const (
 func chunkKey(base string, i int) string { return base + "#" + strconv.Itoa(i) }
 
 // putSecret は値を保存する。空は削除。
+// 先に新しい値を書き、そのあとで不要になった古い断片を消す（書き込みが失敗しても、更新前の値を先に失わない。
+// 回転するリフレッシュトークンを失うと再ログインになるため）。
 func (m *Manager) putSecret(kind, value string) error {
 	base := secrets.ChatGPTTokenKey(kind)
 	if value == "" {
 		return m.dropSecret(kind)
 	}
-	// 以前の分割保存の残りを先に消す（短い値へ更新したときに古い断片を残さない）。
-	if err := m.dropSecret(kind); err != nil {
-		return err
-	}
+	oldN := m.chunkCount(base)
+	newN := 0
 	if len(value) <= chunkSize {
-		return m.opts.Secrets.Set(base, value)
-	}
-	n := (len(value) + chunkSize - 1) / chunkSize
-	for i := range n {
-		end := min((i+1)*chunkSize, len(value))
-		if err := m.opts.Secrets.Set(chunkKey(base, i), value[i*chunkSize:end]); err != nil {
+		if err := m.opts.Secrets.Set(base, value); err != nil {
+			return err
+		}
+	} else {
+		newN = (len(value) + chunkSize - 1) / chunkSize
+		for i := range newN {
+			end := min((i+1)*chunkSize, len(value))
+			if err := m.opts.Secrets.Set(chunkKey(base, i), value[i*chunkSize:end]); err != nil {
+				return err
+			}
+		}
+		if err := m.opts.Secrets.Set(base, chunkMarker+strconv.Itoa(newN)); err != nil {
 			return err
 		}
 	}
-	return m.opts.Secrets.Set(base, chunkMarker+strconv.Itoa(n))
+	for i := newN; i < oldN; i++ { // 短くなった分の古い断片
+		if err := m.opts.Secrets.Delete(chunkKey(base, i)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// chunkCount は base が分割保存されているときの断片数（そうでなければ 0）。
+func (m *Manager) chunkCount(base string) int {
+	head, err := m.opts.Secrets.Get(base)
+	if err != nil {
+		return 0
+	}
+	rest, ok := strings.CutPrefix(head, chunkMarker)
+	if !ok {
+		return 0
+	}
+	n, err := strconv.Atoi(rest)
+	if err != nil || n < 2 || n > 64 {
+		return 0
+	}
+	return n
 }
 
 // getSecret は値を返す。無ければ ""。

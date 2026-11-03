@@ -44,16 +44,29 @@ func (e *serverError) Error() string {
 
 var oauthCodeRE = regexp.MustCompile(`^[a-z][a-z0-9_]{0,63}$`)
 
-// newServerError は応答から OAuth の error コードだけを取り出す（description など他の項目は使わない）。
+// newServerError は応答から OAuth のエラーコードだけを取り出す（description など他の項目は使わない）。
+// コードの置き場は 3 通り: `{"error":"invalid_grant"}`（標準の OAuth）、`{"error":{"code":"…"}}`、トップレベルの `{"code":"…"}`
+// （公式ドキュメントの refresh_token_expired など）。
 func newServerError(status int, body []byte) *serverError {
 	var v struct {
-		Error any `json:"error"`
+		Error json.RawMessage `json:"error"`
+		Code  string          `json:"code"`
 	}
 	e := &serverError{Status: status}
-	if json.Unmarshal(body, &v) == nil {
-		if s, ok := v.Error.(string); ok && oauthCodeRE.MatchString(s) {
-			e.Code = s
-		}
+	if json.Unmarshal(body, &v) != nil {
+		return e
+	}
+	var str string
+	var obj struct {
+		Code string `json:"code"`
+	}
+	switch {
+	case json.Unmarshal(v.Error, &str) == nil && oauthCodeRE.MatchString(str):
+		e.Code = str
+	case json.Unmarshal(v.Error, &obj) == nil && oauthCodeRE.MatchString(obj.Code):
+		e.Code = obj.Code
+	case oauthCodeRE.MatchString(v.Code):
+		e.Code = v.Code
 	}
 	return e
 }

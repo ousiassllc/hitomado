@@ -259,3 +259,45 @@ func TestSecretsNeverAppearInLogsOrErrors(t *testing.T) {
 		assert.NotContains(t, logged, l)
 	}
 }
+
+// 同意の前に、ChatGPT のトークンを取得（更新）しない。
+func TestChatGPTTokenIsNotFetchedBeforeConsent(t *testing.T) {
+	f := newAIFixture(t)
+	f.ChatGPT.Token = chatgptToken
+	_, err := f.ai.SignInChatGPT(t.Context(), false)
+	require.NoError(t, err)
+	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "")
+	require.NoError(t, err)
+	s := f.open(t, "reply")
+	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	requireCode(t, "AI_CONSENT_REQUIRED", err)
+	assert.Zero(t, f.ChatGPT.AccessCalls)
+}
+
+// 401 以外（利用枠・対象外・その他の 403 に当たる ErrFailed）ではトークンを更新せず、スレッドを再送しない。
+func TestChatGPTFailureOtherThan401IsNotRetried(t *testing.T) {
+	f := newAIFixture(t)
+	f.chatgptReady(t)
+	s := f.open(t, "reply")
+	calls := 0
+	f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) {
+		calls++
+		return "", fmt.Errorf("%w: HTTP 403", ai.ErrFailed)
+	}
+	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	requireCode(t, "AI_FAILED", err)
+	assert.Equal(t, 1, calls)
+	assert.Zero(t, f.ChatGPT.Refreshes)
+}
+
+// 401 のあとの更新の最中に利用者が中止したら、OAUTH_CANCELLED ではなく CANCELLED。
+func TestChatGPTCancelDuringRefreshIsCancelled(t *testing.T) {
+	f := newAIFixture(t)
+	f.chatgptReady(t)
+	s := f.open(t, "reply")
+	f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) { return "", ai.ErrUnauthorized }
+	f.ChatGPT.RefreshErr = context.Canceled
+	f.ChatGPT.OnRefresh = func() { _ = f.ai.CancelGenerate("r1") }
+	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	requireCode(t, "CANCELLED", err)
+}

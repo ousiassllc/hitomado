@@ -20,8 +20,9 @@ type FakeChatGPT struct {
 	RefreshErr error
 	Revoked    bool // SignOut が返す revoked
 
-	SignIns, Refreshes, SignOuts int
-	LastSignInOptions            siwc.SignInOptions
+	SignIns, Refreshes, SignOuts, AccessCalls int
+	LastSignInOptions                         siwc.SignInOptions
+	OnRefresh                                 func() // ForceRefresh の中で呼ぶ（テストが中止などを差し込む）
 }
 
 var _ siwc.Auth = (*FakeChatGPT)(nil)
@@ -56,6 +57,7 @@ func (f *FakeChatGPT) Status(context.Context) (siwc.Status, error) {
 func (f *FakeChatGPT) AccessToken(context.Context) (string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	f.AccessCalls++
 	if f.AccessErr != nil {
 		return "", f.AccessErr
 	}
@@ -67,6 +69,9 @@ func (f *FakeChatGPT) AccessToken(context.Context) (string, error) {
 
 // ForceRefresh は NextToken（無ければ Token）を返し、以降の AccessToken もそれにする。
 func (f *FakeChatGPT) ForceRefresh(context.Context) (string, error) {
+	if f.OnRefresh != nil {
+		f.OnRefresh() // ロックの外で呼ぶ
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.Refreshes++

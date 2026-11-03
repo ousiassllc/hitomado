@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -140,22 +141,90 @@ func TestSecretsNeverAppearInLogsErrorsOrStatus(t *testing.T) {
 	assert.NotContains(t, fmt.Sprintf("%+v", st), secretAccess)
 }
 
-// 壊れた（断片が欠けた・形式が不正な）トークンがあっても、状態の取得（GetAIConfig の元）は失敗せず、未ログインとして扱う。
+// 壊れた（断片が欠けた・形式が不正な）トークンがあっても、状態の取得は失敗しない。トークンは使えず（未ログイン扱い）、再ログインで置き換わる。
 func TestCorruptStoredTokensAreTreatedAsSignedOut(t *testing.T) {
 	e := newEnv(t, nil, nil)
 	e.signIn(t)
-	require.NoError(t, e.sec.Set(secrets.ChatGPTTokenKey("refresh"), "chunks:3"))
-	st, err := e.m.Status(t.Context())
-	require.NoError(t, err)
-	assert.False(t, st.SignedIn)
-	_, err = e.m.AccessToken(t.Context())
-	assert.ErrorIs(t, err, siwc.ErrNotSignedIn)
-
-	require.NoError(t, e.sec.Set(secrets.ChatGPTTokenKey("refresh"), "chunks:x"))
-	st, err = e.m.Status(t.Context())
-	require.NoError(t, err)
-	assert.False(t, st.SignedIn)
+	for _, bad := range []string{"chunks:3", "chunks:x"} {
+		require.NoError(t, e.sec.Set(secrets.ChatGPTTokenKey("refresh"), bad))
+		_, err := e.m.Status(t.Context())
+		require.NoError(t, err)
+		_, err = e.m.AccessToken(t.Context())
+		assert.ErrorIs(t, err, siwc.ErrNotSignedIn)
+	}
 	e.signIn(t) // 再ログインで置き換わる
-	st, _ = e.m.Status(t.Context())
-	assert.True(t, st.SignedIn)
+	_, err := e.m.AccessToken(t.Context())
+	assert.NoError(t, err)
+}
+
+// 更新で資格情報ストアへの書き込みが失敗しても、更新前のリフレッシュトークンを先に消さない。
+func TestFailedWriteDoesNotDropTheExistingRefreshToken(t *testing.T) {
+	sec := &flakySecrets{Memory: secrets.NewMemory()}
+	e := newEnv(t, sec, nil)
+	e.signIn(t)
+	e.clk.Advance(2 * time.Hour)
+	sec.failSet.Store(true)
+	_, err := e.m.AccessToken(t.Context())
+	require.Error(t, err)
+	got, gerr := sec.Memory.Get(secrets.ChatGPTTokenKey("refresh"))
+	require.NoError(t, gerr)
+	assert.Equal(t, secretRefresh, got)
+}
+
+// 更新エラーのコードは、標準の OAuth の error のほか、error.code・トップレベルの code でも判定する（公式ドキュメントの各コード）。
+func TestRefreshErrorCodeShapes(t *testing.T) {
+	for _, body := range []string{
+		`{"error":"refresh_token_expired"}`,
+		`{"error":{"code":"refresh_token_expired","message":"x"}}`,
+		`{"code":"refresh_token_expired"}`,
+	} {
+		e := newEnv(t, nil, nil)
+		e.signIn(t)
+		e.clk.Advance(2 * time.Hour)
+		e.f.mu.Lock()
+		e.f.refreshStatus, e.f.refreshBody = http.StatusUnauthorized, body
+		e.f.mu.Unlock()
+		_, err := e.m.AccessToken(t.Context())
+		assert.ErrorIs(t, err, siwc.ErrReauthRequired, body)
+	}
+}
+
+// 前回の登録のあるログイン中に、別アカウントの登録で ChatGPT プランの利用が許可されなかったとき、ログイン中のセッションは変えない。
+func TestPlanDeclinedOnAnotherAccountKeepsTheActiveSession(t *testing.T) {
+	e := newEnv(t, nil, nil)
+	e.signIn(t)
+	e.f.mu.Lock()
+	e.f.scope = "email openid profile offline_access"
+	e.f.subject = "sub-account-b"
+	e.f.mu.Unlock()
+	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{DifferentAccount: true})
+	require.ErrorIs(t, err, siwc.ErrPlanNotGranted)
+	tok, err := e.m.AccessToken(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, secretAccess, tok)
+	assert.Equal(t, issuedClient, e.reg(t).ClientID)
+	assert.Equal(t, subjectA, e.reg(t).Subject)
+}
+
+// flakySecrets は failSet が真の間、Set を失敗させる。
+type flakySecrets struct {
+	*secrets.Memory
+	failSet atomic.Bool
+}
+
+func (f *flakySecrets) Set(key, value string) error {
+	if f.failSet.Load() {
+		return errors.New("store refuses")
+	}
+	return f.Memory.Set(key, value)
+}
+
+// ログイン前の登録が無い状態で ChatGPT プランが許可されなかったときだけ、次のログインのために登録を残す。
+func TestPlanNotGrantedFirstTimeKeepsTheRegistrationForRetry(t *testing.T) {
+	e := newEnv(t, nil, nil)
+	e.f.scope = "email openid profile offline_access"
+	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
+	require.ErrorIs(t, err, siwc.ErrPlanNotGranted)
+	assert.Equal(t, issuedClient, e.reg(t).ClientID)
+	assert.True(t, e.reg(t).ConsentNeeded)
 }

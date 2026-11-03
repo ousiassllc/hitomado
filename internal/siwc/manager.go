@@ -61,10 +61,12 @@ type Manager struct {
 	// refreshMu はトークンの読み書き（更新・ログイン保存・ログアウト）を直列化する。回転するリフレッシュトークンを競合させない。
 	refreshMu sync.Mutex
 
-	mu         sync.Mutex // cancelSign・provider
+	mu         sync.Mutex // cancelSign（通信中に持たない。CancelSignIn がすぐ効くように）
 	cancelSign context.CancelCauseFunc
-	provider   *oidc.Provider
-	revokeURL  string
+
+	discMu    sync.Mutex // provider・revokeURL（discovery の通信中は持つが、mu とは別）
+	provider  *oidc.Provider
+	revokeURL string
 }
 
 // New は Manager を作る。
@@ -97,8 +99,8 @@ func New(opts Options) *Manager {
 
 // discover は OpenID Connect のメタデータ（エンドポイント・JWKS の場所）を取得して保持する。
 func (m *Manager) discover(ctx context.Context) (*oidc.Provider, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.discMu.Lock()
+	defer m.discMu.Unlock()
 	if m.provider != nil {
 		return m.provider, nil
 	}
@@ -138,14 +140,9 @@ func (m *Manager) revocationEndpoint(ctx context.Context) (string, error) {
 	return m.revokeURL, nil
 }
 
-// Status は Auth の実装。通信しない。
+// Status は Auth の実装。通信せず、更新・ログアウトの途中でも待たない（refreshMu を取らない）。
+// ログイン済みかは「登録があり、リフレッシュトークンの先頭の要素が資格情報ストアにある」ことで判断する（値の全体は読まない）。
 func (m *Manager) Status(ctx context.Context) (Status, error) {
-	m.refreshMu.Lock()
-	defer m.refreshMu.Unlock()
-	return m.statusLocked(ctx)
-}
-
-func (m *Manager) statusLocked(ctx context.Context) (Status, error) {
 	reg, err := m.loadRegistration(ctx)
 	if err != nil {
 		return Status{}, err
@@ -153,12 +150,12 @@ func (m *Manager) statusLocked(ctx context.Context) (Status, error) {
 	if reg.ClientID == "" {
 		return Status{}, nil
 	}
-	t, err := m.loadTokens()
-	if err != nil {
-		return Status{}, err
-	}
-	if t.Refresh == "" {
+	head, err := m.opts.Secrets.Get(secrets.ChatGPTTokenKey(kindRefresh))
+	if errors.Is(err, secrets.ErrNotFound) || (err == nil && head == "") {
 		return Status{}, nil
+	}
+	if err != nil {
+		return Status{}, fmt.Errorf("%w: 資格情報ストアから読み込めません", ErrFailed)
 	}
 	return Status{SignedIn: true, Email: reg.Email}, nil
 }

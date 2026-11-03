@@ -148,12 +148,17 @@ func codeError(code string) error {
 // chatGPTStatusError は非 2xx の応答をコードとステータスで分類する。
 //   - 401 → ErrUnauthorized
 //   - 既知コード（利用上限・対象外・無効ユーザー）→ 対応するエラー
-//   - 403 → ErrUnauthorized、429 → ErrRateLimited、それ以外 → ErrFailed
+//   - 403（上記以外）→ ErrFailed。方針・権限・地域の拒否などで、トークンの更新や再ログインでは直らず、
+//     公式ドキュメントも同じ要求を繰り返さないよう求めている（ErrUnauthorized にすると 1 度トークンを更新してスレッドを再送してしまう）
+//   - 429 → ErrRateLimited、それ以外 → ErrFailed
 func chatGPTStatusError(status int, code string) error {
 	if status != http.StatusUnauthorized {
 		if err := codeError(code); err != nil {
 			return fmt.Errorf("%w (HTTP %d)", err, status)
 		}
+	}
+	if status == http.StatusForbidden {
+		return fmt.Errorf("%w: HTTP %d", ErrFailed, status)
 	}
 	return statusError(status)
 }

@@ -106,9 +106,11 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 	// 保存済みの ID トークン（ログアウトで消えていれば無い）は同じアカウントを示すヒントとして OpenAI の認可エンドポイントにだけ送る。
 	hintToken := ""
 	if p.clientID != "" {
+		m.refreshMu.Lock() // 更新の途中の（新旧が混ざった）値を読まない
 		if t, terr := m.loadTokens(); terr == nil {
 			hintToken = t.ID
 		}
+		m.refreshMu.Unlock()
 	}
 	authURL := m.authorizeURL(prov.Endpoint().AuthURL, p, reg, hintToken, opts)
 	if err := m.opts.OpenBrowser(authURL); err != nil {
@@ -232,13 +234,20 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, reg registr
 
 	m.refreshMu.Lock()
 	defer m.refreshMu.Unlock()
+	// 取得したトークンを保存し終えるまで、ログインの中止（ctx）で中断しない（トークンと登録が食い違わないように）。
+	ctx = context.WithoutCancel(ctx)
 	// 登録が置き換わる（別アカウント）ときは、後で古いセッションを失効させるため控えておく。
 	old, _ := m.loadTokens()
 	oldClient := reg.ClientID
 
 	if !granted || tr.RefreshToken == "" {
-		// ログインはできたが ChatGPT プランの利用が許可されていない。トークンは保存せず（失効させ）、登録だけ残す。
+		// ログインはできたが ChatGPT プランの利用が許可されていない。得たトークンは使わず失効させる。
 		m.revokeQuietly(ctx, clientID, tr.RefreshToken)
+		if oldClient != "" && old.Refresh != "" {
+			// ログイン中のセッションがあるときは、それを変えない（利用者が使っている登録を壊さない）。
+			return Status{}, ErrPlanNotGranted
+		}
+		// セッションが無いときは、次のログインで同じクライアントを使い同意を求め直すため、登録だけ残す。
 		reg.ClientID, reg.Subject, reg.Email, reg.ConsentNeeded, reg.ExpiresAt = clientID, idt.Subject, claims.Email, true, 0
 		if err := m.clearTokens(); err != nil {
 			return Status{}, err
