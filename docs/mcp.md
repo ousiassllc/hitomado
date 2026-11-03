@@ -2,6 +2,8 @@
 
 > 関連: [プロジェクト概要](overview.md) / [非機能要件](requirements/non-functional.md)（NF-S10・NF-S13〜NF-S15） / [バインディング仕様](api/endpoints.md)（§7.1 LogService・§7.2 MCPService）
 
+> **Android 版には MCP サーバーがありません**（設定画面にも出ません。PC で保存した設定がオンでも待ち受けません。[Android ビルド §10](environment/android.md#10-android-で動かさない機能)）。本書は Windows 版の説明です。
+
 Hitomado には MCP（Model Context Protocol）サーバーを内蔵しています。エージェント（しずくなど）から MCP でつないで、アプリの状態・ログ・メールを読んだり、返信の下書きを作らせたりできます。**メールの送信は MCP からはできません。** 下書きはアプリで人が確認して、人が送信ボタンを押します。
 
 ## 守っていること
@@ -117,5 +119,6 @@ MCP の呼び出しはログに残ります（いつ・どのツール・成否�
 | ログの組み立て・伏せ処理・読み取り・書き出し | `internal/logging` |
 | MCP サーバー（待ち受け・トークン検証・ツール） | `internal/mcpserver` |
 | 設定・トークンの操作（バインディング） | `internal/app/mcpservice.go`（`MCPService`） |
+| MCP を動かす OS の判定（Android では動かさない） | `internal/capability`（`Capabilities.SupportsMCP`）、`MCPService.Start`、`services_binding.go` |
 | MCP が使うアプリの機能（読み取り・下書き） | `internal/app/mcpbackend.go` |
 | フロントのエラー送信・ログ操作（バインディング） | `frontend/src/lib/errorReporter.ts`／`internal/app/logservice.go`（`LogService`。実装は `internal/app/logcore`） |

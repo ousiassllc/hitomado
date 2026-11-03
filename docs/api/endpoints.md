@@ -22,6 +22,7 @@ Hitomado は HTTP サーバーを持たない。フロントエンド（Vue）�
 | `AppService` | アプリ設定（受信箱フィルタ等）、バージョン、更新確認 |
 | `LogService` | フロントのエラーの記録、ログフォルダを開く、ログの書き出し |
 | `MCPService` | 内蔵 MCP サーバーの設定・トークン・状態 |
+| `PlatformService`（`internal/capability`） | 実行中の OS で提供する機能 |
 
 ### 1.2 エラー
 
@@ -67,6 +68,7 @@ type AppError = {
 | `AI_CONSENT_REQUIRED` | 当該プロバイダへの送信に未同意 | false | AIService |
 | `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト・リダイレクト応答（3xx。追従しない）等）。ChatGPT プランでは、利用枠の超過（`subscription_sharing_usage_limit_exceeded`）・このアカウントでは使えない（`subscription_sharing_user_not_eligible`）・ログインの検証失敗も含む | 状況による | AIService |
 | `CANCELLED` | 呼び出し側がキャンセルした | false | AIService |
+| `UNSUPPORTED` | この OS では提供しない機能の呼び出し（Android での更新確認の設定） | false | AppService |
 | `INTERNAL` | 想定外の内部エラー | false | 全般 |
 
 ### 1.3 共通型
@@ -400,7 +402,7 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 | `GetInboxFilter()` | — | `{ accountIds: string[]; unreadOnly: boolean }` | 保存済みフィルタ（`app_settings.inbox.filter`）。存在しないアカウント ID は除いて返す |
 | `SetInboxFilter(filter)` | 同上 | — | 保存 |
 | `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; dataDir: string }` | |
-| `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03 |
+| `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03。アプリ内の更新確認を持たない OS（Android）では `UNSUPPORTED` |
 | `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時、および版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは通信せず `{ available: false }` |
 | `AckBeforeQuit()` | — | — | `app:before-quit` を受けたフロントが、未保存の作成セッションを `SaveDraft` し終えたことを Go に伝える（§9）。Go はこれを受けるか猶予 3 秒の経過で終了処理に進む |
 
@@ -423,8 +425,17 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 | `IssueMCPToken()` | — | `{ token: string; status: MCPStatus }` | Bearer トークンを（再）発行して資格情報ストア（`hitomado/mcp_token`）に保存する。古いトークンは無効になる。`token` を返すのはこの 1 回だけ |
 | `RevokeMCPToken()` | — | `MCPStatus` | トークンを削除する（以後すべての MCP 接続を拒否） |
 
+- Android（MCP を持たない OS）では `MCPService` をバインディングへ登録しない（`run.go`・`services_binding.go`）。`Start` も、保存済みの設定がオンでも待ち受けない（型・バインディングは OS によらず同じで、登録の有無だけが変わる）
 - `Start`／`Shutdown`（起動・終了処理用）はフロントへ公開しない（`//wails:ignore`）。`SetMCPConfig` の `enabled=false` は検証せずに停止し、保存済みの host／port を維持する。起動時は保存された設定を検証してから待ち受ける
 - MCP は待ち受けのみで、`Bearer` トークンの無い・合わない接続は `401`、`Host`／`Origin` が不正なら `403`。MCP のツール（読み取りと `create_reply_draft`）に送信は無い。ツールの呼び出しは `LogService` と同じログに残る（本文・引数は残さない）
+
+### 7.3 PlatformService
+
+実行中の OS で提供する機能（`internal/capability`）。フロントは OS 名ではなく、ここで返す機能の有無で画面を出し分ける（`frontend/src/stores/platform.ts` の `platformStore`）。バインディングは全 OS で同じ（値だけがビルドタグ `android`／`!android` で変わる）。
+
+| メソッド | 引数 | 戻り値 | 内容 |
+|----------|------|--------|------|
+| `GetCapabilities()` | — | `{ os: string; supportsMcp: boolean; supportsTray: boolean; supportsAutoUpdate: boolean; supportsWindowState: boolean; singleInstance: boolean }` | `os` は `runtime.GOOS` と同じ表記（表示・ログ用）。Windows は全機能 `true`、Android は全機能 `false`（MCP サーバー・トレイ・アプリ内の自動更新・ウィンドウ状態の保存復元・多重起動の防止を持たない） |
 
 ## 8. イベント（Go → フロント）
 
@@ -488,3 +499,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.14 | 2026-11-03 | `RemoveAccount` の手順を、同期ワーカーの停止（実行中の周期の終了待ち）→DB 削除に改め、DB 削除に失敗したときは同期を再開してエラーを返す旨を追記 | 実装（`internal/app/account.go`）との整合（#4） |
 | 1.15 | 2026-11-03 | `ReportClientError` の `message`・`stack` を、例外のメッセージ文ではなく種類のコード・位置だけのフレームにしたことを追記 | 実装（`frontend/src/lib/errorReporter.ts`）との整合（#24） |
 | 1.16 | 2026-11-03 | `AIProvider` に `chatgpt` を追加し、`AIConfig` に `chatgptSignedIn`／`chatgptEmail` を追加。`SignInChatGPT`／`CancelSignInChatGPT`／`SignOutChatGPT`／`ListAIModels` と、§6.1 モデル一覧・§6.2 ChatGPT プランを追記。§1.2 の `AI_NOT_CONFIGURED`／`AI_FAILED` の説明を拡張 | Sign in with ChatGPT（#75）とモデル一覧からの選択（#76） |
+| 1.17 | 2026-11-03 | `PlatformService`（§7.3）と `UNSUPPORTED`（§1.2）を追加。§7 の `SetUpdateCheckEnabled` と §7.2 に、Android での扱いを追記 | Android 版で使わない機能の無効化（#89） |

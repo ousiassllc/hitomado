@@ -77,8 +77,11 @@ func (s *AppService) GetAppInfo(ctx context.Context) (dto.AppInfo, error) {
 	return dto.AppInfo{Version: s.d.Version, UpdateCheckEnabled: enabled, DataDir: s.d.DataDir}, nil
 }
 
-// updateCheckEnabled は更新確認の設定（未設定は有効）。
+// updateCheckEnabled は更新確認の設定（未設定は有効）。アプリ内の更新確認を持たない OS（Android）では、保存値にかかわらず常に無効。
 func (s *AppService) updateCheckEnabled(ctx context.Context) (bool, error) {
+	if !s.d.Capabilities.SupportsAutoUpdate {
+		return false, nil
+	}
 	raw, ok, err := s.d.Store.GetSetting(ctx, store.SettingUpdateCheck)
 	if err != nil {
 		return false, apperr.FromInfra(err, "")
@@ -95,13 +98,16 @@ func (s *AppService) updateCheckEnabled(ctx context.Context) (bool, error) {
 
 // SetUpdateCheckEnabled は更新確認のオン／オフを保存する。
 func (s *AppService) SetUpdateCheckEnabled(ctx context.Context, enabled bool) error {
+	if !s.d.Capabilities.SupportsAutoUpdate {
+		return apperr.New(apperr.Unsupported, "この端末ではアプリ内の更新確認を使えません。")
+	}
 	if err := s.d.Store.SetSetting(ctx, store.SettingUpdateCheck, strconv.FormatBool(enabled)); err != nil {
 		return apperr.FromInfra(err, "")
 	}
 	return nil
 }
 
-// CheckForUpdate は更新確認を今すぐ行う。無効のとき、および dev・ローカルビルド（版 update.DevVersion）のときは通信せず {available:false}。
+// CheckForUpdate は更新確認を今すぐ行う。無効のとき（アプリ内の更新確認を持たない OS を含む）、および dev・ローカルビルド（版 update.DevVersion）のときは通信せず {available:false}。
 func (s *AppService) CheckForUpdate(ctx context.Context) (dto.UpdateInfo, error) {
 	if update.IsDev(s.d.Version) {
 		return dto.UpdateInfo{}, nil

@@ -12,6 +12,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app"
 	"github.com/ousiassllc/hitomado/internal/app/threadcache"
+	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/domain/palette"
@@ -75,7 +76,8 @@ func NewEnv(tb testing.TB) *Env {
 		ChatGPT: e.ChatGPT,
 		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 		DataDir: tb.TempDir(), Version: "0.1.0",
-		Threads: threadcache.New(e.Gmail, threadcache.DefaultCapacity),
+		Capabilities: capability.Desktop("windows"),
+		Threads:      threadcache.New(e.Gmail, threadcache.DefaultCapacity),
 	}
 	return e
 }

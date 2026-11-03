@@ -2,6 +2,7 @@
 export const settings = {
   title: '設定',
   description: 'アカウント・OAuth クライアント・署名・AI・MCP・ログ・一般の設定を変更します。',
+  descriptionWithoutMcp: 'アカウント・OAuth クライアント・署名・AI・ログ・一般の設定を変更します。',
   tabsLabel: '設定の分類',
   tabs: {
     accounts: 'アカウント',

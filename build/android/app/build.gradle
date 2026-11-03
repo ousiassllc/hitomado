@@ -114,9 +114,9 @@ dependencies {
     implementation 'androidx.webkit:webkit:1.9.0'
     implementation 'com.google.android.material:material:1.11.0'
     implementation 'androidx.biometric:biometric:1.1.0'
-    // 安定版 1.1.0（alpha06 から変更。全 API が deprecated だが動作・保存形式は同じ。理由は docs/environment/android.md §10）。
+    // 安定版 1.1.0（alpha06 から変更。全 API が deprecated だが動作・保存形式は同じ。理由は docs/environment/android.md §11）。
     implementation 'androidx.security:security-crypto:1.1.0'
 
-    // SecureStore の JVM 単体テスト（./gradlew testDebugUnitTest。docs/environment/android.md §10）
+    // SecureStore の JVM 単体テスト（./gradlew testDebugUnitTest。docs/environment/android.md §11）
     testImplementation 'junit:junit:4.13.2'
 }
