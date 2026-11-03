@@ -34,6 +34,10 @@ export function useShortcuts(): void {
 
   function closeOrClear(): void {
     if (hasOpenPopup(document)) return // ポップアップ側（Reka UI）が閉じる
+    if (ui.menuOpen) {
+      ui.closeMenu() // サイドバーのドロワー（2 ペイン・1 画面ずつ）
+      return
+    }
     if (inbox.mode === 'search') void inbox.clearSearch()
     else if (inbox.selectedKey) inbox.select(undefined)
   }

@@ -76,6 +76,15 @@ const (
 	MinHeight = 600
 )
 
+// MinWindowSize は OS ごとの最小ウィンドウサイズ。タッチ UI の OS（Android）はウィンドウの大きさを OS が決める
+// （画面幅に合わせて 1 画面ずつの表示になる。Issue #87）ため、制限しない（0 は制限なし）。
+func MinWindowSize(caps capability.Capabilities) (width, height int) {
+	if caps.TouchUI {
+		return 0, 0
+	}
+	return MinWidth, MinHeight
+}
+
 // NewMainWindow はメインウィンドウを作る。トレイがある OS では、× で終了せずトレイへ格納する（フックで閉じるのを取り消して隠す）。
 // ウィンドウ状態を保存する OS（caps.SupportsWindowState）では、saved の位置・サイズで開き、以後の変化を save へ渡す
 // （window.state。呼び出し側は戻り値の WindowKeeper の Flush を終了前に呼ぶ）。保存しない OS では saved・save は使わず、WindowKeeper は nil。
@@ -83,13 +92,14 @@ func NewMainWindow(app *application.App, caps capability.Capabilities, saved Win
 	if !caps.SupportsWindowState {
 		saved = DefaultWindowState()
 	}
+	minW, minH := MinWindowSize(caps)
 	opts := application.WebviewWindowOptions{
 		Name:           "main",
 		Title:          "Hitomado",
 		Width:          saved.Width,
 		Height:         saved.Height,
-		MinWidth:       MinWidth,
-		MinHeight:      MinHeight,
+		MinWidth:       minW,
+		MinHeight:      minH,
 		URL:            "/",
 		EnableFileDrop: true,
 	}

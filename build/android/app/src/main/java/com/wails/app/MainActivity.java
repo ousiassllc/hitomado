@@ -22,6 +22,7 @@ import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Base64;
 import android.util.Log;
+import android.view.View;
 import android.webkit.ConsoleMessage;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
@@ -32,9 +33,14 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
 import androidx.webkit.WebViewAssetLoader;
 
 import org.json.JSONObject;
@@ -95,6 +101,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        applyWindowInsets();
+        // 戻るボタン（ジェスチャー）。targetSdk 36 では onBackPressed() は呼ばれないため、コールバックで受ける（#87）。
+        getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                handleBack();
+            }
+        });
 
         String devURL = WailsBridge.devServerURL(this);
         if (devURL != null) devServer = Uri.parse(devURL);
@@ -889,6 +903,7 @@ public class MainActivity extends AppCompatActivity {
         // Fires for light/dark switches because the manifest lists uiMode in
         // android:configChanges (otherwise the activity would be recreated).
         emitTheme();
+        updateSystemBarIcons();
     }
 
     @Override
@@ -952,12 +967,57 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    @Override
-    public void onBackPressed() {
+    /**
+     * 戻るボタン（ジェスチャー）の処理（#87）。フロントの window.hitomadoHandleBack()（frontend/src/lib/androidBack.ts）に
+     * 「一つ前の画面へ戻る」を任せ、フロントが処理した（true を返した）ときは何もしない。
+     * 戻る先が無い（一覧＝ルート）・フロントが未起動・呼び出しに失敗したときは、アプリをバックグラウンドへ送る。
+     */
+    private void handleBack() {
+        if (webView == null) {
+            moveBackOrBackground();
+            return;
+        }
+        webView.evaluateJavascript(
+                "(function(){return typeof window.hitomadoHandleBack==='function'&&window.hitomadoHandleBack()===true;})()",
+                value -> {
+                    if (!"true".equals(value)) moveBackOrBackground();
+                });
+    }
+
+    private void moveBackOrBackground() {
         if (webView != null && webView.canGoBack()) {
             webView.goBack();
         } else {
-            super.onBackPressed();
+            moveTaskToBack(true);
         }
+    }
+
+    /**
+     * エッジ・ツー・エッジ（targetSdk 36 では強制）で、WebView がステータスバー・ナビゲーションバー・切り欠き・
+     * ソフトキーボードの下に潜らないよう、system bars・display cutout・IME の insets をコンテナの padding に当てる（#87）。
+     * WebView の CSS env(safe-area-inset-*) は Android で信頼できないため、フロントは safe area を扱わない。
+     * 36 未満の端末でも同じ見た目になるよう、decor の自動フィットは切る。
+     */
+    private void applyWindowInsets() {
+        WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
+        View container = findViewById(R.id.main_container);
+        ViewCompat.setOnApplyWindowInsetsListener(container, (v, windowInsets) -> {
+            Insets bars = windowInsets.getInsets(
+                    WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            Insets ime = windowInsets.getInsets(WindowInsetsCompat.Type.ime());
+            v.setPadding(bars.left, bars.top, bars.right, Math.max(bars.bottom, ime.bottom));
+            return WindowInsetsCompat.CONSUMED;
+        });
+        updateSystemBarIcons();
+    }
+
+    /** バーの背景はアプリの背景色（values／values-night の app_background）。ライト時はアイコンを暗色にする。 */
+    private void updateSystemBarIcons() {
+        boolean night = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK)
+                == Configuration.UI_MODE_NIGHT_YES;
+        androidx.core.view.WindowInsetsControllerCompat c =
+                WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
+        c.setAppearanceLightStatusBars(!night);
+        c.setAppearanceLightNavigationBars(!night);
     }
 }

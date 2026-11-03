@@ -35,6 +35,8 @@ export const useUiStore = defineStore('ui', () => {
   })
   const settingsTab = ref('accounts')
   const online = ref(true)
+  /** サイドバーのドロワー（2 ペイン・1 画面ずつのレイアウトで使う）が開いているか */
+  const menuOpen = ref(false)
   let nextId = 1
 
   function pushToast(kind: ToastKind, message: string, retry?: () => void): number {
@@ -69,6 +71,14 @@ export const useUiStore = defineStore('ui', () => {
     openDialog('settings')
   }
 
+  function openMenu(): void {
+    menuOpen.value = true
+  }
+
+  function closeMenu(): void {
+    menuOpen.value = false
+  }
+
   function setOnline(v: boolean): void {
     online.value = v
   }
@@ -85,6 +95,7 @@ export const useUiStore = defineStore('ui', () => {
     dialogs,
     settingsTab,
     online,
+    menuOpen,
     pushToast,
     dismissToast,
     setBanner,
@@ -92,6 +103,8 @@ export const useUiStore = defineStore('ui', () => {
     openDialog,
     closeDialog,
     openSettings,
+    openMenu,
+    closeMenu,
     setOnline,
     anyDialogOpen,
   }

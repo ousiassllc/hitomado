@@ -17,8 +17,25 @@ const accounts = useAccountsStore()
 const inbox = useInboxStore()
 const compose = useComposeStore()
 
+// ドロワー（2 ペイン・1 画面ずつ）で開いているときは、操作のあと閉じて一覧を見せる（常時表示のときは何もしない）。
 function onSelect(ids: string[]): void {
   void inbox.setFilter({ accountIds: ids, unreadOnly: inbox.filter.unreadOnly })
+  ui.closeMenu()
+}
+
+function composeNew(): void {
+  void compose.open({ mode: 'new' })
+  ui.closeMenu()
+}
+
+function openSettings(): void {
+  ui.openSettings()
+  ui.closeMenu()
+}
+
+function addAccount(): void {
+  ui.openDialog('addAccount')
+  ui.closeMenu()
 }
 
 async function reconnect(id: string): Promise<void> {
@@ -35,7 +52,7 @@ async function reconnect(id: string): Promise<void> {
   <aside class="sidebar" :aria-label="common.sidebar.label">
     <div class="top">
       <BaseTooltip :text="common.shortcutHint(common.sidebar.compose, SHORTCUT_KEYS.compose)">
-        <BaseButton variant="primary" class="compose" @click="compose.open({ mode: 'new' })">
+        <BaseButton variant="primary" class="compose" @click="composeNew">
           {{ common.sidebar.compose }}
         </BaseButton>
       </BaseTooltip>
@@ -45,8 +62,8 @@ async function reconnect(id: string): Promise<void> {
     </div>
     <FilterBar />
     <div class="bottom">
-      <BaseButton variant="ghost" @click="ui.openDialog('addAccount')">＋ {{ common.sidebar.addAccount }}</BaseButton>
-      <BaseIconButton :label="common.sidebar.settings" @click="ui.openSettings()">⚙</BaseIconButton>
+      <BaseButton variant="ghost" @click="addAccount">＋ {{ common.sidebar.addAccount }}</BaseButton>
+      <BaseIconButton :label="common.sidebar.settings" @click="openSettings">⚙</BaseIconButton>
     </div>
   </aside>
 </template>

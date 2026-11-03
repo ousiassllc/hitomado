@@ -2,7 +2,7 @@
 
 > 関連: [環境構築](setup.md) / [プロジェクト概要](../overview.md) / [アーキテクチャ設計](../architecture/overview.md)
 
-本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。ストレージの保存先（#85）、通知（#88）、`modernc.org/libc` の android/amd64 問題は §12（#83）、Google OAuth のリダイレクト方式は §14（#86）で決めた。
+本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。ストレージの保存先（#85）、通知（#88）、スマホ向けの画面（#87）、`modernc.org/libc` の android/amd64 問題は §12（#83）、Google OAuth のリダイレクト方式は §14（#86）で決めた。
 
 ## 1. 必要なもの
 
@@ -59,7 +59,7 @@ Wails v3.1.0 のテンプレートは `compileSdk = 36`・`targetSdk = 36`（`ap
 
 - Google Play は **2026-08-31 以降、新規アプリも更新も targetSdk 36（Android 16）以上を要求する**（[Target API level requirements for Google Play apps](https://support.google.com/googleplay/android-developer/answer/11926878)）。35 のままだと配布の直前に上げ直すことになる。
 - テンプレート（Wails の Java ブリッジ・androidx の依存）が 36 で書かれており、35 へ下げる利点が無い。
-- 36 では、エッジ・ツー・エッジの強制など targetSdk 36 の挙動変更が入る。UI への影響は #83 以降のモバイル UI で確認する（ここではビルドが通ることまで）。
+- 36 では、エッジ・ツー・エッジの強制など targetSdk 36 の挙動変更が入る。UI への影響は §16（スマホ向けの画面。safe area は Activity が insets を当てる）で扱う。
 
 `minSdk` は 21（テンプレートの既定）。`Taskfile.yml` の `MIN_SDK` は NDK の clang の API レベル（`aarch64-linux-android21-clang`）で、`app/build.gradle` の `minSdk` と同じ値にしておく。
 
@@ -145,7 +145,7 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 
 - 機能の有無は `internal/capability` の `Capabilities`（`SupportsMCP`・`SupportsTray`・`SupportsAutoUpdate`・`SupportsWindowState`・`SingleInstance`）で表す。値を決めるのは、ビルドタグで分けた薄い 2 ファイル（`current_android.go`＝すべて無効、`current_other.go`＝すべて有効）だけで、判定の中身はタグなしの純粋な関数・値（`Desktop`／`Android`）なので、ホストでテストできる（Android のビルドはホストで実行できない）。
 - `run.go` が `capability.Current()` を 1 回だけ読み、`app.Deps.Capabilities` と各部品の生成へ渡す。`Deps.Capabilities` のゼロ値は全機能が無効（設定し忘れて機能が動いてしまうことを避ける）。
-- フロントへは `PlatformService.GetCapabilities`（[バインディング仕様 §7.3](../api/endpoints.md#73-platformservice)）で渡す。画面は OS 名を比べず、`platformStore`（`frontend/src/stores/platform.ts`）の `supportsMcp` などで出し分ける（モバイル UI の Issue #87 も同じ値を使う）。読み込み前・失敗時はデスクトップ（全機能あり）の値。
+- フロントへは `PlatformService.GetCapabilities`（[バインディング仕様 §7.3](../api/endpoints.md#73-platformservice)）で渡す。画面は OS 名を比べず、`platformStore`（`frontend/src/stores/platform.ts`）の `supportsMcp` などで出し分ける（スマホ向けの画面 §16 も `touchUi` で切り替える）。読み込み前・失敗時はデスクトップ（全機能あり）の値。
 - **バインディングは OS で変えない**（§7）。`PlatformService` は全 OS で同じシグネチャで、値だけが変わる。MCP は登録の有無だけが変わるが、型は同じで、バインディングは既定のタグ（`purego`）で 1 つだけ生成する。
 - 通知の扱いは #88、添付・ログの保存先は §13。ここでは対象外。
 
@@ -451,3 +451,29 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 5. 別の鍵（debug／release）の APK に入れ替えたあとも、同じ Client ID で認可できること（SHA-1 を登録していないため）。
 6. プロセス停止: 認可を開始してブラウザが出たら、`adb shell am kill jp.ousias.hitomado`（バックグラウンドのプロセスだけを終了する）でアプリを止め、ブラウザで同意（`127.0.0.1` への接続は失敗する）。アプリを開くと「ログインの途中でアプリが終了したため…やり直してください」のトーストが出る。もう一度アカウントを追加して完了できる。debug ビルドなら `adb shell run-as jp.ousias.hitomado cat shared_prefs/hitomado_secrets.xml` に平文のトークン・`state` が無いこと。
 7. Google がモバイルのループバックを拒否した場合（§14.1 のリスク）: 認可画面に `invalid_request` が出る。この結果を Issue に記録し、(b) の `AuthorizationClient` 方式を別 Issue で起こす。
+
+## 16. スマホ向けの画面（#87）
+
+画面のコードは Windows 版と共通（同じ Vue）。幅による 3 ペイン／2 ペイン／1 画面ずつの切り替え、戻る、タッチ、のフロント側の設計は [コンポーネント設計 §5.1](../components/overview.md#51-画面幅によるレイアウトの切り替えandroid)、画面の仕様は [機能要件 §5.1](../requirements/functional.md#51-androidスマホの画面)。ここでは Android 側（Go・Java）の取り決めを書く。
+
+### 16.1 OS による切り替え（`TouchUI`）
+
+- `capability.Capabilities.TouchUI`（JSON `touchUi`）を足した。`Android()` だけ `true`、`Desktop()`・ゼロ値は `false`。フロントは `platformStore.touchUi`（OS 名ではなく機能）で、幅による切り替えと `styles/touch.css`（タップ領域 44px 以上）を有効にする。Windows 版は `false` なので、幅に関わらず今の 3 ペインのまま。
+- **最小幅 960px の制限を Android では外す**: 制限は 2 か所にあった。①Go の `internal/platform` の `MinWidth`・`MinHeight`（ウィンドウ作成時の `MinWidth`／`MinHeight`、保存した状態の補正 `windowstate.go`）、②フロントの `.shell { min-width: 960px }`（`AppShell.vue`）。①は `platform.MinWindowSize(caps)` が `TouchUI` の OS では 0（制限なし）を返す。保存した状態の補正は Android では `WindowKeeper` を作らないので効かない。②は `layout-wide`（3 ペイン）のときだけ付ける。なお Wails の Android 実装（`webview_window_android.go`）の `setMinSize` は何もしないので、①は意図を明示するためのもの。
+
+### 16.2 safe area（エッジ・ツー・エッジ）
+
+- targetSdk 36 では、Activity のウィンドウがステータスバー・ナビゲーションバーの背後まで広がる（エッジ・ツー・エッジが強制される）。テンプレートの `MainActivity` は insets を扱っておらず、そのままでは WebView の上端・下端がバーに隠れる。
+- **Activity 側で insets を当てる方式を選んだ**（`MainActivity.applyWindowInsets()`）。system bars・display cutout・IME の insets を、WebView を入れた `main_container` の padding に当てる。CSS の `env(safe-area-inset-*)` と `viewport-fit=cover` は使わない: Android の WebView では `env()` の値が端末・WebView のバージョンで 0 のままになることがあり、信頼できないため。Java で 1 か所に当てれば、フロントの CSS は safe area を知らなくてよい（`index.html` の viewport も変えない）。IME の insets も同じ padding に含めるので、ソフトキーボードが出たときも入力欄が隠れない（`adjustResize` は 36 のエッジ・ツー・エッジでは効かないため）。
+- バーの背景色は `app_background`（`values`＝`#FFFFFF`、`values-night`＝`#14171C`。フロントの `--color-bg` のライト／ダークと同じ値）。バーのアイコンの明暗は `updateSystemBarIcons()` が uiMode に合わせる。フロントの配色を変える（`tokens.css`）ときはここも合わせる。
+
+### 16.3 戻るボタン
+
+- `MainActivity` は `OnBackPressedCallback`（`getOnBackPressedDispatcher()`）で戻るを受ける。テンプレートの `onBackPressed()` の上書きは、targetSdk 36 では呼ばれないので削除した。
+- コールバックは `webView.evaluateJavascript` で `window.hitomadoHandleBack()` を呼ぶ。フロントの `lib/androidBack.ts` が `AppShell` で登録する関数で、一つ前の画面へ戻したら `true` を返す（オーバーレイ → ドロワー → 返信・作成 → スレッド → 検索結果の順）。`true` ならアプリは何もしない。`false`・未登録（起動中）・失敗のときは、WebView の履歴があればそれに戻り（`canGoBack`）、無ければ `moveTaskToBack(true)` でアプリをバックグラウンドへ送る（終了しない）。
+- Wails のイベント（Java → Go → `Events.Emit`）も `window.history`（`pushState`＋`popstate`）も使わない。前者は Go を経由する分遅れて「消費したか」を Java へ返せず、後者は履歴の積み方と `canGoBack` が一致しないとアプリが終了するため。1 つの関数の戻り値で「消費したか」を同期的に受け取る方が確実。
+
+### 16.4 確認の状況
+
+- ブラウザ（vite dev・Wails ランタイムをモック）で 390x844・800x900・1440x900 の画面を確認した（スクリーンショットは作業ログ）。`bun test` は、1 画面ずつの遷移（一覧 → スレッド → 返信 → 戻る）、幅を変えても選択・下書きが残ること、戻るの順序、受け口の登録を確認する。
+- **未確認**: 実機・エミュレーターでの表示（safe area・戻るボタン・ソフトキーボード・Fold の折り畳み）。Java は `task android:package`／`android:verify` でビルド・検査できるが、動作はエミュレーターか実機で確認が要る。

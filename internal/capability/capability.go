@@ -1,6 +1,6 @@
 // Package capability は実行している OS で「アプリが提供する機能」を表す。
 // デスクトップ（Windows 版）は全機能、Android は MCP サーバー・トレイ・多重起動の防止・ウィンドウ状態の保存復元・
-// アプリ内の自動更新を提供しない（配布は Google Play。Issue #89）。
+// アプリ内の自動更新を提供しない（配布は Google Play。Issue #89）。代わりに Android はタッチ操作中心の画面（Issue #87）を使う。
 //
 // 機能の有無は OS 名ではなくこの値で判断する（フロントへは PlatformService.GetCapabilities で渡す）。
 // 判定の中身は OS に依存しない純粋な関数・値で、現在の OS を決めるのは current_android.go／current_other.go だけ。
@@ -18,14 +18,15 @@ type Capabilities struct {
 	SupportsAutoUpdate  bool   `json:"supportsAutoUpdate"`  // アプリ内の更新確認（定期確認・手動確認）
 	SupportsWindowState bool   `json:"supportsWindowState"` // ウィンドウの位置・サイズ・最大化の保存と復元
 	SingleInstance      bool   `json:"singleInstance"`      // 多重起動の防止（2 つ目のプロセスは既存ウィンドウを前面に出して終了する）
+	TouchUI             bool   `json:"touchUi"`             // タッチ操作中心の画面（幅に応じて 1 画面ずつ進む表示・44px のタップ領域）。有効なら最小ウィンドウ幅の制限も外す
 }
 
-// Desktop はデスクトップ OS（Windows など）の機能。すべて有効。
+// Desktop はデスクトップ OS（Windows など）の機能。MCP・トレイ・自動更新・ウィンドウ状態・多重起動の防止はすべて有効で、タッチ UI は無効（3 ペイン固定）。
 func Desktop(os string) Capabilities {
 	return Capabilities{
 		OS: os, SupportsMCP: true, SupportsTray: true, SupportsAutoUpdate: true, SupportsWindowState: true, SingleInstance: true,
 	}
 }
 
-// Android は Android の機能。ここに挙げた機能はすべて無効。
-func Android() Capabilities { return Capabilities{OS: OSAndroid} }
+// Android は Android の機能。MCP・トレイ・自動更新・ウィンドウ状態・多重起動の防止は無効で、タッチ UI だけが有効。
+func Android() Capabilities { return Capabilities{OS: OSAndroid, TouchUI: true} }

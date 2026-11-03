@@ -6,6 +6,7 @@ import { accountColorVar } from '../../lib/palette'
 import { SHORTCUT_KEYS } from '../../lib/shortcuts'
 import { useThreadStore } from '../../stores/thread'
 import AccountChip from '../account/AccountChip.vue'
+import BackToListButton from '../shell/BackToListButton.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseMenu from '../ui/BaseMenu.vue'
 import BaseTooltip from '../ui/BaseTooltip.vue'
@@ -31,6 +32,7 @@ const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail
 <template>
   <header class="thread-header" :style="bandStyle" data-testid="thread-header">
     <div class="title-row">
+      <BackToListButton />
       <h2 class="subject" data-testid="thread-subject">{{ subject }}</h2>
       <div class="actions">
         <BaseTooltip :text="common.shortcutHint(msg.archive, SHORTCUT_KEYS.archive)">
