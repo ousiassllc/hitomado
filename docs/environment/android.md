@@ -2,7 +2,7 @@
 
 > 関連: [環境構築](setup.md) / [プロジェクト概要](../overview.md) / [アーキテクチャ設計](../architecture/overview.md)
 
-本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。ストレージの保存先（#85）、通知（#88）、スマホ向けの画面（#87）、`modernc.org/libc` の android/amd64 問題は §12（#83）、Google OAuth のリダイレクト方式は §14（#86）で決めた。
+本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。以降の節で、Android で動かさない機能（§10・#89）、資格情報の保管（§11・#84）、`modernc.org/libc` の android/amd64 問題（§12・#83）、添付・ログの保存先（§13・#85）、Google OAuth のリダイレクト方式（§14・#86）、バックグラウンド同期と新着通知（§15・#88）、スマホ向けの画面（§16・#87）、E2E・WebView のクラッシュ対策・性能（§17・#90）を決めた。
 
 ## 1. 必要なもの
 
@@ -38,7 +38,8 @@ sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;26.3.11579264" "plat
 | `task android:install [DEVICE_ID=<serial>] [APK=<path>]` | `adb install -r` で実機へ入れる（既定は `bin/hitomado.apk`） | — |
 | `task android:run` / `android:run:device` | debug ビルドをエミュレーター／実機へ入れて起動する（`bin/hitomado-debug.apk`） | — |
 | `task android:test` | Java の単体テスト（`build/android/app/src/test`。JVM のみで端末は不要。§11） | — |
-| `task android:lint` | android タグ側の Go lint（§7） | — |
+| `task android:lint` | android タグ側の Go lint（§8） | — |
+| `task android:e2e:apk [ARCH=…]` / `android:e2e:run` | E2E 用 debug APK（ビルドタグ `e2e`。シード済みのフェイク Gmail）を作る／接続中の端末で E2E を回す（§17.3）。release には使わない | `bin/hitomado-e2e.apk` |
 | `task android:clean` | 生成物を消す | — |
 
 `task` の代わりに `wails3 task …` でも同じ。`package:fat`・`bundle:fat` の最初の ABI は `arm64`、2 つ目が `amd64`（x86_64）。
@@ -419,7 +420,7 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 | 検討したこと | 判断 |
 |--------------|------|
 | `state`・PKCE verifier を SecureStore に保存して、起動後に完了する | しない。保存しても認可コードを受け取る口（待受）が無く、コードはブラウザのアドレスバーにしか残らない。使えない verifier を暗号化ストアに残さない（カスタムスキーム方式なら Intent で受けた `code` と保存した verifier で完了できるが、(b)(c) は採らない） |
-| 前面サービス（`WailsForegroundService`、`dataSync`）でログイン中だけプロセスを生かす | しない。前面サービスはこのアプリで使わない（§15.1。#88 で削除した）。プロセスが止められる確率を下げるだけで、止められた後の扱いは結局必要。#88 で前面サービスを入れる場合の候補として残す |
+| 前面サービス（`WailsForegroundService`、`dataSync`）でログイン中だけプロセスを生かす | しない。前面サービスはこのアプリで使わない（§15.1。#88 で削除した）。プロセスが止められる確率を下げるだけで、止められた後の扱いは結局必要 |
 | **止められたことを次の起動で検出して「やり直し」と案内する（採用）** | `internal/oauth` の `Tracker`。認可を始めるときに SecureStore へ印（時刻のみ。秘密は入れない。キー `hitomado/oauth_in_progress`）を保存し、成功・失敗・キャンセル・タイムアウトのどれでも `End()` で消す。プロセスが止められると印が残るので、次の起動の最初の `TakeInterruptedAuth` が一度だけ `true` を返し、フロント（`accounts` ストアの `start`）が「ログインの途中でアプリが終了したため、完了できませんでした。もう一度『アカウントを追加』（または『再接続』）からやり直してください」のトーストを出す |
 
 「ログイン中の状態を壊さない」: 認可の途中のデータはメモリ（待受・`state`・verifier・進行中フラグ）だけで、永続化は上の印（時刻）だけ。プロセスが止められても DB・トークン・既存アカウントには何も書かれておらず、再起動後の「別のアカウント認可が進行中です」の状態も残らない（進行中フラグはメモリ上）。トークン交換の後（アカウント保存）でプロセスが止められた場合は、保存の途中の状態が既存の経路で扱われる（アカウント作成→トークン保存の失敗時はロールバック。`account_auth.go`）。
@@ -452,32 +453,6 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 5. 別の鍵（debug／release）の APK に入れ替えたあとも、同じ Client ID で認可できること（SHA-1 を登録していないため）。
 6. プロセス停止: 認可を開始してブラウザが出たら、`adb shell am kill jp.ousias.hitomado`（バックグラウンドのプロセスだけを終了する）でアプリを止め、ブラウザで同意（`127.0.0.1` への接続は失敗する）。アプリを開くと「ログインの途中でアプリが終了したため…やり直してください」のトーストが出る。もう一度アカウントを追加して完了できる。debug ビルドなら `adb shell run-as jp.ousias.hitomado cat shared_prefs/hitomado_secrets.xml` に平文のトークン・`state` が無いこと。
 7. Google がモバイルのループバックを拒否した場合（§14.1 のリスク）: 認可画面に `invalid_request` が出る。この結果を Issue に記録し、(b) の `AuthorizationClient` 方式を別 Issue で起こす。
-
-## 16. スマホ向けの画面（#87）
-
-画面のコードは Windows 版と共通（同じ Vue）。幅による 3 ペイン／2 ペイン／1 画面ずつの切り替え、戻る、タッチ、のフロント側の設計は [コンポーネント設計 §5.1](../components/overview.md#51-画面幅によるレイアウトの切り替えandroid)、画面の仕様は [機能要件 §5.1](../requirements/functional.md#51-androidスマホの画面)。ここでは Android 側（Go・Java）の取り決めを書く。
-
-### 16.1 OS による切り替え（`TouchUI`）
-
-- `capability.Capabilities.TouchUI`（JSON `touchUi`）を足した。`Android()` だけ `true`、`Desktop()`・ゼロ値は `false`。フロントは `platformStore.touchUi`（OS 名ではなく機能）で、幅による切り替えと `styles/touch.css`（タップ領域 44px 以上）を有効にする。Windows 版は `false` なので、幅に関わらず今の 3 ペインのまま。
-- **最小幅 960px の制限を Android では外す**: 制限は 2 か所にあった。①Go の `internal/platform` の `MinWidth`・`MinHeight`（ウィンドウ作成時の `MinWidth`／`MinHeight`、保存した状態の補正 `windowstate.go`）、②フロントの `.shell { min-width: 960px }`（`AppShell.vue`）。①は `platform.MinWindowSize(caps)` が `TouchUI` の OS では 0（制限なし）を返す。保存した状態の補正は Android では `WindowKeeper` を作らないので効かない。②は `layout-wide`（3 ペイン）のときだけ付ける。なお Wails の Android 実装（`webview_window_android.go`）の `setMinSize` は何もしないので、①は意図を明示するためのもの。
-
-### 16.2 safe area（エッジ・ツー・エッジ）
-
-- targetSdk 36 では、Activity のウィンドウがステータスバー・ナビゲーションバーの背後まで広がる（エッジ・ツー・エッジが強制される）。テンプレートの `MainActivity` は insets を扱っておらず、そのままでは WebView の上端・下端がバーに隠れる。
-- **Activity 側で insets を当てる方式を選んだ**（`MainActivity.applyWindowInsets()`）。system bars・display cutout・IME の insets を、WebView を入れた `main_container` の padding に当てる。CSS の `env(safe-area-inset-*)` と `viewport-fit=cover` は使わない: Android の WebView では `env()` の値が端末・WebView のバージョンで 0 のままになることがあり、信頼できないため。Java で 1 か所に当てれば、フロントの CSS は safe area を知らなくてよい（`index.html` の viewport も変えない）。IME の insets も同じ padding に含めるので、ソフトキーボードが出たときも入力欄が隠れない（`adjustResize` は 36 のエッジ・ツー・エッジでは効かないため）。
-- バーの背景色は `app_background`（`values`＝`#FFFFFF`、`values-night`＝`#14171C`。フロントの `--color-bg` のライト／ダークと同じ値）。バーのアイコンの明暗は `updateSystemBarIcons()` が uiMode に合わせる。フロントの配色を変える（`tokens.css`）ときはここも合わせる。
-
-### 16.3 戻るボタン
-
-- `MainActivity` は `OnBackPressedCallback`（`getOnBackPressedDispatcher()`）で戻るを受ける。テンプレートの `onBackPressed()` の上書きは、targetSdk 36 では呼ばれないので削除した。
-- コールバックは `webView.evaluateJavascript` で `window.hitomadoHandleBack()` を呼ぶ。フロントの `lib/androidBack.ts` が `AppShell` で登録する関数で、一つ前の画面へ戻したら `true` を返す（オーバーレイ → ドロワー → 返信・作成 → スレッド → 検索結果の順）。`true` ならアプリは何もしない。`false`・未登録（起動中）・失敗のときは、WebView の履歴があればそれに戻り（`canGoBack`）、無ければ `moveTaskToBack(true)` でアプリをバックグラウンドへ送る（終了しない）。
-- Wails のイベント（Java → Go → `Events.Emit`）も `window.history`（`pushState`＋`popstate`）も使わない。前者は Go を経由する分遅れて「消費したか」を Java へ返せず、後者は履歴の積み方と `canGoBack` が一致しないとアプリが終了するため。1 つの関数の戻り値で「消費したか」を同期的に受け取る方が確実。
-
-### 16.4 確認の状況
-
-- ブラウザ（vite dev・Wails ランタイムをモック）で 390x844・800x900・1440x900 の画面を確認した（スクリーンショットは作業ログ）。`bun test` は、1 画面ずつの遷移（一覧 → スレッド → 返信 → 戻る）、幅を変えても選択・下書きが残ること、戻るの順序、受け口の登録を確認する。
-- **未確認**: 実機・エミュレーターでの表示（safe area・戻るボタン・ソフトキーボード・Fold の折り畳み）。Java は `task android:package`／`android:verify` でビルド・検査できるが、動作はエミュレーターか実機で確認が要る。
 
 ## 15. バックグラウンド同期と新着通知（#88）
 
@@ -572,6 +547,31 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 - **arm64 の実機**での `HeadlessSync`（arm64 は APK のビルドと JNI シンボルの export（`nm -D`）までで、実行は x86_64 のみ）。
 - Doze・アプリの待機バケット・メーカー独自の省電力（バッテリー最適化）による実際の実行間隔。WorkManager は 15 分を保証せず、OS が遅らせる。
 
+## 16. スマホ向けの画面（#87）
+
+画面のコードは Windows 版と共通（同じ Vue）。幅による 3 ペイン／2 ペイン／1 画面ずつの切り替え、戻る、タッチ、のフロント側の設計は [コンポーネント設計 §5.1](../components/overview.md#51-画面幅によるレイアウトの切り替えandroid)、画面の仕様は [機能要件 §5.1](../requirements/functional.md#51-androidスマホの画面)。ここでは Android 側（Go・Java）の取り決めを書く。
+
+### 16.1 OS による切り替え（`TouchUI`）
+
+- `capability.Capabilities.TouchUI`（JSON `touchUi`）を足した。`Android()` だけ `true`、`Desktop()`・ゼロ値は `false`。フロントは `platformStore.touchUi`（OS 名ではなく機能）で、幅による切り替えと `styles/touch.css`（タップ領域 44px 以上）を有効にする。Windows 版は `false` なので、幅に関わらず今の 3 ペインのまま。
+- **最小幅 960px の制限を Android では外す**: 制限は 2 か所にあった。①Go の `internal/platform` の `MinWidth`・`MinHeight`（ウィンドウ作成時の `MinWidth`／`MinHeight`、保存した状態の補正 `windowstate.go`）、②フロントの `.shell { min-width: 960px }`（`AppShell.vue`）。①は `platform.MinWindowSize(caps)` が `TouchUI` の OS では 0（制限なし）を返す。保存した状態の補正は Android では `WindowKeeper` を作らないので効かない。②は `layout-wide`（3 ペイン）のときだけ付ける。なお Wails の Android 実装（`webview_window_android.go`）の `setMinSize` は何もしないので、①は意図を明示するためのもの。
+
+### 16.2 safe area（エッジ・ツー・エッジ）
+
+- targetSdk 36 では、Activity のウィンドウがステータスバー・ナビゲーションバーの背後まで広がる（エッジ・ツー・エッジが強制される）。テンプレートの `MainActivity` は insets を扱っておらず、そのままでは WebView の上端・下端がバーに隠れる。
+- **Activity 側で insets を当てる方式を選んだ**（`MainActivity.applyWindowInsets()`）。system bars・display cutout・IME の insets を、WebView を入れた `main_container` の padding に当てる。CSS の `env(safe-area-inset-*)` と `viewport-fit=cover` は使わない: Android の WebView では `env()` の値が端末・WebView のバージョンで 0 のままになることがあり、信頼できないため。Java で 1 か所に当てれば、フロントの CSS は safe area を知らなくてよい（`index.html` の viewport も変えない）。IME の insets も同じ padding に含めるので、ソフトキーボードが出たときも入力欄が隠れない（`adjustResize` は 36 のエッジ・ツー・エッジでは効かないため）。
+- バーの背景色は `app_background`（`values`＝`#FFFFFF`、`values-night`＝`#14171C`。フロントの `--color-bg` のライト／ダークと同じ値）。バーのアイコンの明暗は `updateSystemBarIcons()` が uiMode に合わせる。フロントの配色を変える（`tokens.css`）ときはここも合わせる。
+
+### 16.3 戻るボタン
+
+- `MainActivity` は `OnBackPressedCallback`（`getOnBackPressedDispatcher()`）で戻るを受ける。テンプレートの `onBackPressed()` の上書きは、targetSdk 36 では呼ばれないので削除した。
+- コールバックは `webView.evaluateJavascript` で `window.hitomadoHandleBack()` を呼ぶ。フロントの `lib/androidBack.ts` が `AppShell` で登録する関数で、一つ前の画面へ戻したら `true` を返す（オーバーレイ → ドロワー → 返信・作成 → スレッド → 検索結果の順）。`true` ならアプリは何もしない。`false`・未登録（起動中）・失敗のときは、WebView の履歴があればそれに戻り（`canGoBack`）、無ければ `moveTaskToBack(true)` でアプリをバックグラウンドへ送る（終了しない）。
+- Wails のイベント（Java → Go → `Events.Emit`）も `window.history`（`pushState`＋`popstate`）も使わない。前者は Go を経由する分遅れて「消費したか」を Java へ返せず、後者は履歴の積み方と `canGoBack` が一致しないとアプリが終了するため。1 つの関数の戻り値で「消費したか」を同期的に受け取る方が確実。
+
+### 16.4 確認の状況
+
+- ブラウザ（vite dev・Wails ランタイムをモック）で 390x844・800x900・1440x900 の画面を確認した（スクリーンショットは作業ログ）。`bun test` は、1 画面ずつの遷移（一覧 → スレッド → 返信 → 戻る）、幅を変えても選択・下書きが残ること、戻るの順序、受け口の登録を確認する。
+- **未確認**: 実機・エミュレーターでの表示（safe area・戻るボタン・ソフトキーボード・Fold の折り畳み）。Java は `task android:package`／`android:verify` でビルド・検査できるが、動作はエミュレーターか実機で確認が要る。
 
 ## 17. 実機・エミュレーターでの E2E・WebView のクラッシュ対策・性能（#90）
 
