@@ -135,6 +135,8 @@ Section "${APP_NAME}（必須）"
 
     SetOutPath "$INSTDIR"
     File "/oname=${APP_EXE}" "${ARG_EXE}"
+    # 依存ライセンスの表記（リポジトリ直下の NOTICE。docs/environment/setup.md §4.3）。
+    File "/oname=NOTICE.txt" "..\..\..\NOTICE"
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
     CreateShortcut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
@@ -168,6 +170,7 @@ Section "Uninstall"
     Call un.CheckNotRunning
 
     Delete "$INSTDIR\${APP_EXE}"
+    Delete "$INSTDIR\NOTICE.txt"
     Delete "$INSTDIR\uninstall.exe"
     # 再帰削除はしない（利用者が選んだフォルダに他のファイルがあっても消さない）。空のときだけ消える。
     RMDir "$INSTDIR"

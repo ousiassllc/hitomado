@@ -110,7 +110,7 @@ flowchart LR
 
 | ジョブ | 実行環境 | 内容 |
 |--------|----------|------|
-| `lint` | ubuntu-latest | `go mod tidy -diff`、`golangci-lint run`、`bunx biome ci`、`vue-tsc --noEmit`、`bunx linterly check`、**生成物の差分検査**（`sqlc generate` と `wails3 generate bindings` のあと `git diff --exit-code`） |
+| `lint` | ubuntu-latest | `go mod tidy -diff`、`golangci-lint run`、`bunx biome ci`、`vue-tsc --noEmit`、`bunx linterly check`、**生成物の差分検査**（`sqlc generate` と `wails3 generate bindings` のあと `git diff --exit-code`）、**`NOTICE` の最新性検査**（`bun .github/scripts/gen-notice.ts --check`。§4.3） |
 | `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため） |
 | `build` | windows-latest | `needs: [lint, test]`。`wails3 package` でインストーラーを作り（版 `0.99.1` と `0.99.2` の 2 つ）、`.github/scripts/test-installer.ps1` で **インストール → 起動中の上書き拒否 → 上書き → アンインストール** を実機で検証する（§4.3）。新しい方のインストーラーを Actions のアーティファクトに保存 |
 
@@ -122,7 +122,7 @@ flowchart LR
 - トリガー: `main` への push（PR のマージ）。タグの push では動かさない。手でタグを打つ必要はない
 - 版番号: `.github/scripts/next-version.sh` が決める。最新の安定版タグ（`vX.Y.Z`。`-rc1` などハイフン付きは無視）から patch を 1 つ上げる（`v0.1.0` → `v0.1.1`）。安定版タグがまだ無ければ最初の版は `v0.1.0`。そのコミットに既に安定版タグがあれば（失敗した run の再実行）、それをそのまま使う。minor／major を上げる手順は定めていない（最新のタグを基準にするだけなので、より大きい版のタグがあれば次の patch はそこから上がる）。テストは `.github/scripts/next-version_test.sh`（CI の `test` ジョブ・ubuntu で実行）
 - 直列化: ワークフロー全体を `concurrency: release`（`cancel-in-progress: false`）で 1 本ずつ実行し、同時にマージされても版番号がぶつからない。待機中の run は最新の 1 本だけが残るため、間に挟まったコミットは単独のリリースにならず、次のリリースに含まれる
-- 内容: 同じコミットで `ci.yml`（lint・test・Windows ビルドとインストーラーの検証）を呼んで通したうえで、windows-latest で `wails3 package VERSION=<タグから v を除いた値>`（§4.3。`-X main.version`・exe のファイルバージョン・インストーラーの表示が同じ値になる。更新確認の比較に使う）→ インストーラー `hitomado-<タグ>-windows-amd64-setup.exe` と `SHA256SUMS.txt` を作り、`gh release create <タグ> --target <コミット>` でタグと GitHub Release を成果物つきで同時に作る（[NF-D01](../requirements/non-functional.md#8-配布更新)）。Release が既にある場合（失敗した run の再実行）は、タグが同じコミットを指すときだけ成果物を上書きし、別のコミットなら失敗させる。CI が落ちたらリリースは作られない。ビルドは `contents: read`、タグ作成と公開だけ `contents: write`。コード署名は行わない（NF-D02）
+- 内容: 同じコミットで `ci.yml`（lint・test・Windows ビルドとインストーラーの検証）を呼んで通したうえで、windows-latest で `wails3 package VERSION=<タグから v を除いた値>`（§4.3。`-X main.version`・exe のファイルバージョン・インストーラーの表示が同じ値になる。更新確認の比較に使う）→ インストーラー `hitomado-<タグ>-windows-amd64-setup.exe`・`NOTICE`（リポジトリ直下のファイル。§4.3）・`SHA256SUMS.txt`（この 2 つのハッシュ）を作り、`gh release create <タグ> --target <コミット>` でタグと GitHub Release を成果物つきで同時に作る（[NF-D01](../requirements/non-functional.md#8-配布更新)）。Release が既にある場合（失敗した run の再実行）は、タグが同じコミットを指すときだけ成果物を上書きし、別のコミットなら失敗させる。CI が落ちたらリリースは作られない。ビルドは `contents: read`、タグ作成と公開だけ `contents: write`。コード署名は行わない（NF-D02）
 - `ci.yml` は `main` への push では動かさない（`release.yml` が同じ CI を呼ぶ。両方で動かすと同じ ref の `concurrency` で互いにキャンセルする）。PR では従来どおり動く
 - マージは squash／rebase せず、マージコミット方式（リポジトリ規約）
 
@@ -132,7 +132,7 @@ flowchart LR
 
 | 項目 | 内容 |
 |------|------|
-| ファイル名 | `hitomado-vX.Y.Z-windows-amd64-setup.exe`（`SHA256SUMS.txt` を同じ Release に添付） |
+| ファイル名 | `hitomado-vX.Y.Z-windows-amd64-setup.exe`（`NOTICE` と `SHA256SUMS.txt` を同じ Release に添付） |
 | 権限・場所 | 利用者ごと（`RequestExecutionLevel user`）。既定 `%LOCALAPPDATA%\Programs\Hitomado`。UAC は出ない |
 | ショートカット | スタートメニュー（必須）。デスクトップは任意（インストーラーのコンポーネント選択。既定はオフ、サイレントでも作らない） |
 | 「アプリと機能」 | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\jp.ousias.hitomado`（表示名・版・発行元・`InstallLocation`・`UninstallString`）。このキー名を変えると別アプリ扱いになり、上書き更新できなくなる |
@@ -141,13 +141,23 @@ flowchart LR
 | WebView2 | 無い PC ではインストーラーに同梱したブートストラッパー（Microsoft 配布。ビルド時に `wails3 generate webview2bootstrapper` で取得）で入れる |
 | 対応 | Windows 10 以降の x64 のみ。ARM64 は対象外（x64 エミュレーションで動くかは未確認のため、インストーラーは中止する。サイレントはエラーコード 64） |
 
+#### 第三者ライセンスの表記（`NOTICE`）
+
+Hitomado 本体は AGPL-3.0（`LICENSE`）。同梱する依存のライセンス表記と、MPL-2.0 の依存のソース入手先を、リポジトリ直下の `NOTICE` にまとめる（#3）。
+
+- 作り方: `bun .github/scripts/gen-notice.ts`（`NOTICE` を書き換える。`--check` は最新でなければ失敗するだけで書き換えない）。Go はリリースと同じ `GOOS=windows GOARCH=amd64 -tags production` の `go list -deps` で実際に exe へリンクされるモジュールと標準ライブラリ、フロントは `frontend/package.json` の `dependencies` から `bun.lock` をたどった本番用の依存（`devDependencies` は含めない）を対象にする。各パッケージの LICENSE／COPYING／NOTICE を集め、同一の全文はまとめて 1 回だけ載せる。前提は `go mod download` 済みのモジュールキャッシュと `bun install --frozen-lockfile` 済みの `frontend/node_modules`
+- MPL-2.0 の依存（現在は `github.com/hashicorp/golang-lru/v2` と、MPL-2.0 OR Apache-2.0 の `dompurify`）は、冒頭の節に版・リポジトリ・その版のソース一式の入手先（Go は `proxy.golang.org` の zip、npm は `registry.npmjs.org` の tgz）を載せる。Hitomado は MPL の依存のソースを改変しない
+- ライセンスの種別を判定できない依存（`classify` の規則に無い全文）が増えるとスクリプトは失敗する。全文を確認して `.github/scripts/gen-notice.ts` に規則を足す
+- 更新: `go.mod`・`frontend/package.json`・`bun.lock` を変えたら作り直してコミットする。CI の `lint` ジョブが `--check` で、`NOTICE` が古いまま通ることを防ぐ（生成は入力だけで決まる）。`NOTICE` は生成物のため `.linterly.yml` の `ignore` に入れている
+- 配布: インストーラーが `NOTICE.txt` としてインストール先に置く（アンインストールで消す）。`release.yml` が同じ `NOTICE` を Release の成果物としても添付し、`SHA256SUMS.txt` に載せる
+
 #### アンインストール時のデータの扱い
 
 **利用者のデータは消さない**（#10 で決定。変える場合はここと README を直す）。理由: リフレッシュトークンなどの秘密は資格情報マネージャーにあり、消すと再認証が必要になる。誤って消す・更新のためにいったん消す、といった操作でデータを失わせない。完全に消したい利用者向けの手順は README に書く。
 
 | 対象 | 場所 | アンインストールで |
 |------|------|--------------------|
-| プログラム本体・`uninstall.exe`・スタートメニュー／デスクトップのショートカット・「アプリと機能」の登録 | インストール先、スタートメニュー、HKCU | 消す |
+| プログラム本体・`uninstall.exe`・`NOTICE.txt`・スタートメニュー／デスクトップのショートカット・「アプリと機能」の登録 | インストール先、スタートメニュー、HKCU | 消す |
 | インストール先フォルダ | `InstallLocation` | 空のときだけ消す（利用者が選んだフォルダの他のファイルを再帰削除しない） |
 | 通知用の登録（Wails の通知サービスが起動時に書く） | `HKCU\Software\Classes\AppUserModelId\Hitomado`、その `CustomActivator` の GUID の `HKCU\Software\Classes\CLSID\{GUID}`、`HKCU\Software\Hitomado\NotificationCategories`（と空になった `HKCU\Software\Hitomado`） | 消す（次の起動で作り直される） |
 | WebView2 のキャッシュ | `%APPDATA%\hitomado.exe`（Wails の既定。アプリは Web ストレージを使わないため、利用者のデータは入らない） | 消す |
@@ -216,13 +226,14 @@ ignore:
   # ソースコードではないもの（仕様書・ライセンス全文・ロックファイル）。
   - "docs/**"
   - "LICENSE"
+  - "NOTICE"
   - "frontend/bun.lock"
   # 生成物（Wails のバインディング・sqlc の出力）。
   - "frontend/bindings/**"
   - "internal/store/db/**"
 ```
 
-- `.linterlyignore` は作らない（Linterly は `.linterlyignore` と `.linterly.yml` の `ignore` が両方あると後者を無視するため、除外は `.linterly.yml` の `ignore` に一本化する）。手書きソースコードの除外パターンは追加しない。除外は、ソースコードでないもの（`docs/**`・`LICENSE`・`frontend/bun.lock`）と生成物（`frontend/bindings/**`・`internal/store/db/**`）に限る
+- `.linterlyignore` は作らない（Linterly は `.linterlyignore` と `.linterly.yml` の `ignore` が両方あると後者を無視するため、除外は `.linterly.yml` の `ignore` に一本化する）。手書きソースコードの除外パターンは追加しない。除外は、ソースコードでないもの（`docs/**`・`LICENSE`・`NOTICE`・`frontend/bun.lock`）と生成物（`frontend/bindings/**`・`internal/store/db/**`）に限る
 - 生成物（`sqlc` の出力、Wails のバインディング）は、手書きでなく明確な理由があるため、上の `ignore` で除外している
 - `count_mode: all` は変更しない
 - 実行: `bunx linterly check`（pre-commit ではステージ済みファイル、CI では全体）
@@ -277,3 +288,4 @@ pre-push:
 | 1.5 | 2026-11-02 | §4.3（Windows インストーラー: NSIS・利用者ごと・上書き更新・アンインストール時にデータを残す方針）を追加。§4.1 の `build` と §4.2 の成果物を zip からインストーラーに変更。`task package`・版番号の一元化（`VERSION`） | #10 |
 | 1.6 | 2026-11-03 | §4.3 の版番号に、`VERSION` を渡さないときの版（`0.0.0`）と、`main.go`・`build/config.yml`・`wails.exe.manifest` の既定値を揃える方針を追記 | #12 |
 | 1.7 | 2026-11-03 | 冒頭の「設定ファイルはまだ存在しない」を削除し、§7 の YAML 例を実際の `.linterly.yml`（有効な `ignore`）に揃えた。§3.3 に `build:dev`、§4.1 のセットアップのキャッシュ（Go のみ既定、フロントは明示なし）、§5.2 の Biome の対象範囲、§5.3 のテスト配置（`frontend/test/`）を実装に合わせた | #27、#28 |
+| 1.8 | 2026-11-03 | §4.3 に第三者ライセンスの表記（`NOTICE`）の作り方と配布（インストーラー同梱・Release 添付）、§4.1 の `lint` に最新性検査、§4.2 の成果物に `NOTICE` を追記。§7 の除外に `NOTICE` を追加 | #3 |

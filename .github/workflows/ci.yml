@@ -60,6 +60,9 @@ jobs:
           sqlc generate
           wails3 generate bindings -f '-tags purego' -clean=true -ts -i
           git diff --exit-code
+      # NOTICE（第三者ライセンスの表記）は go.mod / bun.lock から作る。依存を更新したら `bun .github/scripts/gen-notice.ts` で作り直す。
+      - name: NOTICE is up to date
+        run: bun .github/scripts/gen-notice.ts --check
 
   test:
     strategy:

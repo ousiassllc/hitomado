@@ -64,11 +64,15 @@ jobs:
           Move-Item "bin\$name" $name
           $hash = (Get-FileHash $name -Algorithm SHA256).Hash.ToLower()
           "$hash  $name" | Out-File -Encoding ascii SHA256SUMS.txt
+          # NOTICE（リポジトリ直下。インストーラーに同梱したものと同じファイル）も同じコミットから添付する。
+          $hash = (Get-FileHash NOTICE -Algorithm SHA256).Hash.ToLower()
+          "$hash  NOTICE" | Out-File -Encoding ascii -Append SHA256SUMS.txt
       - uses: actions/upload-artifact@v4
         with:
           name: release-files
           path: |
             hitomado-*-windows-amd64-setup.exe
+            NOTICE
             SHA256SUMS.txt
           if-no-files-found: error
 
@@ -98,8 +102,8 @@ jobs:
               echo "::error::$TAG は別のコミット ($tag_sha) の Release です。上書きしません" >&2
               exit 1
             fi
-            gh release upload "$TAG" --repo "$REPO" --clobber hitomado-*-windows-amd64-setup.exe SHA256SUMS.txt
+            gh release upload "$TAG" --repo "$REPO" --clobber hitomado-*-windows-amd64-setup.exe NOTICE SHA256SUMS.txt
           else
             gh release create "$TAG" --repo "$REPO" --target "$GITHUB_SHA" --title "$TAG" --generate-notes \
-              hitomado-*-windows-amd64-setup.exe SHA256SUMS.txt
+              hitomado-*-windows-amd64-setup.exe NOTICE SHA256SUMS.txt
           fi
