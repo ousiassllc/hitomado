@@ -172,6 +172,9 @@ jobs:
           echo "$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS_VERSION}" >> "$GITHUB_PATH"
       - run: bun install --frozen-lockfile
         working-directory: frontend
+      # SecureStore（資格情報の保管。Keystore の鍵の喪失からの復旧）の JVM 単体テスト。端末は要らない。
+      - name: Java unit tests (SecureStore)
+        run: wails3 task android:test
       # 鍵が無いとき: デバッグ鍵で署名される（task が警告を出す）。この経路も検査する。
       - name: Release APK signed with the debug key (fallback)
         run: |

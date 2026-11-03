@@ -18,7 +18,7 @@
 | バックエンド言語 | Go | Gmail API 公式クライアント・単一バイナリ配布 |
 | メール API | Gmail API（`google.golang.org/api/gmail/v1`） | `history` による差分同期、`threads`／`drafts`／`messages.send` を使う。IMAP は採用しない（OAuth スコープが粗く、スレッド・ラベル・下書きの対応が弱い） |
 | OAuth | `golang.org/x/oauth2`＋Google エンドポイント（PKCE・ループバック） | NF-S03 |
-| 資格情報ストア | `github.com/zalando/go-keyring`（Windows 資格情報マネージャー） | NF-S01 |
+| 資格情報ストア | `github.com/zalando/go-keyring`（Windows 資格情報マネージャー）、Android は EncryptedSharedPreferences（`androidx.security:security-crypto` 1.1.0。[Android ビルド §10](../environment/android.md#11-資格情報の保管84)） | NF-S01 |
 | ローカル DB | SQLite（`modernc.org/sqlite`、純 Go・CGO なし） | Windows でのビルドが容易（C コンパイラ不要） |
 | クエリ生成・マイグレーション | **sqlc**（型安全なクエリ生成）＋ **goose**（SQL マイグレーションを `embed`） | |
 | MIME 構築 | `github.com/jhillyerd/enmime`（Builder） | `multipart/alternative`・添付・`In-Reply-To`／`References` |
@@ -129,12 +129,12 @@ hitomado/
 
 | データ | 保存先 | 備考 |
 |--------|--------|------|
-| リフレッシュトークン・Client Secret・AI API キー・ChatGPT ログインのトークン | Windows 資格情報マネージャー | `hitomado/<種別>/<ID>` 形式のキー名 |
+| リフレッシュトークン・Client Secret・AI API キー・ChatGPT ログインのトークン | Windows 資格情報マネージャー（Android は EncryptedSharedPreferences。鍵は Android Keystore） | `hitomado/<種別>/<ID>` 形式のキー名。Android で Keystore の鍵が失われたときは、保存済みの値が空になり、`secrets.ErrKeyLost`（`ErrNotFound` も満たす）で「要再接続」へ案内する |
 | アカウント・OAuth クライアント（Secret を除く）・署名・設定・同期状態・スレッド／メッセージのメタデータ・スニペット・連絡先候補 | SQLite（`%APPDATA%\Hitomado\hitomado.db`、WAL） | 本文・添付は保存しない（NF-S08） |
 | メッセージ本文・添付データ | Go プロセスのメモリ（LRU・直近 50 スレッド） | NF-S09 |
 | 下書き | **Gmail の下書き**（`users.drafts`） | ローカルに保存しない。例外: 送信元未選択の新規作成はメモリのみ |
 | ログ | `%APPDATA%\Hitomado\logs\`（JSON Lines。5 MB×5 世代・30 日） | NF-S10 |
-| MCP トークン | Windows 資格情報マネージャー（`hitomado/mcp_token`） | NF-S13 |
+| MCP トークン | Windows 資格情報マネージャー（`hitomado/mcp_token`。Android は上と同じ暗号化ストア） | NF-S13 |
 
 ## 7. 通信フロー
 

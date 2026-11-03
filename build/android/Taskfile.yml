@@ -134,6 +134,17 @@ tasks:
     vars:
       BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,android -trimpath -buildvcs=false -ldflags="-w -s -X main.version={{.APP_VERSION}}"{{else}}-tags android,debug -buildvcs=false -gcflags=all="-l"{{end}}'
 
+  test:
+    summary: Runs the Java unit tests (JVM only, no device) of build/android/app/src/test
+    preconditions:
+      - sh: 'command -v java >/dev/null || [ -n "$JAVA_HOME" ]'
+        msg: "Java not found. Install a JDK 17 and/or set JAVA_HOME"
+    cmds:
+      - |
+        cd build/android
+        chmod +x ./gradlew
+        ./gradlew -PappVersion={{.APP_VERSION}} testDebugUnitTest
+
   package:
     summary: Packages a production build of the application into a signed release APK
     desc: |

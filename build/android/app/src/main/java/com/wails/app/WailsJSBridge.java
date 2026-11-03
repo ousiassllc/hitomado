@@ -37,7 +37,8 @@ public class WailsJSBridge {
      */
     @JavascriptInterface
     public String invoke(String message) {
-        if (DEBUG) Log.d(TAG, "Invoke called: " + message);
+        // 本文は出さない（引数に API キーなどの資格情報が含まれうる。hitomado #84）。
+        if (DEBUG) Log.d(TAG, "Invoke called (" + (message == null ? 0 : message.length()) + " chars)");
         return bridge.handleMessage(message);
     }
 
@@ -51,7 +52,8 @@ public class WailsJSBridge {
      */
     @JavascriptInterface
     public void invokeAsync(final String callbackId, final String payload) {
-        if (DEBUG) Log.d(TAG, "InvokeAsync called: " + payload);
+        // 本文は出さない（バインディング呼び出しの引数に API キーなどの資格情報が含まれる。hitomado #84）。
+        if (DEBUG) Log.d(TAG, "InvokeAsync called (" + (payload == null ? 0 : payload.length()) + " chars)");
 
         // Handle off the JS thread so we don't block the WebView.
         executor.execute(() -> {
