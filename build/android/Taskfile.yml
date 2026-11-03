@@ -61,11 +61,14 @@ tasks:
           ARCH: '{{.ARCH | default "arm64"}}'
           # 呼び出し先には親の変数が渡らないため明示する（渡さないと release でも debug タグ・最適化なしでビルドされる）。
           PRODUCTION: '{{.PRODUCTION | default "false"}}'
+          E2E: '{{.E2E | default "false"}}'
     env:
       PRODUCTION: '{{.PRODUCTION | default "false"}}'
     preconditions:
       - sh: '{{if regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+$" .APP_VERSION}}true{{else}}false{{end}}'
         msg: "VERSION must look like X.Y.Z (no leading v), got '{{.APP_VERSION}}'"
+      - sh: '{{if and (eq (.E2E | default "false") "true") (eq (.PRODUCTION | default "false") "true")}}false{{else}}true{{end}}'
+        msg: "E2E=true cannot be combined with PRODUCTION=true (the E2E mode must never reach a release build)"
 
   build:frontend:
     internal: true
@@ -138,7 +141,9 @@ tasks:
         go build -buildmode=c-shared -overlay build/android/overlay.json $EXTRA_GOFLAGS {{.BUILD_FLAGS}} \
           -o build/android/app/src/main/jniLibs/$JNI_DIR/libwails.so
     vars:
-      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,android -trimpath -buildvcs=false -ldflags="-w -s -X main.version={{.APP_VERSION}}"{{else}}-tags android,debug -buildvcs=false -gcflags=all="-l"{{end}}'
+      # E2E=true は debug ビルドにだけ e2e タグ（Gmail・資格情報をシード済みのフェイクに差し替える。internal/e2e）を足す。
+      # production と一緒には使えない（e2e:apk が止め、Go 側も production タグでは e2e を無効にする）。
+      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,android -trimpath -buildvcs=false -ldflags="-w -s -X main.version={{.APP_VERSION}}"{{else}}-tags android,debug{{if eq .E2E "true"}},e2e{{end}} -buildvcs=false -gcflags=all="-l"{{end}}'
 
   test:
     summary: Runs the Java unit tests (JVM only, no device) of build/android/app/src/test
@@ -150,6 +155,28 @@ tasks:
         cd build/android
         chmod +x ./gradlew
         ./gradlew -PappVersion={{.APP_VERSION}} testDebugUnitTest
+
+  e2e:apk:
+    summary: Builds the E2E debug APK (tag e2e; seeded fake Gmail) as bin/hitomado-e2e.apk for the emulator of the host arch
+    desc: |
+      Never a release build: the e2e tag is only honored together with the debug tags, and
+      android:verify fails if a release APK contains the E2E marker. Run it with
+      build/android/e2e/run.sh (docs/environment/android.md §17). ARCH defaults to the host
+      arch (amd64 on x86_64 Linux emulators); pass ARCH=arm64 for an arm64 device.
+    cmds:
+      - task: build
+        vars:
+          PRODUCTION: "false"
+          E2E: "true"
+          ARCH: '{{.ARCH | default .HOST_ARCH}}'
+      - task: assemble:apk
+      - cp "{{.BIN_DIR}}/{{.APP_NAME}}-debug.apk" "{{.BIN_DIR}}/{{.APP_NAME}}-e2e.apk"
+      - echo "E2E APK created {{.BIN_DIR}}/{{.APP_NAME}}-e2e.apk"
+
+  e2e:run:
+    summary: Runs the E2E on a connected device or emulator with bin/hitomado-e2e.apk (adb + UI Automator; no real Google account)
+    cmds:
+      - bash build/android/e2e/run.sh "{{.BIN_DIR}}/{{.APP_NAME}}-e2e.apk" "{{.APP_ID}}"
 
   package:
     summary: Packages a production build of the application into a signed release APK

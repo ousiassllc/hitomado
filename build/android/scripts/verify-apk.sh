@@ -61,6 +61,12 @@ check "allowBackup=false" grep -Eq ':allowBackup\(0x[0-9a-f]+\)=false$' <<<"$man
 check "dataExtractionRules is set" grep -Eq ':dataExtractionRules\(0x[0-9a-f]+\)=@' <<<"$manifest"
 check "not debuggable" bash -c '! grep -q ":debuggable(" <<<"$1"' _ "$manifest"
 
+# E2E 用ビルド（タグ e2e。Gmail・資格情報をフェイクに差し替える。internal/e2e）の印が、この APK のネイティブライブラリに無いこと（#90）。
+# 印は internal/e2e.Marker の文字列。release の通常ビルド・production タグのビルドでは入らない。
+e2e_marker="hitomado-e2e-backend-v1"
+e2e_hits="$(unzip -p "$apk" 'lib/*/libwails.so' | grep -ac "$e2e_marker" || true)"
+check "no E2E backend in libwails.so" test "${e2e_hits:-0}" = 0
+
 # 署名: 検証して証明書の持ち主を表示する。デバッグ鍵は "CN=Android Debug"。
 certs="$("$apksigner" verify --print-certs "$apk")"
 subject="$(sed -n 's/^Signer #1 certificate DN: //p' <<<"$certs")"

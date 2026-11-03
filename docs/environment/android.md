@@ -121,6 +121,7 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 - `lint` に `Go lint (android)` を追加（`GOOS=android GOARCH=arm64 CGO_ENABLED=0 golangci-lint run`）。`*_android.go`・`!android` 側の型検査と lint が対象になる。手元では `task android:lint`（`build/android/gen` は overlay の生成物で単体では型検査に失敗するため、先に消してから実行し、次の `android:build` が作り直す）。
 - `android` ジョブ（ubuntu-latest、**pull_request のみ**。`release.yml` が呼ぶとき（push）は動かさない）: JDK 17、SDK platform 36・build-tools・NDK を `sdkmanager` で入れ、wails3 は `WAILS_VERSION`。デバッグ鍵（フォールバック）の APK を検査したあと、使い捨ての鍵（`keytool` で作り、パスワードは `::add-mask::` で伏せ、ジョブの中だけに存在）で release APK（arm64）と AAB（arm64＋x86_64）を作って `android:verify`・`bundletool validate` し、`hitomado-android` のアーティファクトに上げる（署名は使い捨ての鍵。実鍵は使わない）。
 - Gradle のキャッシュは明示していない（初回は Gradle 本体の取得を含む）。
+- `android-e2e.yml`（**workflow_dispatch のみ**。`ci.yml` には入れていない）: KVM つきのエミュレーターでの E2E（§17.4）。
 
 ## 9. 既知の事項
 
@@ -571,3 +572,113 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 - **arm64 の実機**での `HeadlessSync`（arm64 は APK のビルドと JNI シンボルの export（`nm -D`）までで、実行は x86_64 のみ）。
 - Doze・アプリの待機バケット・メーカー独自の省電力（バッテリー最適化）による実際の実行間隔。WorkManager は 15 分を保証せず、OS が遅らせる。
 
+
+## 17. 実機・エミュレーターでの E2E・WebView のクラッシュ対策・性能（#90）
+
+### 17.1 WebView のレンダラが落ちたとき（`onRenderProcessGone`）
+
+**問題**: Wails 3.1.0 のテンプレートの `WebViewClient` は `onRenderProcessGone` を実装していない。WebView のレンダラ（別プロセス）がクラッシュするか OS に止められると、Chromium は `Render process crash wasn't handled ... triggering application crash` として**アプリのプロセスごと**落とす（試作 #81 で確認）。
+
+**決定**（`MainActivity`）:
+
+| 項目 | 内容 |
+|------|------|
+| 戻り値 | `true`（アプリのプロセスを落とさない） |
+| 復旧 | 落ちた `WebView` を親から外して `destroy()` し、新しい `WebView` を同じ位置に作る（`recreateWebView`）。`setupWebView()` が設定・`WebViewClient`・`WebChromeClient`・JS インターフェース（`window.wails`）・`WailsBridge` の WebView 参照を新しい WebView につなぎ直し、`loadApplication()` が同じ URL（アセットは Go から配信）を読み直す。`window.hitomadoHandleBack`（戻る）は読み込み直したフロントが登録し、Java→JS の同期イベントは `onPageFinished` の `emitSystemSnapshot` で再送される。`Activity.recreate()` ではなく WebView だけを作り直す（Go のランタイム・DB・同期は同じプロセスで動き続け、Activity の再生成で `bridge.initialize()` が二重に走るのを避ける） |
+| 上限 | 直近 **5 分に 3 回**まで（`RecoveryBudget`）。超えたら WebView を外し、「画面の表示を続けられませんでした。アプリを終了して、もう一度起動してください。」と「アプリを終了」ボタンのエラー画面（`showFatalError`）を出す。ボタンは `finishAndRemoveTask()` とプロセスの終了（次の起動で Go のランタイムもきれいに始める）。無限ループしない |
+| ログ | `didCrash()` が真なら `WebView renderer crashed`、偽（OS が止めた＝ほとんどはメモリ不足）なら `WebView renderer was killed by the system (likely low memory)`（タグ `WailsActivity`。`RenderGoneReason`） |
+| 古い通知 | すでに作り直した WebView（`view != webView`）からの通知は何もしない |
+
+**下書きはどうなるか**（確認した範囲）: スレッド画面の返信下書きは、**Go が「作成セッション」をメモリ上で持ち**、フロントは入力内容を都度渡す（[バインディング仕様](../api/endpoints.md)）。保存は編集停止の約 3 秒後の**自動保存**（`useAutosave`。`AUTOSAVE_DELAY_MS = 3000`）で、Gmail の下書きとして保存される（[F-12](../requirements/functional.md#f-12-下書き保存)）。DB には下書きを持たない（[ER](../architecture/er.md)）。したがって WebView を作り直しても、**自動保存済みの分は Gmail の下書きに残り**、スレッドを開き直せば「下書きを開く」で復元できる。**残課題**: 作り直しの直前の約 3 秒分の未保存の入力は失われる。作成セッションは Go のメモリに残るが、作り直したフロントはそれを参照しない（プロセスを終了するまでの小さな残り）。
+
+### 17.2 初回の `index.html` 待ちの 10 秒（`timeout waiting for app to be ready`）
+
+- Wails の Go 側（`application_android.go` の `nativeServeAsset`）は、アプリの準備（`appReady` チャネル）を**最大 10 秒**待ち、超えると `[JNI] timeout waiting for app to be ready, dropping request for /index.html` と記録して**空の応答**を返す。待ち時間はハードコードで、変えるには Wails 本体の修正が要る（このリポジトリでは `-overlay` で Go のファイルを差し替える仕組みはあるが、Wails の上流の挙動の複製は保守の負担が大きいので採らない）。
+- 空の応答では `WailsPathHandler` が `null` を返し、WebView が実際のネットワークへ `https://wails.localhost/` を取りに行って失敗する（メインフレームの読み込みエラー）→ **白い画面のまま**になる。
+- **決定**: 待ち時間は延ばさず、`WebViewClient.onReceivedError`（メインフレームのアプリ URL だけ）で **3 秒後に読み直す**。**直近 5 分に 6 回まで**（`RecoveryBudget`）。超えたら 17.1 のエラー画面。準備が間に合わなかった 1 回目だけが失敗し、読み直しのときにはアプリが準備済みなので通る。最小の変更で、遅い端末・初回起動でも白画面のままにならない。
+- 実測（KVM なしのソフトウェアエミュレーター）では、この 10 秒のタイムアウトは今回の実行では発生せず（`Serving asset: /index.html` から応答まで約 10 秒以内）、読み直しの経路は**実機・エミュレーターでは動かして確認していない**（`RecoveryBudget` の単体テストと、コードの読み合わせのみ）。
+
+### 17.3 E2E
+
+**構成**（本物の Google アカウントは使わない）:
+
+- **テスト用起動モード**（`internal/e2e`）: ビルドタグ **`e2e`**（かつ `production` でない）のときだけ、`run.go` が Gmail クライアントと資格情報ストアを、**メモリ上のシード済みフェイク**に差し替える。フェイクは既存のテスト用 `internal/app/apptest.FakeGmail`（`internal/app/apptests` が使うのと同じもの）で、シードは**アカウント 1 件（`e2e-user@example.com`）・INBOX のスレッド 3 件（件名 `E2E seed thread 1`〜`3`、新しいものから 1 時間ずつ古く、最新の 2 件が未読）**。DB（実 SQLite）は通常どおり、初回だけアカウントと OAuth クライアントを作る。同期は**実エンジン**が通常どおりこのフェイクに対して走る（一覧は DB から出る）。`RecordingGmail` が下書きの作成・更新を `files/Hitomado/e2e/drafts/<id>.txt` にも書き出し、E2E が「返信下書きが Gmail へ渡った」ことを読み取る。
+- **release に混入させない**: ① `internal/e2e/override_off.go`（`!e2e || production`）は何もしない。シード・フェイクを含むファイルは全て `e2e && !production` のビルドタグつきで、通常のビルドにはコンパイルされない。② `android:e2e:apk`（`E2E=true`）は debug ビルドだけ（`build` の precondition が `PRODUCTION=true` との併用を拒否）。③ `verify-apk.sh` が `libwails.so` に E2E の印（`hitomado-e2e-backend-v1`）が**無い**ことを検査する（`task android:verify` の対象に追加）。④ E2E ビルドでは WorkManager の登録（`ScheduleSync`）を行わない（フェイクの資格情報は Worker（ヘッドレス）から使えないため）。
+- **Go の単体テスト**: `go test -tags e2e ./internal/e2e/...`（シードの冪等・実エンジンでの初回同期で一覧に 3 件・`RecordingGmail` の書き出し）。
+
+**スクリプト**（`build/android/e2e/run.sh`。adb と UI Automator の画面ダンプ `uiautomator dump` だけ。Python 3 標準ライブラリの `ui.py` がダンプから要素を探す）:
+
+1. インストール → コールドスタート（`am start -W`。`TotalTime` 等を記録）→ プロセスが動いている。
+2. **一覧**: シードの件名 3 件が画面（`uiautomator dump` の text／content-desc）に出るまで待つ。起動から一覧までの秒を記録。
+3. **返信下書き**: 1 件目を開く → 「全員に返信」→ エディタ（`本文`）にタップして `hello e2e draft` を入力 → 自動保存（約 3 秒）後、`run-as` で `RecordingGmail` のファイルを読み、本文と `thread: e2e-thread-1`（スレッドに紐づく）を確認。
+4. **レンダラ落ち**（`E2E_KILL_RENDERER=1`、既定。`adb root` が要るのでエミュレーターの `google_apis`・`userdebug` イメージ向け。root が取れなければこの手順だけ SKIP）: `sandboxed_process` を `kill -9` → アプリのプロセス（pid）が変わらない・一覧が再び出る・`WailsActivity` のログに復旧が出る。
+5. `crash` バッファにアプリのクラッシュが無い・`Render process crash wasn't handled` が無い・最後までプロセスが動いている。
+
+画面のスクリーンショット・ダンプ・logcat は `E2E_OUT`（既定 `/tmp/hitomado-e2e-out`）に残る。
+
+**回し方**:
+
+```sh
+wails3 task android:e2e:apk ARCH=amd64          # x86_64 エミュレーター用。実機（arm64）は ARCH=arm64（既定はホストの arch）
+wails3 task android:e2e:run                      # 接続中の端末（ANDROID_SERIAL で指定）。bin/hitomado-e2e.apk を入れて通す
+```
+
+**実機で回す手順**（arm64。`adb` が使え、開発者オプション・USB デバッグが有効な端末）:
+
+1. `wails3 task android:e2e:apk ARCH=arm64` で `bin/hitomado-e2e.apk` を作る。
+2. `adb devices` で端末が見えることを確認し、複数台なら `export ANDROID_SERIAL=<serial>`。
+3. `E2E_KILL_RENDERER=0 wails3 task android:e2e:run`（市販の実機は `adb root` が使えない。レンダラの kill は、手順 4 で手動で行う）。
+4. レンダラ落ちを実機で試すとき: 一覧が出た状態で、`chrome://crash` に相当するものは WebView には無いので、`adb shell am kill` は使えない。Android Studio の Profiler か、`adb shell` で root が取れるデバッグ用端末で `ps -A | grep sandboxed_process` の pid を `kill -9` する。**実機ではまだ実行していない**。
+5. 後始末: `adb uninstall jp.ousias.hitomado`（E2E 用 APK は release と同じ署名ではないので、release と同じ端末に入れる前に必ず消す。データは端末から消える）。
+
+### 17.4 CI
+
+- **`.github/workflows/android-e2e.yml`（`workflow_dispatch` のみ）**: x86_64・API 35 のエミュレーターを `reactivecircus/android-emulator-runner` で起動して `run.sh` を実行する。ubuntu-latest は KVM が使える（udev のルールで権限を付ける）。
+- **`ci.yml`（PR の CI）には入れていない**。このホストは KVM が使えず、ワークフローをローカルで動かして確かめられない。確認できないジョブを PR の必須の CI に入れると、赤くなって PR が止まるおそれがあるため。`actionlint` で構文だけ確認した。**Actions で実際に動かして緑になったことは未確認**。緑になったら `ci.yml` への組み込み（`pull_request` かつ変更パスの条件つき）を別 Issue で検討する。
+
+### 17.5 性能の計測
+
+**同期（Go のベンチマーク。ホストで実測）**: `internal/sync/syncertests/bench_test.go`。初回同期（INBOX の最新 200 スレッド＝`initialPageSize`、メタデータの取得と SQLite への保存）を、
+
+```sh
+go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
+```
+
+で測る。
+
+| ベンチ | 内容 | 結果（Linux x86_64、Ryzen 9 5950X、3 回の平均） |
+|--------|------|------|
+| `BenchmarkInitialSyncHTTP` | 本物の `gmail.Client`（クォータ制御つき）を、`httptest` の偽 Gmail サーバー（`threads.list`・`threads.get`・`profile`・`labels` を実 API の形で返す）に向ける | **約 7.2 秒 / 200 スレッド** |
+| `BenchmarkInitialSyncStore` | ネットワーク・クォータ制御を除き、メモリ上のフェイクの Gmail から同期エンジン→実 SQLite に保存するまで | **約 0.15 秒 / 200 スレッド** |
+
+前者はクライアントの本番どおりの流量制限（ユーザーあたり 250 units/秒、`threads.get` は 10 units → 約 25 スレッド/秒）が支配的で、実 Gmail に対しても同じ上限が掛かる（ネットワークの遅延は含まない）。後者から、**エンジン＋SQLite の分は 200 スレッドで 0.15 秒（ホスト）**で、同期の時間はほぼ API の流量制限で決まる。**これはホスト（デスクトップ CPU）の数値で、Android の実機の値ではない**。実機の SQLite・CPU での数値は未計測。
+
+**起動時間（エミュレーター。ソフトウェアエミュレーションでの参考値であり、実機の数値ではない）**: `run.sh` が `adb shell am start -W` の `TotalTime`／`Status`（`METRIC am_start_total_ms`）と、起動から一覧の件名が画面に出るまでの秒（`METRIC start_to_list_s`）を出す。実機では `adb shell am start -W -n jp.ousias.hitomado/com.wails.app.MainActivity` の `TotalTime`（コールドスタート。`am force-stop` のあと）と、`adb logcat` の `Displayed` で測れる。
+
+### 17.6 確認の状況（2026-11-04）
+
+**エミュレーター**: x86_64・API 35・`google_apis`（WebView 124.0.6367.219）の自分用 AVD（`-accel off -no-window -gpu swiftshader_indirect`、RAM 3 GB、ポート 5592。確認後に停止・AVD を削除した）。このホストは KVM が使えず、ソフトウェアエミュレーション（TCG）。ホストは他の作業でも高負荷（load average 4〜29）で、システム自体が遅い。**以下の数値は実機の値ではなく、ソフトウェアエミュレーションでの参考値**。
+
+| 項目 | 結果 |
+|------|------|
+| E2E 用 APK のビルドと起動 | `wails3 task android:e2e:apk ARCH=amd64` → 28 MB の APK。インストールでき、**アプリのプロセスは起動し、Go が `index.html` を配信した**（`Serving asset: /index.html` → `[AssetFileServerFS] Handling request` → `Serving /index.html with type text/html (744 bytes)`）。ログに E2E のビルドタグ（`-tags=android,debug,e2e`）が出る |
+| `am start -W` | `Status: timeout`（`WaitTime` 34〜64 秒で待ち切れない）。**`TotalTime` は取れなかった**。コールドスタートから `Loading URL` までは約 1 分（`nativeInit`〜`Wails bridge initialized` が約 55 秒）、`index.html` の配信は起動の約 60〜75 秒後 |
+| 一覧の表示（シードの 3 スレッド） | **確認できなかった**。この環境では WebView のレンダラが、`index.html` を受け取った後・スクリプトを要求する前に落ちる（下記） |
+| 返信下書き | **確認できなかった**（一覧に到達できないため）。Go 側は `go test -tags e2e ./internal/e2e/...`（実エンジンの同期で一覧 3 件・`RecordingGmail` の書き出し）と `internal/app/apptests/thread_draft_test.go` で確認 |
+| **レンダラが落ちてもアプリ全体が終了しない** | **確認した（自然に再現）**。1 回目の実行で、`sandboxed_process` のレンダラが `SIGTRAP`（`CrRendererMain`、`libmonochrome_64.so` 内）で**4 回続けて**落ちた。そのたびに `WebView renderer crashed`／`Recreating the WebView and reloading the app` が出て WebView を作り直し、**アプリのプロセス（pid 2759）は終了せず**、4 回目に上限（5 分に 3 回）に達して `WebView renderer kept dying; the recovery limit is reached; showing the error screen`（エラー画面）。ログに `Render process crash wasn't handled` は出なかった（テンプレートのままなら 1 回目でアプリ全体が終了していた）。アプリの pid は 20 分以上同じだった |
+| 作り直したあとにアプリが表示される | **確認できなかった**。この AVD ではレンダラが毎回、同じ場所で落ちる（4 回とも起動から約 80 秒、コードは同一）。クラッシュダンプの生成（crashpad）にも約 1 分かかり、その間システムの「応答なし」ダイアログが前面に出た。**原因は未特定**（Chromium のリリースビルドでシンボルなし。アプリを入れ直した再実行でも同じ場所で落ちた。CPU を `-qemu -cpu max` に変えた再起動の 2 回目の実行では、約 7 分の間レンダラの落ち自体は出なかったが、システムアプリの「応答なし」で画面が隠れ、ページの読み込みも進まなかったので、解消したとは言えない。KVM つきの CI（`android-e2e.yml`）か実機で再確認が要る） |
+| 手動のレンダラ `kill -9` の実験 | **実行できなかった**（上記のとおり、レンダラが自力で落ち続けるため、`kill` で復帰を確かめる状態に到達しなかった）。`run.sh` の手順 4 に実装してあるが、実行して確認していない |
+| 初回の 10 秒タイムアウトからの読み直し | 今回の実行では 10 秒のタイムアウトは出なかった。`onReceivedError` の読み直しは実行して確認していない |
+| `android:e2e:run`（`run.sh` の全体） | インストール・起動・プロセスの存在までは PASS。一覧以降は上記の理由で通っていない（1 回目の実行は一覧の待ちが 900 秒で打ち切り。2 回目はエミュレーターの「応答なし」ダイアログ（Pixel Launcher）で画面が隠れたため中断。2 回目のあとに、このダイアログで「待つ」を選ぶ処理を `run.sh` に足したが、**その後は再実行していない**） |
+
+**この環境で E2E の最後まで通せなかったこと**を正確に記すと、「起動（プロセス・Go の配信）まで」は通り、「一覧・下書き・復帰」は**エミュレーターでは未確認**。実機（arm64）・KVM つきのエミュレーターでの通しは**未確認**で、受け入れ基準「実機で起動・一覧表示・返信下書きまで通る」は実機が要る。
+
+**自動で確認したもの**: `task android:test`（JVM。`RecoveryBudget`・`RenderGoneReason` を含む）、`go test ./...`・`go test -tags e2e ./internal/e2e/...`、`golangci-lint`（ホスト・`e2e` タグ・`android`）、`task android:package`＋`android:verify`（release APK に E2E の印が無いことを含む）、`actionlint`、`shellcheck`。
+
+### 17.7 残課題
+
+- **実機（arm64）・KVM つき環境で、E2E を最後まで通す**（一覧・返信下書き・レンダラ `kill` からの復帰）。Actions の `android-e2e.yml` を手動実行して緑になることも未確認。
+- このホストの KVM なしエミュレーターでレンダラが落ち続ける原因の特定（実機・KVM つきでも起きるかの確認。起きるなら、`onRenderProcessGone` の上限を超えてエラー画面になる＝アプリは終了しないが使えない）。
+- WebView を作り直したときの未保存の入力（約 3 秒分）と、Go に残る作成セッション（17.1）。
+- Activity が OS に破棄・再生成された場合（`configChanges` に含まれない変更）に、テンプレートの `onCreate` が新しい `WailsBridge` の `nativeInit` を再度呼ぶ点（Wails のテンプレートの挙動で、この Issue では変えていない）。
+- 実機での起動時間・同期時間の計測（17.5 はホストとエミュレーターのみ）。
