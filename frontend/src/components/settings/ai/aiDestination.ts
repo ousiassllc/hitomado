@@ -1,5 +1,5 @@
 // AI 送信先の表示用ロジック（NF §2: OpenAI 互換の Base URL を含め、送信先は常に表示する）。
-import { settings as msg } from '../../lib/messages'
+import { settings as msg } from '../../../lib/messages'
 
 const ANTHROPIC_URL = 'https://api.anthropic.com'
 const OPENAI_DEFAULT_URL = 'https://api.openai.com'

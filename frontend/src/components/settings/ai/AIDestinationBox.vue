@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { settings as msg } from '../../lib/messages'
+import { settings as msg } from '../../../lib/messages'
 import { aiDestination } from './aiDestination'
 
 // データの送信先（プロバイダ／Base URL）を常に表示する（NF §2）。保存済みの設定が「実際に使われる送信先」。

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { OAuthClient } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { parseBindingError } from '../../lib/api'
-import { settings as msg } from '../../lib/messages'
-import { useAccountsStore } from '../../stores/accounts'
-import { useSettingsStore } from '../../stores/settings'
-import { useUiStore } from '../../stores/ui'
-import BaseButton from '../ui/BaseButton.vue'
+import type { OAuthClient } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { parseBindingError } from '../../../lib/api'
+import { settings as msg } from '../../../lib/messages'
+import { useAccountsStore } from '../../../stores/accounts'
+import { useSettingsStore } from '../../../stores/settings'
+import { useUiStore } from '../../../stores/ui'
+import BaseButton from '../../ui/BaseButton.vue'
 import OAuthClientForm from './OAuthClientForm.vue'
 
 const accountsStore = useAccountsStore()

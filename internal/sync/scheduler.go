@@ -11,7 +11,6 @@ import (
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/events"
 	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/notify"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
@@ -198,84 +197,6 @@ func (s *Scheduler) Shutdown() {
 	s.mu.Unlock()
 	s.cancel()
 	s.wg.Wait()
-}
-
-func (a *account) signal() {
-	select {
-	case a.kick <- struct{}{}:
-	default:
-	}
-}
-
-// runWorker はアカウントの周期同期ループ。needs_reauth の間は周期・要求を無視する。
-func (s *Scheduler) runWorker(a *account) {
-	defer s.wg.Done()
-	defer close(a.done)
-	tick, stop := s.newTicker(s.interval)
-	defer stop()
-	s.cycle(a)
-	for {
-		select {
-		case <-a.ctx.Done():
-			return
-		case <-tick:
-			s.cycle(a)
-		case <-a.kick:
-			s.cycle(a)
-		}
-	}
-}
-
-func (s *Scheduler) cycle(a *account) {
-	defer logging.Recover(s.log, "sync cycle") // 1 周期の panic でワーカーを止めない（スタックを記録して次の周期へ）
-	if a.paused.Load() {
-		return
-	}
-	if err := s.runCycle(a.ctx, a); err != nil && a.ctx.Err() == nil {
-		s.log.Warn("sync cycle failed", "account", a.id, "err", err)
-	}
-}
-
-// runCycle は 1 周期の同期を直列化して実行する。
-func (s *Scheduler) runCycle(ctx context.Context, a *account) error {
-	a.syncMu.Lock()
-	defer a.syncMu.Unlock()
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	if a.paused.Load() {
-		return errNeedsReauth(a.id)
-	}
-	return s.syncAccount(ctx, a)
-}
-
-// runRetention は保持期間を過ぎたスレッドを起動直後と 24 時間ごとに削除する。
-func (s *Scheduler) runRetention() {
-	defer s.wg.Done()
-	tick, stop := s.newTicker(retentionEvery)
-	defer stop()
-	s.purge()
-	for {
-		select {
-		case <-s.ctx.Done():
-			return
-		case <-tick:
-			s.purge()
-		}
-	}
-}
-
-func (s *Scheduler) purge() {
-	n, err := s.store.PurgeThreadsLeftInboxBefore(s.ctx, s.clock.Now().Add(-retentionPeriod))
-	if err != nil {
-		if s.ctx.Err() == nil {
-			s.log.Warn("retention purge failed", "err", err)
-		}
-		return
-	}
-	if n > 0 {
-		s.log.Info("retention purge", "deleted", n)
-	}
 }
 
 // joinCtx は ctx が a の終了でもキャンセルされるようにする。
