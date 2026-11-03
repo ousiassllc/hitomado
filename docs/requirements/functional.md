@@ -259,4 +259,4 @@ flowchart LR
 | 1.5 | 2026-11-03 | F-01 の OAuth クライアント拒否の案内に、バナーとアカウント設定の行からの設定（OAuth クライアントタブ）への導線を追記 | 実装（`frontend/src/lib/banners.ts`、`AccountRow.vue`）との整合（#61、#69） |
 | 1.6 | 2026-11-03 | F-15（MCP 連携・ログの収集）を追加 | #14 |
 | 1.7 | 2026-11-03 | F-03 のインライン画像（`cid:`）に、1 枚 5 MiB・1 メッセージ合計 10 MiB の上限と、超過分は表示されず通知もしないことを明記 | 実装（`internal/gmail/message.go`、`internal/app/appcore/html.go`）との整合（#6） |
-| 1.6 | 2026-11-03 | F-08 に、ChatGPT プラン（Sign in with ChatGPT）での下書き、同意の取り直し、設定画面でのモデル一覧からの選択を追記 | #75、#76 |
+| 1.8 | 2026-11-03 | F-08 に、ChatGPT プラン（Sign in with ChatGPT）での下書き、同意の取り直し、設定画面でのモデル一覧からの選択を追記 | #75、#76 |
