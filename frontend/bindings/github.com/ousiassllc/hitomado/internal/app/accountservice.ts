@@ -90,9 +90,7 @@ export function StartAddAccount(oauthClientID: string): $CancellablePromise<dto$
 }
 
 /**
- * TakeInterruptedAuth は、前回の起動が Google の認可の途中で止められていたか（Android がブラウザに出ている間に
- * プロセスを終了させた場合など）を 1 回だけ返す。ループバックの待受はプロセスと一緒に消えて認可は完了できないため、
- * 画面は「ログインはやり直し」と案内する。検出しない構成（Windows）は常に false。
+ * TakeInterruptedAuth は前回の起動が認可の途中で止められていたか（Android）を一度だけ返す。画面が「やり直し」を案内する。Windows は常に false。
  */
 export function TakeInterruptedAuth(): $CancellablePromise<boolean> {
     return $Call.ByID(1824336271);
