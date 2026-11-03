@@ -1,4 +1,6 @@
-package apptests
+// Package removetests は AccountService.RemoveAccount の同期停止と DB 削除の順序を、
+// 実スケジューラ・実 SQLite・フェイク（apptest）で検証する外部テスト。
+package removetests
 
 import (
 	"context"
@@ -127,13 +129,16 @@ func (failingDelete) DeleteAccount(context.Context, string) error {
 }
 
 func TestRemoveAccountRestartsSyncWhenDeleteFails(t *testing.T) {
-	svc, e := newAccountSvc(t)
+	e := apptest.NewEnv(t)
+	svc := app.NewAccountService(e.Deps)
 	a := e.AddAccount(t, "me@a.example")
 	e.Deps.Store = failingDelete{e.Store}
 
 	err := svc.RemoveAccount(t.Context(), a.ID)
 
-	_ = requireCode(t, apperr.Internal, err)
+	var ae *apperr.Error
+	require.ErrorAs(t, err, &ae)
+	assert.Equal(t, apperr.Internal, ae.Code)
 	assert.Equal(t, []string{a.ID}, e.Sync.StoppedAccounts(), "先に同期を止める")
 	assert.Equal(t, []string{a.ID}, e.Sync.StartedAccounts(), "削除に失敗したら同期を再開する")
 	_, err = e.Store.GetAccount(t.Context(), a.ID)

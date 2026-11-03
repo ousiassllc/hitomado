@@ -35,8 +35,7 @@ func (s *AccountService) ListAccounts(ctx context.Context) ([]dto.Account, error
 }
 
 // RemoveAccount はアカウントのデータ（DB・資格情報）を削除し、可能なら Google 側のトークンも失効させる。
-// 先に同期ワーカーを止めて実行中の周期の終了を待ち、そのあと DB を削除する（進行中の周期が削除済みの
-// アカウントへ書き込むのを防ぐ）。DB の削除に失敗したときは同期を再開する。revoke の失敗は無視する。
+// 先に同期を止めて実行中の周期の終了を待ってから DB を削除する（DB 削除に失敗したら同期を再開）。revoke の失敗は無視する。
 func (s *AccountService) RemoveAccount(ctx context.Context, accountID string) error {
 	if _, err := s.d.Store.GetAccount(ctx, accountID); err != nil {
 		return apperr.FromInfra(err, accountID)
