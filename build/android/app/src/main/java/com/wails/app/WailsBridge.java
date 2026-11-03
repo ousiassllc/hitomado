@@ -8,7 +8,6 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -53,8 +52,6 @@ import androidx.biometric.BiometricPrompt;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
-import androidx.security.crypto.EncryptedSharedPreferences;
-import androidx.security.crypto.MasterKey;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -85,8 +82,6 @@ public class WailsBridge {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private WebView webView;
     private volatile boolean initialized = false;
-    private SharedPreferences cachedSecurePrefs;
-    private boolean securePrefsResolved = false;
 
     // Phase D state: sensor listeners, speech engine and keyboard watcher are
     // retained so they can be registered and torn down on demand.
@@ -275,7 +270,8 @@ public class WailsBridge {
             Log.w(TAG, "Bridge not initialized, cannot handle message");
             return "{\"error\":\"Bridge not initialized\"}";
         }
-        if (DEBUG) Log.d(TAG, "Message from JS: " + message);
+        // 本文は出さない（引数に API キーなどの資格情報が含まれうる。hitomado #84）。
+        if (DEBUG) Log.d(TAG, "Message from JS (" + message.length() + " chars)");
         try {
             return nativeHandleMessage(message);
         } catch (Exception e) {
@@ -292,7 +288,8 @@ public class WailsBridge {
         if (!initialized) {
             return "{\"ok\":false,\"error\":\"Bridge not initialized\"}";
         }
-        if (DEBUG) Log.d(TAG, "Runtime call: " + payload);
+        // 本文は出さない（引数に API キーなどの資格情報が含まれうる。hitomado #84）。
+        if (DEBUG) Log.d(TAG, "Runtime call (" + payload.length() + " chars)");
         try {
             return nativeHandleRuntimeCall(payload);
         } catch (Exception e) {
@@ -777,109 +774,74 @@ public class WailsBridge {
         });
     }
 
-    /**
-     * Backing store for secure storage. Uses EncryptedSharedPreferences (AES via
-     * the Android Keystore). Requires API 23+. Returns null if secure storage
-     * cannot be initialized — callers MUST check for null and report the error.
-     * The result is cached after the first call.
+    /*
+     * Secure storage (hitomado #84): Wails の既定実装（Activity に紐づく EncryptedSharedPreferences）を
+     * SecureStore（applicationContext だけを使う static なシングルトン）への委譲に置き換えた。
+     * Activity の無い Worker（WorkManager。#88）からも同じストアを SecureStore.getInstance(context) で使える。
+     * 失敗は {"ok":false,"error":"<コード>"} で返す。コードは key_lost／unavailable／failed／empty key だけで、
+     * 値・キー・例外メッセージは含めない（Go 側が internal/secrets/bridge.go で解釈する）。
      */
-    private SharedPreferences securePrefs() {
-        if (securePrefsResolved) {
-            return cachedSecurePrefs;
-        }
-        securePrefsResolved = true;
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return null;
-        }
-        try {
-            MasterKey key = new MasterKey.Builder(activity)
-                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                    .build();
-            cachedSecurePrefs = EncryptedSharedPreferences.create(activity, "wails_secure", key,
-                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
-        } catch (Exception e) {
-            Log.e(TAG, "securePrefs initialization failed", e);
-        }
-        return cachedSecurePrefs;
+
+    private static String secureFailure(String code) {
+        return "{\"ok\":false,\"error\":\"" + code + "\"}";
     }
 
-    /** Build a JSON error envelope, safely handling null messages. */
-    private String secureError(String msg) {
-        try {
-            JSONObject o = new JSONObject();
-            o.put("ok", false);
-            o.put("error", msg != null ? msg : "unknown error");
-            return o.toString();
-        } catch (Exception ignored) {
-            return "{\"ok\":false,\"error\":\"unknown error\"}";
-        }
+    private SecureStore secureStore() {
+        return SecureStore.getInstance(activity);
     }
 
     /** Store a value in secure storage. json: {"key":"...","value":"..."}. Returns JSON envelope. */
     public String secureSet(final String json) {
         try {
-            SharedPreferences prefs = securePrefs();
-            if (prefs == null) {
-                return "{\"ok\":false,\"error\":\"secure storage unavailable\"}";
-            }
             JSONObject o = new JSONObject(json);
             String k = o.optString("key", "");
             if (k.isEmpty()) {
-                return "{\"ok\":false,\"error\":\"empty key\"}";
+                return secureFailure("empty key");
             }
-            boolean ok = prefs.edit().putString(k, o.optString("value", "")).commit();
-            if (!ok) {
-                return "{\"ok\":false,\"error\":\"commit failed\"}";
-            }
+            secureStore().put(k, o.optString("value", ""));
             return "{\"ok\":true}";
+        } catch (SecureStore.SecureStoreException e) {
+            return secureFailure(e.code());
         } catch (Exception e) {
-            return secureError(e.getMessage());
+            return secureFailure("failed");
         }
     }
 
     /** Read a value from secure storage. Returns JSON envelope with found/value. */
     public String secureGet(final String key) {
         try {
-            SharedPreferences prefs = securePrefs();
-            if (prefs == null) {
-                return "{\"ok\":false,\"error\":\"secure storage unavailable\"}";
-            }
             if (key == null || key.isEmpty()) {
-                return "{\"ok\":false,\"error\":\"empty key\"}";
+                return secureFailure("empty key");
             }
-            if (!prefs.contains(key)) {
+            String value = secureStore().get(key);
+            if (value == null) {
                 return "{\"ok\":true,\"found\":false}";
             }
-            String value = prefs.getString(key, "");
             // JSON-encode value to prevent injection.
             JSONObject result = new JSONObject();
             result.put("ok", true);
             result.put("found", true);
             result.put("value", value);
             return result.toString();
+        } catch (SecureStore.SecureStoreException e) {
+            return secureFailure(e.code());
         } catch (Exception e) {
-            return secureError(e.getMessage());
+            return secureFailure("failed");
         }
     }
 
     /** Remove a value from secure storage. Returns JSON envelope. */
     public String secureDelete(final String key) {
         try {
-            SharedPreferences prefs = securePrefs();
-            if (prefs == null) {
-                return "{\"ok\":false,\"error\":\"secure storage unavailable\"}";
-            }
             if (key == null || key.isEmpty()) {
-                return "{\"ok\":false,\"error\":\"empty key\"}";
+                return secureFailure("empty key");
             }
-            boolean ok = prefs.edit().remove(key).commit();
-            if (!ok) {
-                return "{\"ok\":false,\"error\":\"commit failed\"}";
-            }
+            secureStore().remove(key);
             return "{\"ok\":true}";
+        } catch (SecureStore.SecureStoreException e) {
+            return secureFailure(e.code());
         } catch (Exception e) {
-            return secureError(e.getMessage());
+            return secureFailure("failed");
         }
     }
 

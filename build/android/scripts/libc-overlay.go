@@ -1,7 +1,7 @@
 //go:build ignore
 
 // libc-overlay.go は android/amd64 の Go ビルド用に、旧式 syscall を読み替えるパッチを当てた
-// modernc.org/libc の複製と、それを使う -modfile を作る（docs/environment/android.md §10）。
+// modernc.org/libc の複製と、それを使う -modfile を作る（docs/environment/android.md §12）。
 //
 // 使い方（リポジトリのルートで。ホストの GOOS/GOARCH のまま実行する）:
 //
@@ -56,7 +56,7 @@ func run(patch, work string) error {
 		return err
 	}
 	if msg, err := exec.Command("patch", "--no-backup-if-mismatch", "-p1", "-s", "-d", libcCopy, "-i", absPatch).CombinedOutput(); err != nil {
-		return fmt.Errorf("patch failed (libc changed? see docs/environment/android.md §10): %w\n%s", err, msg)
+		return fmt.Errorf("patch failed (libc changed? see docs/environment/android.md §12): %w\n%s", err, msg)
 	}
 
 	// -modfile=<x>/go.mod は <x>/go.sum を読む。go.sum はそのまま複製する（replace 先のディレクトリには go.sum 項目は要らない）。
@@ -89,7 +89,7 @@ func libcDir() (string, error) {
 	}
 	if version != libcVersion {
 		return "", fmt.Errorf("%s is %s in go.mod but build/android/libc/amd64.patch is for %s: "+
-			"re-apply the change to the new version, regenerate the patch and update libcVersion in this file (docs/environment/android.md §10)",
+			"re-apply the change to the new version, regenerate the patch and update libcVersion in this file (docs/environment/android.md §12)",
 			libcModule, version, libcVersion)
 	}
 	return dir, nil

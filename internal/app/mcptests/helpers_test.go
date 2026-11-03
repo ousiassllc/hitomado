@@ -19,6 +19,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
@@ -56,7 +57,14 @@ type mcpEnv struct {
 
 func newMCPEnv(t *testing.T) *mcpEnv {
 	t.Helper()
+	return newMCPEnvFor(t, capability.Desktop("windows"))
+}
+
+// newMCPEnvFor は OS の機能（capability）を指定して組み立てる。
+func newMCPEnvFor(t *testing.T, caps capability.Capabilities) *mcpEnv {
+	t.Helper()
 	e := apptest.NewEnv(t)
+	e.Deps.Capabilities = caps
 	dir := filepath.Join(e.Deps.DataDir, app.LogsDirName)
 	l, closeLog, err := logging.New(dir, slog.LevelDebug, false, logging.Meta{Version: "t"})
 	require.NoError(t, err)

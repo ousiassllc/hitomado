@@ -8,7 +8,7 @@
 
 | ID | 区分 | 要件 |
 |----|------|------|
-| NF-S01 | 必須 | OAuth のリフレッシュトークン、OAuth クライアントの Client Secret、AI の API キー、ChatGPT ログインのトークン（アクセス・リフレッシュ・ID）は **OS の資格情報ストア（Windows 資格情報マネージャー）** に保存する。SQLite・設定ファイル・ログに平文で保存しない |
+| NF-S01 | 必須 | OAuth のリフレッシュトークン、OAuth クライアントの Client Secret、AI の API キー、ChatGPT ログインのトークン（アクセス・リフレッシュ・ID）は **OS の資格情報ストア（Windows 資格情報マネージャー）** に保存する。Android では Android Keystore の鍵で暗号化した EncryptedSharedPreferences にだけ保存し、バックアップ・端末間移行の対象にしない（Keystore の鍵が失われて読めなくなったときは、保存済みの値を破棄してアカウントを「要再接続」にする）。SQLite・設定ファイル・ログ（logcat を含む）に平文で保存しない |
 | NF-S02 | 必須 | Gmail スコープは `gmail.modify` のみ（加えて `openid email profile`）。`mail.google.com`（完全削除）や連絡先スコープは要求しない |
 | NF-S03 | 必須 | OAuth は認可コードフロー＋PKCE、リダイレクトは `127.0.0.1` のループバック（一時ポート）。`state` を検証する。待受は認可完了またはタイムアウト（5 分）で閉じる |
 | NF-S04 | 必須 | HTML メールは DOMPurify 等でサニタイズした上、`sandbox` 属性付き iframe（`srcdoc`）内に表示する。`sandbox` は **`allow-scripts`・`allow-forms`・`allow-popups`・`allow-top-navigation` を付けない**（メール内スクリプトは実行されない）。ホストが高さ計測とリンク捕捉をするため `allow-same-origin` のみ付ける（スクリプト実行が不可能なことが前提。[コンポーネント設計 §3.8](../components/overview.md)）。iframe 内の CSP は `default-src 'none'`。スクリプト・フォーム・外部 CSS・iframe・`<base>` は除去する |
@@ -72,7 +72,7 @@
 - ネットワーク断では取得済みのキャッシュ表示を維持し、書き込み系操作は失敗として扱う（送信キューは持たない）
 - SQLite は WAL モードで使用し、強制終了時にも破損しない。スキーマ変更はマイグレーションで行い、失敗時は起動を中止してエラーを表示する
 - 下書きは編集停止後に自動保存する（[F-12](functional.md#f-12-下書き保存)）。異常終了時に失う編集は直近の数秒分までとする
-- 多重起動は禁止する（2 つ目の起動は既存ウィンドウを前面に出して終了）
+- 多重起動は禁止する（2 つ目の起動は既存ウィンドウを前面に出して終了）。Android 版では多重起動の防止をアプリで行わない（起動の管理は OS の任せ。[Android ビルド §10](../environment/android.md#10-android-で動かさない機能)）
 
 ## 6. スケーラビリティ・容量
 
@@ -94,6 +94,7 @@
 | NF-D02 | 必須 | コード署名は行わない（インストーラーも）。SmartScreen の警告が出ることを README に明記し、実行手順と `SHA256SUMS.txt` での確認を案内する |
 | NF-D03 | 必須 | 起動時と 24 時間ごとに GitHub Releases API（`api.github.com/repos/ousiassllc/hitomado/releases/latest`）で最新版を確認し、新しければ設定画面・通知領域にリンクを表示する。自動ダウンロード・自動インストールは行わない。設定でオフにできる。版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは確認しない（通信せず、新しい版の表示も出さない） |
 | NF-D04 | 必須 | ビルドは GitHub Actions で再現可能にする |
+| NF-D05 | 必須 | Android 版（配布は Google Play）は、アプリ内の更新確認（NF-D03）を行わない。定期確認も手動確認も動かさず、設定画面にも出さない。保存済みの設定が「有効」でも確認しない |
 
 ## 9. 外部サービスの制約（README で案内する）
 
@@ -135,3 +136,5 @@
 | 1.7 | 2026-11-03 | NF-D01 に `NOTICE`（依存ライセンスの表記・MPL-2.0 のソース入手先）の公開を追加 | #3 |
 | 1.8 | 2026-11-03 | NF-D03 に、版が `0.0.0`（dev・ローカルビルド）のときは更新確認をしない旨を追記 | #21 |
 | 1.9 | 2026-11-03 | NF-S01 に ChatGPT ログインのトークンを追加。§2 に auth.openai.com／api.openai.com の通信先と ChatGPT プランの規約順守（公式フロー・Cookie／パスワードを受け取らない・Codex CLI の認証情報を使わない・名乗らない）、モデル一覧の取得の扱いを追記。§12 に ChatGPT プランを追記 | #75、#76 |
+| 1.10 | 2026-11-03 | §5 の多重起動に Android 版の扱いを追記。NF-D05（Android 版はアプリ内の更新確認をしない）を追加 | Android 版で使わない機能の無効化（#89） |
+| 1.11 | 2026-11-03 | NF-S01 に Android の資格情報の保管（EncryptedSharedPreferences・バックアップ対象外・鍵の喪失時の再接続・logcat を含むログに出さない）を追記 | #84 |

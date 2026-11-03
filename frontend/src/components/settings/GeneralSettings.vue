@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { parseBindingError } from '../../lib/api'
 import { settings as msg } from '../../lib/messages'
+import { usePlatformStore } from '../../stores/platform'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
 import BaseButton from '../ui/BaseButton.vue'
@@ -9,6 +10,7 @@ import BaseSwitch from '../ui/BaseSwitch.vue'
 
 const store = useSettingsStore()
 const ui = useUiStore()
+const platform = usePlatformStore()
 
 const info = computed(() => store.appInfo)
 const update = computed(() => store.update)
@@ -47,7 +49,8 @@ function openUpdate(): void {
   <section class="general" :aria-label="msg.general.heading">
     <h3 class="heading">{{ msg.general.heading }}</h3>
 
-    <div class="block">
+    <!-- アプリ内の更新確認を持たない OS（Android。配布は Google Play）では出さない。 -->
+    <div v-if="platform.supportsAutoUpdate" class="block">
       <div class="toggle">
         <BaseSwitch
           :model-value="info?.updateCheckEnabled ?? false"

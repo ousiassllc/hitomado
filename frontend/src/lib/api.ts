@@ -29,6 +29,7 @@ export type ErrorCode =
   | 'AI_CONSENT_REQUIRED'
   | 'AI_FAILED'
   | 'CANCELLED'
+  | 'UNSUPPORTED'
   | 'INTERNAL'
 
 export interface AppError {

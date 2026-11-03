@@ -1,6 +1,6 @@
 # modernc.org/libc 上流への報告文（下書き）
 
-> 関連: [Android ビルド](android.md) §10
+> 関連: [Android ビルド](android.md) §12
 
 `modernc.org/libc` の android/amd64 の問題を、上流（<https://gitlab.com/cznic/libc>）へ報告するための下書き。**まだ送っていない**（外部サービスへの投稿・アカウント登録は、この Issue（#83）の範囲外。送るかどうかは人が決める）。送るときは、既存の issue [cznic/libc#41](https://gitlab.com/cznic/libc/-/issues/41)（2024-08 に報告され、2025-04-10 に「No feedback, closing.」で閉じられた。修正はされていない）に、下の本文を新しいコメントとして足す（または新規 issue にして #41 を参照する）。上流の CONTRIBUTING.md の指示に従うこと。
 
