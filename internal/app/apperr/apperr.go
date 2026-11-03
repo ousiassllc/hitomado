@@ -44,6 +44,7 @@ const (
 	AIConsentRequired   = "AI_CONSENT_REQUIRED"
 	AIFailed            = "AI_FAILED"
 	Cancelled           = "CANCELLED"
+	Unsupported         = "UNSUPPORTED"
 	Internal            = "INTERNAL"
 )
 

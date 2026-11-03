@@ -1,11 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import type { Capabilities } from '../../../bindings/github.com/ousiassllc/hitomado/internal/capability'
 import { useAccountsStore } from '../../stores/accounts'
+import { usePlatformStore } from '../../stores/platform'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
 import AISettings from './ai/AISettings.vue'
 import { aiDestination } from './ai/aiDestination'
+import GeneralSettings from './GeneralSettings.vue'
 import McpSettings from './McpSettings.vue'
 import OAuthClientsSettings from './oauth/OAuthClientsSettings.vue'
 import SettingsDialog from './SettingsDialog.vue'
@@ -131,6 +134,60 @@ describe('SettingsDialog', () => {
       t.textContent?.trim(),
     )
     expect(tabs).toEqual(['アカウント', 'OAuth クライアント', '署名', 'AI', 'MCP', 'ログ', '一般'])
+    w.unmount()
+  })
+})
+
+const ANDROID_CAPS: Capabilities = {
+  os: 'android',
+  supportsMcp: false,
+  supportsTray: false,
+  supportsAutoUpdate: false,
+  supportsWindowState: false,
+  singleInstance: false,
+}
+
+describe('SettingsDialog（Android: 機能が無い OS）', () => {
+  test('MCP を持たない OS では MCP のタブと説明の「MCP」を出さない', async () => {
+    const pinia = setup()
+    const ui = useUiStore()
+    useSettingsStore().load = async () => {}
+    usePlatformStore().capabilities = { ...ANDROID_CAPS }
+    const w = mount(SettingsDialog, { global: { plugins: [pinia] }, attachTo: document.body })
+
+    ui.openSettings()
+    await w.vm.$nextTick()
+    await w.vm.$nextTick()
+    const tabs = [...document.body.querySelectorAll('[role="tab"]')].map((t) =>
+      t.textContent?.trim(),
+    )
+    expect(tabs).toEqual(['アカウント', 'OAuth クライアント', '署名', 'AI', 'ログ', '一般'])
+    expect(document.body.querySelector('[role="dialog"]')?.textContent).not.toContain('MCP')
+    w.unmount()
+  })
+})
+
+describe('GeneralSettings', () => {
+  const info = { version: '1.2.3', updateCheckEnabled: true, dataDir: '/data/Hitomado' }
+
+  test('アプリ内の更新確認がある OS では更新確認の項目を出す', () => {
+    const pinia = setup()
+    useSettingsStore().appInfo = info
+    const w = mount(GeneralSettings, { global: { plugins: [pinia] } })
+    expect(w.text()).toContain('更新を確認する')
+    expect(w.findAll('button').some((b) => b.text() === '今すぐ確認')).toBe(true)
+    w.unmount()
+  })
+
+  test('更新確認を持たない OS（Android）では更新確認の項目を出さず、バージョンと保存先は出す', () => {
+    const pinia = setup()
+    useSettingsStore().appInfo = info
+    usePlatformStore().capabilities = { ...ANDROID_CAPS }
+    const w = mount(GeneralSettings, { global: { plugins: [pinia] } })
+    expect(w.text()).not.toContain('更新を確認する')
+    expect(w.findAll('button').some((b) => b.text() === '今すぐ確認')).toBe(false)
+    expect(w.get('[data-testid="app-version"]').text()).toBe('1.2.3')
+    expect(w.get('[data-testid="app-datadir"]').text()).toBe('/data/Hitomado')
     w.unmount()
   })
 })

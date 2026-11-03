@@ -10,7 +10,9 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/store"
 	"github.com/ousiassllc/hitomado/internal/update"
 )
 
@@ -128,4 +130,27 @@ func TestAckBeforeQuit(t *testing.T) {
 	require.NoError(t, svc.AckBeforeQuit(t.Context()))
 	require.NoError(t, svc.AckBeforeQuit(t.Context()))
 	assert.Equal(t, 2, n)
+}
+
+// Android（アプリ内の更新確認が無い OS）では、PC で保存した「有効」の設定や dev でない版でも、確認せず・通信せず・無効を返す（#89）。
+func TestUpdateCheckDisabledWhenUnsupported(t *testing.T) {
+	svc, e := newAppSvc(t)
+	ctx := t.Context()
+	e.Deps.Capabilities = capability.Android()
+	require.NoError(t, e.Store.SetSetting(ctx, store.SettingUpdateCheck, "true"))
+	e.Update.Release = update.Release{Version: "9.9.9", URL: "https://example.com/r"}
+
+	info, err := svc.GetAppInfo(ctx)
+	require.NoError(t, err)
+	assert.False(t, info.UpdateCheckEnabled)
+
+	got, err := svc.CheckForUpdate(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, dto.UpdateInfo{}, got)
+	assert.Zero(t, e.Update.CallCount(), "通信しない")
+
+	err = svc.SetUpdateCheckEnabled(ctx, true)
+	var ae *apperr.Error
+	require.ErrorAs(t, err, &ae)
+	assert.Equal(t, apperr.Unsupported, ae.Code)
 }

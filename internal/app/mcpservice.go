@@ -40,6 +40,9 @@ func NewMCPService(d *Deps, backend mcpserver.Backend) *MCPService {
 //
 //wails:ignore
 func (s *MCPService) Start(ctx context.Context) {
+	if !s.d.Capabilities.SupportsMCP {
+		return // この OS では待ち受けない（保存済みの設定がオンでも。Android）
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	cfg, err := s.load(ctx)

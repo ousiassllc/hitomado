@@ -12,6 +12,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 
+	"github.com/ousiassllc/hitomado/internal/capability"
 	appevents "github.com/ousiassllc/hitomado/internal/events"
 	"github.com/ousiassllc/hitomado/internal/notify"
 )
@@ -72,9 +73,13 @@ const (
 	MinHeight = 600
 )
 
-// NewMainWindow はメインウィンドウを作る。× で終了せずトレイへ格納する（フックで閉じるのを取り消して隠す）。
-// saved の位置・サイズで開き、以後の変化を save へ渡す（window.state。呼び出し側は Flush を終了前に呼ぶ）。
-func NewMainWindow(app *application.App, saved WindowState, save func(WindowState)) (*application.WebviewWindow, *WindowKeeper) {
+// NewMainWindow はメインウィンドウを作る。トレイがある OS では、× で終了せずトレイへ格納する（フックで閉じるのを取り消して隠す）。
+// ウィンドウ状態を保存する OS（caps.SupportsWindowState）では、saved の位置・サイズで開き、以後の変化を save へ渡す
+// （window.state。呼び出し側は戻り値の WindowKeeper の Flush を終了前に呼ぶ）。保存しない OS では saved・save は使わず、WindowKeeper は nil。
+func NewMainWindow(app *application.App, caps capability.Capabilities, saved WindowState, save func(WindowState)) (*application.WebviewWindow, *WindowKeeper) {
+	if !caps.SupportsWindowState {
+		saved = DefaultWindowState()
+	}
 	opts := application.WebviewWindowOptions{
 		Name:           "main",
 		Title:          "Hitomado",
@@ -90,12 +95,17 @@ func NewMainWindow(app *application.App, saved WindowState, save func(WindowStat
 		opts.X, opts.Y = r.X, r.Y
 	}
 	w := app.Window.NewWithOptions(opts)
-	keeper := newWindowKeeper(app, w, saved, save)
-	w.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		e.Cancel()
-		keeper.Flush() // 隠す前に状態を読む
-		w.Hide()
-	})
+	var keeper *WindowKeeper
+	if caps.SupportsWindowState {
+		keeper = newWindowKeeper(app, w, saved, save)
+	}
+	if caps.SupportsTray {
+		w.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+			e.Cancel()
+			keeper.Flush() // 隠す前に状態を読む
+			w.Hide()
+		})
+	}
 	// ファイルのドロップ先は data-file-drop-target 属性の要素のみ。パスは Go でしか得られないため、
 	// フロント（AttachmentBar）へ files-dropped として中継する。
 	w.OnWindowEvent(events.Common.WindowFilesDropped, func(e *application.WindowEvent) {
