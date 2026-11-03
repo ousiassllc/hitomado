@@ -103,7 +103,8 @@ tasks:
 
         TOOLCHAIN="$NDK_ROOT/toolchains/llvm/prebuilt/$HOST_TAG"
 
-        # Set compiler based on architecture
+        # Set compiler based on architecture. EXTRA_GOFLAGS is only used for android/amd64 (see below).
+        EXTRA_GOFLAGS=""
         case "{{.ARCH}}" in
           arm64)
             export CC="$TOOLCHAIN/bin/aarch64-linux-android{{.MIN_SDK}}-clang"
@@ -116,6 +117,11 @@ tasks:
             export CXX="$TOOLCHAIN/bin/x86_64-linux-android{{.MIN_SDK}}-clang++"
             export GOARCH=amd64
             JNI_DIR="x86_64"
+            # modernc.org/libc の android/amd64 は旧式 syscall が seccomp で SIGSYS になるため、パッチ済みの複製を
+            # -modfile の replace で使う（go.mod・go.sum は変えない。docs/environment/android.md §12）。
+            # arm64 はこの問題の対象外で、パッチも当てない。
+            env -u GOOS -u GOARCH go run build/android/scripts/libc-overlay.go
+            EXTRA_GOFLAGS="-modfile=$PWD/build/android/gen/libc-amd64/go.mod"
             ;;
           *)
             echo "Unsupported architecture: {{.ARCH}}"
@@ -129,10 +135,21 @@ tasks:
         mkdir -p {{.BIN_DIR}}
         mkdir -p build/android/app/src/main/jniLibs/$JNI_DIR
 
-        go build -buildmode=c-shared -overlay build/android/overlay.json {{.BUILD_FLAGS}} \
+        go build -buildmode=c-shared -overlay build/android/overlay.json $EXTRA_GOFLAGS {{.BUILD_FLAGS}} \
           -o build/android/app/src/main/jniLibs/$JNI_DIR/libwails.so
     vars:
       BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,android -trimpath -buildvcs=false -ldflags="-w -s -X main.version={{.APP_VERSION}}"{{else}}-tags android,debug -buildvcs=false -gcflags=all="-l"{{end}}'
+
+  test:
+    summary: Runs the Java unit tests (JVM only, no device) of build/android/app/src/test
+    preconditions:
+      - sh: 'command -v java >/dev/null || [ -n "$JAVA_HOME" ]'
+        msg: "Java not found. Install a JDK 17 and/or set JAVA_HOME"
+    cmds:
+      - |
+        cd build/android
+        chmod +x ./gradlew
+        ./gradlew -PappVersion={{.APP_VERSION}} testDebugUnitTest
 
   package:
     summary: Packages a production build of the application into a signed release APK
@@ -493,3 +510,4 @@ tasks:
       - rm -rf build/android/app/build
       - rm -rf build/android/app/src/main/jniLibs/*/libwails.so
       - rm -rf build/android/.gradle
+      - rm -rf build/android/gen build/android/overlay.json

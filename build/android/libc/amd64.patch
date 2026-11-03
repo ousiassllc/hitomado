@@ -1,0 +1,139 @@
+diff -r pa/legacy_android_amd64.go pb/legacy_android_amd64.go
+--- pa/legacy_android_amd64.go
++++ pb/legacy_android_amd64.go
+@@ -0,0 +1,78 @@
++// Copyright 2026 The hitomado Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build android && amd64
++
++package libc // import "modernc.org/libc"
++
++import "golang.org/x/sys/unix"
++
++// androidLegacySyscall runs the x86_64-only "legacy" system calls (lstat, access, mkdir, unlink, rename, ...)
++// through their *at() equivalents.
++//
++// Android's app seccomp filter is built from bionic's syscall list, which has the *at() forms on x86_64
++// but not most of the legacy numbers (only open, stat and readlink are allowed). A disallowed number kills
++// the process with SIGSYS (SYS_SECCOMP), and ccgo's musl code issues them directly (for example
++// _fstatat_kstat uses SYS_lstat). open, stat and readlink are remapped too, so the result does not depend
++// on the Android version. arm64 has no legacy numbers, so this is not needed there. Every legacy call takes
++// at most three arguments.
++//
++// ok is false when n is not one of the remapped calls.
++func androidLegacySyscall(n, a1, a2, a3 long) (r long, ok bool) {
++	const fdcwd = long(unix.AT_FDCWD)
++	switch n {
++	case unix.SYS_OPEN:
++		return androidSyscall(unix.SYS_OPENAT, fdcwd, a1, a2, a3, 0, 0), true
++	case unix.SYS_STAT:
++		return androidSyscall(unix.SYS_NEWFSTATAT, fdcwd, a1, a2, 0, 0, 0), true
++	case unix.SYS_LSTAT:
++		return androidSyscall(unix.SYS_NEWFSTATAT, fdcwd, a1, a2, unix.AT_SYMLINK_NOFOLLOW, 0, 0), true
++	case unix.SYS_ACCESS:
++		return androidSyscall(unix.SYS_FACCESSAT, fdcwd, a1, a2, 0, 0, 0), true
++	case unix.SYS_PIPE:
++		return androidSyscall(unix.SYS_PIPE2, a1, 0, 0, 0, 0, 0), true
++	case unix.SYS_DUP2:
++		if a1 == a2 {
++			// dup2 returns newfd when both are the same open fd, but dup3 fails with EINVAL.
++			if r := androidSyscall(unix.SYS_FCNTL, a1, unix.F_GETFD, 0, 0, 0, 0); r < 0 {
++				return r, true
++			}
++			return a2, true
++		}
++		return androidSyscall(unix.SYS_DUP3, a1, a2, 0, 0, 0, 0), true
++	case unix.SYS_RENAME:
++		// renameat itself is not in bionic's list for x86_64; renameat2 is.
++		return androidSyscall(unix.SYS_RENAMEAT2, fdcwd, a1, fdcwd, a2, 0, 0), true
++	case unix.SYS_MKDIR:
++		return androidSyscall(unix.SYS_MKDIRAT, fdcwd, a1, a2, 0, 0, 0), true
++	case unix.SYS_RMDIR:
++		return androidSyscall(unix.SYS_UNLINKAT, fdcwd, a1, unix.AT_REMOVEDIR, 0, 0, 0), true
++	case unix.SYS_LINK:
++		return androidSyscall(unix.SYS_LINKAT, fdcwd, a1, fdcwd, a2, 0, 0), true
++	case unix.SYS_UNLINK:
++		return androidSyscall(unix.SYS_UNLINKAT, fdcwd, a1, 0, 0, 0, 0), true
++	case unix.SYS_SYMLINK:
++		return androidSyscall(unix.SYS_SYMLINKAT, a1, fdcwd, a2, 0, 0, 0), true
++	case unix.SYS_READLINK:
++		return androidSyscall(unix.SYS_READLINKAT, fdcwd, a1, a2, a3, 0, 0), true
++	case unix.SYS_CHMOD:
++		return androidSyscall(unix.SYS_FCHMODAT, fdcwd, a1, a2, 0, 0, 0), true
++	case unix.SYS_CHOWN:
++		return androidSyscall(unix.SYS_FCHOWNAT, fdcwd, a1, a2, a3, 0, 0), true
++	case unix.SYS_LCHOWN:
++		return androidSyscall(unix.SYS_FCHOWNAT, fdcwd, a1, a2, a3, unix.AT_SYMLINK_NOFOLLOW, 0), true
++	case unix.SYS_MKNOD:
++		return androidSyscall(unix.SYS_MKNODAT, fdcwd, a1, a2, a3, 0, 0), true
++	}
++	return 0, false
++}
++
++func androidSyscall(n, a1, a2, a3, a4, a5, a6 long) long {
++	r1, _, err := unix.Syscall6(uintptr(n), uintptr(a1), uintptr(a2), uintptr(a3), uintptr(a4), uintptr(a5), uintptr(a6))
++	if err != 0 {
++		return long(-err)
++	}
++
++	return long(r1)
++}
+diff -r pa/legacy_other.go pb/legacy_other.go
+--- pa/legacy_other.go
++++ pb/legacy_other.go
+@@ -0,0 +1,10 @@
++// Copyright 2026 The hitomado Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build !(android && amd64)
++
++package libc // import "modernc.org/libc"
++
++// androidLegacySyscall is a no-op everywhere except android/amd64 (see legacy_android_amd64.go).
++func androidLegacySyscall(n, a1, a2, a3 long) (r long, ok bool) { return 0, false }
+diff -r pa/syscall_musl.go pb/syscall_musl.go
+--- pa/syscall_musl.go
++++ pb/syscall_musl.go
+@@ -12,6 +12,9 @@
+ )
+ 
+ func ___syscall_cp(tls *TLS, n, a, b, c, d, e, f long) long {
++	if r, ok := androidLegacySyscall(n, a, b, c); ok {
++		return r
++	}
+ 	switch n {
+ 	case SYS_nanosleep:
+ 		// int nanosleep(const struct timespec *req, struct timespec *rem)
+@@ -100,6 +103,9 @@
+ }
+ 
+ func X__syscall1(tls *TLS, n, a1 long) long {
++	if r, ok := androidLegacySyscall(n, a1, 0, 0); ok {
++		return r
++	}
+ 	r1, _, err := unix.Syscall(uintptr(n), uintptr(a1), 0, 0)
+ 	if err != 0 {
+ 		return long(-err)
+@@ -109,6 +115,9 @@
+ }
+ 
+ func X__syscall2(tls *TLS, n, a1, a2 long) long {
++	if r, ok := androidLegacySyscall(n, a1, a2, 0); ok {
++		return r
++	}
+ 	switch n {
+ 	case SYS_tkill:
+ 		// raise() and pthread_kill(pthread_self()): the tid is the emulated
+@@ -130,6 +139,9 @@
+ }
+ 
+ func X__syscall3(tls *TLS, n, a1, a2, a3 long) long {
++	if r, ok := androidLegacySyscall(n, a1, a2, a3); ok {
++		return r
++	}
+ 	switch n {
+ 	case SYS_tgkill:
+ 		if int32(a2) == tls.tid() {

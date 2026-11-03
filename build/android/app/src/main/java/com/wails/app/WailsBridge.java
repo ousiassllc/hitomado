@@ -8,7 +8,6 @@ import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
@@ -53,12 +52,12 @@ import androidx.biometric.BiometricPrompt;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
-import androidx.security.crypto.EncryptedSharedPreferences;
-import androidx.security.crypto.MasterKey;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.OutputStream;
 import java.util.Locale;
 import java.util.concurrent.Executor;
 
@@ -85,8 +84,6 @@ public class WailsBridge {
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
     private WebView webView;
     private volatile boolean initialized = false;
-    private SharedPreferences cachedSecurePrefs;
-    private boolean securePrefsResolved = false;
 
     // Phase D state: sensor listeners, speech engine and keyboard watcher are
     // retained so they can be registered and torn down on demand.
@@ -275,7 +272,8 @@ public class WailsBridge {
             Log.w(TAG, "Bridge not initialized, cannot handle message");
             return "{\"error\":\"Bridge not initialized\"}";
         }
-        if (DEBUG) Log.d(TAG, "Message from JS: " + message);
+        // 本文は出さない（引数に API キーなどの資格情報が含まれうる。hitomado #84）。
+        if (DEBUG) Log.d(TAG, "Message from JS (" + message.length() + " chars)");
         try {
             return nativeHandleMessage(message);
         } catch (Exception e) {
@@ -292,7 +290,8 @@ public class WailsBridge {
         if (!initialized) {
             return "{\"ok\":false,\"error\":\"Bridge not initialized\"}";
         }
-        if (DEBUG) Log.d(TAG, "Runtime call: " + payload);
+        // 本文は出さない（引数に API キーなどの資格情報が含まれうる。hitomado #84）。
+        if (DEBUG) Log.d(TAG, "Runtime call (" + payload.length() + " chars)");
         try {
             return nativeHandleRuntimeCall(payload);
         } catch (Exception e) {
@@ -777,109 +776,254 @@ public class WailsBridge {
         });
     }
 
-    /**
-     * Backing store for secure storage. Uses EncryptedSharedPreferences (AES via
-     * the Android Keystore). Requires API 23+. Returns null if secure storage
-     * cannot be initialized — callers MUST check for null and report the error.
-     * The result is cached after the first call.
+    /*
+     * Secure storage (hitomado #84): Wails の既定実装（Activity に紐づく EncryptedSharedPreferences）を
+     * SecureStore（applicationContext だけを使う static なシングルトン）への委譲に置き換えた。
+     * Activity の無い Worker（WorkManager。#88）からも同じストアを SecureStore.getInstance(context) で使える。
+     * 失敗は {"ok":false,"error":"<コード>"} で返す。コードは key_lost／unavailable／failed／empty key だけで、
+     * 値・キー・例外メッセージは含めない（Go 側が internal/secrets/bridge.go で解釈する）。
      */
-    private SharedPreferences securePrefs() {
-        if (securePrefsResolved) {
-            return cachedSecurePrefs;
-        }
-        securePrefsResolved = true;
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
-            return null;
-        }
-        try {
-            MasterKey key = new MasterKey.Builder(activity)
-                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                    .build();
-            cachedSecurePrefs = EncryptedSharedPreferences.create(activity, "wails_secure", key,
-                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM);
-        } catch (Exception e) {
-            Log.e(TAG, "securePrefs initialization failed", e);
-        }
-        return cachedSecurePrefs;
+
+    private static String secureFailure(String code) {
+        return "{\"ok\":false,\"error\":\"" + code + "\"}";
     }
 
-    /** Build a JSON error envelope, safely handling null messages. */
-    private String secureError(String msg) {
-        try {
-            JSONObject o = new JSONObject();
-            o.put("ok", false);
-            o.put("error", msg != null ? msg : "unknown error");
-            return o.toString();
-        } catch (Exception ignored) {
-            return "{\"ok\":false,\"error\":\"unknown error\"}";
-        }
+    private SecureStore secureStore() {
+        return SecureStore.getInstance(activity);
     }
 
     /** Store a value in secure storage. json: {"key":"...","value":"..."}. Returns JSON envelope. */
     public String secureSet(final String json) {
         try {
-            SharedPreferences prefs = securePrefs();
-            if (prefs == null) {
-                return "{\"ok\":false,\"error\":\"secure storage unavailable\"}";
-            }
             JSONObject o = new JSONObject(json);
             String k = o.optString("key", "");
             if (k.isEmpty()) {
-                return "{\"ok\":false,\"error\":\"empty key\"}";
+                return secureFailure("empty key");
             }
-            boolean ok = prefs.edit().putString(k, o.optString("value", "")).commit();
-            if (!ok) {
-                return "{\"ok\":false,\"error\":\"commit failed\"}";
-            }
+            secureStore().put(k, o.optString("value", ""));
             return "{\"ok\":true}";
+        } catch (SecureStore.SecureStoreException e) {
+            return secureFailure(e.code());
         } catch (Exception e) {
-            return secureError(e.getMessage());
+            return secureFailure("failed");
         }
     }
 
     /** Read a value from secure storage. Returns JSON envelope with found/value. */
     public String secureGet(final String key) {
         try {
-            SharedPreferences prefs = securePrefs();
-            if (prefs == null) {
-                return "{\"ok\":false,\"error\":\"secure storage unavailable\"}";
-            }
             if (key == null || key.isEmpty()) {
-                return "{\"ok\":false,\"error\":\"empty key\"}";
+                return secureFailure("empty key");
             }
-            if (!prefs.contains(key)) {
+            String value = secureStore().get(key);
+            if (value == null) {
                 return "{\"ok\":true,\"found\":false}";
             }
-            String value = prefs.getString(key, "");
             // JSON-encode value to prevent injection.
             JSONObject result = new JSONObject();
             result.put("ok", true);
             result.put("found", true);
             result.put("value", value);
             return result.toString();
+        } catch (SecureStore.SecureStoreException e) {
+            return secureFailure(e.code());
         } catch (Exception e) {
-            return secureError(e.getMessage());
+            return secureFailure("failed");
         }
     }
 
     /** Remove a value from secure storage. Returns JSON envelope. */
     public String secureDelete(final String key) {
         try {
-            SharedPreferences prefs = securePrefs();
-            if (prefs == null) {
-                return "{\"ok\":false,\"error\":\"secure storage unavailable\"}";
-            }
             if (key == null || key.isEmpty()) {
-                return "{\"ok\":false,\"error\":\"empty key\"}";
+                return secureFailure("empty key");
             }
-            boolean ok = prefs.edit().remove(key).commit();
-            if (!ok) {
-                return "{\"ok\":false,\"error\":\"commit failed\"}";
-            }
+            secureStore().remove(key);
             return "{\"ok\":true}";
+        } catch (SecureStore.SecureStoreException e) {
+            return secureFailure(e.code());
         } catch (Exception e) {
-            return secureError(e.getMessage());
+            return secureFailure("failed");
+        }
+    }
+
+    // MARK: - Documents: save (ACTION_CREATE_DOCUMENT) and open (ACTION_VIEW + FileProvider) (#85)
+
+    /**
+     * 添付の保存・ログの書き出し（保存先を利用者が選ぶ）と、ファイルを既定のアプリで開く操作。Go は application.Android の
+     * 公開 API に無いので、internal/platform の savefile_android.go／open_android.go が go:linkname で
+     * このメソッド群を呼ぶ（Wails の他のメソッドと同じ、名前で引く JNI 経由）。
+     *
+     * 同期で返す値は {"ok":true,"value":"…"} か {"ok":false,"error":"<コード>"}。コードだけで、パス・Uri・例外メッセージは含めない。
+     * 保存先を選んだ結果・コピーの結果は、Activity の結果が非同期に来るので hitomado:document イベント
+     * {"id":n,"status":"picked|cancelled|saved|failed","name":"…","error":"…"} で Go へ知らせる。
+     * 状態の流れと理由は {@link DocumentExporter}。
+     */
+    private static final String DOCUMENT_EVENT = "hitomado:document";
+    /** FileProvider（res/xml/file_paths.xml）が公開する、開いてよいディレクトリ（files/ 配下）。両方を揃えること。 */
+    private static final String OPENABLE_DIR = "Hitomado/logs";
+
+    private final DocumentExporter.Host documentHost = new DocumentExporter.Host() {
+        @Override public File exportsDir() {
+            return new File(activity.getCacheDir(), "exports");
+        }
+
+        @Override public void runOnMain(Runnable r) {
+            if (Looper.myLooper() == Looper.getMainLooper()) r.run(); else mainHandler.post(r);
+        }
+
+        @Override public void runAsync(Runnable r) {
+            new Thread(r, "hitomado-document-copy").start();
+        }
+
+        @Override public void launchPicker(String name, String mime) throws Exception {
+            if (!(activity instanceof MainActivity)) throw new IllegalStateException("not a MainActivity");
+            try {
+                ((MainActivity) activity).launchCreateDocument(name, mime);
+            } catch (android.content.ActivityNotFoundException e) {
+                throw new DocumentExporter.NoPickerException();
+            }
+        }
+
+        @Override public OutputStream openOutput(Object uri) throws Exception {
+            // "wt": 既存の内容を切り詰めて書く（同名を選んだとき、前の内容の尻尾が残らない）。
+            OutputStream out = activity.getContentResolver().openOutputStream((Uri) uri, "wt");
+            if (out == null) throw new java.io.IOException("provider returned no stream");
+            return out;
+        }
+
+        @Override public String displayName(Object uri) {
+            try (android.database.Cursor c = activity.getContentResolver().query(
+                    (Uri) uri, new String[]{android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                if (c != null && c.moveToFirst()) return c.getString(0);
+            } catch (Exception ignored) {
+            }
+            return null;
+        }
+
+        @Override public void deleteDocument(Object uri) {
+            try {
+                android.provider.DocumentsContract.deleteDocument(activity.getContentResolver(), (Uri) uri);
+            } catch (Exception ignored) {
+                // 消せなくても（プロバイダーが対応しない・すでに無い）保存の失敗の扱いは変わらない。
+            }
+        }
+
+        @Override public void emit(int id, String status, String name, String error) {
+            try {
+                JSONObject o = new JSONObject().put("id", id).put("status", status);
+                if (name != null) o.put("name", name);
+                if (error != null) o.put("error", error);
+                emitEvent(DOCUMENT_EVENT, DocumentPaths.escapeNonAscii(o.toString()));
+            } catch (Exception e) {
+                Log.e(TAG, "emit document event failed", e);
+            }
+        }
+    };
+
+    private static String documentOk(String value) {
+        try {
+            JSONObject o = new JSONObject().put("ok", true);
+            if (value != null) o.put("value", value);
+            return DocumentPaths.escapeNonAscii(o.toString());
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+    }
+
+    private static String documentFail(String code) {
+        return "{\"ok\":false,\"error\":\"" + code + "\"}";
+    }
+
+    /** 一時ファイルを置くディレクトリ（cache/exports。無ければ作る）を返す。引数は使わない（名前で引く呼び出しの形に合わせる）。 */
+    public String documentTempDir(final String unused) {
+        File dir = documentHost.exportsDir();
+        if (!dir.isDirectory() && !dir.mkdirs()) {
+            return documentFail("unavailable");
+        }
+        return documentOk(dir.getAbsolutePath());
+    }
+
+    /** 保存先の選択を始める。json: {"id":n,"name":"…","mime":"…"}。結果は hitomado:document イベント。 */
+    public String documentBegin(final String json) {
+        try {
+            JSONObject o = new JSONObject(json);
+            String err = DocumentExporter.INSTANCE.begin(documentHost, o.getInt("id"), o.optString("name", ""), o.optString("mime", ""));
+            return err == null ? documentOk(null) : documentFail(err);
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+    }
+
+    /** 一時ファイルを選ばれた保存先へコピーさせる。json: {"id":n,"path":"…"}。結果は hitomado:document イベント。 */
+    public String documentCommit(final String json) {
+        try {
+            JSONObject o = new JSONObject(json);
+            String err = DocumentExporter.INSTANCE.commit(documentHost, o.getInt("id"), o.optString("path", ""));
+            return err == null ? documentOk(null) : documentFail(err);
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+    }
+
+    /** 保存を取りやめる。json: {"id":n}。 */
+    public String documentAbort(final String json) {
+        try {
+            DocumentExporter.INSTANCE.abort(documentHost, new JSONObject(json).getInt("id"));
+            return documentOk(null);
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+    }
+
+    /** MainActivity.onActivityResult から。保存先の選択画面の結果（キャンセルは uri なし）。 */
+    void documentPickerResult(boolean ok, Intent data) {
+        Uri uri = ok && data != null ? data.getData() : null;
+        DocumentExporter.INSTANCE.onPickerResult(documentHost, uri);
+    }
+
+    /**
+     * ファイルを既定のアプリで開く（ACTION_VIEW + FileProvider）。json: {"path":"…","mime":"…"}。
+     * 開いてよいのは files/Hitomado/logs の配下のファイルだけ。コード: bad_path／is_directory／no_app／failed。
+     * 開けるアプリが無ければ no_app（Intent を投げた結果で判断する。Android 11 以降は他のアプリが見えず事前確認できない）。
+     */
+    public String documentOpen(final String json) {
+        final String path;
+        final String mime;
+        try {
+            JSONObject o = new JSONObject(json);
+            path = o.optString("path", "");
+            mime = o.optString("mime", "");
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+        final java.util.concurrent.FutureTask<String> task = new java.util.concurrent.FutureTask<>(() -> openDocument(path, mime));
+        documentHost.runOnMain(task);
+        try {
+            return task.get(10, java.util.concurrent.TimeUnit.SECONDS);
+        } catch (Exception e) {
+            return documentFail("failed");
+        }
+    }
+
+    private String openDocument(String path, String mime) {
+        File root = new File(activity.getFilesDir(), OPENABLE_DIR);
+        File file = DocumentPaths.resolveUnder(root, path);
+        if (file == null) return documentFail("bad_path");
+        if (file.isDirectory()) return documentFail("is_directory");
+        try {
+            Uri uri = androidx.core.content.FileProvider.getUriForFile(activity, activity.getPackageName() + ".fileprovider", file);
+            Intent view = new Intent(Intent.ACTION_VIEW);
+            view.setDataAndType(uri, mime.isEmpty() ? "*/*" : mime);
+            view.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+            activity.startActivity(view);
+            return documentOk(null);
+        } catch (android.content.ActivityNotFoundException e) {
+            return documentFail("no_app");
+        } catch (IllegalArgumentException e) {
+            return documentFail("bad_path"); // FileProvider の公開範囲の外
+        } catch (Exception e) {
+            return documentFail("failed");
         }
     }
 

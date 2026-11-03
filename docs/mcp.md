@@ -87,7 +87,7 @@ MCP の呼び出しはログに残ります（いつ・どのツール・成否�
 
 ### 場所
 
-`%APPDATA%\Hitomado\logs\hitomado.log`（他の OS では `os.UserConfigDir()` 配下の `Hitomado/logs/`）。設定 → **ログ** の「ログフォルダを開く」で開けます。「ログを書き出す」で、現行とローテーション済みのログを zip にして保存先を選んで書き出せます。
+`%APPDATA%\Hitomado\logs\hitomado.log`（他の OS では `os.UserConfigDir()` 配下の `Hitomado/logs/`）。設定 → **ログ** の「ログフォルダを開く」で開けます。「ログを書き出す」で、現行とローテーション済みのログを zip にして保存先を選んで書き出せます（Android ではフォルダを開けないので、こちらで取り出します）。
 
 ### 形式とローテーション
 

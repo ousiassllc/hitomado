@@ -4,6 +4,7 @@ package logcore
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -16,6 +17,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/hitomado/internal/exportfile"
 	"github.com/ousiassllc/hitomado/internal/logging"
 )
 
@@ -99,21 +101,27 @@ func (s *Service) OpenLogFolder(_ context.Context) error {
 		return apperr.Wrap(apperr.Internal, "ログフォルダを作成できません。", err)
 	}
 	if err := s.d.Paths.OpenPath(dir); err != nil {
+		if errors.Is(err, exportfile.ErrFolderNotSupported) { // Android: アプリ専用の領域をファイルマネージャーで開く経路が無い
+			return apperr.Wrap(apperr.Unsupported, "この端末ではログフォルダを開けません。「ログを書き出す」で保存してください。", err)
+		}
 		return apperr.Wrap(apperr.Internal, "ログフォルダを開けません。", err)
 	}
 	return nil
 }
 
 // ExportLogs は保存先を選ばせ、ログ（現行とローテーション済み）を zip にして書き出す。キャンセルは Saved=false。
+// Result.Path は Windows では保存したパス、Android では利用者が選んだ保存先のファイル名。
 func (s *Service) ExportLogs(ctx context.Context) (dto.ExportLogsResult, error) {
 	name := "hitomado-logs-" + s.d.Clock.Now().Format("20060102-150405") + ".zip"
-	path, ok, err := s.d.Files.SaveFile(ctx, name)
+	target, ok, err := s.d.Files.SaveFile(ctx, name)
 	if err != nil {
 		return dto.ExportLogsResult{}, apperr.FromInfra(err, "")
 	}
 	if !ok {
 		return dto.ExportLogsResult{}, nil
 	}
+	defer target.Close()
+	path := target.Path()
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600) //nolint:gosec // 利用者が保存ダイアログで選んだパス
 	if err != nil {
 		return dto.ExportLogsResult{}, apperr.Wrap(apperr.AttachmentIO, "ログを書き出せません。", err)
@@ -126,7 +134,11 @@ func (s *Service) ExportLogs(ctx context.Context) (dto.ExportLogsResult, error) 
 	if err := f.Close(); err != nil {
 		return dto.ExportLogsResult{}, apperr.Wrap(apperr.AttachmentIO, "ログを書き出せません。", err)
 	}
-	return dto.ExportLogsResult{Saved: true, Path: path}, nil
+	location, err := target.Commit(ctx)
+	if err != nil {
+		return dto.ExportLogsResult{}, apperr.Wrap(apperr.AttachmentIO, "ログを書き出せません。", err)
+	}
+	return dto.ExportLogsResult{Saved: true, Path: location}, nil
 }
 
 func truncateRunes(s string, n int) string {

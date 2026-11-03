@@ -14,6 +14,7 @@ import (
 
 	"github.com/ousiassllc/hitomado/internal/capability"
 	appevents "github.com/ousiassllc/hitomado/internal/events"
+	"github.com/ousiassllc/hitomado/internal/exportfile"
 	"github.com/ousiassllc/hitomado/internal/notify"
 )
 
@@ -38,14 +39,16 @@ type FilesDroppedPayload struct {
 }
 
 // Files はネイティブの保存ダイアログ（app.FileDialog の実装）。
+// Android では保存ダイアログが Storage Access Framework で非同期に結果を返すので、その待ち合わせ（saver）を持つ。
 type Files struct {
 	app    *application.App
 	window func() application.Window
+	saver  *exportfile.Saver // Android のみ。ほかの OS は nil
 }
 
 // NewFiles は保存ダイアログを main ウィンドウに紐づけて開く FileDialog を返す。
 func NewFiles(app *application.App, window func() application.Window) *Files {
-	return &Files{app: app, window: window}
+	return &Files{app: app, window: window, saver: newSaver(app)}
 }
 
 // Browser はシステムブラウザ／メーラーで URL を開く（app.URLOpener の実装）。
