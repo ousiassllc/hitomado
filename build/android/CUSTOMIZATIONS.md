@@ -10,3 +10,7 @@
 - `app/src/main/java/com/wails/app/WailsJSBridge.java`: `invoke`／`invokeAsync` のデバッグログから JS のペイロード本文を外し、長さだけにした（バインディング呼び出しの引数に API キー・Client Secret が含まれるため）（#84）
 - `Taskfile.yml`: `test` タスク（`./gradlew testDebugUnitTest`）を追加。CI の android ジョブが `wails3 task android:test` で呼ぶ（#84）
 - `Taskfile.yml`: `compile:go:shared` の `ARCH=amd64` だけ `build/android/scripts/libc-overlay.go` を実行して `go build -modfile=…`（パッチ済みの `modernc.org/libc`。`build/android/libc/amd64.patch`）で作る。`clean` が `build/android/gen` も消す（#83。[docs/environment/android.md §12](../../docs/environment/android.md)）
+- `app/src/main/java/com/wails/app/DocumentExporter.java`・`DocumentPaths.java`（新規）: 保存先を選ばせて（`ACTION_CREATE_DOCUMENT`）Go が書いた一時ファイルをストリームコピーする状態機械と、パス・ファイル名の検査。Android に依存せず JVM で単体テストする（`DocumentExporterTest`・`DocumentPathsTest`）（#85）
+- `app/src/main/java/com/wails/app/WailsBridge.java`: `documentTempDir`／`documentBegin`／`documentCommit`／`documentAbort`／`documentOpen`／`documentPickerResult`（保存・ファイルを開く）を追加。Go は `go:linkname` で呼び、結果は `hitomado:document` イベントで返す。`java.io.File`／`OutputStream` の import を追加（#85）
+- `app/src/main/java/com/wails/app/MainActivity.java`: `launchCreateDocument` と、`onActivityResult` の `CREATE_DOCUMENT_REQUEST`（7005）の分岐を追加（#85）
+- `app/src/main/res/xml/file_paths.xml`: 試作（テンプレート）の `cache-path captures/` を外し、`files-path Hitomado/logs/`（ログ）だけを公開する。テンプレートのカメラ撮影（`launchCameraCapture`）はこのアプリでは使わない（#85）

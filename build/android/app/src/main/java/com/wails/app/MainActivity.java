@@ -58,6 +58,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String WAILS_SCHEME = "https";
     private static final String WAILS_HOST = "wails.localhost";
     private static final int FILE_PICKER_REQUEST = 7001;
+    private static final int CREATE_DOCUMENT_REQUEST = 7005;
 
     private WebView webView;
     private Uri devServer;
@@ -517,9 +518,25 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * 保存先を選ぶ画面（Storage Access Framework の ACTION_CREATE_DOCUMENT）を出す。結果は onActivityResult から
+     * WailsBridge.documentPickerResult へ。出せるアプリが無ければ ActivityNotFoundException。メインスレッドで呼ぶ（#85）。
+     */
+    public void launchCreateDocument(String name, String mime) {
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType(mime);
+        intent.putExtra(Intent.EXTRA_TITLE, name);
+        startActivityForResult(intent, CREATE_DOCUMENT_REQUEST);
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode == CREATE_DOCUMENT_REQUEST) {
+            if (bridge != null) bridge.documentPickerResult(resultCode == RESULT_OK, data);
+            return;
+        }
         if (requestCode == PHOTO_CAPTURE_REQUEST || requestCode == VIDEO_CAPTURE_REQUEST) {
             handleCaptureResult(resultCode, data);
             return;

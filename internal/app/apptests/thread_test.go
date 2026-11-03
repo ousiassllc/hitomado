@@ -159,6 +159,34 @@ func TestSaveAttachment(t *testing.T) {
 	assert.Len(t, entries, 1, "一時ファイルを残さない")
 }
 
+// 保存先の確定（Android では一時ファイルから選ばれた保存先へのコピー）が済んでから結果を返し、Target を必ず Close する。
+func TestSaveAttachmentCommitsTargetAndReturnsItsLocation(t *testing.T) {
+	svc, e, a := saveSetup(t)
+	e.Files.Path = filepath.Join(t.TempDir(), "tmp-save")
+	e.Files.Location = "chosen.pdf"
+	mref := dto.MessageRef{AccountID: a.ID, ThreadID: "t1", MessageID: "m1"}
+
+	res, err := svc.SaveAttachment(t.Context(), mref, "att1", "a.pdf")
+	require.NoError(t, err)
+	assert.Equal(t, dto.SaveAttachmentResult{Saved: true, Path: "chosen.pdf"}, res, "Path は保存先の表示（Android では内部パスでなくファイル名）")
+	assert.Equal(t, 1, e.Files.Committed)
+	assert.Equal(t, 1, e.Files.Closed)
+
+	e.Files.CommitErr = os.ErrClosed
+	_, err = svc.SaveAttachment(t.Context(), mref, "att1", "a.pdf")
+	_ = requireCode(t, apperr.AttachmentIO, err)
+	assert.Equal(t, 2, e.Files.Closed, "確定に失敗しても Close する")
+}
+
+func TestSaveAttachmentClosesTargetOnFetchFailure(t *testing.T) {
+	svc, e, a := saveSetup(t)
+	e.Files.Path = filepath.Join(t.TempDir(), "x.pdf")
+	_, err := svc.SaveAttachment(t.Context(), dto.MessageRef{AccountID: a.ID, ThreadID: "t1", MessageID: "m1"}, "missing", "a.pdf")
+	_ = requireCode(t, apperr.AttachmentIO, err)
+	assert.Zero(t, e.Files.Committed, "取得に失敗したら確定しない（空のファイルを保存先へ作らせない）")
+	assert.Equal(t, 1, e.Files.Closed)
+}
+
 func TestSaveAttachmentCancelled(t *testing.T) {
 	svc, e, a := saveSetup(t)
 	e.Files.Cancel = true
