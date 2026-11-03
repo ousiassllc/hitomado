@@ -39,6 +39,7 @@ sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;26.3.11579264" "plat
 | `task android:run` / `android:run:device` | debug ビルドをエミュレーター／実機へ入れて起動する（`bin/hitomado-debug.apk`） | — |
 | `task android:test` | Java の単体テスト（`build/android/app/src/test`。JVM のみで端末は不要。§11） | — |
 | `task android:lint` | android タグ側の Go lint（§8） | — |
+| `task android:e2e:apk [ARCH=…]` / `android:e2e:run` | E2E 用 debug APK（ビルドタグ `e2e`。シード済みのフェイク Gmail）を作る／接続中の端末で E2E を回す（§17.3）。release には使わない | `bin/hitomado-e2e.apk` |
 | `task android:clean` | 生成物を消す | — |
 
 `task` の代わりに `wails3 task …` でも同じ。`package:fat`・`bundle:fat` の最初の ABI は `arm64`、2 つ目が `amd64`（x86_64）。
