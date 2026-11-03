@@ -166,6 +166,8 @@ sequenceDiagram
   AS->>AS: 初回同期を開始
 ```
 
+Android も同じ流れ（ループバック＋PKCE）で、ブラウザは `Android.OpenURL`（Intent）で開く。ブラウザに出ている間にプロセスが止められると待受が消えて認可は完了できないため、`oauth.Tracker` が認可の開始から終了までの印（時刻のみ）を資格情報ストアに残し、残っていれば次の起動で `AccountService.TakeInterruptedAuth` が一度だけ検出して、画面が「やり直し」を案内する（[Android ビルド §14](../environment/android.md#14-google-oauth-のリダイレクト方式86)）。Windows は `Tracker` を持たない。
+
 ### 7.2 差分同期と新着通知
 
 ```mermaid
@@ -299,3 +301,4 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 | 1.13 | 2026-11-03 | §8 のインライン画像に、1 枚 5 MiB・1 メッセージ合計 10 MiB の上限と超過時の動作を追記 | 実装（`internal/gmail/message.go`、`internal/app/appcore/html.go`）との整合（#6） |
 | 1.14 | 2026-11-03 | §5 の AI に ChatGPT プラン（`internal/siwc`・Responses API）とモデル一覧を、§6 の保存先に ChatGPT ログインのトークンを、§7.4 に ChatGPT プランでの認証・更新を追記 | Sign in with ChatGPT（#75）、モデル一覧（#76） |
 | 1.15 | 2026-11-03 | §5 に、OS ごとの機能差を `internal/capability`（`Capabilities`・`PlatformService`）で表し、Android では MCP・トレイ・多重起動の防止・ウィンドウ状態・自動更新を動かさない旨を追記 | Android 版で使わない機能の無効化（#89） |
+| 1.16 | 2026-11-03 | §7.1 に、Android の認可（`Tracker` による、プロセスが止められた認可の検出）を追記 | #86 |

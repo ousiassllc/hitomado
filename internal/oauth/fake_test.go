@@ -45,6 +45,7 @@ type fakeGoogle struct {
 	userinfoAuth  string
 	revokeForms   []url.Values
 	revokeStatus  int
+	tracker       *oauth.Tracker // flow() が Flow へ渡す（nil＝なし）
 }
 
 func newFakeGoogle(t *testing.T) *fakeGoogle {
@@ -74,6 +75,7 @@ func (g *fakeGoogle) flow(open func(string) error, timeout time.Duration) oauth.
 		RevokeURL:   g.srv.URL + "/revoke",
 		HTTPClient:  g.srv.Client(),
 		Timeout:     timeout,
+		Tracker:     g.tracker,
 	})
 }
 

@@ -130,6 +130,13 @@ func (s *AccountService) CancelAddAccount() error {
 	return nil
 }
 
+// TakeInterruptedAuth は、前回の起動が Google の認可の途中で止められていたか（Android がブラウザに出ている間に
+// プロセスを終了させた場合など）を 1 回だけ返す。ループバックの待受はプロセスと一緒に消えて認可は完了できないため、
+// 画面は「ログインはやり直し」と案内する。検出しない構成（Windows）は常に false。
+func (s *AccountService) TakeInterruptedAuth() bool {
+	return s.d.OAuthTracker.TakeInterrupted()
+}
+
 // Reconnect は needs_reauth のアカウントを再認可する。認可されたアドレスが accounts.email と異なれば
 // VALIDATION で拒否し、トークンは保存しない。
 func (s *AccountService) Reconnect(ctx context.Context, accountID string) (dto.Account, error) {

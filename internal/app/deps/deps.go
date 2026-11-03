@@ -67,6 +67,9 @@ type Deps struct {
 	// Capabilities はこの OS で提供する機能（MCP・自動更新など。Android では無効）。ゼロ値は全機能が無効。
 	Capabilities capability.Capabilities
 
+	// OAuthTracker は認可の途中でプロセスが止められたことを次の起動で検出する（Android のみ。nil＝検出しない）。
+	OAuthTracker *oauth.Tracker
+
 	// QuitAck は AppService.AckBeforeQuit から呼ばれる（フロントの未保存下書き保存の完了通知。nil 可）。
 	QuitAck func()
 

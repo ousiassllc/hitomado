@@ -43,6 +43,8 @@ type Options struct {
 	Timeout time.Duration
 	// ExchangeTimeout はコード受領後のトークン交換と userinfo 取得に与える期限。既定 30 秒。
 	ExchangeTimeout time.Duration
+	// Tracker は認可の進行中を印として残し、認可の途中でプロセスが止められたことを次の起動で検出する（Android）。nil なら何もしない。
+	Tracker *Tracker
 }
 
 type flow struct {
@@ -102,6 +104,9 @@ func (f *flow) Authorize(parent context.Context, cfg ClientConfig) (Result, erro
 	if err != nil {
 		return Result{}, err
 	}
+	// ブラウザへ出る前に印を残す。プロセスがここから先で止められると、印が残ったまま次の起動を迎える。
+	f.opts.Tracker.Begin()
+	defer f.opts.Tracker.End()
 	if err := f.opts.OpenBrowser(authURL); err != nil {
 		return Result{}, fmt.Errorf("oauth: ブラウザを開けませんでした: %w", err)
 	}
