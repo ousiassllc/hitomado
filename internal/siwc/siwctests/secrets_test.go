@@ -1,4 +1,4 @@
-package siwc_test
+package siwctests
 
 import (
 	"errors"
@@ -166,7 +166,7 @@ func TestFailedWriteDoesNotDropTheExistingRefreshToken(t *testing.T) {
 	sec.failSet.Store(true)
 	_, err := e.m.AccessToken(t.Context())
 	require.Error(t, err)
-	got, gerr := sec.Memory.Get(secrets.ChatGPTTokenKey("refresh"))
+	got, gerr := sec.Get(secrets.ChatGPTTokenKey("refresh"))
 	require.NoError(t, gerr)
 	assert.Equal(t, secretRefresh, got)
 }

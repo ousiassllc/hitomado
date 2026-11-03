@@ -1,4 +1,4 @@
-package siwc_test
+package siwctests
 
 import (
 	"fmt"
