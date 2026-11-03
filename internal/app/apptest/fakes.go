@@ -242,6 +242,22 @@ func (f *FakeUpdate) CallCount() int {
 	return f.Calls
 }
 
+// FakePaths は app.PathOpener のフェイク。開いたパスを記録する。
+type FakePaths struct {
+	mu sync.Mutex
+
+	Opened []string
+	Err    error
+}
+
+// OpenPath はパスを記録する。
+func (f *FakePaths) OpenPath(path string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.Opened = append(f.Opened, path)
+	return f.Err
+}
+
 // FailingSecrets は secrets.Store を包み、SetErr／DeleteErr が非 nil の間は Set／Delete を（書き込まずに）失敗させる。
 // Deps.Secrets へ差し替えて使う。
 type FailingSecrets struct {

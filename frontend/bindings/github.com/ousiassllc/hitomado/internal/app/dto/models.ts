@@ -70,6 +70,34 @@ export interface AppInfo {
 }
 
 /**
+ * ClientError はフロントが Go のログへ送るエラー報告。メール本文・件名・宛先は送らない
+ * （画面側が組み立てるのはエラーの種類・メッセージ・スタック・エラーコードだけ。Go 側でも伏せて長さを切る）。
+ */
+export interface ClientError {
+    /**
+     * error / unhandledrejection / vue / binding
+     */
+    "kind": string;
+    "message": string;
+    "stack"?: string;
+
+    /**
+     * error イベントの発生元（ファイル:行:列）
+     */
+    "source"?: string;
+
+    /**
+     * binding のとき AppError.code
+     */
+    "code"?: string;
+
+    /**
+     * binding のとき AppError.accountId
+     */
+    "accountId"?: string;
+}
+
+/**
  * ComposeAttachment は添付一覧の 1 件。Source は local / forwarded。
  */
 export interface ComposeAttachment {
@@ -115,6 +143,14 @@ export interface ComposeSession {
 }
 
 /**
+ * ExportLogsResult はログの書き出し結果。キャンセルは Saved=false。
+ */
+export interface ExportLogsResult {
+    "saved": boolean;
+    "path"?: string;
+}
+
+/**
  * InboxFilter は保存する受信箱フィルタ。
  */
 export interface InboxFilter {
@@ -140,6 +176,47 @@ export interface Label {
     "name": string;
     "colorBg"?: string;
     "colorFg"?: string;
+}
+
+/**
+ * MCPConfig は内蔵 MCP サーバーの設定。既定はオフ。AllowNonLoopback は loopback 以外のアドレス（tailnet など）で
+ * 待ち受けるときだけ true にする。
+ */
+export interface MCPConfig {
+    "enabled": boolean;
+    "host": string;
+    "port": number;
+    "allowNonLoopback": boolean;
+}
+
+/**
+ * MCPStatus は設定と待ち受けの状態。トークンの値は含まない（発行直後の IssueMCPToken だけが返す）。
+ */
+export interface MCPStatus {
+    "enabled": boolean;
+    "host": string;
+    "port": number;
+    "allowNonLoopback": boolean;
+    "hasToken": boolean;
+    "listening": boolean;
+
+    /**
+     * MCP クライアントに設定する URL
+     */
+    "endpoint": string;
+
+    /**
+     * 待ち受けに失敗した理由
+     */
+    "error"?: string;
+}
+
+/**
+ * MCPTokenResult は IssueMCPToken の結果。Token はこのとき 1 回だけ返す（以後は取り出せない）。
+ */
+export interface MCPTokenResult {
+    "token": string;
+    "status": MCPStatus;
 }
 
 /**

@@ -50,6 +50,11 @@ func run() error {
 		Description:  "複数の Gmail を 1 つの受信箱で扱い、正しい送信元で返信するアプリ",
 		Assets:       application.AssetOptions{Handler: application.AssetFileServerFS(assets)},
 		MarshalError: apperr.Marshal,
+		// Wails が捕捉した panic（バインディングの呼び出しなど）を、スタックトレースつきでログに残す。
+		// 既定の処理は致命的終了だが、1 つの呼び出しの不具合でアプリごと落とさない（Wails の束縛メソッドと同じ方針）。
+		PanicHandler: func(p *application.PanicDetails) {
+			logging.LogPanic(slog.Default(), "wails", p.Error, []byte(p.StackTrace))
+		},
 		SingleInstance: &application.SingleInstanceOptions{
 			UniqueID: "jp.ousias.hitomado",
 			OnSecondInstanceLaunch: func(application.SecondInstanceData) {
@@ -64,7 +69,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	logger, closeLog, err := logging.New(filepath.Join(dir, "logs"), slog.LevelInfo, os.Getenv("HITOMADO_LOG_STDERR") != "")
+	logger, closeLog, err := logging.New(filepath.Join(dir, app.LogsDirName), slog.LevelInfo, os.Getenv("HITOMADO_LOG_STDERR") != "", logging.Meta{Version: version})
 	if err != nil {
 		return err
 	}
@@ -109,6 +114,7 @@ func run() error {
 		Events: events, Clock: clk,
 		Files:   platform.NewFiles(wapp, func() application.Window { return win }),
 		Browser: platform.NewBrowser(wapp),
+		Paths:   platform.NewPaths(wapp),
 		AI: func(provider, model, baseURL, apiKey string) (ai.Provider, error) {
 			return ai.New(provider, model, baseURL, apiKey)
 		},
@@ -121,6 +127,7 @@ func run() error {
 		application.NewService(svc.Account), application.NewService(svc.Inbox),
 		application.NewService(svc.Thread), application.NewService(svc.Compose),
 		application.NewService(svc.AI), application.NewService(svc.App),
+		application.NewService(svc.Log), application.NewService(svc.MCP),
 		application.NewService(notifSvc),
 	} {
 		wapp.RegisterService(s)
@@ -131,6 +138,7 @@ func run() error {
 	shutdown := sync.OnceFunc(func() {
 		cancel()
 		loops.Wait()
+		svc.MCP.Shutdown()
 		sched.Shutdown()
 	})
 	quitter = platform.NewQuitter(emitter, func() {
@@ -140,7 +148,7 @@ func run() error {
 	}, nil)
 
 	wapp.Event.OnApplicationEvent(wevents.Common.ApplicationStarted, func(*application.ApplicationEvent) {
-		startBackground(ctx, deps, &loops, logger)
+		startBackground(ctx, deps, svc, &loops, logger)
 	})
 	err = wapp.Run()
 	shutdown()
@@ -150,8 +158,9 @@ func run() error {
 	return nil
 }
 
-// startBackground は同期ワーカー（needs_reauth 以外）と更新確認ループを起動する。
-func startBackground(ctx context.Context, d *app.Deps, loops *sync.WaitGroup, logger *slog.Logger) {
+// startBackground は MCP サーバー（設定でオンのときだけ）・同期ワーカー（needs_reauth 以外）・更新確認ループを起動する。
+func startBackground(ctx context.Context, d *app.Deps, svc *app.Services, loops *sync.WaitGroup, logger *slog.Logger) {
+	svc.MCP.Start(ctx) // 設定でオンのときだけ待ち受ける（既定はオフ）
 	accounts, err := d.Store.ListAccounts(ctx)
 	if err != nil {
 		logger.Error("list accounts failed", "err", err.Error())
@@ -165,6 +174,7 @@ func startBackground(ctx context.Context, d *app.Deps, loops *sync.WaitGroup, lo
 	loops.Add(1)
 	go func() {
 		defer loops.Done()
+		defer logging.Recover(logger, "update loop")
 		app.NewUpdateLoop(d).Run(ctx)
 	}()
 }

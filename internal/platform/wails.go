@@ -74,6 +74,20 @@ func (b *Browser) Open(url string) error {
 	return nil
 }
 
+// Paths はファイル・フォルダを OS の標準の方法で開く（app.PathOpener の実装）。
+type Paths struct{ app *application.App }
+
+// NewPaths は PathOpener を返す。呼び出し側がアプリ自身のデータフォルダのパスだけを渡すこと。
+func NewPaths(app *application.App) *Paths { return &Paths{app: app} }
+
+// OpenPath はパスを開く。
+func (p *Paths) OpenPath(path string) error {
+	if err := p.app.Browser.OpenFile(path); err != nil {
+		return fmt.Errorf("open path: %w", err)
+	}
+	return nil
+}
+
 // ShowMainWindow はウィンドウを表示して前面に出す（通知クリック・トレイ・多重起動時）。
 func ShowMainWindow(w *application.WebviewWindow) {
 	w.Show()

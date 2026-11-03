@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/platform"
 )
 
@@ -19,9 +20,15 @@ var appIcon []byte
 var version = "0.0.0"
 
 func main() {
-	if err := run(); err != nil {
+	if err := runRecovered(); err != nil {
 		slog.Error("fatal", "err", err.Error())
 		platform.ShowFatal("Hitomado を起動できません", err.Error())
 		os.Exit(1)
 	}
+}
+
+// runRecovered は run の panic をスタックトレースつきでログに残し、通常の起動失敗と同じ経路（エラーダイアログ）へ渡す。
+func runRecovered() (err error) {
+	defer logging.RecoverTo(slog.Default(), "run", &err)
+	return run()
 }

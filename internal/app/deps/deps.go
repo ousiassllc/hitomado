@@ -28,6 +28,11 @@ type URLOpener interface {
 	Open(url string) error
 }
 
+// PathOpener はファイル・フォルダを OS の標準の方法（エクスプローラーなど）で開く。
+type PathOpener interface {
+	OpenPath(path string) error
+}
+
 // AIFactory は設定からプロバイダを作る（テストではフェイクに差し替える）。
 // provider は anthropic／openai、baseURL は openai のみ（空なら OpenAI 既定）。
 type AIFactory func(provider, model, baseURL, apiKey string) (ai.Provider, error)
@@ -45,6 +50,7 @@ type Deps struct {
 	Clock    clock.Clock
 	Files    FileDialog
 	Browser  URLOpener
+	Paths    PathOpener
 	AI       AIFactory
 	Logger   *slog.Logger
 	DataDir  string // %APPDATA%\Hitomado

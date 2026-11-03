@@ -67,12 +67,13 @@ flowchart LR
 
 | ドキュメント | パス | 概要 |
 |------------|------|------|
-| 機能要件 | [`docs/requirements/functional.md`](requirements/functional.md) | F-01〜F-14 のユースケース・機能詳細・画面遷移・エラー動作 |
+| 機能要件 | [`docs/requirements/functional.md`](requirements/functional.md) | F-01〜F-15 のユースケース・機能詳細・画面遷移・エラー動作 |
 | 非機能要件 | [`docs/requirements/non-functional.md`](requirements/non-functional.md) | セキュリティ・外部通信・性能・同期・配布・テスト方針 |
 | アーキテクチャ設計 | [`docs/architecture/overview.md`](architecture/overview.md) | Wails v3＋Go＋Vue の構成、レイヤー、実行モデル、通信フロー |
 | ER / データモデル | [`docs/architecture/er.md`](architecture/er.md) | SQLite のテーブル定義（メタデータ・スニペットのみ）、インデックス、保持ルール |
 | バインディング仕様（API 仕様） | [`docs/api/endpoints.md`](api/endpoints.md) | Go↔フロントのバインディング契約、エラーコード、送信確認トークン、外部 API 利用 |
 | コンポーネント設計 | [`docs/components/overview.md`](components/overview.md) | Go／Vue のコンポーネント責務・依存・ショートカット・要件対応表 |
+| MCP 連携とログ | [`docs/mcp.md`](mcp.md) | 内蔵 MCP サーバー（既定オフ・トークン必須・送信なし）の設定・ツール、ログの場所・形式・伏せ処理 |
 | 環境構築 | [`docs/environment/setup.md`](environment/setup.md) | 開発ツール・bun 固定・CI（ubuntu／windows）・Biome／golangci-lint・Linterly・Lefthook |
 
 ## マイルストーン / リリース計画
@@ -97,3 +98,4 @@ flowchart LR
 |----|------|---------|---------|
 | 1.0 | 2026-11-02 | 新規作成。ドキュメントマップを確定し、スコープの未決事項を反映 | 初版（ひな型 0.1 をもとに作成） |
 | 1.1 | 2026-11-02 | ドキュメントマップに環境構築を追加 | env-setup の実施 |
+| 1.2 | 2026-11-03 | ドキュメントマップに MCP 連携とログを追加 | #14 |
