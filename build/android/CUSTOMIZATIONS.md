@@ -9,3 +9,4 @@
 - `app/build.gradle`: `testImplementation 'junit:junit:4.13.2'` と `testOptions.unitTests.returnDefaultValues = true` を追加し、`app/src/test/java/com/wails/app/SecureStoreTest.java`（新規）で `SecureStore` を JVM 単体テストする（#84）
 - `app/src/main/java/com/wails/app/WailsJSBridge.java`: `invoke`／`invokeAsync` のデバッグログから JS のペイロード本文を外し、長さだけにした（バインディング呼び出しの引数に API キー・Client Secret が含まれるため）（#84）
 - `Taskfile.yml`: `test` タスク（`./gradlew testDebugUnitTest`）を追加。CI の android ジョブが `wails3 task android:test` で呼ぶ（#84）
+- `Taskfile.yml`: `compile:go:shared` の `ARCH=amd64` だけ `build/android/scripts/libc-overlay.go` を実行して `go build -modfile=…`（パッチ済みの `modernc.org/libc`。`build/android/libc/amd64.patch`）で作る。`clean` が `build/android/gen` も消す（#83。[docs/environment/android.md §12](../../docs/environment/android.md)）
