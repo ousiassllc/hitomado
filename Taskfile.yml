@@ -9,7 +9,11 @@ vars:
 
 includes:
   common: ./build/Taskfile.yml
-  windows: ./build/windows/Taskfile.yml
+  windows:
+    taskfile: ./build/windows/Taskfile.yml
+    # 版の既定値（main.go の version・build/config.yml と揃える）。コマンドラインの VERSION を上書きとして使うため、ここで定義する。
+    vars:
+      APP_VERSION: '{{.VERSION | default "0.0.0"}}'
 
 tasks:
   build:
