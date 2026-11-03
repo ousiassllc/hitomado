@@ -25,6 +25,7 @@ graph TD
   ST[internal/store]
   SE[internal/secrets]
   AI[internal/ai]
+  SW[internal/siwc<br/>Sign in with ChatGPT]
   NT[internal/notify]
   PF[internal/platform<br/>Wails 接続層（ウィンドウ・トレイ・通知）]
   UP[internal/update]
@@ -36,6 +37,8 @@ graph TD
   APP --> ST
   APP --> SE
   APP --> AI
+  APP --> SW
+  SW --> SE
   APP --> NT
   APP --> UP
   SYNC --> DOM
@@ -103,6 +106,18 @@ type Store interface {
 type Provider interface {
     GenerateReply(ctx context.Context, in ReplyInput) (text string, err error)
 }
+// 実装は anthropic／openai（Chat Completions）／chatgpt（Responses API）。モデル一覧は
+// ListModels(ctx, provider, baseURL, credential, hc) ([]ModelInfo, error)（Models API が無いときは ErrModelsUnsupported）
+
+// internal/siwc（Sign in with ChatGPT。トークンは secrets.Store、登録情報は app_settings）
+type Auth interface {
+    SignIn(ctx context.Context, opts SignInOptions) (Status, error)
+    CancelSignIn()
+    Status(ctx context.Context) (Status, error)        // 通信しない
+    AccessToken(ctx context.Context) (string, error)   // 期限が近ければ更新（直列化）。ErrNotSignedIn／ErrReauthRequired
+    ForceRefresh(ctx context.Context) (string, error)  // 401 を受けたときに 1 度だけ
+    SignOut(ctx context.Context) (revoked bool, err error)
+}
 
 // internal/notify
 type Notifier interface {
@@ -128,7 +143,7 @@ type Checker interface {
 | `InboxService` | `store`、`gmail.Client`、`sync.Scheduler` | ローカル優先で返し、末尾で `inbox_page_token` による追加取得。操作後に `threads` を再計算 |
 | `ThreadService` | `gmail.Client`、メモリ LRU | 本文は保存せず LRU のみ。`cid` 画像を `data:` に変換 |
 | `ComposeService` | `domain`（reply／quote／signature／senderpolicy／confirm）、`gmail.Client`、`store` | 作成セッションのマップ（排他制御つき）。`PrepareSend`→`Send` の確認トークン検証 |
-| `AIService` | `ai.Provider`、`secrets.Store`、`gmail.Client`、`ComposeService`（セッション参照） | 同意・キー確認後、直近 5 メッセージ・20,000 文字以内で生成 |
+| `AIService` | `ai.Provider`、`ai.ListModels`、`siwc.Auth`、`secrets.Store`、`gmail.Client`、`ComposeService`（セッション参照） | 同意・キー（ChatGPT はログイン）確認後、直近 5 メッセージ・20,000 文字以内で生成。ChatGPT で 401 のときは 1 度だけトークンを更新してやり直す。モデル一覧は保存済みの設定の送信先から、同意後だけ取得し、取れなければ手入力へ |
 | `AppService` | `store`、`update.Checker` | 設定の読み書き、更新確認 |
 | `LogService` | `logging`、`FileDialog`、`PathOpener` | フロントのエラーを伏せてログへ記録（流量制限つき）、ログフォルダを開く、ログを zip で書き出す |
 | `MCPService` | `mcpserver`、`secrets.Store`、`store` | 設定（既定オフ）の保存と待ち受けの起動・停止、トークンの発行・無効化。MCP のバックエンド（`mcpbackend.go`）は読み取りと `composecore` の `OpenCompose`→`SaveDraft`→`CloseCompose` だけを使い、送信は呼ばない |
@@ -267,7 +282,7 @@ graph TD
 | `RecipientField` | To／Cc／Bcc の入力（Cc／Bcc は開閉式）。チップ化、貼り付けの複数アドレス分割、オートコンプリート | props: `modelValue`, `accountId` | `ComposeService.SuggestContacts`（デバウンス 150ms） |
 | `RichTextEditor` | Tiptap。太字・リンク・箇条書き。署名ブロックを `data-hitomado-signature` として保持。貼り付けは書式をクリーニング | props/emits: `v-model:html` | — |
 | `AttachmentBar` | 添付の一覧・削除・追加ボタン・ドラッグ＆ドロップ。合計サイズ表示と上限エラー | | `ComposeService.AddAttachments／RemoveAttachment` |
-| `AiDraftButton` | 「AI で下書き」。キー未設定→設定へ誘導、未同意→同意ダイアログ、生成中→キャンセル可、本文入力済み→置換確認 | emits: `generated(bodyHtml)` | `AIService.GenerateReplyDraft／CancelGenerate／RecordAIConsent` |
+| `AiDraftButton` | 「AI で下書き」。キー未設定（ChatGPT プランは未ログイン）→設定へ誘導。ChatGPT プラン使用中は「Using ChatGPT plan」と「Manage usage」を表示、未同意→同意ダイアログ、生成中→キャンセル可、本文入力済み→置換確認 | emits: `generated(bodyHtml)` | `AIService.GenerateReplyDraft／CancelGenerate／RecordAIConsent` |
 | `SendConfirmDialog` | `PrepareSend` の結果を表示。**送信元を最大文字で表示（`SenderBadge`）**、宛先・件名・添付数・本文冒頭、`warnings`（他の自アカウント宛・件名なし・本文なし）。確定ボタン「<アドレス> から送信」。ダイアログ表示中はエディタ操作不可 | props: `preview`, `busy` | `composeStore.confirmSend`（`ComposeService.Send`） |
 | `SignatureConflictDialog` | 新規作成で送信元を切り替えたとき、署名部分が編集済みなら差し替える前に確認する（F-07）。「編集した署名を残す」「差し替える」。`ComposePane` が配置する | — | `composeStore.signatureConflict`／`resolveSignatureConflict` |
 
@@ -302,7 +317,7 @@ graph TD
 | `AccountsSettings` | アカウント一覧、表示名・色・通知オン／オフ、並べ替え、再接続、削除（確認つき）。OAuth クライアントの拒否で要再接続のアカウントの行には、`statusMessage` と「OAuth クライアントを確認」ボタン（OAuth クライアントタブへ切り替える）を再接続ボタンと並べて出す | `AccountService.UpdateAccount／ReorderAccounts／Reconnect／RemoveAccount` |
 | `OAuthClientsSettings` | クライアントの追加・編集・削除（使用中は削除不可を表示）、README（OAuth クライアント作成手順）へのリンク | `AccountService.*OAuthClient` |
 | `SignatureSettings` | アカウント選択＋リッチテキスト署名編集（`RichTextEditor` 共用） | `AccountService.SetSignature` |
-| `AISettings` | プロバイダ・モデル・Base URL（`https://`、または `localhost`／`127.0.0.1`／`::1` の `http://` のみ。それ以外は `VALIDATION` を表示）・API キー（入力後は伏字、削除可）、同意状況（送信先が変わると再同意）、送信先の表示 | `AIService.*` |
+| `AISettings` | プロバイダ（Anthropic／OpenAI 互換／ChatGPT プラン）・モデル（取得した一覧から選択。取得できない・まだのときは手入力。「一覧を更新」ボタンと取得できない理由の表示。保存済みのモデルが一覧に無くても選択肢に残す。子コンポーネント `AIModelField`）・Base URL（`https://`、または `localhost`／`127.0.0.1`／`::1` の `http://` のみ。それ以外は `VALIDATION` を表示）・API キー（入力後は伏字、削除可。子コンポーネント `AIApiKey`）・ChatGPT プランでは API キー・Base URL の代わりに `AIChatGPTLogin`（「Continue with ChatGPT」・ログイン中の中止・ログイン済みアカウントの表示・「Using ChatGPT plan」「Manage usage」・別のアカウントでログイン・ログアウト）・設定画面からの送信への同意（同意すると一覧を取得）、同意状況（送信先が変わると再同意）、送信先の表示 | `AIService.*` |
 | `McpSettings` | MCP のオン／オフ（既定オフ）、待ち受けアドレス・ポート、loopback 以外の許可、トークンの発行・再発行・無効化（値は発行直後だけ表示してコピー）、接続先 URL・状態 | `MCPService.*` |
 | `LogSettings` | ログフォルダを開く、ログの書き出し、記録しない情報の説明 | `LogService.OpenLogFolder／ExportLogs` |
 | `GeneralSettings` | 更新確認オン／オフ、バージョン表示、データ保存先の表示 | `AppService.*` |
@@ -315,7 +330,7 @@ graph TD
 | `inboxStore` | `filter`、`mode`（`inbox`／`search`）、`items`、`nextCursor`、`unreadCounts`、`selection`、`loading`、`failures` | `load`、`loadMore`、`refresh`、`runSearch`、`clearSearch`、`archive`／`trash`／`markRead`（**楽観的更新、失敗時は元に戻してエラートースト**）、`setFilter` | `sync:updated`（先頭ページと未読件数を再取得し、スクロール位置・選択を維持） |
 | `threadStore` | `current`（`ThreadDetail`）、`loading`、`error` | `open(ref)`、`close`、`reload` | `sync:updated`（開いているスレッドが `changedThreadIds` に含まれたら `reload`） |
 | `composeStore` | `session`、`content`、`attachments`、`preview`、`dirty`、`saving`、`sending` | `open`（新規作成は `withDefaultSender` で、受信箱のフィルタが単一アカウントならその送信元を初期値にして `OpenCompose` を呼ぶ）、`setSender`、`save`、`prepareSend`、`confirmSend`、`close`、`discard` | — |
-| `settingsStore` | `aiConfig`、`appInfo`、`update` | `load`、`setAIConfig`、`checkUpdate` | `update:available` |
+| `settingsStore` | `aiConfig`、`aiModels`（プロバイダごとの最後に取得した一覧）、`appInfo`、`update` | `load`、`setAIConfig`、`loadAIModels`、`signInChatGPT`／`cancelSignInChatGPT`／`signOutChatGPT`、`checkUpdate` | `update:available` |
 | `uiStore` | `theme`、`banners`、`toasts`、`dialogs`、`settingsTab`、`online` | `pushToast`、`openSettings(tab?)`（開く設定タブを指定。既定はアカウント）等 | `notify:open-thread`（スレッドを開いてウィンドウを前面へ） |
 
 - ストアは**生成されたバインディングを `lib/api` のラッパー経由**で呼び、`AppError`（`parseBindingError`）に統一して扱う
@@ -416,3 +431,4 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 1.10 | 2026-11-03 | §2.5 に終了時の `Scheduler.Shutdown()` の待ちの上限（5 秒）を追記 | 実装（`run.go`、`internal/platform/bounded.go`）との整合（#5） |
 | 1.11 | 2026-11-03 | §3.5 の `ThreadList` に「さらに読み込む」ボタンと `loadingMore` を、§3.10 に 0 件ページの自動継続の上限（3 ページ）を追記 | 実装（`frontend/src/stores/inbox.ts`、`components/inbox/ThreadList.vue`）との整合（#7） |
 | 1.12 | 2026-11-03 | §2.5 の終了時の待ちの上限（5 秒）を、`Scheduler.Shutdown()` だけでなく終了処理全体（更新確認ループ・MCP サーバー・同期の停止）に掛けると直した | 実装（`run.go`）との整合（#5） |
+| 1.13 | 2026-11-03 | `internal/siwc`（Sign in with ChatGPT）と `ai.ListModels` を追加。`AIService`・`AISettings`（`AIModelField`／`AIApiKey`／`AIChatGPTLogin`）・`settingsStore`・`AiDraftButton` に ChatGPT プランとモデル一覧を反映 | #75、#76 |

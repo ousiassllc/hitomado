@@ -25,7 +25,8 @@
 | レート制限 | `golang.org/x/time/rate` | アカウントごとのクォータ制御（NF 同期） |
 | ログ | 標準 `log/slog`（JSON Lines）＋ `lumberjack` によるローテーション。書き込み前に秘密・メール内容を伏せる Handler を通す | NF-S10 |
 | MCP | 公式 Go SDK `github.com/modelcontextprotocol/go-sdk`（Streamable HTTP）。既定オフ・Bearer トークン必須・送信ツールなし | NF-S13〜NF-S15、[docs/mcp.md](../mcp.md) |
-| AI | 自前の薄い `Provider` インターフェース。Anthropic と OpenAI 互換の 2 実装 | NF §12 |
+| AI | 自前の薄い `Provider` インターフェース。Anthropic・OpenAI 互換（Chat Completions）・ChatGPT プラン（Responses API）の 3 実装と、モデル一覧の取得（`ListModels`） | NF §12 |
+| ChatGPT ログイン | `internal/siwc`（Sign in with ChatGPT の OSS 向けフロー。動的登録・PKCE・ID トークンの検証は `github.com/coreos/go-oidc/v3`） | NF §2、[API §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt) |
 | フロントエンド | **Vue 3＋TypeScript**（Composition API／`<script setup>`）、Vite、Pinia | |
 | リッチテキスト | Tiptap（ProseMirror）。太字・リンク・箇条書き | F-11 |
 | 仮想スクロール | `@tanstack/vue-virtual` | NF-P04 |
@@ -62,7 +63,8 @@ graph TD
   INF --> KS
   INF --> TR
   INF <-->|HTTPS| GG[Google OAuth / Gmail API]
-  INF <-->|HTTPS| AI[AI プロバイダ 利用者のキー]
+  INF <-->|HTTPS| AI[AI プロバイダ 利用者のキー／ChatGPT プラン]
+  INF <-->|HTTPS| OA[auth.openai.com ChatGPT ログイン]
   INF <-->|HTTPS| GH[GitHub Releases API]
 ```
 
@@ -127,7 +129,7 @@ hitomado/
 
 | データ | 保存先 | 備考 |
 |--------|--------|------|
-| リフレッシュトークン・Client Secret・AI API キー | Windows 資格情報マネージャー | `hitomado/<種別>/<ID>` 形式のキー名 |
+| リフレッシュトークン・Client Secret・AI API キー・ChatGPT ログインのトークン | Windows 資格情報マネージャー | `hitomado/<種別>/<ID>` 形式のキー名 |
 | アカウント・OAuth クライアント（Secret を除く）・署名・設定・同期状態・スレッド／メッセージのメタデータ・スニペット・連絡先候補 | SQLite（`%APPDATA%\Hitomado\hitomado.db`、WAL） | 本文・添付は保存しない（NF-S08） |
 | メッセージ本文・添付データ | Go プロセスのメモリ（LRU・直近 50 スレッド） | NF-S09 |
 | 下書き | **Gmail の下書き**（`users.drafts`） | ローカルに保存しない。例外: 送信元未選択の新規作成はメモリのみ |
@@ -246,12 +248,14 @@ sequenceDiagram
   participant PV as ai.Provider
   FE->>AI: GenerateReplyDraft(sessionId, requestId)
   AI->>CS: 作成セッションから送信元アカウントとスレッドを取得（返信・全員に返信のみ。new／forward は VALIDATION）
-  AI->>AI: 同意済み・キー設定済みを確認
+  AI->>AI: 同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>PV: 生成要求（直近 5 メッセージ・20,000 文字以内）
   PV-->>AI: 本文テキスト
   AI-->>FE: 下書き本文（フロントがエディタに挿入。送信は行わない）
 ```
+
+ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークンを `internal/siwc` が資格情報ストアに保持し、`PV` は Responses API（`store: false`・`stream: true`）を呼ぶ。生成中に 401 を受けたときは 1 度だけトークンを更新してやり直し、更新できなければ再ログインを案内する。ログイン・更新・ログアウトの手順は [バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)。
 
 生成中の中止はフロントが `CancelGenerate(requestId)` を呼び、`GenerateReplyDraft` は `CANCELLED` で reject される。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
 
@@ -293,3 +297,4 @@ sequenceDiagram
 | 1.11 | 2026-11-03 | §7.2 の同期シーケンスに、`invalid_client`／`unauthorized_client` による `needs_reauth`（理由つき・自動再試行を止める）を追記 | 実装（`internal/sync/cycle.go`）・バインディング仕様 §10 との整合（#43、#69） |
 | 1.12 | 2026-11-03 | 技術選定とデータ保存先に MCP・ログの形式・MCP トークンを追加 | #14 |
 | 1.13 | 2026-11-03 | §8 のインライン画像に、1 枚 5 MiB・1 メッセージ合計 10 MiB の上限と超過時の動作を追記 | 実装（`internal/gmail/message.go`、`internal/app/appcore/html.go`）との整合（#6） |
+| 1.14 | 2026-11-03 | §5 の AI に ChatGPT プラン（`internal/siwc`・Responses API）とモデル一覧を、§6 の保存先に ChatGPT ログインのトークンを、§7.4 に ChatGPT プランでの認証・更新を追記 | Sign in with ChatGPT（#75）、モデル一覧（#76） |

@@ -3,7 +3,7 @@ import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { AIService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
 import { useAiDraft } from '../../composables/useAiDraft'
 import { call } from '../../lib/api'
-import { compose as msg } from '../../lib/messages'
+import { compose as msg, settings as settingsMsg } from '../../lib/messages'
 import { hasUserBody } from '../../lib/signature'
 import { useComposeStore } from '../../stores/compose'
 import { useSettingsStore } from '../../stores/settings'
@@ -39,6 +39,9 @@ const destination = computed(() => {
   return c ? aiDestination(c.provider, c.baseUrl) : undefined
 })
 
+const usingChatGPT = computed(() => settings.aiConfig?.provider === 'chatgpt')
+const needText = computed(() => (usingChatGPT.value ? msg.ai.needLogin : msg.ai.needKey))
+
 const consentOpen = computed(() => ai.step.value === 'consent')
 const replaceOpen = computed(() => ai.step.value === 'replace')
 const generating = computed(() => ai.step.value === 'generating')
@@ -54,7 +57,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
         v-if="!generating"
         variant="secondary"
         :disabled="ai.needsKey.value || busy"
-        :title="ai.needsKey.value ? msg.ai.needKey : undefined"
+        :title="ai.needsKey.value ? needText : undefined"
         @click="ai.start()"
       >
         ✨ {{ msg.ai.button }}
@@ -64,8 +67,14 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
         <BaseButton variant="secondary" @click="ai.cancel()">{{ msg.ai.cancel }}</BaseButton>
       </template>
       <template v-if="ai.needsKey.value">
-        <span class="ai-note">{{ msg.ai.needKey }}</span>
+        <span class="ai-note">{{ needText }}</span>
         <BaseButton variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
+      </template>
+      <template v-else-if="usingChatGPT">
+        <span class="ai-note" data-testid="ai-using-chatgpt">{{ msg.ai.usingChatGPT }}</span>
+        <BaseButton variant="ghost" @click="settings.openExternal(settingsMsg.ai.chatgpt.usageUrl)">
+          {{ msg.ai.manageUsage }}
+        </BaseButton>
       </template>
     </div>
     <p v-if="ai.error.value" class="ai-error" role="alert">{{ msg.ai.failed }}（{{ ai.error.value }}）</p>

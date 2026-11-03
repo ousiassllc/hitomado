@@ -146,14 +146,14 @@ func (m *Manager) getSecret(kind string) (string, error) {
 	}
 	n, err := strconv.Atoi(rest)
 	if err != nil || n < 2 || n > 64 {
-		return "", errors.New("siwc: 資格情報の形式が不正です")
+		return "", nil // 形式が不正な値は、無いものとして扱う（状態の取得を壊さない。再ログインで置き換わる）
 	}
 	var b strings.Builder
 	for i := range n {
 		part, err := m.opts.Secrets.Get(chunkKey(base, i))
 		if err != nil {
 			if errors.Is(err, secrets.ErrNotFound) {
-				return "", errors.New("siwc: 資格情報が欠けています")
+				return "", nil // 断片が欠けた値は使えない。無いものとして扱う
 			}
 			return "", err
 		}

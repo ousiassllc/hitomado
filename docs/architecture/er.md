@@ -6,13 +6,14 @@
 
 - ローカル DB は **SQLite**（`modernc.org/sqlite`、WAL）。スキーマは goose のマイグレーション（`internal/store/migrations/*.sql`）で管理し、クエリは sqlc で生成する
 - **保存するのはヘッダ由来のメタデータとスニペットのみ**。メッセージ本文・添付データ・下書きは保存しない（[NF-S08](../requirements/non-functional.md#1-セキュリティ)。下書きは Gmail 側）
-- **秘密情報は DB に保存しない**。OAuth のリフレッシュトークン、OAuth クライアントの Client Secret、AI の API キーは Windows 資格情報マネージャーに保存する
+- **秘密情報は DB に保存しない**。OAuth のリフレッシュトークン、OAuth クライアントの Client Secret、AI の API キー、ChatGPT ログインのトークンは Windows 資格情報マネージャーに保存する
 
 | 資格情報キー | 内容 |
 |--------------|------|
 | `hitomado/refresh_token/<account_id>` | アカウントのリフレッシュトークン |
 | `hitomado/oauth_client_secret/<oauth_client_id>` | OAuth クライアントの Client Secret |
 | `hitomado/ai_api_key/<provider>` | AI プロバイダの API キー（`anthropic`／`openai`） |
+| `hitomado/chatgpt_token/<kind>` | ChatGPT ログイン（Sign in with ChatGPT）のトークン。`kind` は `access`（アクセストークン）／`refresh`（リフレッシュトークン）／`id`（ID トークン。任意）。1 件の上限（Windows は約 2.5KB）を超える値は `<キー>#0`、`#1`… に分割し、先頭のキーに `chunks:<個数>` を置く |
 
 - **ID**: ローカルで採番するテーブルの主キーは **ULID（TEXT）**。Gmail 由来の ID（スレッド・メッセージ・ラベル）は Gmail の文字列 ID を使い、アカウントをまたいで一意でないため **`account_id` との複合主キー**にする
 - **日時**: UTC の Unix ミリ秒（`INTEGER`）。**真偽値**: `INTEGER`（0／1、`CHECK (x IN (0,1))`）
@@ -321,7 +322,8 @@ erDiagram
 | キー | 値の例 | 用途 |
 |------|--------|------|
 | `inbox.filter` | `{"accountIds":["01H..."],"unreadOnly":false}` | 受信箱フィルタの保持（F-02） |
-| `ai.config` | `{"provider":"openai","model":"...","baseUrl":"https://example.com/v1"}` | AI 設定（API キーは資格情報ストア）。`baseUrl` は省略可（Base URL 無しのときはキー自体を保存しない。`null` は保存しない。例: `{"provider":"anthropic","model":"..."}`） |
+| `ai.config` | `{"provider":"openai","model":"...","baseUrl":"https://example.com/v1"}` | AI 設定（API キー・トークンは資格情報ストア。`provider` は `anthropic`／`openai`／`chatgpt`）。`baseUrl` は省略可（Base URL 無しのときはキー自体を保存しない。`null` は保存しない。例: `{"provider":"anthropic","model":"..."}`） |
+| `ai.chatgpt` | `{"hostId":"urn:uuid:...","clientId":"oaiapp_...","subject":"...","email":"me@example.com","consentNeeded":false,"expiresAt":1730000000000}` | ChatGPT ログインの登録情報（**秘密ではない**。トークンは資格情報ストア）。`hostId` はこの PC のホスト ID（`urn:uuid:` ＋ UUIDv4。初回ログインの前に作り、以後変えない）、`clientId` は動的登録で発行されたクライアント ID、`subject`／`email` は検証済み ID トークンの本人情報（表示・同一アカウントの確認用）、`consentNeeded` は前回 ChatGPT プランの利用が許可されなかったこと（次のログインで同意画面を求め直す）、`expiresAt` はアクセストークンの期限。ログアウトしても `hostId`／`clientId`／`subject`／`email` は残す |
 | `ai.consent` | `{"providers":[{"provider":"openai","baseUrl":"https://api.openai.com","agreedAt":1730000000000}]}` | AI 送信の同意（F-08）。「プロバイダ＋送信先（Base URL の scheme とホスト。パスは含めない）」単位の配列で、プロバイダごとに 1 件。`baseUrl` は省略可（省略は既定の送信先）。送信先が変わった同意は無効になり、保存からも外す。旧形式 `{"provider":"anthropic","agreedAt":...}`（単一オブジェクト）は読み取り専用の互換入力で、保存は常に `providers` 形式（`RecordAIConsent` が書き込む。[API §6](../api/endpoints.md)） |
 | `update.check_enabled` | `true` | 新バージョン確認の有効／無効（NF-D03） |
 | `update.last_checked_at` | `1730000000000` | 最終確認日時 |
@@ -359,3 +361,4 @@ erDiagram
 | 1.3 | 2026-11-03 | §3.8 の候補の順位規則の実装が `SuggestContacts` の SQL のみであることを明記 | `domain/contacts` の未使用の順位付けを削除したため（#47） |
 | 1.4 | 2026-11-03 | §3.8 の `receive_count` を、同期時に加算し閲覧時は加算しない旨に修正（履歴に未記録だった分） | 実装との整合（#32。記録漏れの補正 #53） |
 | 1.5 | 2026-11-03 | §5 のアカウント削除に、先に同期ワーカーを止めて実行中の周期の終了を待ち、DB 削除に失敗したら再開する旨を追記 | 実装（`internal/app/account.go`）との整合（#4） |
+| 1.6 | 2026-11-03 | §1 の資格情報キーに `hitomado/chatgpt_token/<kind>` を、§3.9 に `ai.chatgpt` を追加し、`ai.config` の `provider` に `chatgpt` を追記 | Sign in with ChatGPT（#75） |

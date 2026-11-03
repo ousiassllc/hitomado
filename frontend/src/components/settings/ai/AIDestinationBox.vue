@@ -25,7 +25,7 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
     <legend class="dest-title">{{ msg.ai.destinationHeading }}</legend>
     <p class="dest-value" data-testid="ai-destination">{{ text(saved) }}</p>
     <p class="dest-note">
-      {{ saved.custom ? msg.ai.destinationCustomNote : msg.ai.destinationDefaultNote }}
+      {{ saved.note ?? (saved.custom ? msg.ai.destinationCustomNote : msg.ai.destinationDefaultNote) }}
     </p>
     <p v-if="differs" class="dest-pending" role="status">
       {{ msg.ai.destinationPending(text(draft)) }}
