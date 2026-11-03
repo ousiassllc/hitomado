@@ -99,6 +99,13 @@ public class MainActivity extends AppCompatActivity {
         String devURL = WailsBridge.devServerURL(this);
         if (devURL != null) devServer = Uri.parse(devURL);
 
+        // 通知のタップで起動された（コールドスタート）: 開くスレッドを保持する。Go とフロントの準備ができたあと、フロントが
+        // NotifyService.TakePendingOpenThread で受け取る（準備前に発行したイベントは取りこぼされるため。#88）。
+        // 再生成（savedInstanceState あり）では、すでに開いた要求を繰り返さない。
+        if (savedInstanceState == null) {
+            OpenRequest.set(OpenRequest.fromIntent(getIntent()));
+        }
+
         // Initialize the native Go library
         bridge = new WailsBridge(this);
         bridge.initialize();
@@ -108,6 +115,21 @@ public class MainActivity extends AppCompatActivity {
 
         // Load the application
         loadApplication();
+    }
+
+    /**
+     * 起動済み（singleTask）のアプリが通知のタップで前面に出た: 開くスレッドを保持し、Go へ合図する
+     * （Go が OpenRequest を取り出し、フロントが準備済みなら notify:open-thread で開く。#88）。
+     */
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        OpenRequest request = OpenRequest.fromIntent(intent);
+        if (request != null) {
+            OpenRequest.set(request);
+            if (bridge != null) bridge.emitEvent("hitomado:open-thread", "{}");
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")

@@ -19,6 +19,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/headless"
 	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/oauth"
 	"github.com/ousiassllc/hitomado/internal/platform"
@@ -54,6 +55,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	// 同じプロセスで WorkManager の Worker（ヘッドレス同期。Android）が動いていれば取り消して終わりを待ち、DB を同時に開かない。
+	// 以後の Worker はこのアプリ本体の同期に任せる（internal/headless の Gate）。
+	headless.AppStarting()
+	defer headless.AppStopped()
 	logger, closeLog, err := logging.New(filepath.Join(dir, app.LogsDirName), slog.LevelInfo, os.Getenv("HITOMADO_LOG_STDERR") != "", logging.Meta{Version: version})
 	if err != nil {
 		return err
@@ -91,7 +96,7 @@ func run() error {
 
 	clk := clock.System{}
 	sec := secrets.NewKeyring()
-	gm, err := gmail.NewClient(gmail.Options{Secrets: sec, Accounts: accountLookup{st}, Clock: clk, Logger: logger})
+	gm, err := gmail.NewClient(gmail.Options{Secrets: sec, Accounts: headless.StoreLookup{Store: st}, Clock: clk, Logger: logger})
 	if err != nil {
 		return fmt.Errorf("gmail client: %w", err)
 	}
@@ -99,6 +104,9 @@ func run() error {
 	events := cache.Emitter(emitter)
 	sched := syncer.New(syncer.Deps{Store: st, Gmail: gm, Notifier: notifier, Events: events, Clock: clk, Logger: logger})
 	oauthTracker := newOAuthTracker(sec)
+	headless.SetAppRefresh(func(ctx context.Context) ([]headless.AccountResult, error) {
+		return headless.RefreshAll(ctx, st, sched)
+	})
 	flow := oauth.NewFlow(oauth.Options{OpenBrowser: platform.NewBrowser(wapp).Open, Tracker: oauthTracker})
 
 	deps := &app.Deps{
@@ -117,7 +125,9 @@ func run() error {
 		ChatGPT: siwc.New(siwc.Options{
 			OpenBrowser: platform.NewBrowser(wapp).Open, Secrets: sec, Settings: st, Clock: clk, Logger: logger,
 		}),
-		Logger: logger, DataDir: dir, Version: version, Capabilities: caps,
+		Background:   platform.NewBackground(logger),
+		OpenRequests: platform.NewOpenRequests(wapp, emitter),
+		Logger:       logger, DataDir: dir, Version: version, Capabilities: caps,
 		QuitAck: func() { quitter.Ack() },
 		Threads: cache,
 	}
@@ -176,6 +186,8 @@ func startBackground(ctx context.Context, d *app.Deps, svc *app.Services, loops 
 			d.Sync.Start(a.ID)
 		}
 	}
+	// バックグラウンド同期（Android の WorkManager）。アカウントがあれば登録（冪等）、無ければ解除する。Windows では何もしない。
+	d.Background.ScheduleSync(len(accounts) > 0)
 	if !d.Capabilities.SupportsAutoUpdate {
 		return
 	}

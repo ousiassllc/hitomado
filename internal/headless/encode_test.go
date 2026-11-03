@@ -31,9 +31,8 @@ func TestEncodeIsASCIIAndRoundTrips(t *testing.T) {
 	m := decode(t, s)
 	assert.Equal(t, true, m["ok"])
 	mail := m["newMail"].([]any)[0].(map[string]any)
-	assert.Equal(t, "山田 😀", mail["accountName"])
-	assert.Equal(t, "件名 🎉", mail["subject"])
-	assert.Equal(t, "差出人", mail["from"])
+	assert.Equal(t, "山田 😀", mail["title"])
+	assert.Equal(t, "差出人\n件名 🎉", mail["body"])
 	assert.Equal(t, "a@example.com", mail["accountEmail"])
 	acct := m["accounts"].([]any)[0].(map[string]any)
 	assert.Equal(t, "needs_reauth", acct["status"])
@@ -56,4 +55,12 @@ func TestEncodeFailureCarriesOnlyACode(t *testing.T) {
 func TestEncodeAppRunning(t *testing.T) {
 	m := decode(t, Encode(Result{AppRunning: true}, nil))
 	assert.Equal(t, true, m["appRunning"])
+}
+
+func TestEncodeSanitizesLikeDesktopToast(t *testing.T) {
+	m := decode(t, Encode(Result{NewMail: []notify.NewMailNotice{{
+		AccountID: "a", AccountName: "A", AccountEmail: "a@example.com", ThreadID: "t", FromName: "x\u202Eevil", Subject: "a\nb",
+	}}}, nil))
+	mail := m["newMail"].([]any)[0].(map[string]any)
+	assert.Equal(t, "xevil\na b", mail["body"], "制御文字・双方向制御文字を除く（notify.Text と同じ）")
 }

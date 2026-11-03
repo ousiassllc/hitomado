@@ -46,8 +46,9 @@ check "minSdkVersion=21" grep -q "^minSdkVersion:'21'" <<<"$badging"
 check "targetSdkVersion=36" grep -q "^targetSdkVersion:'36'" <<<"$badging"
 
 # 権限は許可リスト。増えたらここと AndroidManifest.xml を一緒に直す（意図しない権限の混入を防ぐ）。
+# WAKE_LOCK・RECEIVE_BOOT_COMPLETED は WorkManager（#88）がマニフェストのマージで足す。FOREGROUND_SERVICE は使わないので許可しない（取り除く）。
 # DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION は androidx.core が <applicationId>.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION を足す。
-allowed_re="^(android\.permission\.(INTERNET|VIBRATE|ACCESS_NETWORK_STATE|POST_NOTIFICATIONS|FOREGROUND_SERVICE|FOREGROUND_SERVICE_DATA_SYNC)|${app_id//./\\.}\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION)$"
+allowed_re="^(android\.permission\.(INTERNET|VIBRATE|ACCESS_NETWORK_STATE|POST_NOTIFICATIONS|WAKE_LOCK|RECEIVE_BOOT_COMPLETED)|${app_id//./\\.}\.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION)$"
 perms="$(sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p" <<<"$badging")"
 echo "permissions:"
 sed 's/^/  /' <<<"$perms"
@@ -55,6 +56,7 @@ unexpected="$(grep -Ev "$allowed_re" <<<"$perms" || true)"
 check "permissions are all allowed${unexpected:+ (unexpected: $(tr '\n' ' ' <<<"$unexpected"))}" test -z "$unexpected"
 
 manifest="$("$aapt2" dump xmltree --file AndroidManifest.xml "$apk")"
+check "no WailsForegroundService (foreground service is not used)" bash -c '! grep -q "WailsForegroundService" <<<"$1"' _ "$manifest"
 check "allowBackup=false" grep -Eq ':allowBackup\(0x[0-9a-f]+\)=false$' <<<"$manifest"
 check "dataExtractionRules is set" grep -Eq ':dataExtractionRules\(0x[0-9a-f]+\)=@' <<<"$manifest"
 check "not debuggable" bash -c '! grep -q ":debuggable(" <<<"$1"' _ "$manifest"

@@ -92,7 +92,7 @@ func TestNotifyServiceWithoutBackgroundIsUnsupported(t *testing.T) {
 func TestTakePendingOpenThread(t *testing.T) {
 	e := apptest.NewEnv(t)
 	var delivered []notify.OpenRef
-	e.Deps.OpenRequests = notify.NewOpenRequests(func(r notify.OpenRef) { delivered = append(delivered, r) })
+	e.Deps.OpenRequests = notify.NewOpenRequests(func(r notify.OpenRef) { delivered = append(delivered, r) }, nil)
 	svc := app.NewNotifyService(e.Deps)
 
 	e.Deps.OpenRequests.Offer(notify.OpenRef{AccountID: "a", ThreadID: "t1"}) // フロントの準備前（コールドスタートでのタップ）

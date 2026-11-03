@@ -1,9 +1,6 @@
 package com.wails.app;
 
 import android.app.Activity;
-import android.app.Notification;
-import android.app.NotificationChannel;
-import android.app.NotificationManager;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
@@ -49,7 +46,6 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.biometric.BiometricManager;
 import androidx.biometric.BiometricPrompt;
-import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 import androidx.fragment.app.FragmentActivity;
 
@@ -73,6 +69,7 @@ import java.util.concurrent.Executor;
 public class WailsBridge {
     private static final String TAG = "WailsBridge";
     private static final boolean DEBUG = BuildConfig.DEBUG;
+    private static final int NOTIFICATION_PERMISSION_REQUEST = 7020;
     private static final int LOCATION_PERMISSION_REQUEST = 1002;
 
     static {
@@ -738,113 +735,143 @@ public class WailsBridge {
         });
     }
 
-    /**
-     * Post a local notification. json: {"title","body"}. Requests the
-     * POST_NOTIFICATIONS runtime permission on Android 13+.
-     */
-    public void postNotification(final String json) {
-        mainHandler.post(() -> {
-            try {
-                JSONObject opts = new JSONObject(json);
-                String title = opts.optString("title", "Notification");
-                String body = opts.optString("body", "");
-                String channelId = "wails_default";
-                NotificationManager nm =
-                        (NotificationManager) activity.getSystemService(Context.NOTIFICATION_SERVICE);
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    NotificationChannel ch = new NotificationChannel(
-                            channelId, "General", NotificationManager.IMPORTANCE_DEFAULT);
-                    nm.createNotificationChannel(ch);
-                }
-                if (Build.VERSION.SDK_INT >= 33 && activity.checkSelfPermission(
-                        "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
-                    activity.requestPermissions(
-                            new String[]{"android.permission.POST_NOTIFICATIONS"}, 1001);
-                }
-                Notification n = new NotificationCompat.Builder(activity, channelId)
-                        .setSmallIcon(android.R.drawable.ic_dialog_info)
-                        .setContentTitle(title)
-                        .setContentText(body)
-                        .setAutoCancel(true)
-                        .build();
-                nm.notify((int) (System.currentTimeMillis() & 0x0fffffff), n);
-                emitEvent("common:notification", "{\"ok\":true}");
-            } catch (Exception e) {
-                Log.e(TAG, "postNotification failed", e);
-                emitEvent("common:notification", "{\"ok\":false}");
-            }
-        });
-    }
-
     /*
      * Secure storage (hitomado #84): Wails の既定実装（Activity に紐づく EncryptedSharedPreferences）を
      * SecureStore（applicationContext だけを使う static なシングルトン）への委譲に置き換えた。
-     * Activity の無い Worker（WorkManager。#88）からも同じストアを SecureStore.getInstance(context) で使える。
+     * Activity の無い Worker（WorkManager。#88）からも同じストアを SecretBridge（同じ実装）で使える。
      * 失敗は {"ok":false,"error":"<コード>"} で返す。コードは key_lost／unavailable／failed／empty key だけで、
      * 値・キー・例外メッセージは含めない（Go 側が internal/secrets/bridge.go で解釈する）。
      */
 
-    private static String secureFailure(String code) {
-        return "{\"ok\":false,\"error\":\"" + code + "\"}";
-    }
-
-    private SecureStore secureStore() {
-        return SecureStore.getInstance(activity);
+    private SecretBridge secretBridge() {
+        return new SecretBridge(activity);
     }
 
     /** Store a value in secure storage. json: {"key":"...","value":"..."}. Returns JSON envelope. */
     public String secureSet(final String json) {
-        try {
-            JSONObject o = new JSONObject(json);
-            String k = o.optString("key", "");
-            if (k.isEmpty()) {
-                return secureFailure("empty key");
-            }
-            secureStore().put(k, o.optString("value", ""));
-            return "{\"ok\":true}";
-        } catch (SecureStore.SecureStoreException e) {
-            return secureFailure(e.code());
-        } catch (Exception e) {
-            return secureFailure("failed");
-        }
+        return secretBridge().secureSet(json);
     }
 
     /** Read a value from secure storage. Returns JSON envelope with found/value. */
     public String secureGet(final String key) {
-        try {
-            if (key == null || key.isEmpty()) {
-                return secureFailure("empty key");
-            }
-            String value = secureStore().get(key);
-            if (value == null) {
-                return "{\"ok\":true,\"found\":false}";
-            }
-            // JSON-encode value to prevent injection.
-            JSONObject result = new JSONObject();
-            result.put("ok", true);
-            result.put("found", true);
-            result.put("value", value);
-            return result.toString();
-        } catch (SecureStore.SecureStoreException e) {
-            return secureFailure(e.code());
-        } catch (Exception e) {
-            return secureFailure("failed");
-        }
+        return secretBridge().secureGet(key);
     }
 
     /** Remove a value from secure storage. Returns JSON envelope. */
     public String secureDelete(final String key) {
+        return secretBridge().secureDelete(key);
+    }
+
+    /*
+     * 通知・バックグラウンド同期（hitomado #88）。Wails 同梱の postNotification（タップ時のデータを持たず、
+     * アカウント別チャネルも無い）は削除し、NewMailNotifier（Activity 不要）に置き換えた。Go は internal/platform から
+     * go:linkname で呼ぶ（Documents と同じ）。戻りは {"ok":true,"value":"…"} か {"ok":false,"error":"<コード>"}。
+     */
+
+    private static String notifyOk(String value) {
         try {
-            if (key == null || key.isEmpty()) {
-                return secureFailure("empty key");
-            }
-            secureStore().remove(key);
-            return "{\"ok\":true}";
-        } catch (SecureStore.SecureStoreException e) {
-            return secureFailure(e.code());
+            return new JSONObject().put("ok", true).put("value", value == null ? "" : value).toString();
         } catch (Exception e) {
-            return secureFailure("failed");
+            return "{\"ok\":false,\"error\":\"failed\"}";
         }
+    }
+
+    private static String notifyFail(String code) {
+        return "{\"ok\":false,\"error\":\"" + code + "\"}";
+    }
+
+    /** アプリのプロセスが動いている間の新着（Go の 60 秒ループ）を通知する。json: {"accountId","accountEmail","threadId","title","body"}。 */
+    public String notifyNewMail(final String json) {
+        try {
+            JSONObject o = new JSONObject(json);
+            String accountId = o.optString("accountId", "");
+            String threadId = o.optString("threadId", "");
+            if (accountId.isEmpty() || threadId.isEmpty()) {
+                return notifyFail("bad_request");
+            }
+            new NewMailNotifier(activity).postNewMail(accountId, o.optString("accountEmail", ""), threadId,
+                    o.optString("title", ""), o.optString("body", ""));
+            return notifyOk(null);
+        } catch (Exception e) {
+            Log.e(TAG, "notifyNewMail failed: " + e.getClass().getName());
+            return notifyFail("failed");
+        }
+    }
+
+    /** 定期同期（WorkManager）の登録・解除。json: {"enabled":bool}。 */
+    public String scheduleSync(final String json) {
+        try {
+            if (new JSONObject(json).optBoolean("enabled", false)) {
+                SyncScheduler.schedule(activity);
+            } else {
+                SyncScheduler.cancel(activity);
+            }
+            return notifyOk(null);
+        } catch (Exception e) {
+            Log.e(TAG, "scheduleSync failed: " + e.getClass().getName());
+            return notifyFail("failed");
+        }
+    }
+
+    /** アカウント削除: 通知チャネル・表示中の通知・「再接続」の通知済みの記録を消す。json: {"accountId":"…"}。 */
+    public String forgetAccount(final String json) {
+        try {
+            String accountId = new JSONObject(json).optString("accountId", "");
+            if (accountId.isEmpty()) {
+                return notifyFail("bad_request");
+            }
+            new NewMailNotifier(activity).forgetAccount(accountId);
+            new ReconnectState(activity).forget(accountId);
+            return notifyOk(null);
+        } catch (Exception e) {
+            Log.e(TAG, "forgetAccount failed: " + e.getClass().getName());
+            return notifyFail("failed");
+        }
+    }
+
+    /** 通知の許可状態。value は "granted" か "denied"。 */
+    public String notificationPermission(final String unused) {
+        return notifyOk(new NewMailNotifier(activity).canNotify() ? "granted" : "denied");
+    }
+
+    /** 通知の許可のダイアログを出す（Android 13 以降で未許可のときだけ）。結果は待たない（状態は notificationPermission で読む）。 */
+    public String requestNotificationPermission(final String unused) {
+        mainHandler.post(() -> {
+            try {
+                new NewMailNotifier(activity).requestPermission(activity, NOTIFICATION_PERMISSION_REQUEST);
+            } catch (Exception e) {
+                Log.e(TAG, "requestNotificationPermission failed: " + e.getClass().getName());
+            }
+        });
+        return notifyOk(null);
+    }
+
+    /** OS の「このアプリの通知設定」を開く。 */
+    public String openNotificationSettings(final String unused) {
+        if (Looper.myLooper() == Looper.getMainLooper()) {
+            return new NewMailNotifier(activity).openSettings(activity) ? notifyOk(null) : notifyFail("unavailable");
+        }
+        final boolean[] opened = {false};
+        final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+        mainHandler.post(() -> {
+            opened[0] = new NewMailNotifier(activity).openSettings(activity);
+            done.countDown();
+        });
+        try {
+            if (!done.await(2, java.util.concurrent.TimeUnit.SECONDS)) {
+                return notifyFail("failed");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return notifyFail("failed");
+        }
+        return opened[0] ? notifyOk(null) : notifyFail("unavailable");
+    }
+
+    /** 通知のタップで開くよう要求されたスレッドを取り出す（無ければ value は空）。取り出すと空になる。 */
+    public String takeOpenRequest(final String unused) {
+        OpenRequest r = OpenRequest.take();
+        return notifyOk(r == null ? "" : r.toJson());
     }
 
     // MARK: - Documents: save (ACTION_CREATE_DOCUMENT) and open (ACTION_VIEW + FileProvider) (#85)
@@ -1406,49 +1433,6 @@ public class WailsBridge {
                 ((MainActivity) activity).launchCameraCapture(true);
             } else {
                 emitEvent("common:capture", "{\"error\":\"camera unavailable\"}");
-            }
-        });
-    }
-
-    /**
-     * Start a foreground service that keeps the process alive for long-running
-     * background work (with an ongoing notification). json: {"title","text"}.
-     */
-    public void startForegroundService(final String json) {
-        mainHandler.post(() -> {
-            try {
-                String title = "Wails", text = "Running in the background";
-                try {
-                    JSONObject o = new JSONObject(json);
-                    title = o.optString("title", title);
-                    text = o.optString("text", text);
-                } catch (Exception ignored) {
-                }
-                if (Build.VERSION.SDK_INT >= 33 && activity.checkSelfPermission(
-                        "android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
-                    activity.requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 1003);
-                }
-                Intent i = new Intent(activity, WailsForegroundService.class);
-                i.setAction(WailsForegroundService.ACTION_START);
-                i.putExtra("title", title);
-                i.putExtra("text", text);
-                ContextCompat.startForegroundService(activity, i);
-                emitEvent("android:foregroundService", "{\"running\":true}");
-            } catch (Exception e) {
-                Log.e(TAG, "startForegroundService failed", e);
-                emitEvent("android:foregroundService", "{\"running\":false,\"error\":\"failed to start\"}");
-            }
-        });
-    }
-
-    /** Stop the foreground service. */
-    public void stopForegroundService() {
-        mainHandler.post(() -> {
-            try {
-                activity.stopService(new Intent(activity, WailsForegroundService.class));
-                emitEvent("android:foregroundService", "{\"running\":false}");
-            } catch (Exception e) {
-                Log.e(TAG, "stopForegroundService failed", e);
             }
         });
     }

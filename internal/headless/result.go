@@ -50,13 +50,14 @@ const (
 	codeFailed = "failed"
 )
 
+// jsonMail の表示文字列（title・body）は、Windows のトーストと同じ規則で整える（notify.Text。制御文字・不可視文字の除去と
+// 長さの切り詰め。F-10）。アカウントのアドレスは通知チャネルの表示名に使う。
 type jsonMail struct {
 	AccountID    string `json:"accountId"`
 	AccountEmail string `json:"accountEmail"`
-	AccountName  string `json:"accountName"`
 	ThreadID     string `json:"threadId"`
-	From         string `json:"from"`
-	Subject      string `json:"subject"`
+	Title        string `json:"title"`
+	Body         string `json:"body"`
 }
 
 type jsonAccount struct {
@@ -84,9 +85,9 @@ func Encode(r Result, err error) string {
 		}
 	}
 	for _, n := range r.NewMail {
+		title, body := notify.Text(n)
 		out.NewMail = append(out.NewMail, jsonMail{
-			AccountID: n.AccountID, AccountEmail: n.AccountEmail, AccountName: n.AccountName,
-			ThreadID: n.ThreadID, From: n.FromName, Subject: n.Subject,
+			AccountID: n.AccountID, AccountEmail: notify.PlainText(n.AccountEmail), ThreadID: n.ThreadID, Title: title, Body: body,
 		})
 	}
 	for _, a := range r.Accounts {
