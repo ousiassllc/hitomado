@@ -56,23 +56,66 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID s
 	if err != nil {
 		return dto.ReplyDraft{}, s.mapError(runCtx, err, ref.AccountID)
 	}
-	provider, err := s.d.AI(cfg.Provider, cfg.Model, cfg.BaseURL, key)
+	text, err := s.generate(runCtx, cfg, key, in)
 	if err != nil {
-		if errors.Is(err, ai.ErrInvalidBaseURL) {
-			return dto.ReplyDraft{}, apperr.Wrap(apperr.Validation, "Base URL が使えません。設定を確認してください。", err)
-		}
-		return dto.ReplyDraft{}, apperr.Wrap(apperr.AIFailed, "AI プロバイダを初期化できません。設定を確認してください。", err)
-	}
-	callCtx, stop := context.WithTimeout(runCtx, s.timeout)
-	defer stop()
-	text, err := provider.GenerateReply(callCtx, in)
-	if err != nil {
-		return dto.ReplyDraft{}, s.mapError(callCtx, err, "")
+		return dto.ReplyDraft{}, err
 	}
 	if strings.TrimSpace(text) == "" {
 		return dto.ReplyDraft{}, apperr.Wrap(apperr.AIFailed, "AI から本文を得られませんでした。", ai.ErrFailed)
 	}
 	return dto.ReplyDraft{BodyHTML: bodyhtml.TextToHTML(text)}, nil
+}
+
+// generate はプロバイダを作って 1 回呼ぶ。ChatGPT で 401 を受けたときだけ、トークンを更新して 1 度だけやり直す
+// （更新できなければ再ログインを案内する）。返すエラーは AppError。
+func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key string, in ai.ReplyInput) (string, error) {
+	text, err := s.callProvider(ctx, cfg, key, in)
+	if err == nil || cfg.Provider != providerChatGPT || !errors.Is(err, ai.ErrUnauthorized) || ctx.Err() != nil {
+		return text, s.mapProviderError(cfg.Provider, err)
+	}
+	key, rerr := s.d.ChatGPT.ForceRefresh(ctx)
+	if rerr != nil {
+		return "", mapChatGPTError(rerr)
+	}
+	text, err = s.callProvider(ctx, cfg, key, in)
+	return text, s.mapProviderError(cfg.Provider, err)
+}
+
+// callProvider はプロバイダを作って GenerateReply を呼ぶ。プロバイダのエラーは生のまま返す（呼び出し側が分類する）。
+// 中止・期限切れ（ctx の終了）と、プロバイダを作れないエラーだけは、ここで AppError にする。
+func (s *Service) callProvider(ctx context.Context, cfg storedAIConfig, key string, in ai.ReplyInput) (string, error) {
+	provider, err := s.d.AI(cfg.Provider, cfg.Model, cfg.BaseURL, key)
+	if err != nil {
+		if errors.Is(err, ai.ErrInvalidBaseURL) {
+			return "", apperr.Wrap(apperr.Validation, "Base URL が使えません。設定を確認してください。", err)
+		}
+		return "", apperr.Wrap(apperr.AIFailed, "AI プロバイダを初期化できません。設定を確認してください。", err)
+	}
+	callCtx, stop := context.WithTimeout(ctx, s.timeout)
+	defer stop()
+	text, err := provider.GenerateReply(callCtx, in)
+	if err != nil {
+		if context.Cause(callCtx) != nil {
+			return "", s.mapError(callCtx, err, "")
+		}
+		return "", err
+	}
+	return text, nil
+}
+
+// mapProviderError はプロバイダのエラーを AppError にする。ChatGPT の 401 は API キーではなくログインの問題として伝える。
+func (s *Service) mapProviderError(provider string, err error) error {
+	if err == nil {
+		return nil
+	}
+	var ae *apperr.Error
+	if errors.As(err, &ae) {
+		return err
+	}
+	if provider == providerChatGPT && errors.Is(err, ai.ErrUnauthorized) {
+		return apperr.Wrap(apperr.AIFailed, "ChatGPT のログインを確認できませんでした。設定画面でログインし直してください。", err)
+	}
+	return apperr.FromInfra(err, "")
 }
 
 // precheck は前提条件（キー・モデル設定済み→同意済み）を検査する。キーはここ以外に渡さない。
@@ -81,11 +124,14 @@ func (s *Service) precheck(ctx context.Context) (storedAIConfig, string, error) 
 	if err != nil {
 		return cfg, "", err
 	}
-	key, ok, err := s.apiKey(cfg.Provider)
+	key, ok, err := s.credential(ctx, cfg.Provider)
 	if err != nil {
 		return cfg, "", err
 	}
 	if !ok || strings.TrimSpace(cfg.Model) == "" {
+		if cfg.Provider == providerChatGPT {
+			return cfg, "", apperr.New(apperr.AINotConfigured, "ChatGPT にログインし、モデルを設定画面で設定してください。")
+		}
 		return cfg, "", apperr.New(apperr.AINotConfigured, "AI の API キーとモデルを設定画面で設定してください。")
 	}
 	if cfg.BaseURL != "" && cfg.Provider == providerOpenAI {

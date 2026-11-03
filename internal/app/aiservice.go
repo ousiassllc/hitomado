@@ -37,6 +37,25 @@ func (s *AIService) RecordAIConsent(ctx context.Context, provider string) (dto.A
 	return s.core.RecordAIConsent(ctx, provider)
 }
 
+// SignInChatGPT は OpenAI の公式画面（システムブラウザ）で ChatGPT にログインする。完了・中止・時間切れまでブロックする。
+// differentAccount が true なら、保存済みの登録を使わず別の ChatGPT アカウントとして登録し直す。
+func (s *AIService) SignInChatGPT(ctx context.Context, differentAccount bool) (dto.AIConfig, error) {
+	return s.core.SignInChatGPT(ctx, differentAccount)
+}
+
+// CancelSignInChatGPT は進行中の ChatGPT ログインを中止する（SignInChatGPT は OAUTH_CANCELLED で終わる）。
+func (s *AIService) CancelSignInChatGPT() error { return s.core.CancelSignInChatGPT() }
+
+// SignOutChatGPT は ChatGPT からログアウトする（OpenAI 側の失効を試み、ローカルのトークンを消す）。
+func (s *AIService) SignOutChatGPT(ctx context.Context) (dto.ChatGPTSignOutResult, error) {
+	return s.core.SignOutChatGPT(ctx)
+}
+
+// ListAIModels は provider のモデル一覧を取得する。取得できないときはエラーではなく Reason つきの空の一覧を返す（手入力へ切り替える）。
+func (s *AIService) ListAIModels(ctx context.Context, provider string) (dto.AIModelList, error) {
+	return s.core.ListAIModels(ctx, provider)
+}
+
 // GenerateReplyDraft は reply／reply_all セッションのスレッドから下書きを生成する。ctx キャンセルは CANCELLED。
 func (s *AIService) GenerateReplyDraft(ctx context.Context, sessionID, requestID string) (dto.ReplyDraft, error) {
 	return s.core.GenerateReplyDraft(ctx, sessionID, requestID)

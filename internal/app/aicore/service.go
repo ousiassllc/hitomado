@@ -21,6 +21,7 @@ import (
 const (
 	providerAnthropic = "anthropic"
 	providerOpenAI    = "openai"
+	providerChatGPT   = "chatgpt" // Sign in with ChatGPT（利用者自身の ChatGPT プラン。Responses API）
 )
 
 // aiGenerateTimeout はプロバイダ呼び出しのタイムアウト（API §6）。
@@ -54,7 +55,9 @@ type storedAIConfig struct {
 	BaseURL  string `json:"baseUrl,omitempty"`
 }
 
-func validProvider(p string) bool { return p == providerAnthropic || p == providerOpenAI }
+func validProvider(p string) bool {
+	return p == providerAnthropic || p == providerOpenAI || p == providerChatGPT
+}
 
 func (s *Service) loadConfig(ctx context.Context) (storedAIConfig, error) {
 	cfg := storedAIConfig{Provider: providerOpenAI}
@@ -94,18 +97,33 @@ func (s *Service) config(ctx context.Context) (dto.AIConfig, error) {
 	if err != nil {
 		return dto.AIConfig{}, err
 	}
-	_, has, err := s.apiKey(cfg.Provider)
+	signedIn, email, err := s.chatGPTStatus(ctx)
 	if err != nil {
 		return dto.AIConfig{}, err
 	}
-	return dto.AIConfig{Provider: cfg.Provider, Model: cfg.Model, BaseURL: cfg.BaseURL, HasAPIKey: has, ConsentedProviders: consented}, nil
+	has := signedIn
+	if cfg.Provider != providerChatGPT {
+		_, has, err = s.apiKey(cfg.Provider)
+		if err != nil {
+			return dto.AIConfig{}, err
+		}
+	}
+	return dto.AIConfig{
+		Provider: cfg.Provider, Model: cfg.Model, BaseURL: cfg.BaseURL, HasAPIKey: has, ConsentedProviders: consented,
+		ChatGPTSignedIn: signedIn, ChatGPTEmail: email,
+	}, nil
 }
 
 // GetAIConfig は AI 設定を返す（API キー自体は返さない）。
 func (s *Service) GetAIConfig(ctx context.Context) (dto.AIConfig, error) { return s.config(ctx) }
 
 func errBadProvider() error {
-	return apperr.New(apperr.Validation, "AI プロバイダが正しくありません（anthropic または openai）。")
+	return apperr.New(apperr.Validation, "AI プロバイダが正しくありません（anthropic・openai・chatgpt のいずれか）。")
+}
+
+// errChatGPTNoKey は chatgpt に API キー操作が来たときのエラー（ChatGPT ではログインでトークンを得る）。
+func errChatGPTNoKey() error {
+	return apperr.New(apperr.Validation, "ChatGPT のプランは API キーを使いません。「ChatGPT でログイン」を使ってください。")
 }
 
 // SetAIConfig は AI 設定を更新する。baseUrl は openai のみ有効で、http(s) の URL を要する
@@ -142,6 +160,9 @@ func (s *Service) SetAIApiKey(ctx context.Context, provider, apiKey string) (dto
 	if !validProvider(provider) {
 		return dto.AIConfig{}, errBadProvider()
 	}
+	if provider == providerChatGPT {
+		return dto.AIConfig{}, errChatGPTNoKey()
+	}
 	apiKey = strings.TrimSpace(apiKey)
 	if apiKey == "" {
 		return dto.AIConfig{}, apperr.New(apperr.Validation, "API キーを入力してください。")
@@ -156,6 +177,9 @@ func (s *Service) SetAIApiKey(ctx context.Context, provider, apiKey string) (dto
 func (s *Service) ClearAIApiKey(ctx context.Context, provider string) (dto.AIConfig, error) {
 	if !validProvider(provider) {
 		return dto.AIConfig{}, errBadProvider()
+	}
+	if provider == providerChatGPT {
+		return dto.AIConfig{}, errChatGPTNoKey()
 	}
 	if err := s.d.Secrets.Delete(secrets.AIAPIKeyKey(provider)); err != nil {
 		return dto.AIConfig{}, apperr.Wrap(apperr.Internal, "API キーを削除できません。", err)

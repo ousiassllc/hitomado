@@ -16,5 +16,8 @@ type URLOpener = deps.URLOpener
 // AIFactory は設定からプロバイダを作る。
 type AIFactory = deps.AIFactory
 
+// AIModelsLister はプロバイダのモデル一覧を取得する。
+type AIModelsLister = deps.AIModelsLister
+
 // PathOpener はファイル・フォルダを OS の標準の方法で開く。
 type PathOpener = deps.PathOpener

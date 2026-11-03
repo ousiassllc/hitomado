@@ -22,6 +22,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/oauth"
 	"github.com/ousiassllc/hitomado/internal/platform"
 	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/hitomado/internal/siwc"
 	"github.com/ousiassllc/hitomado/internal/store"
 	syncer "github.com/ousiassllc/hitomado/internal/sync"
 	"github.com/ousiassllc/hitomado/internal/update"
@@ -118,6 +119,12 @@ func run() error {
 		AI: func(provider, model, baseURL, apiKey string) (ai.Provider, error) {
 			return ai.New(provider, model, baseURL, apiKey)
 		},
+		AIModels: func(ctx context.Context, provider, baseURL, credential string) ([]ai.ModelInfo, error) {
+			return ai.ListModels(ctx, provider, baseURL, credential, nil)
+		},
+		ChatGPT: siwc.New(siwc.Options{
+			OpenBrowser: platform.NewBrowser(wapp).Open, Secrets: sec, Settings: st, Clock: clk, Logger: logger,
+		}),
 		Logger: logger, DataDir: dir, Version: version,
 		QuitAck: func() { quitter.Ack() },
 		Threads: cache,

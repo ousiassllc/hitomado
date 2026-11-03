@@ -39,6 +39,7 @@ type Env struct {
 	Update   *FakeUpdate
 	Secrets  *secrets.Memory
 	Clock    *clock.Fake
+	ChatGPT  *FakeChatGPT
 
 	defaultClient string // AddAccount が使う OAuth クライアントの行 ID
 }
@@ -59,7 +60,7 @@ func NewEnv(tb testing.TB) *Env {
 	e := &Env{
 		Store: st, Gmail: NewFakeGmail(), Flow: NewFakeFlow(), Files: &FakeFiles{}, Browser: &FakeBrowser{}, Paths: &FakePaths{},
 		Notifier: &FakeNotifier{}, Events: NewFakeEmitter(), Update: &FakeUpdate{},
-		Secrets: secrets.NewMemory(), Clock: clk,
+		Secrets: secrets.NewMemory(), Clock: clk, ChatGPT: &FakeChatGPT{Token: "chatgpt-access-token"}, //nolint:gosec // テスト用のダミー値
 	}
 	e.Sync = NewFakeSync(st, e.Gmail)
 	e.Deps = &app.Deps{
@@ -68,6 +69,10 @@ func NewEnv(tb testing.TB) *Env {
 		AI: func(string, string, string, string) (ai.Provider, error) {
 			return nil, errors.New("apptest: Deps.AI が未設定です")
 		},
+		AIModels: func(context.Context, string, string, string) ([]ai.ModelInfo, error) {
+			return nil, errors.New("apptest: Deps.AIModels が未設定です")
+		},
+		ChatGPT: e.ChatGPT,
 		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 		DataDir: tb.TempDir(), Version: "0.1.0",
 		Threads: threadcache.New(e.Gmail, threadcache.DefaultCapacity),

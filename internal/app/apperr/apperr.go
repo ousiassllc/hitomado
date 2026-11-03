@@ -142,6 +142,10 @@ func classify(err error) *Error {
 		return Wrap(OAuthTimeout, "認可が時間内に完了しませんでした。", err)
 	case errors.Is(err, ai.ErrUnauthorized):
 		return Wrap(AIFailed, "AI プロバイダの認証に失敗しました。API キーを確認してください。", err)
+	case errors.Is(err, ai.ErrUsageLimit):
+		return Wrap(AIFailed, "ChatGPT プランの利用枠に達しました。ChatGPT の設定の「使用状況」（https://chatgpt.com/settings/usage）で確認してください。", err)
+	case errors.Is(err, ai.ErrNotEligible):
+		return Wrap(AIFailed, "この ChatGPT アカウント（プラン・ワークスペース）では、ChatGPT プランを使えません。", err)
 	case errors.Is(err, ai.ErrRateLimited):
 		return Wrap(RateLimited, "AI プロバイダの利用制限に達しました。しばらくしてからやり直してください。", err)
 	case errors.Is(err, context.DeadlineExceeded):

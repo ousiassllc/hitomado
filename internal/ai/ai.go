@@ -9,9 +9,14 @@ import (
 
 // AI プロバイダのエラー分類。実装は errors.Is で判定できる形で wrap して返す。
 var (
-	ErrUnauthorized = errors.New("ai: unauthorized") // キー不正（401／403）
+	ErrUnauthorized = errors.New("ai: unauthorized") // キー不正（401／403）。ChatGPT ではコード subscription_sharing_invalid_user も含む
 	ErrRateLimited  = errors.New("ai: rate limited") // レート制限（429）
 	ErrFailed       = errors.New("ai: failed")       // その他のプロバイダエラー（不正な応答など）
+
+	// ErrUsageLimit は ChatGPT 利用枠の上限超過（429 または response.failed のコード subscription_sharing_usage_limit_exceeded）。
+	ErrUsageLimit = errors.New("ai: usage limit exceeded")
+	// ErrNotEligible は ChatGPT 連携の対象外ユーザー（403 かつコード subscription_sharing_user_not_eligible）。
+	ErrNotEligible = errors.New("ai: user not eligible")
 )
 
 // ContextMessage はプロンプトに含めるスレッド内のメッセージ（プレーンテキスト化済み）。
