@@ -5,6 +5,7 @@ import { settings as msg } from '../../lib/messages'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
 import BaseButton from '../ui/BaseButton.vue'
+import BaseDisclosure from '../ui/BaseDisclosure.vue'
 import BaseSwitch from '../ui/BaseSwitch.vue'
 import SettingsInput from './SettingsInput.vue'
 
@@ -155,7 +156,9 @@ async function copy(text: string): Promise<void> {
         <code class="token" data-testid="mcp-token-value">{{ shownToken }}</code>
         <BaseButton @click="copy(shownToken)">{{ msg.mcp.copy }}</BaseButton>
       </div>
-      <p class="hint">{{ msg.mcp.clientHint }}</p>
+      <BaseDisclosure :summary="msg.mcp.connectHeading">
+        <p class="hint">{{ msg.mcp.clientHint }}</p>
+      </BaseDisclosure>
     </div>
   </section>
 </template>

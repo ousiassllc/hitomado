@@ -72,8 +72,7 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-  <section class="sig" :aria-label="msg.signature.heading">
-    <h3 class="heading">{{ msg.signature.heading }}</h3>
+  <section class="sig" :aria-label="msg.tabs.signature">
     <p class="intro">{{ msg.signature.intro }}</p>
 
     <p v-if="!current" class="empty">{{ msg.signature.empty }}</p>
@@ -105,11 +104,6 @@ async function save(): Promise<void> {
 </template>
 
 <style scoped>
-.heading {
-  margin: 0;
-  font-size: var(--font-size-lg);
-}
-
 .intro {
   margin: var(--space-2) 0 var(--space-3);
   color: var(--color-text-muted);

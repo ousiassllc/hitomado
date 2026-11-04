@@ -154,7 +154,7 @@ const ANDROID_CAPS: Capabilities = {
 }
 
 describe('SettingsDialog（Android: 機能が無い OS）', () => {
-  test('MCP を持たない OS では MCP のタブと説明の「MCP」を出さない', async () => {
+  test('MCP を持たない OS では MCP のタブと「MCP」の表記を出さない', async () => {
     const pinia = setup()
     const ui = useUiStore()
     useSettingsStore().load = async () => {}

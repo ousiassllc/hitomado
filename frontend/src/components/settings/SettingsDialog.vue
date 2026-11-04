@@ -53,7 +53,7 @@ watch(open, (isOpen) => {
 </script>
 
 <template>
-  <BaseDialog v-model:open="open" size="lg" :title="msg.title" :description="platform.supportsMcp ? msg.description : msg.descriptionWithoutMcp">
+  <BaseDialog v-model:open="open" size="lg" :title="msg.title">
     <TabsRoot v-model="tab" class="tabs" :class="{ full: layout.isStack }" orientation="horizontal">
       <TabsList class="tab-list" :class="{ scroll: layout.isStack }" :aria-label="msg.tabsLabel">
         <TabsTrigger v-for="t in tabs" :key="t.value" :value="t.value" class="tab">

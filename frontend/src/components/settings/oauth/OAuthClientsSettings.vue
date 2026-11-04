@@ -41,9 +41,8 @@ function openGuide(): void {
 </script>
 
 <template>
-  <section class="oauth" :aria-label="msg.oauth.heading">
+  <section class="oauth" :aria-label="msg.tabs.oauthClients">
     <div class="bar">
-      <h3 class="heading">{{ msg.oauth.heading }}</h3>
       <BaseButton variant="primary" :disabled="editing !== undefined" @click="editing = 'new'">
         {{ msg.oauth.add }}
       </BaseButton>
@@ -104,12 +103,7 @@ function openGuide(): void {
 .bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.heading {
-  margin: 0;
-  font-size: var(--font-size-lg);
+  justify-content: flex-end;
 }
 
 .intro {

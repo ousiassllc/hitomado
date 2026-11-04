@@ -55,6 +55,9 @@ export const SHORTCUT_KEYS = {
   compose: 'c',
 } as const satisfies Partial<Record<ShortcutAction, string>>
 
+/** 作成画面の送信確認を開くキー（`ComposePane` の keydown が処理する。`resolveShortcut` の対象外）。 */
+export const SEND_SHORTCUT_KEY = 'Ctrl+Enter'
+
 /** 検索窓の識別用属性（`/` でのフォーカス先）。 */
 export const SEARCH_INPUT_ATTR = 'data-search-input'
 
