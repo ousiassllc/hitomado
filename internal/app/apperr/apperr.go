@@ -56,6 +56,9 @@ const (
 	ReasonUsageLimit        = "usage_limit_exceeded" // AI_FAILED: ChatGPT プランの利用枠の超過（subscription_sharing_usage_limit_exceeded）
 	ReasonGmailAPIDisabled  = "gmail_api_disabled"   // GMAIL_ERROR: Google Cloud のプロジェクトで Gmail API が無効（SERVICE_DISABLED／accessNotConfigured）
 	ReasonScopeInsufficient = "scope_insufficient"   // NEEDS_REAUTH: 権限（スコープ）不足（ACCESS_TOKEN_SCOPE_INSUFFICIENT／insufficientPermissions）
+	// ReasonAccountSignedOut は AI_NOT_CONFIGURED: SelectChatGPTAccount で選んだ ChatGPT アカウントがログアウト済み。
+	// 画面は「再ログイン」を案内する文面（messages）に置き換える。
+	ReasonAccountSignedOut = "account_signed_out"
 )
 
 // Error は AppError。JSON は {code, message, retryable, accountId?, details?}。

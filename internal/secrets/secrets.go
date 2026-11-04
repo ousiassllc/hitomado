@@ -46,6 +46,8 @@ func MCPTokenKey() string { return "hitomado/mcp_token" }
 
 // ChatGPTTokenKey は Sign in with ChatGPT のトークンのキー。ChatGPT アカウント（クライアント登録）ごとに別のキーを使う。
 // clientID は発行された client_id、kind は access／refresh／id。
+// Windows 資格情報マネージャーはキーの大文字小文字を区別しないので、clientID は大文字小文字を無視して一意な値として扱う
+// （大文字小文字だけが違う client_id は呼び出し側＝internal/siwc が登録時に拒否する。キーの形式は変えない）。
 // Windows 資格情報マネージャーの 1 件あたりの上限（約 2.5KB）を超える値は呼び出し側で分割する。
 func ChatGPTTokenKey(clientID, kind string) string {
 	return "hitomado/chatgpt_token/" + clientID + "/" + kind

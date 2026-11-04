@@ -113,8 +113,8 @@ public class SecureStoreTest {
     public void largeValueRoundTrips() throws Exception {
         SecureStore s = new SecureStore(new FakeBackend());
         String big = repeat("a1b2", 4096) + "終"; // 16KB 超
-        s.put("hitomado/chatgpt_token/access", big);
-        assertEquals(big, s.get("hitomado/chatgpt_token/access"));
+        s.put("hitomado/chatgpt_token/oaiapp_test/access", big);
+        assertEquals(big, s.get("hitomado/chatgpt_token/oaiapp_test/access"));
     }
 
     @Test
