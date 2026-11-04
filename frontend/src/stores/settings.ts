@@ -16,6 +16,7 @@ import type {
   MCPStatus,
   UpdateInfo,
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { aiModelsKey, normalizeAIConfig } from '../lib/aiConfig'
 import { call, list, parseBindingError } from '../lib/api'
 import {
   EVENTS,
@@ -27,19 +28,10 @@ import { settings as msg } from '../lib/messages'
 import { buildUpdateBanner, UPDATE_BANNER_KEY } from '../lib/updateBanner'
 import { useUiStore } from './ui'
 
-/** Go は consentedProviders・chatgptAccounts を nil にし得るので、画面側は常に配列として扱う。 */
-function normalizeAIConfig(c: AIConfig): AIConfig {
-  return {
-    ...c,
-    consentedProviders: list(c.consentedProviders),
-    chatgptAccounts: list(c.chatgptAccounts),
-  }
-}
-
 export const useSettingsStore = defineStore('settings', () => {
   const ui = useUiStore()
   const aiConfig = ref<AIConfig>()
-  /** プロバイダごとの、最後に取得したモデル一覧（API キー・Base URL の変更後と「更新」のときだけ取得する）。 */
+  /** 送信先（プロバイダ・OpenAI 互換は Base URL。`aiModelsKey`）ごとの、最後に取得したモデル一覧。 */
   const aiModels = ref<Record<string, AIModelList>>({})
   const appInfo = ref<AppInfo>()
   const update = ref<UpdateInfo>()
@@ -183,15 +175,20 @@ export const useSettingsStore = defineStore('settings', () => {
     aiConfig.value = normalizeAIConfig(await call(AIService.ClearAIApiKey(provider)))
   }
 
-  async function recordAIConsent(provider: string): Promise<void> {
-    aiConfig.value = normalizeAIConfig(await call(AIService.RecordAIConsent(provider)))
+  /** 送信への同意を保存する。baseUrl は OpenAI 互換のみ有効で、保存前に選んだ送信先にも同意できる。 */
+  async function recordAIConsent(provider: string, baseUrl = ''): Promise<void> {
+    aiConfig.value = normalizeAIConfig(await call(AIService.RecordAIConsent(provider, baseUrl)))
   }
 
-  /** モデル一覧を取得する。取得できないときも例外にせず、reason つきの空の一覧が入る（手入力へ切り替える）。 */
-  async function loadAIModels(provider: string): Promise<AIModelList> {
-    const r = await call(AIService.ListAIModels(provider))
+  /**
+   * 選んだ送信先（provider と、OpenAI 互換の baseUrl）のモデル一覧を取得する。保存前の設定でも取得できる。
+   * 取得できないときも例外にせず、reason つきの空の一覧が入る（手入力へ切り替える）。同意前の送信先は Go が取得を送らず
+   * reason=consent_required を返す。
+   */
+  async function loadAIModels(provider: string, baseUrl = ''): Promise<AIModelList> {
+    const r = await call(AIService.ListAIModels(provider, baseUrl))
     const res = { ...r, models: list(r.models) }
-    aiModels.value = { ...aiModels.value, [provider]: res }
+    aiModels.value = { ...aiModels.value, [aiModelsKey(provider, baseUrl)]: res }
     return res
   }
 

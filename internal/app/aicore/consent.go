@@ -108,7 +108,12 @@ func (e consentEntry) valid(cfg storedAIConfig) bool {
 	return destination(e.Provider, e.BaseURL) == destination(e.Provider, cur)
 }
 
-// loadConsentEntries は保存済みの同意（プロバイダごとに 1 件・重複なし）を返す。
+// sameDestination は 2 件の同意が同じ「プロバイダ＋送信先」か。
+func (e consentEntry) sameDestination(o consentEntry) bool {
+	return destination(e.Provider, e.BaseURL) == destination(o.Provider, o.BaseURL)
+}
+
+// loadConsentEntries は保存済みの同意（プロバイダ＋送信先ごとに 1 件・重複なし）を返す。
 func (s *Service) loadConsentEntries(ctx context.Context) ([]consentEntry, error) {
 	out := []consentEntry{}
 	v, ok, err := s.d.Store.GetSetting(ctx, store.SettingAIConsent)
@@ -123,7 +128,7 @@ func (s *Service) loadConsentEntries(ctx context.Context) ([]consentEntry, error
 		return out, apperr.Wrap(apperr.Internal, "AI の同意状態を読み込めません。", err)
 	}
 	for _, e := range append([]consentEntry{{Provider: c.Provider, AgreedAt: c.AgreedAt}}, c.Providers...) {
-		if validProvider(e.Provider) && !slices.ContainsFunc(out, func(o consentEntry) bool { return o.Provider == e.Provider }) {
+		if validProvider(e.Provider) && !slices.ContainsFunc(out, func(o consentEntry) bool { return o.sameDestination(e) }) {
 			out = append(out, e)
 		}
 	}
@@ -169,27 +174,49 @@ func (s *Service) pruneConsent(ctx context.Context, cfg storedAIConfig) error {
 	return s.saveConsentEntries(ctx, kept)
 }
 
-// RecordAIConsent は「スレッド内容が当該プロバイダ（現在の送信先）へ送信される」ことへの同意を保存する（F-08）。
-func (s *Service) RecordAIConsent(ctx context.Context, provider string) (dto.AIConfig, error) {
+// hasConsent は provider を baseURL（openai のみ有効。空は既定の送信先）の送信先へ使うことに同意済みか。
+// 保存済みの設定には依らない（保存前のプロバイダ・Base URL に対する同意の確認に使う）。使えない Base URL は未同意として扱う。
+func (s *Service) hasConsent(ctx context.Context, provider, baseURL string) (bool, error) {
+	if baseURL != "" && ai.ValidateBaseURL(baseURL) != nil {
+		return false, nil
+	}
+	entries, err := s.loadConsentEntries(ctx)
+	if err != nil {
+		return false, err
+	}
+	want := consentEntry{Provider: provider, BaseURL: baseURL}
+	return slices.ContainsFunc(entries, want.sameDestination), nil
+}
+
+// RecordAIConsent は「スレッド内容が当該プロバイダ・送信先へ送信される」ことへの同意を保存する（F-08）。
+// baseURL は openai のみ有効で、空は既定の送信先。保存済みの設定の送信先ではなく、渡された送信先に対する同意を記録する
+// （設定を保存する前に、選んだプロバイダ・Base URL に同意できるようにする。#105）。使えない Base URL は VALIDATION。
+// 同意は「プロバイダ＋送信先」ごとに 1 件で、ほかの送信先の同意は消さない。
+func (s *Service) RecordAIConsent(ctx context.Context, provider, baseURL string) (dto.AIConfig, error) {
 	if !validProvider(provider) {
 		return dto.AIConfig{}, errBadProvider()
 	}
-	cfg, err := s.loadConfig(ctx)
-	if err != nil {
-		return dto.AIConfig{}, err
+	baseURL = strings.TrimSpace(baseURL)
+	if provider != providerOpenAI {
+		baseURL = ""
+	}
+	if baseURL != "" {
+		if err := validateBaseURL(baseURL); err != nil {
+			return dto.AIConfig{}, err
+		}
 	}
 	entries, err := s.loadConsentEntries(ctx)
 	if err != nil {
 		return dto.AIConfig{}, err
 	}
-	at := s.d.Clock.Now().UnixMilli()
+	next := consentEntry{Provider: provider, BaseURL: baseURL, AgreedAt: s.d.Clock.Now().UnixMilli()}
 	for _, e := range entries {
-		if e.Provider == provider && e.valid(cfg) {
-			at = e.AgreedAt
+		if e.sameDestination(next) {
+			next.AgreedAt = e.AgreedAt
 		}
 	}
-	entries = slices.DeleteFunc(entries, func(e consentEntry) bool { return e.Provider == provider })
-	entries = append(entries, consentEntry{Provider: provider, BaseURL: currentBaseURL(cfg, provider), AgreedAt: at})
+	entries = slices.DeleteFunc(entries, next.sameDestination)
+	entries = append(entries, next)
 	if err := s.saveConsentEntries(ctx, entries); err != nil {
 		return dto.AIConfig{}, err
 	}

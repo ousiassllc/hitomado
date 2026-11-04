@@ -31,7 +31,7 @@ func (f *aiFixture) chatgptReady(t *testing.T) {
 	require.NoError(t, err)
 	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1")
 	require.NoError(t, err)
-	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt")
+	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt", "")
 	require.NoError(t, err)
 }
 
@@ -53,7 +53,7 @@ func TestChatGPTSignInOutAndConfig(t *testing.T) {
 	acct := cfg.ChatGPTAccounts[0]
 	assert.True(t, acct.SignedIn)
 	assert.True(t, acct.Active)
-	assert.False(t, cfg.HasAPIKey, "選択中のプロバイダ（openai）の API キーは別")
+	assert.True(t, cfg.HasAPIKey, "既定の chatgpt では、ログイン済みが資格情報あり")
 
 	cfg, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1")
 	require.NoError(t, err)
@@ -147,11 +147,11 @@ func TestChatGPTPreconditionsAndConsent(t *testing.T) {
 	requireCode(t, "AI_CONSENT_REQUIRED", gen())
 
 	// openai への同意（同じ api.openai.com でも別のプロバイダ）では足りない。
-	_, err = f.ai.RecordAIConsent(t.Context(), "openai")
+	_, err = f.ai.RecordAIConsent(t.Context(), "openai", "")
 	require.NoError(t, err)
 	requireCode(t, "AI_CONSENT_REQUIRED", gen())
 
-	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt")
+	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt", "")
 	require.NoError(t, err)
 	require.NoError(t, gen())
 	assert.Equal(t, [4]string{"chatgpt", "gpt-plan", "", chatgptToken},

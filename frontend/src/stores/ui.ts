@@ -34,6 +34,8 @@ export const useUiStore = defineStore('ui', () => {
     sendConfirm: false,
   })
   const settingsTab = ref('accounts')
+  /** AI 設定タブを開いた直後に始める流れ（「AI で下書き」の初回の案内から ChatGPT へ進むとき。AISettings が一度だけ受け取る）。 */
+  const aiSetupIntent = ref<'chatgpt-login'>()
   const online = ref(true)
   /** サイドバーのドロワー（2 ペイン・1 画面ずつのレイアウトで使う）が開いているか */
   const menuOpen = ref(false)
@@ -66,9 +68,17 @@ export const useUiStore = defineStore('ui', () => {
   }
 
   /** 設定ダイアログを開く（AI キー未設定の誘導などから）。tab は SettingsDialog のタブ値（既定はアカウント）。 */
-  function openSettings(tab = 'accounts'): void {
+  function openSettings(tab = 'accounts', aiIntent?: 'chatgpt-login'): void {
     settingsTab.value = tab
+    aiSetupIntent.value = tab === 'ai' ? aiIntent : undefined
     openDialog('settings')
+  }
+
+  /** `aiSetupIntent` を取り出して消す（同じ流れを 2 回始めない）。 */
+  function takeAiSetupIntent(): 'chatgpt-login' | undefined {
+    const v = aiSetupIntent.value
+    aiSetupIntent.value = undefined
+    return v
   }
 
   function openMenu(): void {
@@ -94,6 +104,7 @@ export const useUiStore = defineStore('ui', () => {
     banners,
     dialogs,
     settingsTab,
+    aiSetupIntent,
     online,
     menuOpen,
     pushToast,
@@ -103,6 +114,7 @@ export const useUiStore = defineStore('ui', () => {
     openDialog,
     closeDialog,
     openSettings,
+    takeAiSetupIntent,
     openMenu,
     closeMenu,
     setOnline,

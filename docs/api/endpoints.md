@@ -343,8 +343,10 @@ type AIConfig = {
   provider: AIProvider;
   model: string;
   baseUrl?: string;           // openai のみ。未指定は OpenAI 既定
+  configured: boolean;        // AI の設定（`SetAIConfig`）を一度でも保存したか。偽のあいだ、provider は既定の `chatgpt`・model は空（画面は「AI で下書き」で初回の案内を出す）。壊れた保存値・未知のプロバイダの保存値も偽（既定として扱う）
   hasApiKey: boolean;         // 現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。キー・トークン自体は返さない
-  consentedProviders: AIProvider[];
+  apiKeyProviders: AIProvider[];       // API キーを登録済みのプロバイダ（anthropic／openai。chatgpt は含めず chatgptSignedIn で見る）。保存前に選んだプロバイダのキーの有無を出すのに使う。無ければ空配列で null にしない
+  consentedProviders: AIProvider[];    // 現在保存している設定の送信先に同意済みのプロバイダ（保存前に選んだ送信先の同意は、`ListAIModels` の `consent_required` で分かる）
   chatgptSignedIn: boolean;   // 選択中のプロバイダに関わらず、使用中の ChatGPT アカウントがログイン済みか
   chatgptEmail?: string;      // 使用中のアカウントのメールアドレス（表示用。検証済み ID トークンのもの）
   chatgptAccounts: ChatGPTAccount[];   // 保存済みの ChatGPT アカウント（登録順。無ければ空配列で null にしない。トークンは含まない）
@@ -371,12 +373,12 @@ type ChatGPTSignOutResult = { config: AIConfig; revocationConfirmed: boolean };
 
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
-| `GetAIConfig()` | — | `AIConfig` | |
+| `GetAIConfig()` | — | `AIConfig` | 設定を保存していないときは `provider = "chatgpt"`・`model = ""`・`configured = false`（既定のプロバイダは Go の `defaultProvider`。保存済みの `anthropic`／`openai`／`chatgpt` は変えない。#104） |
 | `SetAIConfig(provider, model, baseUrl?)` | | `AIConfig` | `app_settings.ai.config` を更新。`baseUrl` は `openai` のみ有効で、`https://` の URL か、ホストが `localhost`／`127.0.0.1`／`::1` に完全一致する `http://` の URL に限る。それ以外（外部ホストへの `http://`、userinfo・クエリ・フラグメント付き等）は `VALIDATION`（メッセージに URL は含めない）。Base URL が変わって送信先（scheme＋ホスト）が変わると、そのプロバイダの同意は無効になる |
 | `SetAIApiKey(provider, apiKey)` | string ×2 | `AIConfig` | 資格情報ストアへ保存。`chatgpt` は API キーを使わないので `VALIDATION` |
 | `ClearAIApiKey(provider)` | string | `AIConfig` | キーを削除。`chatgpt` は `VALIDATION`（ログアウトは `SignOutChatGPT`） |
-| `RecordAIConsent(provider)` | string | `AIConfig` | 「スレッド内容が当該プロバイダへ送信される」ことの同意を保存（`app_settings.ai.consent`）。同意は「プロバイダ＋送信先」単位で、`openai`（api.openai.com）と `chatgpt`（api.openai.com）は別の同意として取る |
-| `ListAIModels(provider)` | string | `AIModelList` | 保存済みの設定の送信先から、使えるモデルの一覧を取得する（下記）。MCP からは呼べない |
+| `RecordAIConsent(provider, baseUrl?)` | string ×2 | `AIConfig` | 「スレッド内容が当該プロバイダ・送信先へ送信される」ことの同意を保存（`app_settings.ai.consent`）。同意は「プロバイダ＋送信先」単位で、`openai`（api.openai.com）と `chatgpt`（api.openai.com）は別の同意として取る。**保存済みの設定ではなく、渡された送信先に対する同意を記録する**ので、設定を保存する前に、選んだプロバイダ・Base URL に同意できる（#105）。`baseUrl` は `openai` のみ有効で、空は既定の送信先。`SetAIConfig` と同じ規則で検証し、使えない Base URL は `VALIDATION`。ほかの送信先の同意は消さない。返す `AIConfig.consentedProviders` は、保存済みの設定の送信先に対するもの |
+| `ListAIModels(provider, baseUrl?)` | string ×2 | `AIModelList` | 渡された送信先（`openai` は `baseUrl`。空は既定）から、使えるモデルの一覧を取得する。**保存済みの設定に依らず、保存前でも取得できる**（#105。下記）。MCP からは呼べない |
 | `SignInChatGPT(accountId)` | string | `AIConfig` | OpenAI の公式画面（システムブラウザ）で ChatGPT にログインする。完了・中止・時間切れまでブロックする（下記）。`accountId` が空なら別の ChatGPT アカウントとして新しく登録する（追加）。保存済みの `id` を渡すと、その登録の `client_id` で再ログインする（別のアカウントでログインされたら `VALIDATION`、未登録の ID は `NOT_FOUND`）。ID トークンを検証して保存を終えるまで、使用中のアカウントとほかのアカウントのトークン・登録は変えず、成功したアカウントが使用中になる |
 | `SelectChatGPTAccount(accountId)` | string | `AIConfig` | 下書きの生成に使う ChatGPT アカウントを切り替える。通信しない。ログイン中のアカウントだけ選べる（ログアウト済みは `AI_NOT_CONFIGURED`・`details.reason = "account_signed_out"`・メッセージは「このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。」、未登録は `NOT_FOUND`） |
 | `CancelSignInChatGPT()` | — | — | 進行中のログインを中止（`SignInChatGPT` は `OAUTH_CANCELLED` で reject） |
@@ -392,10 +394,11 @@ type ChatGPTSignOutResult = { config: AIConfig; revocationConfirmed: boolean };
 
 ### 6.1 モデル一覧（`ListAIModels`）
 
-- 取得先: `openai` は保存済みの Base URL（空なら既定）の `GET {base}/models`、`anthropic` は `GET https://api.anthropic.com/v1/models`（`limit=1000`、`has_more` の間 `after_id` で最大 5 ページ）、`chatgpt` は `GET https://api.openai.com/v1/models`（ログインのアクセストークン。`visibility == "list"` のモデルだけを、サーバーの順で）。キーは資格情報ストアから読み、フロントには渡さない
-- 呼ぶ契機は、API キーの登録・変更のあと、Base URL の変更のあと、ChatGPT のログインのあと、設定画面の「一覧を更新」だけ（フロントの責務。定期的には呼ばない）
-- 一覧が取れなくてもエラーにしない（`models` が空で `reason`／`message` を返し、画面は手入力へ切り替える）。**同意前の送信先（`consent_required`）・使えない Base URL（`invalid_base_url`）・キー未登録／未ログイン（`no_credentials`）には取得の通信を送らない**。https のみ（loopback の http を除く）・リダイレクトに従わない・本文の上限、という `GenerateReplyDraft` と同じ規則を適用する。Models API が無い（404／405／501）は `unsupported`、401／403 は `unauthorized`、429 は `rate_limited`、通信失敗・時間切れは `network`。呼び出し側のキャンセルだけが `CANCELLED`
-- 保存済みのモデルが一覧に無くても、設定は変えない（画面はそのモデルを選択肢に残す）。一覧は使えることの保証ではなく、選んだモデルが使えるかは下書きの生成が成功して初めて分かる（ChatGPT プランのモデル一覧は特に、アカウントの権限の確認ではない）
+- 取得先: `openai` は引数の `baseUrl`（空なら既定）の `GET {base}/models`、`anthropic` は `GET https://api.anthropic.com/v1/models`（`limit=1000`、`has_more` の間 `after_id` で最大 5 ページ）、`chatgpt` は `GET https://api.openai.com/v1/models`（ログインのアクセストークン。`visibility == "list"` のモデルだけを、サーバーの順で）。**取得先は保存済みの設定（`app_settings.ai.config`）ではなく、引数の `provider`・`baseUrl` で決める**（`baseUrl` は `openai` 以外では無視する）ので、設定を保存する前に、選んだプロバイダ（と Base URL）の一覧を取得できる（#105）。キーは資格情報ストアから読み、フロントには渡さない（キーはプロバイダごとに保存されるので、保存前に選んだプロバイダのキーも読める）
+- 呼ぶ契機（フロントの責務。定期的には呼ばない）: プロバイダ（OpenAI 互換は Base URL が決まったとき）を選んだとき、API キーの登録・変更のあと、ChatGPT のログインのあと、同意の画面で「同意する」を押したあと、設定画面の「一覧を更新」。流れは [コンポーネント設計 §3.9.1](../components/overview.md#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)
+- 同意の判定: 引数の「プロバイダ＋送信先」（`openai` は `baseUrl` の scheme とホスト。`RecordAIConsent` と同じ単位）に同意していなければ、取得の通信を送らず `consent_required` を返す。画面はこれを、同意の画面（F-08）を出す契機にする（同意の画面を出すかどうかの判断も、UI ではなくこの結果で決める）。同意は `RecordAIConsent(provider, baseUrl)` で保存してから、`ListAIModels` を呼び直す
+- 一覧が取れなくてもエラーにしない（`models` が空で `reason`／`message` を返し、画面は手入力へ切り替える）。**同意前の送信先（`consent_required`）・使えない Base URL（`invalid_base_url`）・キー未登録／未ログイン（`no_credentials`）には取得の通信を送らない**（判定の順は `invalid_base_url` → `consent_required` → `no_credentials`）。https のみ（loopback の http を除く）・リダイレクトに従わない・本文の上限、という `GenerateReplyDraft` と同じ規則を適用する。Models API が無い（404／405／501）は `unsupported`、401／403 は `unauthorized`、429 は `rate_limited`、通信失敗・時間切れは `network`。呼び出し側のキャンセルだけが `CANCELLED`
+- 保存済みのモデルが一覧に無くても、設定は変えない（画面はそのモデルを選択肢に残す）。一覧は使えることの保証ではなく、選んだモデルが使えるかは下書きの生成が成功して初めて分かる（ChatGPT プランのモデル一覧は特に、アカウントの権限の確認ではない）。一覧の取得は設定も同意も変えない（保存するのは `SetAIConfig`）
 - ログには件数（成功）と理由コード（失敗）だけを残す。キー・トークン・応答の中身・モデル名は残さない
 
 ### 6.2 ChatGPT プラン（Sign in with ChatGPT）
@@ -549,3 +552,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.28 | 2026-11-04 | §1.2 の `OAUTH_CANCELLED`／`OAUTH_DENIED`／`OAUTH_TIMEOUT` の発生元に `SignInChatGPT` を追記（`OAUTH_DENIED` は ChatGPT プランの利用が許可されなかった場合も） | #75 から続いていた発生元の乖離（#94） |
 | 1.29 | 2026-11-04 | `SelectChatGPTAccount` が、ログアウト済みのアカウントで `AI_NOT_CONFIGURED` に `details.reason = "account_signed_out"` と「再ログイン」を案内するメッセージを返す旨を、§6 の表と §6.2 の複数アカウントの記述に追記 | 何をすればよいか分からない文面だったため（#102） |
 | 1.30 | 2026-11-04 | `AppService` に `SetAutoUpdateEnabled`・`GetUpdateStatus`・`RestartToUpdate`、`GetAppInfo` に `autoUpdateSupported`／`autoUpdateEnabled`、イベント `update:status`、外部 API に Release の添付ファイルを追加。`CheckForUpdate` に自動ダウンロードの開始を追記 | #103 |
+| 1.31 | 2026-11-04 | `AIConfig` に `configured`（未保存のとき偽。既定のプロバイダは `chatgpt`）と `apiKeyProviders` を追加。`RecordAIConsent` と `ListAIModels` に `baseUrl` を足し、保存済みの設定ではなく渡された送信先に対して同意の保存・一覧の取得をするように変更（保存前でも取得できる。同意前は `consent_required`）。§6.1 の取得先と呼ぶ契機を更新 | #104・#105 |

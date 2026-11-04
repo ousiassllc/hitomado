@@ -5,6 +5,9 @@ const ANTHROPIC_URL = 'https://api.anthropic.com'
 const OPENAI_DEFAULT_URL = 'https://api.openai.com'
 const CHATGPT_URL = 'https://api.openai.com'
 
+/** AI の設定をまだ保存していないときのプロバイダ（利用者自身の ChatGPT プラン。#104）。Go の `defaultProvider`（aicore）と同じ値。 */
+export const DEFAULT_AI_PROVIDER = 'chatgpt'
+
 export interface AIDestination {
   providerLabel: string
   url: string

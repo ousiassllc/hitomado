@@ -73,7 +73,7 @@ func (f *aiFixture) ready(t *testing.T) {
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
-	_, err = f.ai.RecordAIConsent(t.Context(), "openai")
+	_, err = f.ai.RecordAIConsent(t.Context(), "openai", "https://llm.example/v1")
 	require.NoError(t, err)
 }
 
@@ -81,20 +81,25 @@ func TestAIConfigDefaultsAndRoundTrip(t *testing.T) {
 	f := newAIFixture(t)
 	cfg, err := f.ai.GetAIConfig(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, "openai", cfg.Provider)
+	assert.Equal(t, "chatgpt", cfg.Provider, "未保存の既定は ChatGPT プラン（#104）")
+	assert.False(t, cfg.Configured)
 	assert.Empty(t, cfg.Model)
 	assert.False(t, cfg.HasAPIKey)
+	assert.NotNil(t, cfg.APIKeyProviders)
+	assert.Empty(t, cfg.APIKeyProviders)
 	assert.NotNil(t, cfg.ConsentedProviders)
 	assert.Empty(t, cfg.ConsentedProviders)
 
 	cfg, err = f.ai.SetAIConfig(t.Context(), "openai", " gpt-x ", "https://llm.example/v1")
 	require.NoError(t, err)
+	assert.True(t, cfg.Configured)
 	assert.Equal(t, "gpt-x", cfg.Model)
 	assert.Equal(t, "https://llm.example/v1", cfg.BaseURL)
 
 	cfg, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
 	assert.True(t, cfg.HasAPIKey)
+	assert.Equal(t, []string{"openai"}, cfg.APIKeyProviders)
 	got, err := f.Secrets.Get(secrets.AIAPIKeyKey("openai"))
 	require.NoError(t, err)
 	assert.Equal(t, testAPIKey, got)
@@ -106,6 +111,37 @@ func TestAIConfigDefaultsAndRoundTrip(t *testing.T) {
 	cfg, err = f.ai.SetAIConfig(t.Context(), "anthropic", "claude", "https://ignored.example")
 	require.NoError(t, err)
 	assert.Empty(t, cfg.BaseURL, "baseUrl は openai のみ")
+}
+
+// 保存済みのプロバイダ（anthropic・openai・chatgpt）は、既定が ChatGPT になっても変わらない（#104）。
+func TestSavedProviderIsNotReplacedByTheDefault(t *testing.T) {
+	for _, p := range []string{"anthropic", "openai", "chatgpt"} {
+		f := newAIFixture(t)
+		_, err := f.ai.SetAIConfig(t.Context(), p, "m-"+p, "")
+		require.NoError(t, err)
+		cfg, err := f.ai.GetAIConfig(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, p, cfg.Provider)
+		assert.Equal(t, "m-"+p, cfg.Model)
+		assert.True(t, cfg.Configured, p)
+	}
+
+	// 旧バージョンが保存した値（モデル名と Base URL つきの openai）もそのまま読む。
+	f := newAIFixture(t)
+	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.config", `{"provider":"openai","model":"gpt-old","baseUrl":"https://llm.example/v1"}`))
+	cfg, err := f.ai.GetAIConfig(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "openai", cfg.Provider)
+	assert.Equal(t, "gpt-old", cfg.Model)
+	assert.Equal(t, "https://llm.example/v1", cfg.BaseURL)
+	assert.True(t, cfg.Configured)
+
+	// 未知のプロバイダの保存値は、未保存と同じ既定（ChatGPT）で扱う。
+	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.config", `{"provider":"gemini","model":"x"}`))
+	cfg, err = f.ai.GetAIConfig(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "chatgpt", cfg.Provider)
+	assert.False(t, cfg.Configured)
 }
 
 func TestAIConfigValidation(t *testing.T) {
@@ -122,19 +158,19 @@ func TestAIConfigValidation(t *testing.T) {
 	requireCode(t, "VALIDATION", err)
 	_, err = f.ai.ClearAIApiKey(t.Context(), "gemini")
 	requireCode(t, "VALIDATION", err)
-	_, err = f.ai.RecordAIConsent(t.Context(), "gemini")
+	_, err = f.ai.RecordAIConsent(t.Context(), "gemini", "")
 	requireCode(t, "VALIDATION", err)
 }
 
 func TestAIConsentPerProvider(t *testing.T) {
 	f := newAIFixture(t)
-	cfg, err := f.ai.RecordAIConsent(t.Context(), "anthropic")
+	cfg, err := f.ai.RecordAIConsent(t.Context(), "anthropic", "")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"anthropic"}, cfg.ConsentedProviders)
-	cfg, err = f.ai.RecordAIConsent(t.Context(), "openai")
+	cfg, err = f.ai.RecordAIConsent(t.Context(), "openai", "")
 	require.NoError(t, err)
 	assert.ElementsMatch(t, []string{"anthropic", "openai"}, cfg.ConsentedProviders)
-	cfg, err = f.ai.RecordAIConsent(t.Context(), "openai")
+	cfg, err = f.ai.RecordAIConsent(t.Context(), "openai", "")
 	require.NoError(t, err)
 	assert.Len(t, cfg.ConsentedProviders, 2)
 }
@@ -168,11 +204,11 @@ func TestGeneratePreconditions(t *testing.T) {
 	require.NoError(t, err)
 	requireCode(t, "AI_CONSENT_REQUIRED", gen())
 
-	_, err = f.ai.RecordAIConsent(t.Context(), "anthropic") // 別プロバイダの同意では足りない
+	_, err = f.ai.RecordAIConsent(t.Context(), "anthropic", "") // 別プロバイダの同意では足りない
 	require.NoError(t, err)
 	requireCode(t, "AI_CONSENT_REQUIRED", gen())
 
-	_, err = f.ai.RecordAIConsent(t.Context(), "openai")
+	_, err = f.ai.RecordAIConsent(t.Context(), "openai", "")
 	require.NoError(t, err)
 	require.NoError(t, gen())
 	assert.Equal(t, [4]string{"openai", "gpt-test", "", testAPIKey}, [4]string{f.factory.provider, f.factory.model, f.factory.baseURL, f.factory.key})

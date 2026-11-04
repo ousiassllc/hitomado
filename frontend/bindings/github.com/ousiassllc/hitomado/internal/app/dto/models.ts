@@ -17,9 +17,19 @@ export interface AIConfig {
     "baseUrl"?: string;
 
     /**
+     * Configured は AI の設定（プロバイダ・モデル）を一度でも保存したか。false の間、provider は既定（chatgpt）で、画面は初めて使うときの案内を出す。
+     */
+    "configured": boolean;
+
+    /**
      * HasAPIKey は現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。
      */
     "hasApiKey": boolean;
+
+    /**
+     * APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai。chatgpt は ChatGPTSignedIn）。保存前に選んだプロバイダのキーの有無を出すのに使う。null にしない。
+     */
+    "apiKeyProviders": string[] | null;
     "consentedProviders": string[] | null;
 
     /**

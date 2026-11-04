@@ -62,6 +62,9 @@ async function login(accountId: string): Promise<void> {
   }
 }
 
+// 設定画面の流れ（同意のあと・初回の案内から）が、「Continue with ChatGPT」を押したのと同じ動作を始める。
+defineExpose({ login: () => login('') })
+
 async function cancel(): Promise<void> {
   try {
     await store.cancelSignInChatGPT()

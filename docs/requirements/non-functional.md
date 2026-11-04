@@ -40,7 +40,7 @@
 | `api.github.com` | 新バージョン確認（NF-D03） | リクエスト（IP・User-Agent）のみ。メール・アカウント情報は含めない |
 | `github.com`、`release-assets.githubusercontent.com` | Windows 版の自動アップデート（NF-D03）: Release の添付ファイル（インストーラー・`SHA256SUMS.txt`）のダウンロード。`github.com` の `releases/download/...` が配信元（`release-assets.githubusercontent.com`。以前は `objects.githubusercontent.com`）へ 302 でリダイレクトする。許可するのは `github.com` と `*.githubusercontent.com` の HTTPS だけ。設定でオフにできる | リクエスト（IP・User-Agent）のみ。メール・アカウント情報は含めない |
 
-- AI 下書きは、初回利用時に「スレッドの内容が選択した AI プロバイダへ送信される」ことを表示し、同意を保存する。同意前は生成しない
+- AI 下書きは、初回利用時に「スレッドの内容が選択した AI プロバイダへ送信される」ことを表示し、同意を保存する。同意前は生成しない。同意前は、モデル一覧の取得も送信先へ送らない。同意は、設定を保存する前にプロバイダ・送信先を選んだ時点でも取る（#105）
 - AI プロバイダが OpenAI 互換のエンドポイントの場合、Base URL は利用者が指定する。送信先は設定画面に常に表示する
 - Base URL は `https://` を原則とする。`http://` はホストが `localhost`／`127.0.0.1`／`::1`（ローカルの LLM サーバー）に完全一致するときだけ許可し、それ以外の `http://`（平文でのスレッド内容の送信）は拒否する。認証情報（`user:pass@`）・クエリ・フラグメントを含む URL も拒否する。保存済みの設定がこれに反する場合は、接続せずにエラーとし、同意も無効として扱う
 - AI 送信の同意は「プロバイダ＋送信先（Base URL の scheme とホスト）」ごとに保存する。送信先が変わる（Base URL のホスト変更・`https`→`http` など）と同意は無効になり、再度の同意が必要になる（API キーは維持する）
@@ -123,7 +123,7 @@
 
 ## 12. AI
 
-- プロバイダは抽象化（インターフェース）し、v0.1.0 では **Anthropic** と **OpenAI 互換エンドポイント**（Base URL 指定。**既定は OpenAI**）を実装する。加えて **ChatGPT プラン**（Sign in with ChatGPT。Responses API。[バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)）を選べる。プロバイダの追加・変更は [バインディング仕様 §6](../api/endpoints.md#6-aiservice) の `AIProvider` に合わせる
+- プロバイダは抽象化（インターフェース）し、v0.1.0 では **Anthropic** と **OpenAI 互換エンドポイント**（Base URL 指定。Base URL を指定しないときの送信先は OpenAI）を実装する。加えて **ChatGPT プラン**（Sign in with ChatGPT。Responses API。**AI の設定が未保存のときの既定のプロバイダはこれ**〔#104。保存済みのプロバイダは変えない。Android も同じ〕。[バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)）を選べる。プロバイダの追加・変更は [バインディング仕様 §6](../api/endpoints.md#6-aiservice) の `AIProvider` に合わせる
 - API キーは利用者が入力し、NF-S01 のとおり保存する（ChatGPT プランは API キーを使わず、ログインで得たトークンを同じく保存する）。送信するコンテキストの上限は、直近 5 メッセージかつ合計 20,000 文字を目安とする
 - タイムアウトは 60 秒。リクエストはユーザーが中止できる
 
@@ -149,3 +149,4 @@
 | 1.15 | 2026-11-04 | §5 に Android 版の WebView レンダラ落ちの扱い（アプリ全体を終了させない・作り直し・再試行の上限）を追記 | #90 |
 | 1.16 | 2026-11-04 | §7 に Android の対応 OS（Android 12〔API 31〕以上）を追記 | 最低対応を Android 12 とする決定（minSdk 21 → 31。[android.md §3](../environment/android.md)） |
 | 1.17 | 2026-11-04 | NF-D03 を、Windows 版は新しい版を自動でダウンロードし `SHA256SUMS.txt` と突き合わせて、利用者の操作（「再起動して更新」）または次の終了時に入れ替える（送信中・下書きの保存中は入れ替えない・設定でオフ・失敗は画面で知らせ今の版のまま使える）内容に変更。NF-D05 に自動アップデートも行わない旨を追記。§2 の通信先に Release の添付ファイルの配信元を追加 | #103 |
+| 1.18 | 2026-11-04 | §12 の AI プロバイダの既定を、AI の設定が未保存のときは ChatGPT プランに変更（Base URL 無しの OpenAI 互換の送信先は従来どおり OpenAI）。同意前はモデル一覧の取得も送らず、同意は設定の保存前にも取る旨を追記 | #104・#105 |
