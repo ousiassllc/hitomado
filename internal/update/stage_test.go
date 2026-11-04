@@ -219,6 +219,8 @@ func TestStageRejectsRedirectToPlainHTTP(t *testing.T) {
 	_, err := srv.Stager(t.TempDir()).Stage(t.Context(), latest(t, srv))
 	require.Error(t, err)
 	assert.Zero(t, hits, "HTTP へのリダイレクトは追従しない")
+	assert.NotContains(t, err.Error(), "dummy-token", "エラー文面に署名つきクエリを出さない")
+	assert.NotContains(t, err.Error(), "sig=")
 }
 
 func TestStageDefaultAllowsOnlyGitHubHosts(t *testing.T) {

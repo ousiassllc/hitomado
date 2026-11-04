@@ -112,7 +112,7 @@ func defaultAllowURL(u *url.URL) bool {
 
 func (s *Stager) checkURL(u *url.URL) error {
 	if u.Scheme != "https" {
-		return fmt.Errorf("update: HTTPS 以外の URL へは接続しません（%s）", u.Redacted())
+		return fmt.Errorf("update: HTTPS 以外の URL へは接続しません（%s）", u.Hostname())
 	}
 	if u.User != nil || !s.allow(u) {
 		return fmt.Errorf("update: 許可していない接続先です（%s）", u.Hostname())
