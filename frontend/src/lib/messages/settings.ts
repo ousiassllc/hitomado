@@ -128,7 +128,7 @@ export const settings = {
     providerOptions: {
       anthropic: 'Anthropic',
       openai: 'OpenAI 互換',
-      chatgpt: 'ChatGPT プラン（ChatGPT でログイン）',
+      chatgpt: 'ChatGPT プラン（Continue with ChatGPT）',
     } as Record<string, string>,
     model: 'モデル',
     modelPlaceholder: '例: claude-sonnet-4-5',

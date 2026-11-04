@@ -112,7 +112,7 @@ func mapChatGPTError(err error) error {
 	case errors.Is(err, siwc.ErrDenied):
 		return apperr.Wrap(apperr.OAuthDenied, "ChatGPT のログインが許可されませんでした。", err)
 	case errors.Is(err, siwc.ErrPlanNotGranted):
-		return apperr.Wrap(apperr.OAuthDenied, "ChatGPT プランの利用が許可されませんでした。「ChatGPT でログイン」をやり直し、プランの利用を許可してください。", err)
+		return apperr.Wrap(apperr.OAuthDenied, "ChatGPT プランの利用が許可されませんでした。「Continue with ChatGPT」（登録済みのアカウントは「再ログイン」）をやり直し、プランの利用を許可してください。", err)
 	case errors.Is(err, siwc.ErrTimeout):
 		return apperr.Wrap(apperr.OAuthTimeout, "ChatGPT のログインが時間内に完了しませんでした。", err)
 	case errors.Is(err, siwc.ErrBusy):
@@ -123,8 +123,10 @@ func mapChatGPTError(err error) error {
 		return apperr.Wrap(apperr.NotFound, "その ChatGPT アカウントは登録されていません。", err)
 	case errors.Is(err, siwc.ErrAccountInUse):
 		return apperr.Wrap(apperr.Validation, "ログイン中の ChatGPT アカウントは削除できません。先にログアウトしてください。", err)
-	case errors.Is(err, siwc.ErrNotSignedIn), errors.Is(err, siwc.ErrReauthRequired):
-		return apperr.Wrap(apperr.AINotConfigured, "この ChatGPT アカウントはログアウト済みか、ログインが切れています。設定画面の「再ログイン」（アカウントがないときは「Continue with ChatGPT」）からもう一度ログインしてください。", err)
+	case errors.Is(err, siwc.ErrNotSignedIn):
+		return apperr.Wrap(apperr.AINotConfigured, "使用できる ChatGPT アカウントがありません（使用中のアカウントが未選択か、ログアウト済みです）。設定画面でログイン中のアカウントを選ぶか、「再ログイン」（アカウントがないときは「Continue with ChatGPT」）でログインしてください。", err)
+	case errors.Is(err, siwc.ErrReauthRequired):
+		return apperr.Wrap(apperr.AINotConfigured, "この ChatGPT アカウントはログインが切れています。設定画面の「再ログイン」からもう一度ログインしてください。", err)
 	case errors.Is(err, siwc.ErrInvalidResponse):
 		return apperr.Wrap(apperr.AIFailed, "OpenAI からの応答を確認できませんでした。もう一度お試しください。", err)
 	case errors.Is(err, siwc.ErrFailed):

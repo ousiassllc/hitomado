@@ -123,7 +123,7 @@ func errBadProvider() error {
 
 // errChatGPTNoKey は chatgpt に API キー操作が来たときのエラー（ChatGPT ではログインでトークンを得る）。
 func errChatGPTNoKey() error {
-	return apperr.New(apperr.Validation, "ChatGPT のプランは API キーを使いません。「ChatGPT でログイン」を使ってください。")
+	return apperr.New(apperr.Validation, "ChatGPT のプランは API キーを使いません。「Continue with ChatGPT」でログインしてください。")
 }
 
 // SetAIConfig は AI 設定を更新する。baseUrl は openai のみ有効で、http(s) の URL を要する

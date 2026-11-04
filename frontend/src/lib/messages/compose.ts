@@ -84,7 +84,7 @@ export const compose = {
       identity: 'ChatGPT',
       title: 'Usage limit reached',
       body: 'Review your ChatGPT plan or app limit in ChatGPT settings.',
-      note: '本文は変更していません。',
+      note: 'Your message text has not been changed.',
       dismiss: 'Dismiss',
     },
     openSettings: '設定を開く',

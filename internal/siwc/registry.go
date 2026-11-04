@@ -70,6 +70,27 @@ func (r *registry) upsert(clientID string) *account {
 	return &r.Accounts[len(r.Accounts)-1]
 }
 
+// maxClientIDLen は受け付ける client_id の長さの上限。
+const maxClientIDLen = 128
+
+// validClientID は client_id が資格情報ストアのキー（hitomado/chatgpt_token/<client_id>/<kind>、分割保存の `#<n>`）の
+// 一部として安全な文字だけでできているか。先頭は英数字、続きは英数字と `_`・`-`・`.`。区切り（`/`・`#`）や空白を含む値は使わない。
+func validClientID(id string) bool {
+	if id == "" || len(id) > maxClientIDLen {
+		return false
+	}
+	for i := range len(id) {
+		c := id[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case i > 0 && (c == '_' || c == '-' || c == '.'):
+		default:
+			return false
+		}
+	}
+	return true
+}
+
 // legacyRegistration は v0.1.7 までの ai.chatgpt（アカウント 1 件を直接持つ形）。移行のときだけ読む。
 type legacyRegistration struct {
 	HostID        string `json:"hostId"`

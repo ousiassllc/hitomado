@@ -102,8 +102,10 @@ type fakeOpenAI struct {
 	refreshDelay   time.Duration
 	expiresIn      int64
 	omitRefresh    bool
-	issueQueue     []string // 動的登録で発行する client_id（先頭から使う。空なら issuedClient）
-	clk            clock.Clock
+	// codeRefreshSuffix は認可コードの交換で返すリフレッシュトークンの末尾に付ける（同じ client_id の再ログインで、旧と新を見分ける）。
+	codeRefreshSuffix string
+	issueQueue        []string // 動的登録で発行する client_id（先頭から使う。空なら issuedClient）
+	clk               clock.Clock
 }
 
 func newFakeOpenAI(t *testing.T) *fakeOpenAI {
@@ -224,7 +226,7 @@ func (f *fakeOpenAI) handleToken(w http.ResponseWriter, r *http.Request) {
 		})
 		resp["access_token"] = f.accessToken
 		if !f.omitRefresh {
-			resp["refresh_token"] = refreshTokenFor(form.Get("client_id"))
+			resp["refresh_token"] = refreshTokenFor(form.Get("client_id")) + f.codeRefreshSuffix
 		}
 	case "refresh_token":
 		f.refreshSeq++

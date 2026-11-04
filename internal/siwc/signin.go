@@ -67,10 +67,10 @@ func mapSignInError(ctx context.Context, err error) error {
 	return err
 }
 
+// pendingAuth は 1 回のログインの state・nonce・PKCE。再ログインする登録は target（account）が持つ。
 type pendingAuth struct {
 	state, nonce, verifier string
 	redirectURI            string
-	clientID               string // 再ログインする登録の client_id（新規登録は空）
 }
 
 func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error) {
@@ -96,7 +96,7 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 		return Status{}, err
 	}
 
-	p := pendingAuth{clientID: target.ClientID}
+	var p pendingAuth
 	for _, f := range []*string{&p.state, &p.nonce, &p.verifier} {
 		if *f, err = randomToken(32); err != nil {
 			return Status{}, fmt.Errorf("%w: 乱数を作れません", ErrFailed)
@@ -112,9 +112,9 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 	// 選んだ登録の保存済みの ID トークン（ログアウトで消えていれば無い）は同じアカウントを示すヒントとして
 	// OpenAI の認可エンドポイントにだけ送る。ほかの登録の ID トークンは送らない。
 	hintToken := ""
-	if p.clientID != "" {
+	if target.ClientID != "" {
 		m.refreshMu.Lock() // 更新の途中の（新旧が混ざった）値を読まない
-		if t, terr := m.loadTokens(p.clientID); terr == nil {
+		if t, terr := m.loadTokens(target.ClientID); terr == nil {
 			hintToken = t.ID
 		}
 		m.refreshMu.Unlock()
@@ -140,55 +140,14 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 	return m.complete(ctx, prov, target, p, res)
 }
 
-// authorizeURL は認可 URL。target は再ログインする登録（新規登録なら零値）。
-func (m *Manager) authorizeURL(authEndpoint string, p pendingAuth, hostID string, target account, idTokenHint string) string {
-	clientID := p.clientID
-	q := url.Values{}
-	if clientID == "" {
-		clientID = dynamicClientID
-		// agent_name_hint は初回の動的登録だけに付ける（発行済みの client_id での再認可には付けない）。
-		q.Set("agent_name_hint", AgentName)
-	}
-	q.Set("client_id", clientID)
-	q.Set("ext_agent_host_id", hostID)
-	q.Set("response_type", "code")
-	q.Set("redirect_uri", p.redirectURI)
-	q.Set("scope", requestScopes)
-	q.Set("resource", resource)
-	q.Set("state", p.state)
-	q.Set("nonce", p.nonce)
-	q.Set("code_challenge_method", "S256")
-	q.Set("code_challenge", pkceChallenge(p.verifier))
-	if p.clientID != "" {
-		if idTokenHint != "" {
-			q.Set("id_token_hint", idTokenHint)
-		}
-		if target.Email != "" {
-			q.Set("login_hint", target.Email)
-		}
-		if target.ConsentNeeded {
-			// 前回 ChatGPT プランの利用が許可されなかった。利用者が改めてログインを選んだので、同意を求め直す。
-			q.Set("prompt", "consent")
-		}
-	}
-	return authEndpointWithQuery(authEndpoint, q)
-}
-
-func authEndpointWithQuery(endpoint string, q url.Values) string {
-	sep := "?"
-	if strings.Contains(endpoint, "?") {
-		sep = "&"
-	}
-	return endpoint + sep + q.Encode()
-}
-
 // complete はコードの交換・ID トークンと scope の検証・保存を行う。target は再ログインした登録（新規登録なら零値）。
 // 検証に通るまで、保存済みの登録・トークン・使用中のアカウントは変えない。保存するのは、このログインのアカウントのトークンと登録だけ。
 func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target account, p pendingAuth, res callbackResult) (Status, error) {
-	clientID := p.clientID
+	clientID := target.ClientID
 	if clientID == "" {
-		// 新規登録: コールバックが発行された client_id を返す。無ければ登録は未完了。
-		if res.clientID == "" || res.clientID == dynamicClientID {
+		// 新規登録: コールバックが発行された client_id を返す。無い・不正な値なら登録は未完了。
+		// この値は資格情報ストアのキーに使うので、検証してから使う。
+		if res.clientID == "" || res.clientID == dynamicClientID || !validClientID(res.clientID) {
 			return Status{}, fmt.Errorf("%w: クライアント登録が完了していません", ErrInvalidResponse)
 		}
 		clientID = res.clientID
@@ -230,7 +189,7 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 		return Status{}, fmt.Errorf("%w: ID トークンが不正です", ErrInvalidResponse)
 	}
 	// 選んだ登録へ再ログインするときは、同じアカウントであること。
-	if p.clientID != "" && target.Subject != "" && target.Subject != idt.Subject {
+	if target.ClientID != "" && target.Subject != "" && target.Subject != idt.Subject {
 		m.revokeQuietly(ctx, clientID, tr.RefreshToken)
 		return Status{}, ErrAccountMismatch
 	}
@@ -246,13 +205,34 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 	// 取得したトークンを保存し終えるまで、ログインの中止（ctx）で中断しない（トークンと登録が食い違わないように）。
 	ctx = context.WithoutCancel(ctx)
 
+	// 新規登録で発行された client_id が保存済みの登録と同じなら、同じアカウント（sub）であること。
+	// 異なるアカウントの登録・トークンを、sub を照合せずに上書きしない。
+	if target.ClientID == "" {
+		reg, err := m.loadRegistry(ctx)
+		if err != nil {
+			return Status{}, err
+		}
+		if ex := reg.find(clientID); ex != nil && ex.Subject != "" && ex.Subject != idt.Subject {
+			m.revokeQuietly(ctx, clientID, tr.RefreshToken)
+			return Status{}, ErrAccountMismatch
+		}
+	}
+
 	if !granted || tr.RefreshToken == "" {
 		// ログインはできたが ChatGPT プランの利用が許可されていない。得たトークンは使わず失効させる。
 		m.revokeQuietly(ctx, clientID, tr.RefreshToken)
 		return Status{}, m.declinePlan(ctx, clientID, idt.Subject, claims.Email)
 	}
 
+	// 保存に失敗したときに戻せるよう、上書きされる前のトークン（再ログイン前から有効なセッション）を控える。
+	prev, err := m.loadTokens(clientID)
+	if err != nil {
+		m.revokeQuietly(ctx, clientID, tr.RefreshToken)
+		return Status{}, err
+	}
 	if err := m.saveTokens(clientID, tokens{Access: tr.AccessToken, Refresh: tr.RefreshToken, ID: tr.IDToken}); err != nil {
+		m.restoreTokens(clientID, prev)
+		m.revokeQuietly(ctx, clientID, tr.RefreshToken)
 		return Status{}, err
 	}
 	expires := m.expiry(tr.ExpiresIn)
@@ -265,10 +245,24 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 		r.Active = clientID // 検証を終えたこのアカウントを使用中にする
 		return nil
 	}); err != nil {
-		_ = m.clearTokens(clientID)
+		// 登録を保存できなかったので、このログインで得たトークンは使えない。旧セッションがあれば元に戻し、得たトークンは失効させる。
+		m.restoreTokens(clientID, prev)
+		m.revokeQuietly(ctx, clientID, tr.RefreshToken)
 		return Status{}, err
 	}
 	return m.Status(ctx)
+}
+
+// restoreTokens はアカウントのトークンを prev（ログイン前の値。無ければ空）に戻す（refreshMu を持って呼ぶ）。
+// 戻せなかったときは、新旧が混ざったトークンを残さないよう消す。
+func (m *Manager) restoreTokens(clientID string, prev tokens) {
+	if prev.Refresh != "" {
+		if err := m.saveTokens(clientID, prev); err == nil {
+			return
+		}
+		m.opts.Logger.Warn("chatgpt: could not restore the previous session tokens")
+	}
+	_ = m.clearTokens(clientID)
 }
 
 // declinePlan は ChatGPT プランの利用が許可されなかったログインの後始末をして ErrPlanNotGranted を返す（refreshMu を持って呼ぶ）。

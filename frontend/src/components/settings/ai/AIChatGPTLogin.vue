@@ -6,6 +6,7 @@ import { settings as msg } from '../../../lib/messages'
 import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'
 import BaseButton from '../../ui/BaseButton.vue'
+import ChatGPTAccountRow from './ChatGPTAccountRow.vue'
 import ChatGPTPlanNotice from './ChatGPTPlanNotice.vue'
 
 // Sign in with ChatGPT（OpenAI の公式フロー）。ログインはシステムブラウザの OpenAI の画面で行い、
@@ -21,8 +22,14 @@ const busy = ref<'login' | 'logout' | 'select' | 'remove'>()
 const error = ref<string>()
 // 操作中の行だけに進行表示を出すための、操作対象のアカウント ID。
 const busyId = ref<string>()
-// 切り替えに失敗したとき、利用者が押したラジオを使用中のアカウントへ戻すために、ラジオを作り直すための版。
-const radioRev = ref(0)
+// 切り替えに失敗したとき、押したラジオを要素を作り直さずに使用中のアカウントへ戻すための一覧の要素
+// （作り直すと、キーボード操作中のフォーカスが失われる）。
+const listEl = ref<HTMLElement>()
+function resyncRadios(): void {
+  for (const el of listEl.value?.querySelectorAll<HTMLInputElement>('input[type="radio"]') ?? []) {
+    el.checked = props.accounts.some((a) => a.id === el.value && a.active)
+  }
+}
 
 /** 同じメールアドレスの登録が複数あるときは、登録の ID の末尾で見分ける（ラベルは登録ごとに安定）。 */
 function label(a: ChatGPTAccount): string {
@@ -64,7 +71,11 @@ async function cancel(): Promise<void> {
 }
 
 async function select(a: ChatGPTAccount): Promise<void> {
-  if (busy.value || a.active) return
+  if (busy.value) {
+    resyncRadios() // 別の操作の途中で押されたラジオは、選択されたまま残さない
+    return
+  }
+  if (a.active) return
   error.value = undefined
   busy.value = 'select'
   try {
@@ -73,8 +84,8 @@ async function select(a: ChatGPTAccount): Promise<void> {
     emit('accountChanged')
   } catch (e) {
     error.value = parseBindingError(e).message
-    // 押したラジオが選択されたまま残らないよう、使用中のアカウントの表示へ戻す。
-    radioRev.value++
+    // 押したラジオが選択されたまま残らないよう、使用中のアカウントの表示へ戻す（要素は作り直さない）。
+    resyncRadios()
   } finally {
     busy.value = undefined
   }
@@ -129,66 +140,20 @@ async function remove(a: ChatGPTAccount): Promise<void> {
 
     <fieldset v-if="props.accounts.length > 0" class="accounts" data-testid="ai-chatgpt-accounts">
       <legend class="legend">{{ msg.ai.chatgpt.accountsLabel }}</legend>
-      <ul class="list" :aria-label="msg.ai.chatgpt.accountsHeading">
-        <li
+      <ul ref="listEl" class="list" :aria-label="msg.ai.chatgpt.accountsHeading">
+        <ChatGPTAccountRow
           v-for="a in props.accounts"
           :key="a.id"
-          class="account"
-          :data-testid="`ai-chatgpt-account-${a.id}`"
-        >
-          <label v-if="a.signedIn" class="pick">
-            <input
-              :key="`${a.id}-${radioRev}`"
-              type="radio"
-              name="chatgpt-account"
-              :value="a.id"
-              :checked="a.active"
-              :aria-label="msg.ai.chatgpt.select(label(a))"
-              :disabled="busy !== undefined"
-              @change="select(a)"
-            />
-            <span class="who">{{ label(a) }}</span>
-            <span v-if="a.active" class="badge" data-testid="ai-chatgpt-active">{{ msg.ai.chatgpt.accountActive }}</span>
-          </label>
-          <span v-else class="pick">
-            <span class="who muted">{{ label(a) }}</span>
-            <span class="badge">{{ msg.ai.chatgpt.accountSignedOut }}</span>
-          </span>
-          <span class="row-actions">
-            <template v-if="a.signedIn">
-              <BaseButton
-                variant="danger"
-                :loading="busy === 'logout' && busyId === a.id"
-                :disabled="busy !== undefined"
-                :aria-label="msg.ai.chatgpt.logoutAccount(label(a))"
-                data-testid="ai-chatgpt-logout"
-                @click="logout(a)"
-              >
-                {{ msg.ai.chatgpt.logout }}
-              </BaseButton>
-            </template>
-            <template v-else>
-              <BaseButton
-                variant="secondary"
-                :disabled="busy !== undefined"
-                :aria-label="msg.ai.chatgpt.reloginAccount(label(a))"
-                data-testid="ai-chatgpt-relogin"
-                @click="login(a.id)"
-              >
-                {{ msg.ai.chatgpt.relogin }}
-              </BaseButton>
-              <BaseButton
-                variant="ghost"
-                :disabled="busy !== undefined"
-                :aria-label="msg.ai.chatgpt.removeAccount(label(a))"
-                data-testid="ai-chatgpt-remove"
-                @click="remove(a)"
-              >
-                {{ msg.ai.chatgpt.remove }}
-              </BaseButton>
-            </template>
-          </span>
-        </li>
+          :account="a"
+          :label="label(a)"
+          :busy="busy !== undefined"
+          :switching="busy === 'select'"
+          :logging-out="busy === 'logout' && busyId === a.id"
+          @select="select(a)"
+          @logout="logout(a)"
+          @relogin="login(a.id)"
+          @remove="remove(a)"
+        />
       </ul>
       <p class="note">{{ msg.ai.chatgpt.accountHint }}</p>
     </fieldset>
@@ -276,42 +241,6 @@ async function remove(a: ChatGPTAccount): Promise<void> {
   margin: 0;
   padding: 0;
   list-style: none;
-}
-
-.account {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.pick {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-  font-size: var(--font-size-sm);
-}
-
-.who {
-  overflow-wrap: anywhere;
-}
-
-.muted {
-  color: var(--color-text-muted);
-}
-
-.badge {
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-xs);
-}
-
-.row-actions {
-  display: inline-flex;
-  gap: var(--space-2);
-  flex-shrink: 0;
 }
 
 .error {

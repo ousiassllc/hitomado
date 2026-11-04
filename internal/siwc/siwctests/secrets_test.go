@@ -235,6 +235,7 @@ func TestPlanDeclinedOnAnotherAccountKeepsTheActiveSession(t *testing.T) {
 	e.f.mu.Lock()
 	e.f.scope = "email openid profile offline_access"
 	e.f.subject = "sub-account-b"
+	e.f.issueQueue = []string{secondClient} // 別のアカウントは別の client_id で登録される
 	e.f.mu.Unlock()
 	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
 	require.ErrorIs(t, err, siwc.ErrPlanNotGranted)

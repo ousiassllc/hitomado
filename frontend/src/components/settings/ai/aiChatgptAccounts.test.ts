@@ -172,11 +172,14 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     const radios = () =>
       w.findAll('input[type="radio"]').map((r) => (r.element as HTMLInputElement).checked)
     expect(radios()).toEqual([true, false])
+    const pressed = w.findAll('input[type="radio"]')[1]?.element
     await w.findAll('input[type="radio"]')[1]?.setValue(true)
     await flushPromises()
     expect(w.get('[role="alert"]').text()).toContain('ログインが切れました')
     // 失敗したら、押したラジオが選択されたまま残らず、使用中のアカウントに戻る。
     expect(radios()).toEqual([true, false])
+    // ラジオは作り直さない（作り直すと、キーボードで操作していたフォーカスが失われる）。
+    expect(w.findAll('input[type="radio"]')[1]?.element).toBe(pressed)
   })
 
   test('ラジオの名前は「<アカウント> を使う」で、一覧にも名前がある', () => {

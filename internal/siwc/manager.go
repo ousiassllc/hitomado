@@ -165,7 +165,10 @@ func (m *Manager) Status(ctx context.Context) (Status, error) {
 			ID: a.ClientID, Email: a.Email, SignedIn: signedIn, Active: active, PlanNoticePending: a.PlanNotice == noticePending,
 		})
 		if active {
-			st.SignedIn, st.Email = signedIn, a.Email
+			st.SignedIn = signedIn
+			if signedIn {
+				st.Email = a.Email // ログアウト済みの使用中アカウントのメールは、ログイン状態として返さない（一覧には残る）
+			}
 		}
 	}
 	return st, nil
