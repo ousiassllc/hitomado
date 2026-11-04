@@ -269,7 +269,7 @@ func (m *Manager) restoreTokens(clientID string, prev tokens) {
 	}
 }
 
-// declinePlan は ChatGPT プランの利用が許可されなかったログインの後始末をして ErrPlanNotGranted を返す（refreshMu を持って呼ぶ）。
+// declinePlan は ChatGPT プランの利用が許可されなかったログインの後始末をして ErrPlanNotGranted を返す（そのアカウントのロックを持って呼ぶ）。
 // ログイン中のアカウント（このアカウントを含む）のセッションは変えない。ログイン中でないアカウントだけ、次のログインで
 // 同じクライアントを使い同意を求め直すため、登録を残す（ほかのアカウントの登録・使用中のアカウントは変えない）。
 func (m *Manager) declinePlan(ctx context.Context, clientID, subject, email string) error {
