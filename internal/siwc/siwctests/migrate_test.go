@@ -107,4 +107,70 @@ func TestLegacySingleAccountIsMigrated(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, st.SignedIn)
 	})
+
+	t.Run("旧キーの削除に失敗しても、次の呼び出しで消し、アカウントは使える", func(t *testing.T) {
+		sec := &flakySecrets{Memory: secrets.NewMemory()}
+		e := newEnv(t, sec, nil)
+		seed(t, e, true)
+		sec.failDelete.Store(true)
+		st, err := e.m.Status(t.Context())
+		require.NoError(t, err, "旧キーを消せなくても、移行したアカウントは使える")
+		assert.True(t, st.SignedIn)
+		got, gerr := sec.Get(legacyKey("refresh"))
+		require.NoError(t, gerr)
+		assert.Equal(t, "LEGACY-REFRESH", got, "削除に失敗した旧キーは残る")
+
+		// 失敗している間は、同じプロセスの次の呼び出しでも削除を試し続ける（アカウントは失わない）。
+		st, err = e.m.Status(t.Context())
+		require.NoError(t, err)
+		assert.True(t, st.SignedIn)
+
+		// 登録は新形式に置き換わっている。削除が直ったあとの呼び出しで旧キーを消す。
+		sec.failDelete.Store(false)
+		st, err = e.m.Status(t.Context())
+		require.NoError(t, err)
+		assert.True(t, st.SignedIn)
+		for _, k := range []string{"access", "refresh", "id"} {
+			_, err := sec.Get(legacyKey(k))
+			assert.ErrorIs(t, err, secrets.ErrNotFound, "旧キーを消す: %s", k)
+		}
+		got, gerr = sec.Get(tokenKey("refresh"))
+		require.NoError(t, gerr)
+		assert.Equal(t, "LEGACY-REFRESH", got, "新形式のキーは消さない")
+		tok, err := e.m.AccessToken(t.Context())
+		require.NoError(t, err)
+		assert.Equal(t, "LEGACY-ACCESS", tok)
+	})
+
+	t.Run("プロセスが落ちたあとの再起動でも、残った旧キーを消す", func(t *testing.T) {
+		sec := &flakySecrets{Memory: secrets.NewMemory()}
+		e := newEnv(t, sec, nil)
+		seed(t, e, true)
+		sec.failDelete.Store(true)
+		_, err := e.m.Status(t.Context())
+		require.NoError(t, err)
+
+		sec.failDelete.Store(false)
+		m2 := siwc.New(siwc.Options{OpenBrowser: e.f.browser(t), Secrets: sec, Settings: e.settings, Clock: e.clk, Issuer: e.f.srv.URL, HTTPClient: e.f.srv.Client()})
+		st, err := m2.Status(t.Context())
+		require.NoError(t, err)
+		assert.True(t, st.SignedIn)
+		for _, k := range []string{"access", "refresh", "id"} {
+			_, err := sec.Get(legacyKey(k))
+			assert.ErrorIs(t, err, secrets.ErrNotFound, "旧キーを消す: %s", k)
+		}
+	})
+
+	t.Run("旧キーが無い（移行済み）なら、削除を試さずエラーにもならない", func(t *testing.T) {
+		sec := &flakySecrets{Memory: secrets.NewMemory()}
+		e := newEnv(t, sec, nil)
+		e.signIn(t)
+		sec.failDelete.Store(true) // 呼ばれればエラーになる。旧キーが無ければ消しに行かない。
+		m2 := siwc.New(siwc.Options{OpenBrowser: e.f.browser(t), Secrets: sec, Settings: e.settings, Clock: e.clk, Issuer: e.f.srv.URL, HTTPClient: e.f.srv.Client()})
+		st, err := m2.Status(t.Context())
+		require.NoError(t, err)
+		assert.True(t, st.SignedIn)
+		_, err = sec.Get(tokenKey("refresh"))
+		require.NoError(t, err, "新形式のキーには触れない")
+	})
 }
