@@ -107,6 +107,7 @@ export const settings = {
     intro:
       '「AI で下書き」ボタンを押したときだけ、スレッドの一部・表示名・署名が下記の送信先へ送信されます。自動で生成・送信することはありません。',
     destinationHeading: 'データの送信先',
+    destinationLabel: '送信先',
     destination: (provider: string, url: string) => `${provider}（${url}）`,
     destinationDefaultNote: '既定の送信先です。',
     destinationCustomNote: 'Base URL で指定した送信先です。',
@@ -200,6 +201,7 @@ export const settings = {
         '「設定を保存」でプロバイダを ChatGPT プランに切り替えてから、モデルを選んで保存してください。',
     },
     consentAgreeNow: (dest: string) => `${dest} への送信に同意する`,
+    consentAgreed: '同意しました。',
     consentHeading: '送信への同意',
     consentGiven: (provider: string) => `${provider} への送信に同意済みです。`,
     consentNone: (provider: string) =>
