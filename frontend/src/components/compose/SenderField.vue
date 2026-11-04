@@ -47,7 +47,6 @@ const options = computed(() =>
         @update:model-value="(v: string) => emit('select', v)"
       />
       <AccountChip v-if="current" :account="current" />
-      <span v-else class="sender-warn" role="note">{{ msg.sender.unselected }}</span>
     </template>
   </div>
 </template>
@@ -79,10 +78,5 @@ const options = computed(() =>
 
 .sender-select {
   min-width: 260px;
-}
-
-.sender-warn {
-  color: var(--color-danger);
-  font-size: var(--font-size-xs);
 }
 </style>

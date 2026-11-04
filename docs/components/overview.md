@@ -240,6 +240,7 @@ graph TD
 | `BaseSelect` | 選択（AI プロバイダ等） | Reka UI `Select` |
 | `BaseSwitch` | オン／オフ（通知・更新確認） | Reka UI `Switch` |
 | `BaseTooltip` | ツールチップ（ショートカット表示）。ボタンを包んでホバー／フォーカスで表示。キー表記は `lib/shortcuts` の `SHORTCUT_KEYS`、併記文言は `common.shortcutHint` | Reka UI `Tooltip` |
+| `BaseDisclosure` | 折りたたみ（ネイティブの `<details>`）。初回だけ必要な補足を既定で閉じて置く（MCP の「接続方法」） | `summary` を props で受け取る |
 | `BaseChip` | 小さなラベル | 色トークンを受け取る |
 | `Spinner` | 読み込み表示 | `prefers-reduced-motion` 対応 |
 
@@ -466,3 +467,4 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 1.17 | 2026-11-04 | `AIChatGPTLogin` を複数の ChatGPT アカウントの一覧（選択・追加・アカウントごとのログアウト・再ログイン・削除）に、`settingsStore` に `selectChatGPTAccount`／`removeChatGPTAccount` を追加 | 複数の ChatGPT アカウント（#79） |
 | 1.18 | 2026-11-04 | `AIChatGPTLogin` に初めてのログインの確認モーダル（`ChatGPTPlanNotice`）を、`AiDraftButton` に利用枠の超過の案内（`UsageLimitNotice`）を追加。ChatGPT のロゴは使わない（F-08） | OpenAI の UI/UX ガイドラインへの対応（#80） |
 | 1.19 | 2026-11-04 | §2.3 の `siwc.Auth` を実装に合わせ、`SignIn(ctx, SignInOptions)`・`SignOut(ctx, accountID)` に直し、`SelectAccount`／`AckPlanNotice`／`RemoveAccount` を追記 | 複数の ChatGPT アカウント（#79）・初めてのログインの確認（#80）の反映漏れ |
+| 1.20 | 2026-11-04 | §3.3 に `BaseDisclosure`（折りたたみ）を追加。作成画面の「Ctrl+Enter」案内は送信ボタンの `BaseTooltip`（`lib/shortcuts` の `SEND_SHORTCUT_KEY`）へ移し、設定の説明文・タブ内の同名見出し・送信元未選択の重複案内・検索結果モードの検索語表示を削除 | 冗長な UI・文言の削減（#106） |

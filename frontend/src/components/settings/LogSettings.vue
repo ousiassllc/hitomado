@@ -33,8 +33,7 @@ async function exportLogs(): Promise<void> {
 </script>
 
 <template>
-  <section class="logs" :aria-label="msg.logs.heading">
-    <h3 class="heading">{{ msg.logs.heading }}</h3>
+  <section class="logs" :aria-label="msg.tabs.logs">
     <p class="hint">{{ msg.logs.intro }}</p>
     <p class="hint">{{ msg.logs.redactHint }}</p>
     <div class="actions">
@@ -51,11 +50,6 @@ async function exportLogs(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-}
-
-.heading {
-  margin: 0;
-  font-size: var(--font-size-lg);
 }
 
 .hint {

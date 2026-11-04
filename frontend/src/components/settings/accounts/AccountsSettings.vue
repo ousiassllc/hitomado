@@ -88,9 +88,8 @@ const removeOpen = computed({
 </script>
 
 <template>
-  <section ref="root" class="accounts" :aria-label="msg.accounts.heading">
+  <section ref="root" class="accounts" :aria-label="msg.tabs.accounts">
     <div class="bar">
-      <h3 class="heading">{{ msg.accounts.heading }}</h3>
       <BaseButton variant="primary" @click="ui.openDialog('addAccount')">
         {{ msg.accounts.add }}
       </BaseButton>
@@ -140,13 +139,8 @@ const removeOpen = computed({
 .bar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   margin-bottom: var(--space-3);
-}
-
-.heading {
-  margin: 0;
-  font-size: var(--font-size-lg);
 }
 
 .list {

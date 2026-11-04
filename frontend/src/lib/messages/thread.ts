@@ -7,7 +7,6 @@ export const thread = {
   retry: '再試行',
   notFound: 'スレッドが見つかりません',
   noSubject: '（件名なし）',
-  readFailed: '既読にできませんでした。',
   labelFailed: 'ラベルを変更できませんでした。',
   labelsLoadFailed: 'ラベルを取得できませんでした。',
   labelsLoading: 'ラベルを読み込み中',

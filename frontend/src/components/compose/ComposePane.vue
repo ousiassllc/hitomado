@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { compose as msg } from '../../lib/messages'
+import { common, compose as msg } from '../../lib/messages'
+import { SEND_SHORTCUT_KEY } from '../../lib/shortcuts'
 import { useAccountsStore } from '../../stores/accounts'
 import { useComposeStore } from '../../stores/compose'
-import { useLayoutStore } from '../../stores/layout'
 import BaseButton from '../ui/BaseButton.vue'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 import AiDraftButton from './AiDraftButton.vue'
 import AttachmentBar from './AttachmentBar.vue'
 import RecipientField from './RecipientField.vue'
@@ -14,7 +15,6 @@ import SignatureConflictDialog from './SignatureConflictDialog.vue'
 
 const compose = useComposeStore()
 const accounts = useAccountsStore()
-const layout = useLayoutStore()
 
 const session = computed(() => compose.session)
 const title = computed(() => {
@@ -149,7 +149,6 @@ function send(archive: boolean): void {
 
     <footer class="compose-foot">
       <span v-if="session.accountId === undefined" class="foot-hint" role="note">{{ msg.senderRequiredHint }}</span>
-      <span v-else-if="!layout.isStack" class="foot-hint">{{ msg.shortcutHint }}</span>
       <span class="spacer" />
       <BaseButton
         v-if="compose.canArchive"
@@ -160,14 +159,16 @@ function send(archive: boolean): void {
       >
         {{ msg.sendAndArchive }}
       </BaseButton>
-      <BaseButton
-        variant="primary"
-        :disabled="!compose.canSend || frozen"
-        :loading="compose.preparing || compose.sending"
-        @click="send(false)"
-      >
-        {{ compose.sending ? msg.sending : msg.send }}
-      </BaseButton>
+      <BaseTooltip :text="common.shortcutHint(msg.send, SEND_SHORTCUT_KEY)">
+        <BaseButton
+          variant="primary"
+          :disabled="!compose.canSend || frozen"
+          :loading="compose.preparing || compose.sending"
+          @click="send(false)"
+        >
+          {{ compose.sending ? msg.sending : msg.send }}
+        </BaseButton>
+      </BaseTooltip>
     </footer>
 
     <SignatureConflictDialog />

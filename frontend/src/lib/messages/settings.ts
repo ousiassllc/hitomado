@@ -1,8 +1,6 @@
 // 設定画面の文言（H4 の領域）。UI は日本語のみ。
 export const settings = {
   title: '設定',
-  description: 'アカウント・OAuth クライアント・署名・AI・MCP・ログ・一般の設定を変更します。',
-  descriptionWithoutMcp: 'アカウント・OAuth クライアント・署名・AI・ログ・一般の設定を変更します。',
   tabsLabel: '設定の分類',
   tabs: {
     accounts: 'アカウント',
@@ -21,12 +19,10 @@ export const settings = {
   saving: '保存中…',
 
   accounts: {
-    heading: 'アカウント',
     empty: 'アカウントが登録されていません。',
     add: 'アカウントを追加',
     listLabel: 'アカウント一覧',
     displayName: '表示名',
-    displayNameFor: (email: string) => `${email} の表示名`,
     displayNameRequired: '表示名を入力してください。',
     colorLabel: 'アカウントの色',
     colorFor: (name: string) => `色: ${name}`,
@@ -68,7 +64,6 @@ export const settings = {
   },
 
   oauth: {
-    heading: 'OAuth クライアント',
     intro:
       'Google Cloud で作成した OAuth クライアント（種類: デスクトップアプリ）の Client ID と Client Secret を登録します。複数登録できます。',
     guide: 'OAuth クライアントの作成手順（README）を開く',
@@ -76,7 +71,6 @@ export const settings = {
     empty: 'OAuth クライアントが登録されていません。',
     listLabel: 'OAuth クライアント一覧',
     add: 'クライアントを追加',
-    edit: '編集',
     editFor: (name: string) => `${name} を編集`,
     remove: '削除',
     removeFor: (name: string) => `${name} を削除`,
@@ -92,15 +86,12 @@ export const settings = {
     clientId: 'Client ID',
     clientSecret: 'Client Secret',
     secretPlaceholderEdit: '変更する場合のみ入力（保存済み）',
-    secretShow: '入力内容を表示',
-    secretHide: '入力内容を隠す',
     required: (label: string) => `${label}を入力してください。`,
     savedAdd: 'OAuth クライアントを追加しました。',
     savedEdit: 'OAuth クライアントを更新しました。',
   },
 
   signature: {
-    heading: '署名',
     intro:
       'アカウントごとに署名を設定します。返信・転送・新規作成の本文の、引用より前に「-- 」区切りで挿入されます。',
     account: '署名を編集するアカウント',
@@ -116,7 +107,6 @@ export const settings = {
     intro:
       '「AI で下書き」ボタンを押したときだけ、スレッドの一部・表示名・署名が下記の送信先へ送信されます。自動で生成・送信することはありません。',
     destinationHeading: 'データの送信先',
-    destinationLabel: '送信先',
     destination: (provider: string, url: string) => `${provider}（${url}）`,
     destinationDefaultNote: '既定の送信先です。',
     destinationCustomNote: 'Base URL で指定した送信先です。',
@@ -147,7 +137,6 @@ export const settings = {
     saveConfig: '設定を保存',
     configSaved: 'AI の設定を保存しました。',
     apiKeyHeading: 'API キー',
-    apiKey: 'API キー',
     apiKeyFor: (provider: string) => `${provider} の API キー`,
     apiKeyPlaceholder: 'API キーを入力',
     apiKeyStatusSet: '保存済み',
@@ -211,7 +200,6 @@ export const settings = {
         '「設定を保存」でプロバイダを ChatGPT プランに切り替えてから、モデルを選んで保存してください。',
     },
     consentAgreeNow: (dest: string) => `${dest} への送信に同意する`,
-    consentAgreed: '同意しました。',
     consentHeading: '送信への同意',
     consentGiven: (provider: string) => `${provider} への送信に同意済みです。`,
     consentNone: (provider: string) =>
@@ -219,7 +207,6 @@ export const settings = {
   },
 
   general: {
-    heading: '一般',
     updateCheck: '更新を確認する',
     updateCheckHint:
       '起動時と 24 時間ごとに GitHub で新しいバージョンを確認します。メールやアカウントの情報は送信しません。自動ではダウンロード・インストールしません。',
@@ -252,8 +239,7 @@ export const settings = {
       'しずくなどのエージェントから MCP でつないで、状態・ログ・メールの読み取りと返信の下書き作成ができるようにします。メールの送信はできません。下書きはこのアプリで確認して、あなたが送ります。',
     enable: 'MCP サーバーを有効にする',
     enableSwitch: 'MCP サーバーの有効・無効',
-    enableHint:
-      '既定はオフです。オンにすると、下のアドレスで待ち受けます。トークンがない接続はすべて拒否します。',
+    enableHint: '既定はオフです。オンにすると、下のアドレスで待ち受けます。',
     host: '待ち受けアドレス',
     port: 'ポート',
     portInvalid: 'ポートは 1024〜65535 の数字で入力してください。',
@@ -278,6 +264,7 @@ export const settings = {
     copy: 'コピー',
     copied: 'コピーしました。',
     copyFailed: 'コピーできませんでした。手で選択してコピーしてください。',
+    connectHeading: '接続方法',
     clientHint:
       'MCP クライアントには、接続先 URL（Streamable HTTP）と Authorization: Bearer <トークン> を設定します。',
     reissueHint:
@@ -285,7 +272,6 @@ export const settings = {
   },
 
   logs: {
-    heading: 'ログ',
     intro:
       'アプリのエラーと動作の記録を、データの保存先の logs フォルダに残します（5 MB ごとに切り替え、5 世代・30 日まで）。',
     redactHint:

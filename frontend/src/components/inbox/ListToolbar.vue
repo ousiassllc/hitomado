@@ -77,7 +77,6 @@ function onLabelSelect(key: string): void {
     <span v-if="selectedCount > 1" class="count" role="status">{{ common.toolbar.selected(selectedCount) }}</span>
     <span class="grow" />
     <div v-if="searchQuery" class="mode" role="status">
-      <span class="mode-text">{{ common.toolbar.searchMode(searchQuery) }}</span>
       <button type="button" class="back" @click="emit('backToInbox')">{{ common.toolbar.backToInbox }}</button>
     </div>
   </div>
@@ -116,13 +115,6 @@ function onLabelSelect(key: string): void {
   gap: var(--space-2);
   min-width: 0;
   font-size: var(--font-size-sm);
-}
-
-.mode-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--color-text-muted);
 }
 
 .back {
