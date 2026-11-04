@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
-import { AIService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
 import { useAiDraft } from '../../composables/useAiDraft'
-import { call } from '../../lib/api'
 import { compose as msg, settings as settingsMsg } from '../../lib/messages'
 import { hasUserBody } from '../../lib/signature'
 import { useComposeStore } from '../../stores/compose'
@@ -12,6 +10,7 @@ import { aiDestination } from '../settings/ai/aiDestination'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseDialog from '../ui/BaseDialog.vue'
 import Spinner from '../ui/Spinner.vue'
+import UsageLimitNotice from './UsageLimitNotice.vue'
 
 const props = defineProps<{ sessionId: string }>()
 const emit = defineEmits<{ generated: [bodyHtml: string] }>()
@@ -28,8 +27,8 @@ const ai = useAiDraft({
   config: () => settings.aiConfig,
   hasBody: () => hasUserBody(compose.content.bodyHtml),
   recordConsent: (provider) => settings.recordAIConsent(provider),
-  generate: (requestId) => call(AIService.GenerateReplyDraft(props.sessionId, requestId)),
-  cancel: (requestId) => call(AIService.CancelGenerate(requestId)),
+  generate: (requestId) => settings.generateReplyDraft(props.sessionId, requestId),
+  cancel: (requestId) => settings.cancelGenerate(requestId),
   onGenerated: (bodyHtml) => emit('generated', bodyHtml),
   newRequestId: () => crypto.randomUUID(),
 })
@@ -77,7 +76,12 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
         </BaseButton>
       </template>
     </div>
-    <p v-if="ai.error.value" class="ai-error" role="alert">{{ msg.ai.failed }}（{{ ai.error.value }}）</p>
+    <UsageLimitNotice
+      v-if="ai.usageLimit.value"
+      @manage="settings.openExternal(settingsMsg.ai.chatgpt.usageUrl)"
+      @dismiss="ai.usageLimit.value = false"
+    />
+    <p v-else-if="ai.error.value" class="ai-error" role="alert">{{ msg.ai.failed }}（{{ ai.error.value }}）</p>
 
     <BaseDialog
       :open="consentOpen"

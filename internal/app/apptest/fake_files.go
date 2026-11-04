@@ -7,7 +7,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/exportfile"
 )
 
-// FakeFiles は app.FileDialog のフェイク。Cancel=true で「キャンセル」、それ以外は Path を返す。
+// FakeFiles は deps.FileDialog のフェイク。Cancel=true で「キャンセル」、それ以外は Path を返す。
 // Location が空でなければ Commit の結果（利用者に見せる保存先）をそれにする（Android のようにパスと違う場合）。
 type FakeFiles struct {
 	mu sync.Mutex

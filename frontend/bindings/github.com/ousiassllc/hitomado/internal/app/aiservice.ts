@@ -16,6 +16,13 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as dto$0 from "./dto/models.js";
 
 /**
+ * AckChatGPTPlanNotice は「ChatGPT プランを使っています」の確認を済みにする（そのアカウントでは以後出さない）。
+ */
+export function AckChatGPTPlanNotice(accountID: string): $CancellablePromise<dto$0.AIConfig> {
+    return $Call.ByID(4151883632, accountID);
+}
+
+/**
  * CancelGenerate は実行中の生成を中止する（GenerateReplyDraft は CANCELLED で終わる）。
  */
 export function CancelGenerate(requestID: string): $CancellablePromise<void> {
@@ -55,6 +62,20 @@ export function RecordAIConsent(provider: string): $CancellablePromise<dto$0.AIC
     return $Call.ByID(1816542130, provider);
 }
 
+/**
+ * RemoveChatGPTAccount はログアウト済みの ChatGPT アカウントの登録を忘れる。
+ */
+export function RemoveChatGPTAccount(accountID: string): $CancellablePromise<dto$0.AIConfig> {
+    return $Call.ByID(2171931377, accountID);
+}
+
+/**
+ * SelectChatGPTAccount は下書きに使う ChatGPT アカウントを切り替える（ログイン中のアカウントだけ）。
+ */
+export function SelectChatGPTAccount(accountID: string): $CancellablePromise<dto$0.AIConfig> {
+    return $Call.ByID(337628381, accountID);
+}
+
 export function SetAIApiKey(provider: string, apiKey: string): $CancellablePromise<dto$0.AIConfig> {
     return $Call.ByID(3227425416, provider, apiKey);
 }
@@ -64,16 +85,15 @@ export function SetAIConfig(provider: string, model: string, baseURL: string): $
 }
 
 /**
- * SignInChatGPT は OpenAI の公式画面（システムブラウザ）で ChatGPT にログインする。完了・中止・時間切れまでブロックする。
- * differentAccount が true なら、保存済みの登録を使わず別の ChatGPT アカウントとして登録し直す。
+ * SignInChatGPT は OpenAI の公式画面で ChatGPT にログインする（完了・中止・時間切れまでブロック）。accountId が空なら別のアカウントを追加し、指定したときはその登録で再ログインする。
  */
-export function SignInChatGPT(differentAccount: boolean): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(392229644, differentAccount);
+export function SignInChatGPT(accountID: string): $CancellablePromise<dto$0.AIConfig> {
+    return $Call.ByID(392229644, accountID);
 }
 
 /**
- * SignOutChatGPT は ChatGPT からログアウトする（OpenAI 側の失効を試み、ローカルのトークンを消す）。
+ * SignOutChatGPT は指定した ChatGPT アカウントだけログアウトする（OpenAI 側の失効を試み、そのトークンを消す）。
  */
-export function SignOutChatGPT(): $CancellablePromise<dto$0.ChatGPTSignOutResult> {
-    return $Call.ByID(1327661325);
+export function SignOutChatGPT(accountID: string): $CancellablePromise<dto$0.ChatGPTSignOutResult> {
+    return $Call.ByID(1327661325, accountID);
 }

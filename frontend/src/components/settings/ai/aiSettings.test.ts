@@ -1,45 +1,7 @@
 import { describe, expect, test } from 'bun:test'
-import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
-import { createPinia, setActivePinia } from 'pinia'
-import type {
-  AIConfig,
-  AIModelList,
-} from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { useSettingsStore } from '../../../stores/settings'
 import BaseSelect from '../../ui/BaseSelect.vue'
 import AIModelField from './AIModelField.vue'
-import AISettings from './AISettings.vue'
-
-const base: AIConfig = {
-  provider: 'openai',
-  model: 'gpt-old',
-  hasApiKey: true,
-  consentedProviders: ['openai'],
-  chatgptSignedIn: false,
-}
-
-function setup(cfg: Partial<AIConfig> = {}, models?: Record<string, AIModelList>) {
-  const pinia = createPinia()
-  setActivePinia(pinia)
-  const store = useSettingsStore()
-  store.aiConfig = { ...base, ...cfg }
-  if (models) store.aiModels = models
-  const calls: string[] = []
-  store.loadAIModels = async (p: string) => {
-    calls.push(`models:${p}`)
-    return { provider: p, models: [] }
-  }
-  return { pinia, store, calls }
-}
-
-const mountAI = (pinia: ReturnType<typeof createPinia>) =>
-  mount(AISettings, { global: { plugins: [pinia] } })
-
-function button(w: VueWrapper, text: string) {
-  const b = w.findAll('button').find((x) => x.text().includes(text))
-  if (!b) throw new Error(`button not found: ${text}`)
-  return b
-}
+import { acctA, base, button, chatgptCfg, flushPromises, mountAI, setup } from './aiTestSupport'
 
 describe('AISettings モデル一覧（#76）', () => {
   test('取得した一覧があれば一覧から選ぶ。取得は勝手にしない（マウント時は呼ばない）', async () => {
@@ -147,7 +109,7 @@ describe('AISettings モデル一覧（#76）', () => {
   })
 })
 
-describe('AISettings ChatGPT でログイン（#75）', () => {
+describe('AISettings Continue with ChatGPT（#75）', () => {
   test('API キー・Base URL の欄を出さず、ログインを案内する。未ログインは Continue with ChatGPT', () => {
     const { pinia } = setup({ provider: 'chatgpt', hasApiKey: false })
     const w = mountAI(pinia)
@@ -158,52 +120,45 @@ describe('AISettings ChatGPT でログイン（#75）', () => {
     expect(w.get('[data-testid="ai-destination"]').text()).toContain('https://api.openai.com')
     expect(w.text()).toContain('パスワードも Cookie も受け取りません')
     expect(w.text()).toContain('OpenAI の公式アプリではありません')
+    expect(w.find('[data-testid="ai-chatgpt-accounts"]').exists()).toBe(false)
   })
 
   test('ログインを押すとブラウザでのログインを待つ。完了するとメールと Using ChatGPT plan を出す', async () => {
     const { pinia, store, calls } = setup({ provider: 'chatgpt', hasApiKey: false })
     let release: () => void = () => {}
-    const differ: boolean[] = []
-    store.signInChatGPT = async (d: boolean) => {
-      differ.push(d)
+    const ids: string[] = []
+    store.signInChatGPT = async (id: string) => {
+      ids.push(id)
       await new Promise<void>((r) => {
         release = r
       })
-      store.aiConfig = {
-        ...base,
-        provider: 'chatgpt',
-        hasApiKey: true,
-        chatgptSignedIn: true,
-        chatgptEmail: 'me@chatgpt.example',
-      }
+      store.aiConfig = { ...base, ...chatgptCfg([acctA]) }
     }
     const w = mountAI(pinia)
     await w.get('[data-testid="ai-chatgpt-login"]').trigger('click')
-    expect(differ).toEqual([false])
+    expect(ids).toEqual([''])
     expect(w.text()).toContain('ブラウザで ChatGPT のログインを完了してください')
     expect(w.text()).toContain('ログインを中止')
     release()
     await flushPromises()
-    expect(w.get('[data-testid="ai-chatgpt-status"]').text()).toContain('me@chatgpt.example')
+    expect(w.get('[data-testid="ai-chatgpt-status"]').text()).toContain('a@chatgpt.example')
     expect(w.text()).toContain('Using ChatGPT plan')
     expect(w.text()).toContain('Manage usage')
     expect(calls).toEqual(['models:chatgpt'])
   })
 
   test('ログアウトでき、OpenAI 側の失効を確認できなかったときはそれを知らせる', async () => {
-    const { pinia, store } = setup({
-      provider: 'chatgpt',
-      hasApiKey: true,
-      chatgptSignedIn: true,
-      chatgptEmail: 'me@chatgpt.example',
-    })
-    store.signOutChatGPT = async () => {
-      store.aiConfig = { ...base, provider: 'chatgpt', hasApiKey: false, chatgptSignedIn: false }
+    const { pinia, store } = setup(chatgptCfg([acctA]))
+    const ids: string[] = []
+    store.signOutChatGPT = async (id: string) => {
+      ids.push(id)
+      store.aiConfig = { ...base, ...chatgptCfg([{ ...acctA, signedIn: false }]) }
       return false
     }
     const w = mountAI(pinia)
-    await button(w, 'ログアウト').trigger('click')
+    await w.get('[data-testid="ai-chatgpt-logout"]').trigger('click')
     await flushPromises()
+    expect(ids).toEqual(['oaiapp_AAAA'])
     expect(w.get('[data-testid="ai-chatgpt-status"]').text()).toContain('未ログイン')
   })
 

@@ -67,7 +67,7 @@ type AppError = {
 | `SEND_UNCERTAIN` | リクエストを送った後に `Send` の応答を受け取れず（切断・タイムアウト・期限切れ・呼び出し側のキャンセル）、Gmail 側の送信済みに同じ送信を確認できなかった。送信済みの可能性があるため、送信済みフォルダーを確認してから、必要な場合だけ再送する。接続前の失敗（名前解決・接続拒否・トークン更新の通信失敗）や、リクエストを送る前の期限切れは本文を送れていないので、これではなく `OFFLINE`（再試行可）。送る前のキャンセルは `CANCELLED` | false | Send |
 | `AI_NOT_CONFIGURED` | API キー・プロバイダ・モデル未設定。ChatGPT プランでは、未ログイン、または再ログインが必要（更新できない・トークンが失効した） | false | AIService |
 | `AI_CONSENT_REQUIRED` | 当該プロバイダへの送信に未同意 | false | AIService |
-| `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト・リダイレクト応答（3xx。追従しない）等）。ChatGPT プランでは、利用枠の超過（`subscription_sharing_usage_limit_exceeded`）・このアカウントでは使えない（`subscription_sharing_user_not_eligible`）・ログインの検証失敗も含む | 状況による | AIService |
+| `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト・リダイレクト応答（3xx。追従しない）等）。ChatGPT プランでは、利用枠の超過（`subscription_sharing_usage_limit_exceeded`。`details.reason = "usage_limit_exceeded"` を持ち、画面は「Manage usage」を主なアクションにした案内を出す。ほかの `AI_FAILED` は `details.reason` を持たない）・このアカウントでは使えない（`subscription_sharing_user_not_eligible`）・ログインの検証失敗も含む | 状況による | AIService |
 | `CANCELLED` | 呼び出し側がキャンセルした | false | AIService |
 | `UNSUPPORTED` | この OS では提供しない機能の呼び出し（Android での更新確認の設定） | false | AppService |
 | `INTERNAL` | 想定外の内部エラー | false | 全般 |
@@ -344,8 +344,18 @@ type AIConfig = {
   baseUrl?: string;           // openai のみ。未指定は OpenAI 既定
   hasApiKey: boolean;         // 現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。キー・トークン自体は返さない
   consentedProviders: AIProvider[];
-  chatgptSignedIn: boolean;   // 選択中のプロバイダに関わらず、ChatGPT にログイン済みか
-  chatgptEmail?: string;      // 表示用（検証済み ID トークンのメールアドレス）
+  chatgptSignedIn: boolean;   // 選択中のプロバイダに関わらず、使用中の ChatGPT アカウントがログイン済みか
+  chatgptEmail?: string;      // 使用中のアカウントのメールアドレス（表示用。検証済み ID トークンのもの）
+  chatgptAccounts: ChatGPTAccount[];   // 保存済みの ChatGPT アカウント（登録順。無ければ空配列で null にしない。トークンは含まない）
+};
+
+// ChatGPT アカウント = クライアント登録 1 件。同じメールアドレスでも、別の登録なら別のアカウントとして扱う
+type ChatGPTAccount = {
+  id: string;                 // 登録の識別子（発行された client_id）
+  email?: string;
+  signedIn: boolean;          // ログイン中のセッションがあるか（ログアウト済みでも登録は残る）
+  active: boolean;            // 下書きの生成に使うアカウントか（高々 1 件。ログアウト済みでも、選択は変わらないので true のまま残る。`signedIn` と合わせて判断する）
+  planNoticePending: boolean; // 初めてログインして ChatGPT プランの利用が有効になったのに、「You're using your ChatGPT plan」の確認をまだ済ませていないか（下記。2 回目以降のログインでは立たない）
 };
 
 type AIModel = { id: string; displayName?: string };
@@ -366,9 +376,12 @@ type ChatGPTSignOutResult = { config: AIConfig; revocationConfirmed: boolean };
 | `ClearAIApiKey(provider)` | string | `AIConfig` | キーを削除。`chatgpt` は `VALIDATION`（ログアウトは `SignOutChatGPT`） |
 | `RecordAIConsent(provider)` | string | `AIConfig` | 「スレッド内容が当該プロバイダへ送信される」ことの同意を保存（`app_settings.ai.consent`）。同意は「プロバイダ＋送信先」単位で、`openai`（api.openai.com）と `chatgpt`（api.openai.com）は別の同意として取る |
 | `ListAIModels(provider)` | string | `AIModelList` | 保存済みの設定の送信先から、使えるモデルの一覧を取得する（下記）。MCP からは呼べない |
-| `SignInChatGPT(differentAccount)` | boolean | `AIConfig` | OpenAI の公式画面（システムブラウザ）で ChatGPT にログインする。完了・中止・時間切れまでブロックする（下記）。`differentAccount` が真なら保存済みの登録を使わず、別の ChatGPT アカウントとして登録し直す |
+| `SignInChatGPT(accountId)` | string | `AIConfig` | OpenAI の公式画面（システムブラウザ）で ChatGPT にログインする。完了・中止・時間切れまでブロックする（下記）。`accountId` が空なら別の ChatGPT アカウントとして新しく登録する（追加）。保存済みの `id` を渡すと、その登録の `client_id` で再ログインする（別のアカウントでログインされたら `VALIDATION`、未登録の ID は `NOT_FOUND`）。ID トークンを検証して保存を終えるまで、使用中のアカウントとほかのアカウントのトークン・登録は変えず、成功したアカウントが使用中になる |
+| `SelectChatGPTAccount(accountId)` | string | `AIConfig` | 下書きの生成に使う ChatGPT アカウントを切り替える。通信しない。ログイン中のアカウントだけ選べる（ログアウト済みは `AI_NOT_CONFIGURED`、未登録は `NOT_FOUND`） |
 | `CancelSignInChatGPT()` | — | — | 進行中のログインを中止（`SignInChatGPT` は `OAUTH_CANCELLED` で reject） |
-| `SignOutChatGPT()` | — | `ChatGPTSignOutResult` | OpenAI 側のセッションを失効させてから、ローカルのトークンを消す。失効を確認できなくてもローカルは消え、`revocationConfirmed = false` を返す（利用者には ChatGPT の設定から連携を解除できると伝える） |
+| `SignOutChatGPT(accountId)` | string | `ChatGPTSignOutResult` | 指定した ChatGPT アカウントだけ、OpenAI 側のセッションを失効させてから、そのローカルのトークンを消す（ほかのアカウントのトークンと登録は残り、このアカウントの登録も残る）。失効を確認できなくてもローカルは消え、`revocationConfirmed = false` を返す（利用者には ChatGPT の設定から連携を解除できると伝える）。使用中のアカウントをログアウトしても使用中の選択は変えず（ほかのアカウントへ黙って切り替えない。`ChatGPTAccount` は `active = true`・`signedIn = false` のまま）、そのあいだ下書きは `AI_NOT_CONFIGURED`（ログインが要る）になるので、再ログインするか `SelectChatGPTAccount` でログイン中のほかのアカウントを選ぶ。使用中の選択が外れるのは `RemoveChatGPTAccount` で使用中だった登録を忘れたときだけ。未登録の ID は `NOT_FOUND` |
+| `AckChatGPTPlanNotice(accountId)` | string | `AIConfig` | 「You're using your ChatGPT plan」の確認を済みにする（`planNoticePending` が下りる。何度呼んでも同じ。未登録の ID は `NOT_FOUND`） |
+| `RemoveChatGPTAccount(accountId)` | string | `AIConfig` | ログアウト済みの ChatGPT アカウントの登録（`client_id`・本人情報）を忘れる。ログイン中のアカウントは `VALIDATION`（先にログアウト）。未登録の ID は `NOT_FOUND` |
 | `GenerateReplyDraft(sessionId, requestId)` | string ×2 | `{ bodyHtml: string }` | 返信系セッション（`reply`／`reply_all`）のスレッドから下書きを生成する。署名・引用は含めない。`new`／`forward` は `VALIDATION` |
 | `CancelGenerate(requestId)` | string | — | 生成を中止（`GenerateReplyDraft` は `CANCELLED` で reject） |
 
@@ -389,12 +402,14 @@ type ChatGPTSignOutResult = { config: AIConfig; revocationConfirmed: boolean };
 OpenAI の公式ドキュメント（[Token sharing for open source](https://developers.openai.com/siwc/token-sharing-open-source)）のオープンソース向けフローに従う。規約（[Sign in with ChatGPT Terms](https://openai.com/policies/sign-in-with-chatgpt-terms/)）の要件として、**トークンは公式のサインインフローだけで取得する／パスワードもセッション Cookie も受け取らない／OpenAI やほかのアプリを名乗らない／Codex CLI など他アプリの認証情報は読まない・使わない／プラン枠やトークンを共有しない**。
 
 - **ログイン**（`SignInChatGPT`）: ブラウザで `https://auth.openai.com/api/accounts/authorize`（エンドポイントは `/.well-known/openid-configuration` から取得）を開く。PKCE（S256）・`state`・`nonce` を試行ごとに作り、リダイレクト先は `http://127.0.0.1:<一時ポート>/auth/callback`（`localhost` は使わない。`state` が合わない要求は無視）。`scope` は `openid profile email offline_access resource.invoke chatgpt.tokens.use.direct`、`resource` は `https://api.openai.com/v1`。client secret は持たない公開クライアント
+- **複数アカウント**（[Accounts and sessions](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions)）: ChatGPT アカウント（クライアント登録）ごとに、発行された `client_id`・`sub`・メール・トークン（資格情報ストアのキーも `client_id` ごと）を別々に保存し、同じメールアドレスでも別の登録として扱う（同じアカウントでもう一度「追加」すると、別の `client_id` の別の登録になる）。ホスト ID（`ext_agent_host_id`）は全アカウントで共通。設定画面は保存済みのアカウントを一覧にして、使うアカウントを選べる（`SelectChatGPTAccount`）。別のアカウントの追加（`SignInChatGPT('')`）・再ログイン（`SignInChatGPT(id)`）は、ID トークンを検証して保存を終えるまで、使用中のアカウントにも保存済みのトークンにも影響しない。ほかのアカウントの `client_id`・ID トークン・メールを認可要求に混ぜない。生成・更新・失効は、使用中のアカウント（更新・失効は対象のアカウント）の `client_id` とトークンだけを使う
 - **クライアント登録**: 初回は `client_id=dynamic_agent_client`・`agent_name_hint=Hitomado`・ホスト ID（`ext_agent_host_id`。`urn:uuid:<UUIDv4>`。初回ログインの前に作って `app_settings.ai.chatgpt` に保存し、以後同じ値）で動的登録し、コールバックが返す発行済みの `client_id`（`oaiapp_…`）を保存して以後の認可・更新・失効に使う（発行されなければ未完了として失敗）。再ログインは保存済みの `client_id`（`agent_name_hint` は付けない）と、`login_hint`（メール）・保持している `id_token_hint` を使う。この登録に事前の申請や承認は要らない（OSS 向けの動的登録）
-- **検証**: コードをトークンに交換したあと、ID トークンの署名（OpenAI の JWKS）・`iss`・`aud`（発行済みの `client_id`）・`exp`・`nonce` を検証し、`sub` を本人の識別とする。付与された `scope` に `chatgpt.tokens.use.direct` が無ければ ChatGPT プランは使えないとして、得たトークンは保存せず（リフレッシュトークンは失効させる）`OAUTH_DENIED` を返す。ログイン中のセッションがあればそれは変えない。無いときは登録（クライアント ID）だけを残し、次のログインでは `prompt=consent` で同意画面を求め直す。保存済みの登録と別の `sub` でのログインは `VALIDATION` で拒否し、何も上書きしない（別のアカウントへ切り替えるには `differentAccount`）。ブラウザで拒否（`access_denied`）は `OAUTH_DENIED`、5 分の時間切れは `OAUTH_TIMEOUT`
-- **保存**: アクセストークン・リフレッシュトークン・ID トークンは資格情報ストア（`hitomado/chatgpt_token/{access,refresh,id}`。1 件の上限を超える値は分割して保存）にだけ置く。ホスト ID・`client_id`・`sub`・メール・アクセストークンの期限（秘密ではない）は `app_settings.ai.chatgpt`。トークンはログ・エラーメッセージ・`AIConfig`・MCP のどこにも出さない（エラーはエラーコード名だけを持ち、応答本文は捨てる）
-- **更新**: アクセストークンは 1 時間。期限の 60 秒前から、`grant_type=refresh_token`・発行済みの `client_id`・`resource` で更新し、アクセス・リフレッシュ（置き換え）・ID トークンをまとめて保存する（更新は直列化）。`invalid_grant`・`invalid_refresh_token`・`token_expired`・`refresh_token_expired`・`refresh_token_invalidated`・`refresh_token_reused` はトークンを消して再ログインを案内（`AI_NOT_CONFIGURED`）。通信失敗・5xx ではトークンを消さない。生成中に 401 を受けたときだけ、1 度更新してやり直し、それでも 401 なら `AI_FAILED`（ログインの確認を案内）。403（`subscription_sharing_user_not_eligible` 以外の方針・権限・地域の拒否など）・429・5xx では更新も再送もしない（公式ドキュメントが同じ要求の繰り返しを求めていないため）。トークンは同意の確認が済んでから取得・更新する。エラーコードは `error` が文字列・`error.code`・トップレベルの `code` のいずれでも判定する
-- **ログアウト**（`SignOutChatGPT`）: 失効エンドポイントへ `token_type_hint=refresh_token` で POST（通信失敗・5xx は最大 3 回）し、成否に関わらずローカルのトークンを消す。ホスト ID と発行済みの `client_id` は残す
-- **生成**: `POST https://api.openai.com/v1/responses`（`Authorization: Bearer <アクセストークン>`）。`store: false`・`stream: true`・`instructions`・`input`（配列）だけを送り、公式が未対応とする項目（`max_output_tokens`・`temperature`・`user`・`metadata` など）は送らない。`response.completed` を受けて初めて成功とし、`response.failed`／`response.incomplete`／途中で切れたストリームは失敗。`subscription_sharing_usage_limit_exceeded`（429）は `AI_FAILED`（ChatGPT の使用状況の画面を案内）、`subscription_sharing_user_not_eligible`（403）は `AI_FAILED`（このアカウントでは使えない旨）。既存の Chat Completions の経路（`openai`）とは別の実装
+- **検証**: コードをトークンに交換したあと、ID トークンの署名（OpenAI の JWKS）・`iss`・`aud`（発行済みの `client_id`）・`exp`・`nonce` を検証し、`sub` を本人の識別とする。付与された `scope` に `chatgpt.tokens.use.direct` が無ければ ChatGPT プランは使えないとして、得たトークンは保存せず（リフレッシュトークンは失効させる）`OAUTH_DENIED` を返す。ログイン中のアカウント（使用中のアカウントを含む）のセッションは変えない。そのアカウントにセッションが無いときだけ、登録（クライアント ID）をログアウト済みのアカウントとして残し、その登録での次のログインでは `prompt=consent` で同意画面を求め直す。再ログインで選んだ登録と別の `sub` のログインは `VALIDATION` で拒否し（得たリフレッシュトークンは失効させる）、何も上書きしない（別のアカウントを使うには、追加する）。ブラウザで拒否（`access_denied`）は `OAUTH_DENIED`、5 分の時間切れは `OAUTH_TIMEOUT`
+- **保存**: アクセストークン・リフレッシュトークン・ID トークンは資格情報ストア（`hitomado/chatgpt_token/<client_id>/{access,refresh,id}`。1 件の上限を超える値は分割して保存）にだけ置く。ホスト ID・使用中のアカウント・アカウントごとの `client_id`・`sub`・メール・アクセストークンの期限（秘密ではない）は `app_settings.ai.chatgpt`（形式は [ER §3.9](../architecture/er.md)）。v0.1.7 までの 1 アカウントの形式（`hitomado/chatgpt_token/{access,refresh,id}`）は、最初の読み取りで、再ログインなしに新しい形式へ移す（新しい保存先へ書いてから登録を置き換え、最後に旧キーを消す。途中で失敗しても再実行できる。登録を新しい形式へ置き換えたあとに旧キーの削除だけが失敗した場合も、旧キーが残っている間は、プロセスの最初の呼び出し（削除に失敗し続けている間は呼び出しごと）に旧キーの削除をやり直す。旧キーの有無は読むだけで確かめ、無ければ何も消さない・新しい形式のキーには触れない。削除に失敗しても移行したアカウントは失わず、状態の取得・ログインは使える）。トークンはログ・エラーメッセージ・`AIConfig`・MCP のどこにも出さない（エラーはエラーコード名だけを持ち、応答本文は捨てる）
+- **更新**: アクセストークンは 1 時間。期限の 60 秒前から、`grant_type=refresh_token`・発行済みの `client_id`・`resource` で更新し、アクセス・リフレッシュ（置き換え）・ID トークンをまとめて保存する（更新は直列化）。`invalid_grant`・`invalid_refresh_token`・`token_expired`・`refresh_token_expired`・`refresh_token_invalidated`・`refresh_token_reused` は、更新に失敗したアカウントのトークンだけを消して再ログインを案内（`AI_NOT_CONFIGURED`。ほかのアカウントのトークンは残る）。通信失敗・5xx ではトークンを消さない。生成中に 401 を受けたときだけ、1 度更新してやり直し、それでも 401 なら `AI_FAILED`（ログインの確認を案内）。403（`subscription_sharing_user_not_eligible` 以外の方針・権限・地域の拒否など）・429・5xx では更新も再送もしない（公式ドキュメントが同じ要求の繰り返しを求めていないため）。トークンは同意の確認が済んでから取得・更新する。エラーコードは `error` が文字列・`error.code`・トップレベルの `code` のいずれでも判定する
+- **ログアウト**（`SignOutChatGPT(accountId)`）: 指定したアカウントの失効エンドポイントへ `token_type_hint=refresh_token` で POST（通信失敗・5xx は最大 3 回）し、成否に関わらずそのアカウントのローカルのトークンだけを消す。ほかのアカウントのトークンと登録、ホスト ID、このアカウントの `client_id`（登録）は残す。登録を忘れるのは `RemoveChatGPTAccount`（ログアウト済みのアカウントのみ）
+- **生成**: `POST https://api.openai.com/v1/responses`（`Authorization: Bearer <アクセストークン>`）。`store: false`・`stream: true`・`instructions`・`input`（配列）だけを送り、公式が未対応とする項目（`max_output_tokens`・`temperature`・`user`・`metadata` など）は送らない。`response.completed` を受けて初めて成功とし、`response.failed`／`response.incomplete`／途中で切れたストリームは失敗。`subscription_sharing_usage_limit_exceeded`（429）は `AI_FAILED`（`details.reason = "usage_limit_exceeded"`。画面は ChatGPT の使用状況の画面（`https://chatgpt.com/settings/usage`）を開く「Manage usage」を主なアクションにした案内を出す。更新も再送もしない）、`subscription_sharing_user_not_eligible`（403）は `AI_FAILED`（このアカウントでは使えない旨）。既存の Chat Completions の経路（`openai`）とは別の実装
+- **初めてのログインの確認**（[UI/UX ガイドライン](https://developers.openai.com/siwc/ui-ux-guidelines)）: 初めてログインして ChatGPT プランの利用が有効になったとき（付与された `scope` に `chatgpt.tokens.use.direct` があり、保存できたとき）だけ、そのアカウントの `planNoticePending` が立つ。画面は「You're using your ChatGPT plan」の確認（プランの範囲で使うことの説明・使用状況の画面へのリンク・「Got it」）を出し、「Got it」で `AckChatGPTPlanNotice` を呼ぶ。状態は `app_settings.ai.chatgpt` のアカウントごと（`planNotice`。[ER §3.9](../architecture/er.md)）に持つので、同じアカウントの再ログイン・ログアウト・再起動では立たず、別のアカウントを初めて追加したときだけ、そのアカウントで 1 度出る。登録は `client_id` 単位なので、アカウントを `RemoveChatGPTAccount` で忘れてから同じアカウントを追加し直したとき、および同じアカウントを 2 回追加したときは、新しい `client_id` の登録として扱い、そのアカウントでもう一度出る。許可されなかったログイン（`OAUTH_DENIED`）では立たない（あとで初めて有効になったときに立つ）。v0.1.7 までの登録は、本人情報（`sub`）があり `consentNeeded` でなければ（ログアウト済みの登録も含め）確認済みとして移す
 - 使える対象: 公式ドキュメントが示すのは ChatGPT Plus／Pro。Business などほかのプランは、公式ドキュメントでは確認できていない（使えない場合は `subscription_sharing_user_not_eligible` で分かる）。使えるモデルは `ListAIModels('chatgpt')` が返す一覧による
 
 ## 7. AppService
@@ -517,3 +532,5 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.19 | 2026-11-03 | `AccountService.TakeInterruptedAuth` を追加 | Android の Google OAuth（#86） |
 | 1.20 | 2026-11-03 | `GetCapabilities` の戻り値に `touchUi` を追加 | Android のスマホ向け画面（#87） |
 | 1.21 | 2026-11-03 | `NotifyService`（§7.4。通知の許可・OS の通知設定・通知のタップで開くスレッド）を追加。`notify:open-thread` の契機に Android の通知のタップを追記 | Android のバックグラウンド同期と通知（#88） |
+| 1.22 | 2026-11-04 | `ChatGPTAccount`・`AIConfig.chatgptAccounts` を追加し、`SignInChatGPT`／`SignOutChatGPT` の引数を `differentAccount`（真偽値）／なしから `accountId` に変え、`SelectChatGPTAccount`／`RemoveChatGPTAccount` を追加。§6.2 に複数の ChatGPT アカウント（登録・トークンをアカウントごとに保存、選んで使う、追加は検証までほかに影響しない、ログアウトは選んだアカウントだけ）と旧形式からの移行を追記 | 複数の ChatGPT アカウント（#79） |
+| 1.23 | 2026-11-04 | `ChatGPTAccount.planNoticePending` と `AckChatGPTPlanNotice` を追加し、§6.2 に初めてのログインの確認を追記。利用枠の超過の `AI_FAILED` に `details.reason = "usage_limit_exceeded"` を付け、画面が「Manage usage」を主なアクションにした案内を出すことを明記（§1.2・§6.2） | OpenAI の UI/UX ガイドラインへの対応（#80） |

@@ -282,7 +282,7 @@ sequenceDiagram
   AI-->>FE: 下書き本文（フロントがエディタに挿入。送信は行わない）
 ```
 
-ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークンを `internal/siwc` が資格情報ストアに保持し、`PV` は Responses API（`store: false`・`stream: true`）を呼ぶ。生成中に 401 を受けたときは 1 度だけトークンを更新してやり直し、更新できなければ再ログインを案内する。ログイン・更新・ログアウトの手順は [バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)。
+ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークンを `internal/siwc` が資格情報ストアに保持し、`PV` は Responses API（`store: false`・`stream: true`）を呼ぶ。生成中に 401 を受けたときは 1 度だけトークンを更新してやり直し、更新できなければ再ログインを案内する。複数の ChatGPT アカウントはアカウントごと（`client_id` ごと）にトークンと登録を分けて保存し、使用中のアカウントのトークンで生成する。ログイン・更新・ログアウトの手順は [バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)。
 
 生成中の中止はフロントが `CancelGenerate(requestId)` を呼び、`GenerateReplyDraft` は `CANCELLED` で reject される。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
 
@@ -328,3 +328,4 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 | 1.15 | 2026-11-03 | §5 に、OS ごとの機能差を `internal/capability`（`Capabilities`・`PlatformService`）で表し、Android では MCP・トレイ・多重起動の防止・ウィンドウ状態・自動更新を動かさない旨を追記 | Android 版で使わない機能の無効化（#89） |
 | 1.16 | 2026-11-03 | §7.1 に、Android の認可（`Tracker` による、プロセスが止められた認可の検出）を追記 | #86 |
 | 1.17 | 2026-11-03 | §7.2 に Android のバックグラウンド同期（WorkManager・`internal/headless`・Java の通知・二重同期の排他）を追記 | #88 |
+| 1.18 | 2026-11-04 | §5 の ChatGPT プランに、アカウントごとにトークンと登録を分けて保存し、使用中のアカウントで生成する旨を追記 | 複数の ChatGPT アカウント（#79） |

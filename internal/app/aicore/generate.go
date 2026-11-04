@@ -13,6 +13,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/domain/textconv"
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/siwc"
 )
 
 // AI に渡すコンテキストの上限（NF §12）。
@@ -133,7 +134,9 @@ func (s *Service) precheck(ctx context.Context) (storedAIConfig, string, error) 
 		ok  bool
 	)
 	if cfg.Provider == providerChatGPT {
-		ok, _, err = s.chatGPTStatus(ctx)
+		var gpt siwc.Status
+		gpt, err = s.chatGPTStatus(ctx)
+		ok = gpt.SignedIn
 	} else {
 		key, ok, err = s.apiKey(cfg.Provider)
 	}

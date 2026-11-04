@@ -72,7 +72,7 @@ func (f *FakeFlow) Revoke(_ context.Context, refreshToken string) error {
 	return f.RevokeErr
 }
 
-// FakeBrowser は app.URLOpener のフェイク。開いた URL を記録する。
+// FakeBrowser は deps.URLOpener のフェイク。開いた URL を記録する。
 type FakeBrowser struct {
 	mu sync.Mutex
 
@@ -218,7 +218,7 @@ func (f *FakeUpdate) CallCount() int {
 	return f.Calls
 }
 
-// FakePaths は app.PathOpener のフェイク。開いたパスを記録する。
+// FakePaths は deps.PathOpener のフェイク。開いたパスを記録する。
 type FakePaths struct {
 	mu sync.Mutex
 

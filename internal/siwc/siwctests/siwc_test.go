@@ -22,13 +22,28 @@ import (
 
 var uuidURN = regexp.MustCompile(`^urn:uuid:[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
 
-type savedReg struct {
-	HostID        string `json:"hostId"`
+// savedAcct・savedReg は app_settings の ai.chatgpt（秘密を含まない登録）。
+type savedAcct struct {
 	ClientID      string `json:"clientId"`
 	Subject       string `json:"subject"`
 	Email         string `json:"email"`
 	ConsentNeeded bool   `json:"consentNeeded"`
 	ExpiresAt     int64  `json:"expiresAt"`
+	PlanNotice    string `json:"planNotice"`
+}
+
+type savedReg struct {
+	HostID   string      `json:"hostId"`
+	Active   string      `json:"active"`
+	Accounts []savedAcct `json:"accounts"`
+}
+
+// first は最初のアカウント（無ければ零値）。
+func (r savedReg) first() savedAcct {
+	if len(r.Accounts) == 0 {
+		return savedAcct{}
+	}
+	return r.Accounts[0]
 }
 
 func (e *env) reg(t *testing.T) savedReg {
@@ -43,7 +58,10 @@ func (e *env) reg(t *testing.T) savedReg {
 func TestSignInRegistersWithTheDocumentedParameters(t *testing.T) {
 	e := newEnv(t, nil, nil)
 	st := e.signIn(t)
-	assert.Equal(t, siwc.Status{SignedIn: true, Email: "me@chatgpt.example"}, st)
+	assert.Equal(t, siwc.Status{
+		SignedIn: true, Email: "me@chatgpt.example",
+		Accounts: []siwc.Account{{ID: issuedClient, Email: "me@chatgpt.example", SignedIn: true, Active: true, PlanNoticePending: true}},
+	}, st)
 
 	q := e.f.lastAuth()
 	assert.Equal(t, "dynamic_agent_client", q.Get("client_id"))
@@ -72,16 +90,11 @@ func TestSignInRegistersWithTheDocumentedParameters(t *testing.T) {
 	assert.NotEmpty(t, forms[0].Get("code_verifier"))
 	assert.False(t, forms[0].Has("client_secret"))
 
-	reg := e.reg(t)
-	assert.Equal(t, issuedClient, reg.ClientID)
-	assert.Equal(t, q.Get("ext_agent_host_id"), reg.HostID)
-	assert.Equal(t, subjectA, reg.Subject)
-
 	// トークンは資格情報ストアにだけ入る（登録情報には入らない）。
 	v, _, _ := e.settings.GetSetting(t.Context(), store.SettingAIChatGPT)
 	assert.NotContains(t, v, secretAccess)
 	assert.NotContains(t, v, secretRefresh)
-	got, err := e.sec.Get(secrets.ChatGPTTokenKey("refresh"))
+	got, err := e.sec.Get(tokenKey("refresh"))
 	require.NoError(t, err)
 	assert.Equal(t, secretRefresh, got)
 
@@ -95,10 +108,10 @@ func TestReturningSignInReusesClientAndHost(t *testing.T) {
 	e.signIn(t)
 	first := e.f.lastAuth()
 
-	_, err := e.m.SignOut(t.Context())
+	_, err := e.m.SignOut(t.Context(), issuedClient)
 	require.NoError(t, err)
 	// ログアウト後は ID トークンのヒントを送らない（docs: Omit it after signing out）。
-	e.signIn(t)
+	e.relogin(t)
 	q := e.f.lastAuth()
 	assert.Equal(t, issuedClient, q.Get("client_id"), "発行済みの client_id を再利用する")
 	assert.False(t, q.Has("agent_name_hint"), "再認可には agent_name_hint を付けない")
@@ -107,38 +120,57 @@ func TestReturningSignInReusesClientAndHost(t *testing.T) {
 	assert.Equal(t, first.Get("ext_agent_host_id"), q.Get("ext_agent_host_id"), "同じホスト ID")
 
 	// ログアウトせずに再度ログインする（期限切れなど）と、保存済みの ID トークンがヒントになる。
-	e.signIn(t)
+	e.relogin(t)
 	q = e.f.lastAuth()
 	assert.NotEmpty(t, q.Get("id_token_hint"))
 	assert.Equal(t, issuedClient, q.Get("client_id"))
 }
 
-func TestDifferentAccountRegistersAnewAndRevokesTheOldSession(t *testing.T) {
+// 別の ChatGPT アカウントの追加は、ID トークンを検証して保存するまで、使用中のアカウントに影響しない。
+// 追加が済んでも、もとのアカウントのトークンと登録は残る（置き換えない）。
+func TestAddingAnotherAccountKeepsTheFirstOne(t *testing.T) {
 	e := newEnv(t, nil, nil)
 	e.signIn(t)
+
+	// 選んだ登録（A）のまま別アカウント（B）でログインした場合は保存しない。
 	e.f.mu.Lock()
 	e.f.subject = "sub-account-b"
 	e.f.mu.Unlock()
-
-	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
-	assert.ErrorIs(t, err, siwc.ErrAccountMismatch, "保存済みの登録のまま別アカウントでは保存しない")
+	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{AccountID: issuedClient})
+	assert.ErrorIs(t, err, siwc.ErrAccountMismatch, "選んだ登録のまま別アカウントでは保存しない")
 	tok, err := e.m.AccessToken(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, secretAccess, tok, "失敗してもログイン中のセッションは変わらない")
+	assert.Len(t, e.reg(t).Accounts, 1)
+	revokesBefore := len(e.f.revokeFormsCopy()) // 不一致で得た新しいセッションの失効（これは期待どおり）
 
+	// 新規登録として追加する。
 	e.f.mu.Lock()
 	e.f.accessToken = "ACCESS-SECRET-VALUE-B"
+	e.f.issueQueue = []string{"oaiapp_SECOND"}
 	e.f.mu.Unlock()
-	_, err = e.m.SignIn(t.Context(), siwc.SignInOptions{DifferentAccount: true})
+	st, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
 	require.NoError(t, err)
 	q := e.f.lastAuth()
 	assert.Equal(t, "dynamic_agent_client", q.Get("client_id"))
 	assert.Equal(t, "Hitomado", q.Get("agent_name_hint"))
-	assert.False(t, q.Has("id_token_hint"))
-	assert.Equal(t, "sub-account-b", e.reg(t).Subject)
+	for _, k := range []string{"id_token_hint", "login_hint", "prompt"} {
+		assert.False(t, q.Has(k), "追加の登録に別アカウントの %s を付けない", k)
+	}
+	assert.Equal(t, e.reg(t).HostID, q.Get("ext_agent_host_id"), "ホスト ID は全アカウントで共通")
+	assert.Equal(t, []siwc.Account{
+		{ID: issuedClient, Email: "me@chatgpt.example", SignedIn: true, PlanNoticePending: true},
+		{ID: "oaiapp_SECOND", Email: "me@chatgpt.example", SignedIn: true, Active: true, PlanNoticePending: true},
+	}, st.Accounts, "メールが同じでも別の登録")
+	assert.Equal(t, "oaiapp_SECOND", e.reg(t).Active, "ログインを終えたアカウントが使用中になる")
+
 	tok, err = e.m.AccessToken(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "ACCESS-SECRET-VALUE-B", tok)
+	assert.Len(t, e.f.revokeFormsCopy(), revokesBefore, "追加しても、もとのアカウントのセッションは失効させない")
+	got, err := e.sec.Get(tokenKey("refresh"))
+	require.NoError(t, err)
+	assert.Equal(t, secretRefresh, got, "もとのアカウントのトークンは残る")
 }
 
 func TestSignInDenied(t *testing.T) {
@@ -177,23 +209,25 @@ func TestPlanNotGrantedStoresNoTokensAndAsksConsentNextTime(t *testing.T) {
 	e.f.scope = "email openid profile offline_access"
 	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
 	require.ErrorIs(t, err, siwc.ErrPlanNotGranted)
-	_, err = e.sec.Get(secrets.ChatGPTTokenKey("access"))
+	_, err = e.sec.Get(tokenKey("access"))
 	assert.ErrorIs(t, err, secrets.ErrNotFound)
-	_, err = e.sec.Get(secrets.ChatGPTTokenKey("refresh"))
+	_, err = e.sec.Get(tokenKey("refresh"))
 	assert.ErrorIs(t, err, secrets.ErrNotFound)
 	assert.Len(t, e.f.revokeFormsCopy(), 1, "使わないリフレッシュトークンは失効させる")
 	st, _ := e.m.Status(t.Context())
 	assert.False(t, st.SignedIn)
 
+	assert.True(t, e.reg(t).first().ConsentNeeded, "ログイン中でない登録は、次のログインのために残す")
+	assert.Empty(t, e.reg(t).Active, "使用中にはしない")
 	e.f.mu.Lock()
 	e.f.scope = scopeAll
 	e.f.mu.Unlock()
-	e.signIn(t)
+	e.relogin(t)
 	q := e.f.lastAuth()
 	assert.Equal(t, issuedClient, q.Get("client_id"))
 	assert.Equal(t, "consent", q.Get("prompt"))
-	assert.False(t, e.reg(t).ConsentNeeded)
-	e.signIn(t)
+	assert.False(t, e.reg(t).first().ConsentNeeded)
+	e.relogin(t)
 	assert.False(t, e.f.lastAuth().Has("prompt"), "普通のログインでは同意を強制しない")
 }
 
@@ -215,9 +249,9 @@ func TestInvalidIDTokenIsRejectedAndNothingIsSaved(t *testing.T) {
 			tc.mutate(e.f)
 			_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
 			require.ErrorIs(t, err, siwc.ErrInvalidResponse)
-			_, serr := e.sec.Get(secrets.ChatGPTTokenKey("access"))
+			_, serr := e.sec.Get(tokenKey("access"))
 			assert.ErrorIs(t, serr, secrets.ErrNotFound)
-			assert.Empty(t, e.reg(t).ClientID, "検証に通るまで登録を保存しない")
+			assert.Empty(t, e.reg(t).Accounts, "検証に通るまで登録を保存しない")
 		})
 	}
 }
@@ -234,9 +268,9 @@ func TestReauthorizationRejectsADifferentClientID(t *testing.T) {
 	e := newEnv(t, nil, nil)
 	e.signIn(t)
 	e.f.callbackExtras = url.Values{"client_id": {"oaiapp_ATTACKER"}}
-	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
+	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{AccountID: issuedClient})
 	require.ErrorIs(t, err, siwc.ErrInvalidResponse)
-	assert.Equal(t, issuedClient, e.reg(t).ClientID)
+	assert.Equal(t, issuedClient, e.reg(t).first().ClientID)
 }
 
 func TestSignInTimeoutAndCancel(t *testing.T) {

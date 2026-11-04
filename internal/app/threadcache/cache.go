@@ -52,6 +52,11 @@ func (c *Cache) Get(ctx context.Context, accountID, threadID string) (gmail.Thre
 			return v, nil
 		}
 		c.mu.Lock()
+		// 上の確認のあとに先行の取得が完了して登録された場合（flight は消えている）に二重に取得しないよう、ロック下でもう一度見る。
+		if v, ok := c.lru.Get(k); ok {
+			c.mu.Unlock()
+			return v, nil
+		}
 		f, ok := c.flight[k]
 		if !ok {
 			break // c.mu を保持したまま、自分がリーダーになる。

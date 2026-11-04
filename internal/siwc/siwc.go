@@ -14,6 +14,7 @@ package siwc
 import (
 	"context"
 	"errors"
+	"fmt"
 )
 
 // ログイン・更新・ログアウトのエラー分類。errors.Is で判定できる形で返す。メッセージにトークン・応答本文は含まない。
@@ -33,42 +34,75 @@ var (
 	ErrTimeout = errors.New("siwc: ログインが時間内に完了しませんでした")
 	// ErrBusy は別のログインが進行中なこと。
 	ErrBusy = errors.New("siwc: 別のログインが進行中です")
-	// ErrAccountMismatch は保存済みの登録と別の ChatGPT アカウントでログインされたこと（保存しない）。
-	ErrAccountMismatch = errors.New("siwc: 保存済みとは別の ChatGPT アカウントです")
+	// ErrAccountMismatch は選んだ登録と別の ChatGPT アカウントでログインされたこと（保存しない）。
+	ErrAccountMismatch = errors.New("siwc: 選んだ登録とは別の ChatGPT アカウントです")
+	// ErrClientIDCollision は新しい登録で発行された client_id が、別のアカウントの既存の登録と同じだったこと（保存しない）。
+	// ErrAccountMismatch でもある（errors.Is）。選んだ登録が無いので、利用者の操作で直る誤りではない。
+	ErrClientIDCollision = fmt.Errorf("%w（発行された登録が既存の登録と重なりました）", ErrAccountMismatch)
+	// ErrUnknownAccount は保存されていない ChatGPT アカウントを指定したこと。
+	ErrUnknownAccount = errors.New("siwc: 登録されていない ChatGPT アカウントです")
+	// ErrAccountInUse はログイン中のアカウントの登録は忘れられないこと（先にログアウトする）。
+	ErrAccountInUse = errors.New("siwc: ログイン中のアカウントは削除できません")
 	// ErrInvalidResponse は OpenAI からの応答（コールバック・トークン・ID トークン）が検証を通らなかったこと。
 	ErrInvalidResponse = errors.New("siwc: OpenAI からの応答を検証できません")
 	// ErrFailed はその他の失敗（サーバーエラー・設定不備・資格情報ストアの失敗など）。
 	ErrFailed = errors.New("siwc: ChatGPT のログイン処理に失敗しました")
 )
 
+// Account は保存済みの ChatGPT アカウント（クライアント登録）1 件。トークンは含まない。
+type Account struct {
+	// ID は発行された client_id。同じメールアドレスでも別の登録なら別の ID になる。
+	ID       string
+	Email    string // 検証済み ID トークンのメールアドレス（表示用）
+	SignedIn bool   // ログイン中のセッションがあるか
+	Active   bool   // 使用中のアカウントか
+	// PlanNoticePending は「ChatGPT プランを使っています」の確認を、まだ出していない（初めてログインして ChatGPT プランの利用が
+	// 有効になった）アカウントか。AckPlanNotice で済みにするまで真のまま。
+	PlanNoticePending bool
+}
+
 // Status はログイン状態。トークンは含まない。
 type Status struct {
+	// SignedIn・Email は使用中のアカウントのログイン状態とメールアドレス。
 	SignedIn bool
-	Email    string // 検証済み ID トークンのメールアドレス（表示用）
+	Email    string
+	// Accounts は保存済みのアカウント（登録順）。
+	Accounts []Account
 }
 
 // SignInOptions はログインの指定。
 type SignInOptions struct {
-	// DifferentAccount が true なら、保存済みの登録を使わず新しく登録する（別の ChatGPT アカウントへ切り替える）。
-	DifferentAccount bool
+	// AccountID が空なら、新しく登録する（別の ChatGPT アカウントの追加）。
+	// 指定したときは、その登録の client_id で再ログインする（同じアカウントであること）。
+	// どちらも、ID トークンを検証して保存を終えるまで、使用中のアカウントと保存済みのトークンは変えない。
+	AccountID string
 }
 
 // Auth は ChatGPT ログインの操作面（aicore が使う）。実装は *Manager。
 type Auth interface {
 	// SignIn はブラウザでのログインの完了・中止・タイムアウトまでブロックする。ctx のキャンセルは ErrCancelled。
+	// 成功したアカウントが使用中になる。
 	SignIn(ctx context.Context, opts SignInOptions) (Status, error)
 	// CancelSignIn は進行中のログインを中止する（SignIn は ErrCancelled で戻る）。無ければ何もしない。
 	CancelSignIn()
-	// Status は現在のログイン状態を返す（通信しない）。
+	// Status は現在のログイン状態と保存済みのアカウントを返す（通信しない）。
 	Status(ctx context.Context) (Status, error)
-	// AccessToken は有効なアクセストークンを返す。期限が近ければ更新する。
+	// SelectAccount は使用中のアカウントを切り替える。ログイン中のアカウントだけ選べる（未登録は ErrUnknownAccount、
+	// ログアウト済みは ErrNotSignedIn）。ほかのアカウントのトークンと登録は変えない。
+	SelectAccount(ctx context.Context, accountID string) error
+	// AccessToken は使用中のアカウントの有効なアクセストークンを返す。期限が近ければ更新する。
 	// 未ログインは ErrNotSignedIn、更新できず再ログインが必要なら ErrReauthRequired。
 	AccessToken(ctx context.Context) (string, error)
-	// ForceRefresh は期限に関わらずトークンを更新して新しいアクセストークンを返す（401 を受けたときに 1 度だけ使う）。
+	// ForceRefresh は期限に関わらず使用中のアカウントのトークンを更新して新しいアクセストークンを返す（401 を受けたときに 1 度だけ使う）。
 	ForceRefresh(ctx context.Context) (string, error)
-	// SignOut はリフレッシュトークンの失効を試みてから、ローカルのトークンを消す。
+	// SignOut は指定したアカウントだけ、リフレッシュトークンの失効を試みてから、そのローカルのトークンを消す。
+	// ほかのアカウントのトークンと登録は残り、このアカウントの登録（client_id・ホスト ID）も残す。
 	// revoked は OpenAI 側の失効を確認できたか。消せなかったときだけ err が返る。
-	SignOut(ctx context.Context) (revoked bool, err error)
+	SignOut(ctx context.Context, accountID string) (revoked bool, err error)
+	// AckPlanNotice は「ChatGPT プランを使っています」の確認を済みにする（何度呼んでも同じ。未登録は ErrUnknownAccount）。
+	AckPlanNotice(ctx context.Context, accountID string) error
+	// RemoveAccount はログアウト済みのアカウントの登録を忘れる（ログイン中は ErrAccountInUse）。
+	RemoveAccount(ctx context.Context, accountID string) error
 }
 
 var _ Auth = (*Manager)(nil)

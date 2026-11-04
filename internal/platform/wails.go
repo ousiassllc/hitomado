@@ -38,7 +38,7 @@ type FilesDroppedPayload struct {
 	Files []string `json:"files"`
 }
 
-// Files はネイティブの保存ダイアログ（app.FileDialog の実装）。
+// Files はネイティブの保存ダイアログ（deps.FileDialog の実装）。
 // Android では保存ダイアログが Storage Access Framework で非同期に結果を返すので、その待ち合わせ（saver）を持つ。
 type Files struct {
 	app    *application.App
@@ -51,13 +51,13 @@ func NewFiles(app *application.App, window func() application.Window) *Files {
 	return &Files{app: app, window: window, saver: newSaver(app)}
 }
 
-// Browser はシステムブラウザ／メーラーで URL を開く（app.URLOpener の実装）。
+// Browser はシステムブラウザ／メーラーで URL を開く（deps.URLOpener の実装）。
 type Browser struct{ app *application.App }
 
 // NewBrowser は URLOpener を返す。スキーム検証は呼び出し側が行う。
 func NewBrowser(app *application.App) *Browser { return &Browser{app: app} }
 
-// Paths はファイル・フォルダを OS の標準の方法で開く（app.PathOpener の実装）。
+// Paths はファイル・フォルダを OS の標準の方法で開く（deps.PathOpener の実装）。
 type Paths struct{ app *application.App }
 
 // NewPaths は PathOpener を返す。呼び出し側がアプリ自身のデータフォルダのパスだけを渡すこと。
