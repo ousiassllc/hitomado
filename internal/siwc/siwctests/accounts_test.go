@@ -53,7 +53,7 @@ func TestAccountsKeepSeparateTokensAndRegistrations(t *testing.T) {
 
 	reg := e.reg(t)
 	require.Len(t, reg.Accounts, 2)
-	assert.Equal(t, savedAcct{ClientID: issuedClient, Subject: subjectA, Email: "me@chatgpt.example", ExpiresAt: reg.Accounts[0].ExpiresAt}, reg.Accounts[0])
+	assert.Equal(t, savedAcct{ClientID: issuedClient, Subject: subjectA, Email: "me@chatgpt.example", ExpiresAt: reg.Accounts[0].ExpiresAt, PlanNotice: "pending"}, reg.Accounts[0])
 	assert.Equal(t, "sub-account-b", reg.Accounts[1].Subject)
 	assert.Equal(t, reg.Accounts[0].Email, reg.Accounts[1].Email, "同じメールでも別の登録")
 	assert.Equal(t, secondClient, reg.Active)
@@ -120,8 +120,8 @@ func TestSignOutAffectsOnlyTheSelectedAccount(t *testing.T) {
 	st, err := e.m.Status(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, []siwc.Account{
-		{ID: issuedClient, Email: "me@chatgpt.example", SignedIn: true, Active: true},
-		{ID: secondClient, Email: "me@chatgpt.example"},
+		{ID: issuedClient, Email: "me@chatgpt.example", SignedIn: true, Active: true, PlanNoticePending: true},
+		{ID: secondClient, Email: "me@chatgpt.example", PlanNoticePending: true},
 	}, st.Accounts)
 }
 

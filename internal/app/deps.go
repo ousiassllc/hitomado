@@ -6,6 +6,3 @@ import "github.com/ousiassllc/hitomado/internal/app/deps"
 // （composecore／aicore）と循環しないよう分けている。フィールドは同一で、(*deps.Deps)(d) で相互に変換できる。
 // app パッケージ内の補助メソッド（logger／gmailErr など）を定義するため、別名ではなく定義型にしている。
 type Deps deps.Deps
-
-// FileDialog はネイティブの保存ダイアログ。
-type FileDialog = deps.FileDialog

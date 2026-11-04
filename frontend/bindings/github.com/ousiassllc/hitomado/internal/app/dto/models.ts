@@ -121,6 +121,12 @@ export interface ChatGPTAccount {
      * 下書きの生成に使うアカウントか
      */
     "active": boolean;
+
+    /**
+     * PlanNoticePending は、初めてログインして ChatGPT プランの利用が有効になったのに、「You're using your ChatGPT plan」の確認を
+     * まだ済ませていないか。画面が確認を出し、「Got it」で AckChatGPTPlanNotice を呼ぶ（2 回目以降のログインでは立たない）。
+     */
+    "planNoticePending": boolean;
 }
 
 /**

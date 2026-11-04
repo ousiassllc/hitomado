@@ -183,6 +183,23 @@ export const useSettingsStore = defineStore('settings', () => {
     return r.revocationConfirmed
   }
 
+  /** 返信の下書きを生成する（cancelGenerate で中止できる。requestId は呼び出しごとに一意）。 */
+  async function generateReplyDraft(
+    sessionId: string,
+    requestId: string,
+  ): Promise<{ bodyHtml: string }> {
+    return await call(AIService.GenerateReplyDraft(sessionId, requestId))
+  }
+
+  async function cancelGenerate(requestId: string): Promise<void> {
+    await call(AIService.CancelGenerate(requestId))
+  }
+
+  /** 「You're using your ChatGPT plan」の確認を済みにする（そのアカウントでは以後出さない）。 */
+  async function ackChatGPTPlanNotice(accountId: string): Promise<void> {
+    aiConfig.value = normalizeAIConfig(await call(AIService.AckChatGPTPlanNotice(accountId)))
+  }
+
   /** ログアウト済みの ChatGPT アカウントの登録を忘れる。 */
   async function removeChatGPTAccount(accountId: string): Promise<void> {
     aiConfig.value = normalizeAIConfig(await call(AIService.RemoveChatGPTAccount(accountId)))
@@ -245,6 +262,9 @@ export const useSettingsStore = defineStore('settings', () => {
     selectChatGPTAccount,
     signOutChatGPT,
     removeChatGPTAccount,
+    ackChatGPTPlanNotice,
+    generateReplyDraft,
+    cancelGenerate,
     setUpdateCheckEnabled,
     checkUpdate,
   }

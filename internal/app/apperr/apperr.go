@@ -48,6 +48,12 @@ const (
 	Internal            = "INTERNAL"
 )
 
+// Details の reason（AppError の補足）。AI_FAILED のうち、画面が専用の案内を出すもの。
+const (
+	DetailReason     = "reason"
+	ReasonUsageLimit = "usage_limit_exceeded" // ChatGPT プランの利用枠の超過（subscription_sharing_usage_limit_exceeded）
+)
+
 // Error は AppError。JSON は {code, message, retryable, accountId?, details?}。
 //
 // Details には機密に当たり得る値（宛先アドレス＝OTHER_OWN_ACCOUNT の emails、添付ファイル名、件名など）が入ることがある。
@@ -149,7 +155,9 @@ func classify(err error) *Error {
 	case errors.Is(err, ai.ErrUnauthorized):
 		return Wrap(AIFailed, "AI プロバイダの認証に失敗しました。API キーを確認してください。", err)
 	case errors.Is(err, ai.ErrUsageLimit):
-		return Wrap(AIFailed, "ChatGPT プランの利用枠に達しました。ChatGPT の設定の「使用状況」（https://chatgpt.com/settings/usage）で確認してください。", err)
+		// details.reason で、画面が「Manage usage」を主なアクションにした表示へ切り替える（公式の UI/UX ガイドライン）。
+		return Wrap(AIFailed, "ChatGPT プランの利用枠に達しました。ChatGPT の設定の「使用状況」（https://chatgpt.com/settings/usage）で確認してください。", err).
+			WithDetail(DetailReason, ReasonUsageLimit)
 	case errors.Is(err, ai.ErrNotEligible):
 		return Wrap(AIFailed, "この ChatGPT アカウント（プラン・ワークスペース）では、ChatGPT プランを使えません。", err)
 	case errors.Is(err, ai.ErrRateLimited):

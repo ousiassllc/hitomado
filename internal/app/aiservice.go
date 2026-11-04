@@ -55,6 +55,11 @@ func (s *AIService) SignOutChatGPT(ctx context.Context, accountID string) (dto.C
 	return s.core.SignOutChatGPT(ctx, accountID)
 }
 
+// AckChatGPTPlanNotice は「ChatGPT プランを使っています」の確認を済みにする（そのアカウントでは以後出さない）。
+func (s *AIService) AckChatGPTPlanNotice(ctx context.Context, accountID string) (dto.AIConfig, error) {
+	return s.core.AckChatGPTPlanNotice(ctx, accountID)
+}
+
 // RemoveChatGPTAccount はログアウト済みの ChatGPT アカウントの登録を忘れる。
 func (s *AIService) RemoveChatGPTAccount(ctx context.Context, accountID string) (dto.AIConfig, error) {
 	return s.core.RemoveChatGPTAccount(ctx, accountID)

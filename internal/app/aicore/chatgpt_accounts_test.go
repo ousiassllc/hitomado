@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/ousiassllc/hitomado/internal/app/dto"
 )
 
 // 2 つの ChatGPT アカウントを登録し、切り替えて下書きを作れる。片方をログアウトしても、もう片方は使える。
@@ -80,4 +82,53 @@ func TestChatGPTTwoAccountsSwitchAndGenerate(t *testing.T) {
 	for _, l := range []string{tokenA, tokenB} {
 		assert.NotContains(t, f.logs.String(), l)
 	}
+}
+
+// 「ChatGPT プランを使っています」の確認は、アカウントごとに、初めてログインしたときだけ出る（再ログインでは出ない）。
+func TestChatGPTPlanNoticeIsPerAccountAndOnce(t *testing.T) {
+	f := newAIFixture(t)
+	pending := func(cfg dto.AIConfig) []bool {
+		var out []bool
+		for _, a := range cfg.ChatGPTAccounts {
+			out = append(out, a.PlanNoticePending)
+		}
+		return out
+	}
+
+	f.ChatGPT.Email, f.ChatGPT.Token = "a@chatgpt.example", chatgptToken
+	cfg, err := f.ai.SignInChatGPT(t.Context(), "")
+	require.NoError(t, err)
+	assert.Equal(t, []bool{true}, pending(cfg), "初めてのログインでは確認を出す")
+	idA := cfg.ChatGPTAccounts[0].ID
+
+	cfg, err = f.ai.GetAIConfig(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, []bool{true}, pending(cfg), "「Got it」を押すまで出し続ける（途中で閉じても失われない）")
+
+	cfg, err = f.ai.AckChatGPTPlanNotice(t.Context(), idA)
+	require.NoError(t, err)
+	assert.Equal(t, []bool{false}, pending(cfg))
+	cfg, err = f.ai.AckChatGPTPlanNotice(t.Context(), idA)
+	require.NoError(t, err, "何度呼んでも同じ")
+	assert.Equal(t, []bool{false}, pending(cfg))
+
+	// ログアウト→同じ登録で再ログインしても出さない。
+	_, err = f.ai.SignOutChatGPT(t.Context(), idA)
+	require.NoError(t, err)
+	cfg, err = f.ai.SignInChatGPT(t.Context(), idA)
+	require.NoError(t, err)
+	assert.Equal(t, []bool{false}, pending(cfg), "再ログインでは出さない")
+
+	// 2 つ目のアカウントは初めてなので、1 度だけ出る。1 つ目は影響を受けない。
+	f.ChatGPT.Email = "b@chatgpt.example"
+	cfg, err = f.ai.SignInChatGPT(t.Context(), "")
+	require.NoError(t, err)
+	assert.Equal(t, []bool{false, true}, pending(cfg))
+	idB := cfg.ChatGPTAccounts[1].ID
+	cfg, err = f.ai.AckChatGPTPlanNotice(t.Context(), idB)
+	require.NoError(t, err)
+	assert.Equal(t, []bool{false, false}, pending(cfg))
+
+	_, err = f.ai.AckChatGPTPlanNotice(t.Context(), "oaiapp_unknown")
+	requireCode(t, "NOT_FOUND", err)
 }

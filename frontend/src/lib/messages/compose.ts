@@ -78,6 +78,15 @@ export const compose = {
     needLogin: 'ChatGPT にログインしていません。設定画面でログインしてください',
     usingChatGPT: 'Using ChatGPT plan',
     manageUsage: 'Manage usage',
+    // 利用枠の超過（subscription_sharing_usage_limit_exceeded）。文言（英語）は OpenAI の UI/UX ガイドラインに合わせ、
+    // Manage usage を主なアクションにする。Hitomado に独自のクレジットは無いので、購入の導線は出さない。
+    usageLimit: {
+      identity: 'ChatGPT',
+      title: 'Usage limit reached',
+      body: 'Review your ChatGPT plan or app limit in ChatGPT settings.',
+      note: '本文は変更していません。',
+      dismiss: 'Dismiss',
+    },
     openSettings: '設定を開く',
     unavailableHint: '返信のみ利用できます',
     consentTitle: 'AI プロバイダへの送信に同意',

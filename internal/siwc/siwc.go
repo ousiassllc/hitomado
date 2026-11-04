@@ -52,6 +52,9 @@ type Account struct {
 	Email    string // 検証済み ID トークンのメールアドレス（表示用）
 	SignedIn bool   // ログイン中のセッションがあるか
 	Active   bool   // 使用中のアカウントか
+	// PlanNoticePending は「ChatGPT プランを使っています」の確認を、まだ出していない（初めてログインして ChatGPT プランの利用が
+	// 有効になった）アカウントか。AckPlanNotice で済みにするまで真のまま。
+	PlanNoticePending bool
 }
 
 // Status はログイン状態。トークンは含まない。
@@ -92,6 +95,8 @@ type Auth interface {
 	// ほかのアカウントのトークンと登録は残り、このアカウントの登録（client_id・ホスト ID）も残す。
 	// revoked は OpenAI 側の失効を確認できたか。消せなかったときだけ err が返る。
 	SignOut(ctx context.Context, accountID string) (revoked bool, err error)
+	// AckPlanNotice は「ChatGPT プランを使っています」の確認を済みにする（何度呼んでも同じ。未登録は ErrUnknownAccount）。
+	AckPlanNotice(ctx context.Context, accountID string) error
 	// RemoveAccount はログアウト済みのアカウントの登録を忘れる（ログイン中は ErrAccountInUse）。
 	RemoveAccount(ctx context.Context, accountID string) error
 }

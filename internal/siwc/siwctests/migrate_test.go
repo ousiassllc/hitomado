@@ -35,7 +35,7 @@ func TestLegacySingleAccountIsMigrated(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, siwc.Status{SignedIn: true, Email: "old@chatgpt.example", Accounts: []siwc.Account{
 			{ID: issuedClient, Email: "old@chatgpt.example", SignedIn: true, Active: true},
-		}}, st)
+		}}, st, "旧版でログイン済みのアカウントには、初めてのログインの確認を出さない")
 
 		tok, err := e.m.AccessToken(t.Context())
 		require.NoError(t, err)
@@ -71,6 +71,7 @@ func TestLegacySingleAccountIsMigrated(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, st.SignedIn)
 		assert.Equal(t, []siwc.Account{{ID: issuedClient, Email: "old@chatgpt.example"}}, st.Accounts, "登録は残り、使用中にはしない")
+		assert.Equal(t, "done", e.reg(t).first().PlanNotice, "旧版で ChatGPT プランが有効になったことがある登録（consentNeeded でない）は確認済み")
 		e.relogin(t)
 		assert.Equal(t, "urn:uuid:11111111-1111-4111-8111-111111111111", e.f.lastAuth().Get("ext_agent_host_id"))
 	})

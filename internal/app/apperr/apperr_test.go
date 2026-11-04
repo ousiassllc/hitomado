@@ -139,3 +139,19 @@ func TestWithDetailDoesNotMutate(t *testing.T) {
 	assert.Nil(t, orig.Details)
 	assert.Equal(t, "v", d.Details["k"])
 }
+
+// 利用枠の超過だけが details.reason を持つ（画面が Manage usage を主なアクションにした表示へ切り替える。メッセージの文言には頼らない）。
+func TestUsageLimitCarriesAReasonForTheUI(t *testing.T) {
+	e := apperr.FromInfra(fmt.Errorf("%w: secret-value", ai.ErrUsageLimit), "")
+	assert.Equal(t, apperr.AIFailed, e.Code)
+	assert.Equal(t, apperr.ReasonUsageLimit, e.Details[apperr.DetailReason])
+	assert.True(t, errors.Is(e, ai.ErrUsageLimit), "元のエラーは保持する")
+	b, err := json.Marshal(e)
+	require.NoError(t, err)
+	assert.Contains(t, string(b), `"reason":"usage_limit_exceeded"`)
+	assert.NotContains(t, string(b), "secret-value")
+
+	for _, other := range []error{ai.ErrNotEligible, ai.ErrFailed, ai.ErrUnauthorized, ai.ErrRateLimited} {
+		assert.Empty(t, apperr.FromInfra(other, "").Details, other.Error())
+	}
+}

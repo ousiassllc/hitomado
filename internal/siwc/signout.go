@@ -70,6 +70,20 @@ func (m *Manager) RemoveAccount(ctx context.Context, accountID string) error {
 	})
 }
 
+// AckPlanNotice は Auth の実装。
+func (m *Manager) AckPlanNotice(ctx context.Context, accountID string) error {
+	return m.updateRegistry(ctx, func(r *registry) error {
+		a := r.find(accountID)
+		if a == nil {
+			return ErrUnknownAccount
+		}
+		if a.PlanNotice == noticePending {
+			a.PlanNotice = noticeDone
+		}
+		return nil
+	})
+}
+
 // SelectAccount は Auth の実装。
 func (m *Manager) SelectAccount(ctx context.Context, accountID string) error {
 	reg, err := m.loadRegistry(ctx)

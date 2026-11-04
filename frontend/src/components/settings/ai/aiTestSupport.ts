@@ -41,12 +41,19 @@ export function button(w: VueWrapper, text: string) {
   return b
 }
 
-export const acctA = { id: 'oaiapp_AAAA', email: 'a@chatgpt.example', signedIn: true, active: true }
+export const acctA = {
+  id: 'oaiapp_AAAA',
+  email: 'a@chatgpt.example',
+  signedIn: true,
+  active: true,
+  planNoticePending: false,
+}
 export const acctB = {
   id: 'oaiapp_BBBB',
   email: 'b@chatgpt.example',
   signedIn: true,
   active: false,
+  planNoticePending: false,
 }
 
 /** ChatGPT プロバイダで、保存済みのアカウントを持つ設定。使用中のアカウントに合わせて chatgptSignedIn・メールを入れる。 */

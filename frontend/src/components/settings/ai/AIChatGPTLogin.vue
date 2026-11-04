@@ -6,6 +6,7 @@ import { settings as msg } from '../../../lib/messages'
 import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'
 import BaseButton from '../../ui/BaseButton.vue'
+import ChatGPTPlanNotice from './ChatGPTPlanNotice.vue'
 
 // Sign in with ChatGPT（OpenAI の公式フロー）。ログインはシステムブラウザの OpenAI の画面で行い、
 // ここではパスワードも Cookie も扱わない。トークンは Go 側の資格情報ストアにだけあり、画面には渡らない。
@@ -104,6 +105,7 @@ async function remove(a: ChatGPTAccount): Promise<void> {
 
 <template>
   <div class="chatgpt" data-testid="ai-chatgpt">
+    <ChatGPTPlanNotice :accounts="props.accounts" />
     <h4 class="sub">{{ msg.ai.chatgpt.heading }}</h4>
     <p class="note">{{ msg.ai.chatgpt.intro }}</p>
     <p class="note">{{ msg.ai.chatgpt.notOfficial }}</p>

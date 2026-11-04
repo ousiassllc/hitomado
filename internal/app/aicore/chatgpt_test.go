@@ -220,10 +220,11 @@ func TestChatGPTPlanErrors(t *testing.T) {
 		err      error
 		code     string
 		contains string
+		reason   any // details.reason（利用枠の超過だけが持ち、画面が Manage usage を主なアクションにした表示へ切り替える）
 	}{
-		{ai.ErrUsageLimit, "AI_FAILED", "利用枠"},
-		{ai.ErrNotEligible, "AI_FAILED", "ChatGPT プランを使えません"},
-		{ai.ErrRateLimited, "RATE_LIMITED", ""},
+		{ai.ErrUsageLimit, "AI_FAILED", "利用枠", "usage_limit_exceeded"},
+		{ai.ErrNotEligible, "AI_FAILED", "ChatGPT プランを使えません", nil},
+		{ai.ErrRateLimited, "RATE_LIMITED", "", nil},
 	}
 	for _, c := range cases {
 		f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) {
@@ -233,6 +234,7 @@ func TestChatGPTPlanErrors(t *testing.T) {
 		ae := requireError(t, c.code, err)
 		assert.Contains(t, ae.Message, c.contains)
 		assert.NotContains(t, ae.Message, chatgptToken)
+		assert.Equal(t, c.reason, ae.Details["reason"], c.err.Error())
 	}
 	assert.Equal(t, 0, f.ChatGPT.Refreshes, "利用枠・資格のエラーでは再試行しない")
 }

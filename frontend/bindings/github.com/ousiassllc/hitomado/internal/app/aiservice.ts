@@ -16,6 +16,13 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 import * as dto$0 from "./dto/models.js";
 
 /**
+ * AckChatGPTPlanNotice は「ChatGPT プランを使っています」の確認を済みにする（そのアカウントでは以後出さない）。
+ */
+export function AckChatGPTPlanNotice(accountID: string): $CancellablePromise<dto$0.AIConfig> {
+    return $Call.ByID(4151883632, accountID);
+}
+
+/**
  * CancelGenerate は実行中の生成を中止する（GenerateReplyDraft は CANCELLED で終わる）。
  */
 export function CancelGenerate(requestID: string): $CancellablePromise<void> {

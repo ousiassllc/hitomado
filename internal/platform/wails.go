@@ -38,7 +38,7 @@ type FilesDroppedPayload struct {
 	Files []string `json:"files"`
 }
 
-// Files はネイティブの保存ダイアログ（app.FileDialog の実装）。
+// Files はネイティブの保存ダイアログ（deps.FileDialog の実装）。
 // Android では保存ダイアログが Storage Access Framework で非同期に結果を返すので、その待ち合わせ（saver）を持つ。
 type Files struct {
 	app    *application.App

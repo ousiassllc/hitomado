@@ -193,6 +193,16 @@ export const settings = {
       usingPlan: 'Using ChatGPT plan',
       manageUsage: 'Manage usage',
       usageUrl: 'https://chatgpt.com/settings/usage',
+      // 初めて ChatGPT プランの利用が有効になったときの確認。文言（英語）は OpenAI の UI/UX ガイドラインに合わせる。
+      planNotice: {
+        title: "You're using your ChatGPT plan",
+        body: 'Eligible AI requests in Hitomado will use your ChatGPT plan. You can manage usage in ChatGPT settings.',
+        account: (email: string) => `ChatGPT account: ${email}`,
+        note: 'Hitomado の「AI で下書き」は、あなたの ChatGPT プランの範囲で使われます。使用状況は ChatGPT の設定で確認・管理できます。',
+        manage: 'Manage usage',
+        gotIt: 'Got it',
+        ackFailed: '確認の記録に失敗しました。次回もう一度表示されます。',
+      },
       signedIn: 'ChatGPT にログインしました。',
       signedOut: 'ChatGPT からログアウトしました。',
       revokeUnconfirmed:

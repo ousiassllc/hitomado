@@ -23,7 +23,13 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     const { pinia } = setup(
       chatgptCfg([
         acctA,
-        { id: 'oaiapp_ZZZZ', email: 'a@chatgpt.example', signedIn: true, active: false },
+        {
+          id: 'oaiapp_ZZZZ',
+          email: 'a@chatgpt.example',
+          signedIn: true,
+          active: false,
+          planNoticePending: false,
+        },
       ]),
     )
     const w = mountAI(pinia)

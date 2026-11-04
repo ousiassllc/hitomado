@@ -14,6 +14,8 @@ type Account struct {
 	Email    string
 	Token    string // このアカウントのアクセストークン
 	SignedIn bool
+	// NoticePending は初めてのログインで立ち、AckPlanNotice で下りる（再ログインでは立たない）。
+	NoticePending bool
 }
 
 // Fake は siwc.Auth のフェイク。複数のアカウント・使用中のアカウントと、呼ばれた回数を持つ。
@@ -55,7 +57,9 @@ func (f *Fake) status() siwc.Status {
 	st := siwc.Status{Accounts: make([]siwc.Account, 0, len(f.accounts))}
 	for _, a := range f.accounts {
 		active := a.ID == f.active
-		st.Accounts = append(st.Accounts, siwc.Account{ID: a.ID, Email: a.Email, SignedIn: a.SignedIn, Active: active})
+		st.Accounts = append(st.Accounts, siwc.Account{
+			ID: a.ID, Email: a.Email, SignedIn: a.SignedIn, Active: active, PlanNoticePending: a.NoticePending,
+		})
 		if active {
 			st.SignedIn, st.Email = a.SignedIn, a.Email
 		}
@@ -83,7 +87,7 @@ func (f *Fake) SignIn(_ context.Context, opts siwc.SignInOptions) (siwc.Status, 
 		if email == "" {
 			email = "me@chatgpt.example"
 		}
-		a = &Account{ID: fmt.Sprintf("oaiapp_fake%d", f.seq), Email: email}
+		a = &Account{ID: fmt.Sprintf("oaiapp_fake%d", f.seq), Email: email, NoticePending: true}
 		f.accounts = append(f.accounts, a)
 	}
 	a.SignedIn, a.Token = true, f.Token
@@ -172,6 +176,18 @@ func (f *Fake) SignOut(_ context.Context, id string) (bool, error) {
 	}
 	a.SignedIn, a.Token = false, ""
 	return f.Revoked, nil
+}
+
+// AckPlanNotice は確認を済みにする。
+func (f *Fake) AckPlanNotice(_ context.Context, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	a := f.find(id)
+	if a == nil {
+		return siwc.ErrUnknownAccount
+	}
+	a.NoticePending = false
+	return nil
 }
 
 // RemoveAccount はログアウト済みのアカウントを忘れる。

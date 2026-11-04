@@ -26,7 +26,17 @@ type account struct {
 	ConsentNeeded bool `json:"consentNeeded,omitempty"`
 	// ExpiresAt はアクセストークンの期限（Unix ミリ秒）。
 	ExpiresAt int64 `json:"expiresAt,omitempty"`
+	// PlanNotice は「ChatGPT プランを使っています」の確認（公式の UI/UX ガイドライン: 初めてログインして ChatGPT プランの利用が
+	// 有効になったときだけ出し、2 回目以降のログインでは出さない）の状態。アカウント（登録）ごとに持つ。
+	// 空: まだ ChatGPT プランの利用が有効になっていない／pending: 初めて有効になり、確認はまだ／done: 確認済み
+	// （再ログイン・ログアウトでは変えない。登録を削除すると消え、同じアカウントを追加し直したときは新しい登録として再び出る）。
+	PlanNotice string `json:"planNotice,omitempty"`
 }
+
+const (
+	noticePending = "pending"
+	noticeDone    = "done"
+)
 
 // registry は app_settings の ai.chatgpt。秘密を含まない（ホスト ID・使用中のアカウント・アカウントごとの登録）。
 type registry struct {
@@ -156,13 +166,14 @@ func (m *Manager) migrate(ctx context.Context) error {
 			return err
 		}
 	}
-	reg := registry{
-		HostID: old.HostID,
-		Accounts: []account{{
-			ClientID: old.ClientID, Subject: old.Subject, Email: old.Email,
-			ConsentNeeded: old.ConsentNeeded, ExpiresAt: old.ExpiresAt,
-		}},
+	acct := account{
+		ClientID: old.ClientID, Subject: old.Subject, Email: old.Email,
+		ConsentNeeded: old.ConsentNeeded, ExpiresAt: old.ExpiresAt,
 	}
+	if old.Subject != "" && !old.ConsentNeeded {
+		acct.PlanNotice = noticeDone // 旧版でログイン済み: 確認は出さない（初めてのログインではない）
+	}
+	reg := registry{HostID: old.HostID, Accounts: []account{acct}}
 	if signedIn {
 		reg.Active = old.ClientID
 	}

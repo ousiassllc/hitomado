@@ -29,6 +29,7 @@ type savedAcct struct {
 	Email         string `json:"email"`
 	ConsentNeeded bool   `json:"consentNeeded"`
 	ExpiresAt     int64  `json:"expiresAt"`
+	PlanNotice    string `json:"planNotice"`
 }
 
 type savedReg struct {
@@ -59,7 +60,7 @@ func TestSignInRegistersWithTheDocumentedParameters(t *testing.T) {
 	st := e.signIn(t)
 	assert.Equal(t, siwc.Status{
 		SignedIn: true, Email: "me@chatgpt.example",
-		Accounts: []siwc.Account{{ID: issuedClient, Email: "me@chatgpt.example", SignedIn: true, Active: true}},
+		Accounts: []siwc.Account{{ID: issuedClient, Email: "me@chatgpt.example", SignedIn: true, Active: true, PlanNoticePending: true}},
 	}, st)
 
 	q := e.f.lastAuth()
@@ -158,8 +159,8 @@ func TestAddingAnotherAccountKeepsTheFirstOne(t *testing.T) {
 	}
 	assert.Equal(t, e.reg(t).HostID, q.Get("ext_agent_host_id"), "ホスト ID は全アカウントで共通")
 	assert.Equal(t, []siwc.Account{
-		{ID: issuedClient, Email: "me@chatgpt.example", SignedIn: true},
-		{ID: "oaiapp_SECOND", Email: "me@chatgpt.example", SignedIn: true, Active: true},
+		{ID: issuedClient, Email: "me@chatgpt.example", SignedIn: true, PlanNoticePending: true},
+		{ID: "oaiapp_SECOND", Email: "me@chatgpt.example", SignedIn: true, Active: true, PlanNoticePending: true},
 	}, st.Accounts, "メールが同じでも別の登録")
 	assert.Equal(t, "oaiapp_SECOND", e.reg(t).Active, "ログインを終えたアカウントが使用中になる")
 

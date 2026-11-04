@@ -161,7 +161,9 @@ func (m *Manager) Status(ctx context.Context) (Status, error) {
 			return Status{}, err
 		}
 		active := a.ClientID == reg.Active
-		st.Accounts = append(st.Accounts, Account{ID: a.ClientID, Email: a.Email, SignedIn: signedIn, Active: active})
+		st.Accounts = append(st.Accounts, Account{
+			ID: a.ClientID, Email: a.Email, SignedIn: signedIn, Active: active, PlanNoticePending: a.PlanNotice == noticePending,
+		})
 		if active {
 			st.SignedIn, st.Email = signedIn, a.Email
 		}

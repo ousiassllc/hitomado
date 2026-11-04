@@ -20,9 +20,16 @@ export interface AiDraftDeps {
   newRequestId: () => string
 }
 
+/** ChatGPT プランの利用枠の超過か（Go が AI_FAILED に付ける details.reason。メッセージの文言には頼らない）。 */
+export function isUsageLimit(err: AppError): boolean {
+  return err.code === 'AI_FAILED' && err.details?.reason === 'usage_limit_exceeded'
+}
+
 export function useAiDraft(deps: AiDraftDeps) {
   const step = ref<AiStep>('idle')
   const error = ref<string>()
+  /** ChatGPT プランの利用枠の超過（AI_FAILED の details.reason）。error の代わりに、使用状況の画面を開く導線つきの案内を出す。 */
+  const usageLimit = ref(false)
   let requestId: string | undefined
   let cancelled = false
 
@@ -47,7 +54,9 @@ export function useAiDraft(deps: AiDraftDeps) {
       if (!cancelled) deps.onGenerated(r.bodyHtml)
     } catch (e) {
       const err: AppError = parseBindingError(e)
-      if (!cancelled && err.code !== 'CANCELLED') error.value = err.message
+      if (cancelled || err.code === 'CANCELLED') return
+      if (isUsageLimit(err)) usageLimit.value = true
+      else error.value = err.message
     } finally {
       requestId = undefined
       step.value = 'idle'
@@ -72,6 +81,7 @@ export function useAiDraft(deps: AiDraftDeps) {
   async function start(): Promise<void> {
     if (step.value !== 'idle') return
     error.value = undefined
+    usageLimit.value = false
     await proceed()
   }
 
@@ -116,5 +126,15 @@ export function useAiDraft(deps: AiDraftDeps) {
     }
   }
 
-  return { step, error, needsKey, needsConsent, start, answerConsent, answerReplace, cancel }
+  return {
+    step,
+    error,
+    usageLimit,
+    needsKey,
+    needsConsent,
+    start,
+    answerConsent,
+    answerReplace,
+    cancel,
+  }
 }

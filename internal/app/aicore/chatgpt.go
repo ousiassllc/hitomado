@@ -22,7 +22,9 @@ func (s *Service) chatGPTStatus(ctx context.Context) (siwc.Status, error) {
 func chatGPTAccounts(st siwc.Status) []dto.ChatGPTAccount {
 	out := make([]dto.ChatGPTAccount, 0, len(st.Accounts))
 	for _, a := range st.Accounts {
-		out = append(out, dto.ChatGPTAccount{ID: a.ID, Email: a.Email, SignedIn: a.SignedIn, Active: a.Active})
+		out = append(out, dto.ChatGPTAccount{
+			ID: a.ID, Email: a.Email, SignedIn: a.SignedIn, Active: a.Active, PlanNoticePending: a.PlanNoticePending,
+		})
 	}
 	return out
 }
@@ -80,6 +82,14 @@ func (s *Service) SignOutChatGPT(ctx context.Context, accountID string) (dto.Cha
 		return dto.ChatGPTSignOutResult{}, err
 	}
 	return dto.ChatGPTSignOutResult{Config: cfg, RevocationConfirmed: revoked}, nil
+}
+
+// AckChatGPTPlanNotice は「ChatGPT プランを使っています」の確認を済みにする。以後、そのアカウントでは出さない。
+func (s *Service) AckChatGPTPlanNotice(ctx context.Context, accountID string) (dto.AIConfig, error) {
+	if err := s.d.ChatGPT.AckPlanNotice(ctx, accountID); err != nil {
+		return dto.AIConfig{}, mapChatGPTError(err)
+	}
+	return s.config(ctx)
 }
 
 // RemoveChatGPTAccount はログアウト済みの ChatGPT アカウントの登録を忘れる（ログイン中のアカウントは VALIDATION）。

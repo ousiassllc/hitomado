@@ -259,6 +259,9 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 	if err := m.updateRegistry(ctx, func(r *registry) error {
 		a := r.upsert(clientID)
 		a.Subject, a.Email, a.ConsentNeeded, a.ExpiresAt = idt.Subject, claims.Email, false, expires
+		if a.PlanNotice == "" {
+			a.PlanNotice = noticePending // ChatGPT プランの利用が初めて有効になった
+		}
 		r.Active = clientID // 検証を終えたこのアカウントを使用中にする
 		return nil
 	}); err != nil {
