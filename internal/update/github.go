@@ -57,6 +57,11 @@ func NewGitHub(opts Options) Checker {
 type releaseResponse struct {
 	TagName string `json:"tag_name"`
 	HTMLURL string `json:"html_url"`
+	Assets  []struct {
+		Name string `json:"name"`
+		URL  string `json:"browser_download_url"`
+		Size int64  `json:"size"`
+	} `json:"assets"`
 }
 
 // Latest は最新リリースを返す。Version は tag_name の先頭 v を除いたもの。
@@ -87,5 +92,9 @@ func (g *github) Latest(ctx context.Context) (Release, error) {
 	if version == "" {
 		return Release{}, errors.New("update: 応答に tag_name がありません")
 	}
-	return Release{Version: version, URL: body.HTMLURL}, nil
+	rel := Release{Version: version, URL: body.HTMLURL}
+	for _, a := range body.Assets {
+		rel.Assets = append(rel.Assets, Asset{Name: a.Name, URL: a.URL, Size: a.Size})
+	}
+	return rel, nil
 }

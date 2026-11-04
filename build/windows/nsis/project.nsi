@@ -11,6 +11,13 @@
 ## 直接ビルドする例（exe を先に作っておく）:
 ##   makensis -DVERSION=0.1.1 -DARG_EXE=..\..\..\bin\hitomado.exe -DOUTFILE=..\..\..\bin\setup.exe project.nsi
 ##
+## 実行時の引数（アプリの自動アップデートが使う。docs/requirements/non-functional.md NF-D03）:
+##   /S          サイレント（画面なし）
+##   /WAIT=秒    サイレント実行のとき、起動中の hitomado.exe が終了するのを最大この秒数（上限 300）待ってから上書きする。
+##               省略（または 0）なら待たず、起動中は終了コード 5 で中止する
+##   /RELAUNCH   インストールが成功したら、インストール先の hitomado.exe を起動する
+##   /D=パス     インストール先（最後の引数・引用符なし。省略すると前回の場所）
+##
 ## 日本語を含むため、このファイルは BOM 付き UTF-8 で保存する（.editorconfig）。
 ####
 !ifndef VERSION
@@ -37,6 +44,13 @@
 !include "WinVer.nsh"
 !include "FileFunc.nsh"
 !include "MUI2.nsh"
+
+!insertmacro GetOptions
+
+# 起動中の hitomado.exe の終了を待つ残り回数（0.5 秒単位。/WAIT=秒 から。サイレント実行のときだけ使う）と、
+# インストール後に起動し直すか（/RELAUNCH）。
+Var WaitLeft
+Var Relaunch
 
 Name "${APP_NAME} ${VERSION}"
 OutFile "${OUTFILE}"
@@ -77,7 +91,7 @@ VIAddVersionKey "ProductName"     "${APP_NAME}"
 !insertmacro MUI_LANGUAGE "Japanese"
 
 # 起動中の hitomado.exe は上書き・削除できない。実行中の exe は書き込みで開けないことを使って検出し、
-# 画面ありなら終了を促して再試行、サイレント（/S）ならエラーコード 5 で中止する。
+# 画面ありなら終了を促して再試行、サイレント（/S）なら /WAIT=秒 の間 0.5 秒ごとに再確認し、それでも開けなければエラーコード 5 で中止する。
 !macro DEFINE_CHECK_NOT_RUNNING PREFIX
 Function ${PREFIX}CheckNotRunning
     check:
@@ -92,6 +106,11 @@ Function ${PREFIX}CheckNotRunning
     MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "${APP_NAME} が起動中です。$\r$\nタスクトレイの ${APP_NAME} のアイコンを右クリックして「終了」を選んでから、「再試行」を押してください。" IDRETRY check
     Abort
     silent:
+    ${If} $WaitLeft > 0
+        IntOp $WaitLeft $WaitLeft - 1
+        Sleep 500
+        Goto check
+    ${EndIf}
     SetErrorLevel 5
     Abort
     done:
@@ -101,6 +120,26 @@ FunctionEnd
 !insertmacro DEFINE_CHECK_NOT_RUNNING "un."
 
 Function .onInit
+    StrCpy $WaitLeft 0
+    StrCpy $Relaunch 0
+    ClearErrors
+    ${GetOptions} $CMDLINE "/WAIT=" $0
+    ${IfNot} ${Errors}
+        # 数字以外は 0 秒として扱う（IntOp は数字でない文字列を 0 とみなす）。
+        IntOp $WaitLeft $0 * 2
+        ${If} $WaitLeft > 600
+            StrCpy $WaitLeft 600
+        ${ElseIf} $WaitLeft < 0
+            StrCpy $WaitLeft 0
+        ${EndIf}
+    ${EndIf}
+    ClearErrors
+    ${GetOptions} $CMDLINE "/RELAUNCH" $0
+    ${IfNot} ${Errors}
+        StrCpy $Relaunch 1
+    ${EndIf}
+    ClearErrors
+
     # 対応は x64 の Windows 10 以降のみ。ARM64 は対象外（動作未確認のため中止する）。
     ${IfNot} ${AtLeastWin10}
     ${OrIfNot} ${IsNativeAMD64}
@@ -110,6 +149,17 @@ Function .onInit
         silentUnsupported:
         SetErrorLevel 64
         Abort
+    ${EndIf}
+FunctionEnd
+
+Function un.onInit
+    StrCpy $WaitLeft 0
+FunctionEnd
+
+# 自動アップデートの「再起動して更新」（/RELAUNCH）。インストールが成功したときだけ、新しい hitomado.exe を起動する。
+Function .onInstSuccess
+    ${If} $Relaunch == 1
+        Exec '"$INSTDIR\${APP_EXE}"'
     ${EndIf}
 FunctionEnd
 

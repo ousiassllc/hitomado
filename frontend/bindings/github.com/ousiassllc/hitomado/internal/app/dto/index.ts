@@ -41,5 +41,6 @@ export type {
     ThreadPage,
     ThreadRef,
     ThreadSummary,
-    UpdateInfo
+    UpdateInfo,
+    UpdateStatus
 } from "./models.js";

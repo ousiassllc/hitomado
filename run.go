@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	wevents "github.com/wailsapp/wails/v3/pkg/events"
@@ -18,9 +19,11 @@ import (
 	appdeps "github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/notifycore"
 	"github.com/ousiassllc/hitomado/internal/app/threadcache"
+	"github.com/ousiassllc/hitomado/internal/app/updatecore"
 	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/e2e"
+	appevents "github.com/ousiassllc/hitomado/internal/events"
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/headless"
 	"github.com/ousiassllc/hitomado/internal/logging"
@@ -32,6 +35,9 @@ import (
 	syncer "github.com/ousiassllc/hitomado/internal/sync"
 	"github.com/ousiassllc/hitomado/internal/update"
 )
+
+// applyUpdateTimeout は終了時の更新の入れ替え（設定の読み取りとインストーラーの起動）に掛ける時間の上限。
+const applyUpdateTimeout = 5 * time.Second
 
 // run は composition root。Wails アプリを最初に作る（多重起動の判定は application.New の中で行われ、
 // 2 つ目のプロセスは DB・ログ・同期に触れる前に既存ウィンドウを前面に出して終了する）。
@@ -122,9 +128,27 @@ func run() error {
 	})
 	flow := oauth.NewFlow(oauth.Options{OpenBrowser: platform.NewBrowser(wapp).Open, Tracker: oauthTracker})
 
+	// 自動アップデート（NF-D03）は入れ替えを行えるビルド（Windows）の、リリース版（版が 0.0.0 でない）だけ。
+	busy := &appdeps.Busy{}
+	var updates *update.Manager
+	if caps.SupportsAutoUpdate && update.AutoInstallSupported && !update.IsDev(version) {
+		updatesDir := filepath.Join(dir, updatecore.DirName)
+		updates = update.NewManager(update.ManagerOptions{
+			Fetcher: update.NewStager(update.StagerOptions{Dir: updatesDir, UserAgent: "Hitomado/" + version}),
+			Launch:  update.NewLauncher(),
+			Busy:    busy.Active,
+			OnChange: func(st update.State) {
+				events.Emit(appevents.UpdateStatus, updatecore.StatusPayload(st))
+			},
+			Current: version, Dir: updatesDir, Logger: logger,
+		})
+		defer updates.Close()
+	}
+
 	deps := &app.Deps{
 		Store: st, Gmail: gm, Secrets: sec, OAuth: flow, OAuthTracker: oauthTracker, Sync: sched, Notifier: notifier,
-		Update: update.NewGitHub(update.Options{UserAgent: "Hitomado/" + version}),
+		Update:  update.NewGitHub(update.Options{UserAgent: "Hitomado/" + version}),
+		Updates: updates, Busy: busy,
 		Events: events, Clock: clk,
 		Files:   platform.NewFiles(wapp, func() application.Window { return win }),
 		Browser: platform.NewBrowser(wapp),
@@ -141,7 +165,7 @@ func run() error {
 		Background:   platform.NewBackground(logger),
 		OpenRequests: platform.NewOpenRequests(wapp, emitter),
 		Logger:       logger, DataDir: dir, Version: version, Capabilities: caps,
-		QuitAck: func() { quitter.Ack() },
+		QuitAck: func() { quitter.Ack() }, RequestQuit: func() { quitter.Request() },
 		Threads: cache,
 	}
 	svc := app.NewServices(deps)
@@ -170,9 +194,17 @@ func run() error {
 			logger.Warn("shutdown timed out; continuing", "grace", platform.ShutdownGrace.String())
 		}
 	})
+	// 更新の入れ替え（NF-D03）は、同期・ループを止めたあと、終了の直前に 1 回だけ行う（インストーラーは別プロセスで起動し、
+	// アプリの終了を待ってから上書きする）。ストア・ログは呼び出し元の defer で閉じるので、設定はここで読める。
+	applyUpdate := sync.OnceFunc(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), applyUpdateTimeout)
+		defer cancel()
+		updatecore.New((*appdeps.Deps)(deps)).ApplyOnExit(ctx)
+	})
 	quitter = platform.NewQuitter(emitter, func() {
 		keeper.Flush() // 終了でウィンドウが壊れる前に位置・サイズを保存する
 		shutdown()
+		applyUpdate()
 		wapp.Quit()
 	}, nil)
 
@@ -181,6 +213,7 @@ func run() error {
 	})
 	err = wapp.Run()
 	shutdown()
+	applyUpdate()
 	if err != nil {
 		return fmt.Errorf("run: %w", err)
 	}
@@ -213,7 +246,7 @@ func startBackground(ctx context.Context, d *app.Deps, svc *app.Services, loops 
 	go func() {
 		defer loops.Done()
 		defer logging.Recover(logger, "update loop")
-		app.NewUpdateLoop(d).Run(ctx)
+		updatecore.NewLoop((*appdeps.Deps)(d)).Run(ctx)
 	}()
 }
 

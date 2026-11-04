@@ -15,6 +15,14 @@ import OAuthClientsSettings from './oauth/OAuthClientsSettings.vue'
 import SettingsDialog from './SettingsDialog.vue'
 import { normalizeSignatureHtml } from './signatureHtml'
 
+const info = {
+  version: '1.2.3',
+  updateCheckEnabled: true,
+  autoUpdateSupported: false,
+  autoUpdateEnabled: false,
+  dataDir: '/data/Hitomado',
+}
+
 function setup() {
   const pinia = createPinia()
   setActivePinia(pinia)
@@ -174,8 +182,6 @@ describe('SettingsDialog（Android: 機能が無い OS）', () => {
 })
 
 describe('GeneralSettings', () => {
-  const info = { version: '1.2.3', updateCheckEnabled: true, dataDir: '/data/Hitomado' }
-
   test('アプリ内の更新確認がある OS では更新確認の項目を出す', () => {
     const pinia = setup()
     useSettingsStore().appInfo = info
@@ -199,8 +205,6 @@ describe('GeneralSettings', () => {
 })
 
 describe('GeneralSettings の通知の許可（Android）', () => {
-  const info = { version: '1.2.3', updateCheckEnabled: true, dataDir: '/data/Hitomado' }
-
   function mountWith(permission: 'granted' | 'denied' | 'unsupported') {
     const pinia = setup()
     useSettingsStore().appInfo = info
