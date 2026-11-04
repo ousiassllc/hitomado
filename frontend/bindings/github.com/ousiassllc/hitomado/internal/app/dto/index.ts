@@ -9,6 +9,7 @@ export type {
     AccountFailure,
     AccountPatch,
     AppInfo,
+    ChatGPTAccount,
     ChatGPTSignOutResult,
     ClientError,
     ComposeAttachment,

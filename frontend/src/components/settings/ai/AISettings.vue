@@ -189,7 +189,8 @@ const savedDestination = computed(() => aiDestination(keyProvider.value, saved.v
       v-if="isChatGPT"
       :signed-in="saved?.chatgptSignedIn ?? false"
       :email="saved?.chatgptEmail ?? ''"
-      @signed-in="saved?.provider === 'chatgpt' && loadModels()"
+      :accounts="saved?.chatgptAccounts ?? []"
+      @account-changed="saved?.provider === 'chatgpt' && loadModels()"
     />
     <p v-if="isChatGPT && providerChanged" class="hint">{{ msg.ai.chatgpt.saveBeforeUse }}</p>
 

@@ -26,7 +26,7 @@ func (f *aiFixture) chatgptReady(t *testing.T) {
 	t.Helper()
 	f.ChatGPT.Token = chatgptToken
 	f.ChatGPT.NextToken = chatgptRefresh
-	_, err := f.ai.SignInChatGPT(t.Context(), false)
+	_, err := f.ai.SignInChatGPT(t.Context(), "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1")
 	require.NoError(t, err)
@@ -39,13 +39,19 @@ func TestChatGPTSignInOutAndConfig(t *testing.T) {
 	cfg, err := f.ai.GetAIConfig(t.Context())
 	require.NoError(t, err)
 	assert.False(t, cfg.ChatGPTSignedIn)
+	assert.NotNil(t, cfg.ChatGPTAccounts, "アカウントが無くても null ではなく空の配列")
+	assert.Empty(t, cfg.ChatGPTAccounts)
 
 	f.ChatGPT.Token = chatgptToken
-	cfg, err = f.ai.SignInChatGPT(t.Context(), true)
+	cfg, err = f.ai.SignInChatGPT(t.Context(), "")
 	require.NoError(t, err)
 	assert.True(t, cfg.ChatGPTSignedIn)
 	assert.Equal(t, "me@chatgpt.example", cfg.ChatGPTEmail)
-	assert.True(t, f.ChatGPT.LastSignInOptions.DifferentAccount)
+	assert.Empty(t, f.ChatGPT.LastSignInOptions.AccountID, "空なら新しい登録")
+	require.Len(t, cfg.ChatGPTAccounts, 1)
+	acct := cfg.ChatGPTAccounts[0]
+	assert.True(t, acct.SignedIn)
+	assert.True(t, acct.Active)
 	assert.False(t, cfg.HasAPIKey, "選択中のプロバイダ（openai）の API キーは別")
 
 	cfg, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1")
@@ -57,16 +63,30 @@ func TestChatGPTSignInOutAndConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, string(b), chatgptToken, "設定にトークンは含まれない")
 
-	res, err := f.ai.SignOutChatGPT(t.Context())
+	res, err := f.ai.SignOutChatGPT(t.Context(), acct.ID)
 	require.NoError(t, err)
+	assert.Equal(t, acct.ID, f.ChatGPT.LastSignOutID)
 	assert.False(t, res.Config.ChatGPTSignedIn)
 	assert.False(t, res.Config.HasAPIKey)
 	assert.False(t, res.RevocationConfirmed)
+	require.Len(t, res.Config.ChatGPTAccounts, 1, "ログアウトしても登録は残る")
+	assert.False(t, res.Config.ChatGPTAccounts[0].SignedIn)
+
+	// 同じ登録で再ログインできる（新しい登録は作らない）。
+	cfg, err = f.ai.SignInChatGPT(t.Context(), acct.ID)
+	require.NoError(t, err)
+	assert.Equal(t, acct.ID, f.ChatGPT.LastSignInOptions.AccountID)
+	require.Len(t, cfg.ChatGPTAccounts, 1)
+	assert.True(t, cfg.ChatGPTSignedIn)
+
 	f.ChatGPT.Revoked = true
-	f.ChatGPT.SignedIn = true
-	res, err = f.ai.SignOutChatGPT(t.Context())
+	res, err = f.ai.SignOutChatGPT(t.Context(), acct.ID)
 	require.NoError(t, err)
 	assert.True(t, res.RevocationConfirmed)
+
+	cfg, err = f.ai.RemoveChatGPTAccount(t.Context(), acct.ID)
+	require.NoError(t, err)
+	assert.Empty(t, cfg.ChatGPTAccounts)
 }
 
 func TestChatGPTSignInErrorsAreMappedWithoutDetails(t *testing.T) {
@@ -81,6 +101,8 @@ func TestChatGPTSignInErrorsAreMappedWithoutDetails(t *testing.T) {
 		{siwc.ErrTimeout, "OAUTH_TIMEOUT"},
 		{siwc.ErrBusy, "VALIDATION"},
 		{siwc.ErrAccountMismatch, "VALIDATION"},
+		{siwc.ErrUnknownAccount, "NOT_FOUND"},
+		{siwc.ErrAccountInUse, "VALIDATION"},
 		{siwc.ErrInvalidResponse, "AI_FAILED"},
 		{siwc.ErrFailed, "AI_FAILED"},
 		{&net.DNSError{Err: "no such host", Name: "auth.openai.com"}, "OFFLINE"},
@@ -88,7 +110,7 @@ func TestChatGPTSignInErrorsAreMappedWithoutDetails(t *testing.T) {
 	for _, c := range cases {
 		// 下位のエラーに秘密が紛れていても、メッセージには出ない。
 		f.ChatGPT.SignInErr = fmt.Errorf("%w: %s", c.err, chatgptToken)
-		_, err := f.ai.SignInChatGPT(t.Context(), false)
+		_, err := f.ai.SignInChatGPT(t.Context(), "")
 		ae := requireError(t, c.code, err)
 		assert.NotContains(t, ae.Message, chatgptToken, c.code)
 		b, merr := json.Marshal(ae)
@@ -117,7 +139,7 @@ func TestChatGPTPreconditionsAndConsent(t *testing.T) {
 	requireCode(t, "AI_NOT_CONFIGURED", gen()) // 未ログイン
 
 	f.ChatGPT.Token = chatgptToken
-	_, err = f.ai.SignInChatGPT(t.Context(), false)
+	_, err = f.ai.SignInChatGPT(t.Context(), "")
 	require.NoError(t, err)
 	requireCode(t, "AI_CONSENT_REQUIRED", gen())
 
@@ -264,7 +286,7 @@ func TestSecretsNeverAppearInLogsOrErrors(t *testing.T) {
 func TestChatGPTTokenIsNotFetchedBeforeConsent(t *testing.T) {
 	f := newAIFixture(t)
 	f.ChatGPT.Token = chatgptToken
-	_, err := f.ai.SignInChatGPT(t.Context(), false)
+	_, err := f.ai.SignInChatGPT(t.Context(), "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "")
 	require.NoError(t, err)

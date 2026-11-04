@@ -18,6 +18,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/domain/palette"
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/hitomado/internal/siwc/siwcfake"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
@@ -42,7 +43,7 @@ type Env struct {
 	Update     *FakeUpdate
 	Secrets    *secrets.Memory
 	Clock      *clock.Fake
-	ChatGPT    *FakeChatGPT
+	ChatGPT    *siwcfake.Fake
 
 	defaultClient string // AddAccount が使う OAuth クライアントの行 ID
 }
@@ -63,7 +64,7 @@ func NewEnv(tb testing.TB) *Env {
 	e := &Env{
 		Store: st, Gmail: NewFakeGmail(), Flow: NewFakeFlow(), Files: &FakeFiles{}, Browser: &FakeBrowser{}, Paths: &FakePaths{},
 		Notifier: &FakeNotifier{}, Background: &FakeBackground{}, Events: NewFakeEmitter(), Update: &FakeUpdate{},
-		Secrets: secrets.NewMemory(), Clock: clk, ChatGPT: &FakeChatGPT{Token: "chatgpt-access-token"}, //nolint:gosec // テスト用のダミー値
+		Secrets: secrets.NewMemory(), Clock: clk, ChatGPT: &siwcfake.Fake{Token: "chatgpt-access-token"}, //nolint:gosec // テスト用のダミー値
 	}
 	e.Sync = NewFakeSync(st, e.Gmail)
 	e.Deps = &app.Deps{

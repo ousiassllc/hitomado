@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -60,6 +61,12 @@ type Manager struct {
 
 	// refreshMu はトークンの読み書き（更新・ログイン保存・ログアウト）を直列化する。回転するリフレッシュトークンを競合させない。
 	refreshMu sync.Mutex
+
+	// regMu は登録（app_settings の ai.chatgpt）の読み書きを直列化する。通信中は持たない（短い区間だけ）。
+	regMu sync.Mutex
+	// migrateMu・migrated は旧形式（アカウント 1 件）の登録・トークンの移行（registry.go の migrate）。
+	migrateMu sync.Mutex
+	migrated  atomic.Bool
 
 	mu         sync.Mutex // cancelSign（通信中に持たない。CancelSignIn がすぐ効くように）
 	cancelSign context.CancelCauseFunc
@@ -143,21 +150,23 @@ func (m *Manager) revocationEndpoint(ctx context.Context) (string, error) {
 // Status は Auth の実装。通信せず、更新・ログアウトの途中でも待たない（refreshMu を取らない）。
 // ログイン済みかは「登録があり、リフレッシュトークンの先頭の要素が資格情報ストアにある」ことで判断する（値の全体は読まない）。
 func (m *Manager) Status(ctx context.Context) (Status, error) {
-	reg, err := m.loadRegistration(ctx)
+	reg, err := m.loadRegistry(ctx)
 	if err != nil {
 		return Status{}, err
 	}
-	if reg.ClientID == "" {
-		return Status{}, nil
+	st := Status{Accounts: make([]Account, 0, len(reg.Accounts))}
+	for _, a := range reg.Accounts {
+		signedIn, err := m.hasSession(a.ClientID)
+		if err != nil {
+			return Status{}, err
+		}
+		active := a.ClientID == reg.Active
+		st.Accounts = append(st.Accounts, Account{ID: a.ClientID, Email: a.Email, SignedIn: signedIn, Active: active})
+		if active {
+			st.SignedIn, st.Email = signedIn, a.Email
+		}
 	}
-	head, err := m.opts.Secrets.Get(secrets.ChatGPTTokenKey(kindRefresh))
-	if errors.Is(err, secrets.ErrNotFound) || (err == nil && head == "") {
-		return Status{}, nil
-	}
-	if err != nil {
-		return Status{}, fmt.Errorf("%w: 資格情報ストアから読み込めません", ErrFailed)
-	}
-	return Status{SignedIn: true, Email: reg.Email}, nil
+	return st, nil
 }
 
 // AccessToken は Auth の実装。
@@ -166,34 +175,39 @@ func (m *Manager) AccessToken(ctx context.Context) (string, error) { return m.ac
 // ForceRefresh は Auth の実装。
 func (m *Manager) ForceRefresh(ctx context.Context) (string, error) { return m.access(ctx, true) }
 
+// access は使用中のアカウントのアクセストークンを返す。
 func (m *Manager) access(ctx context.Context, force bool) (string, error) {
 	m.refreshMu.Lock()
 	defer m.refreshMu.Unlock()
-	reg, err := m.loadRegistration(ctx)
+	reg, err := m.loadRegistry(ctx)
 	if err != nil {
 		return "", err
 	}
-	t, err := m.loadTokens()
-	if err != nil {
-		return "", err
-	}
-	if reg.ClientID == "" || t.Refresh == "" {
+	acct := reg.find(reg.Active)
+	if acct == nil {
 		return "", ErrNotSignedIn
 	}
-	valid := t.Access != "" && reg.ExpiresAt > 0 &&
-		m.clk.Now().Add(refreshSkew).Before(time.UnixMilli(reg.ExpiresAt))
+	t, err := m.loadTokens(acct.ClientID)
+	if err != nil {
+		return "", err
+	}
+	if t.Refresh == "" {
+		return "", ErrNotSignedIn
+	}
+	valid := t.Access != "" && acct.ExpiresAt > 0 &&
+		m.clk.Now().Add(refreshSkew).Before(time.UnixMilli(acct.ExpiresAt))
 	if valid && !force {
 		return t.Access, nil
 	}
-	return m.refreshLocked(ctx, reg, t)
+	return m.refreshLocked(ctx, acct.ClientID, t)
 }
 
-// refreshLocked はリフレッシュトークンで更新し、置き換えを保存する（refreshMu を持って呼ぶ）。
-// 更新できない（再ログインが必要な）ときはトークンを消して ErrReauthRequired。通信失敗・5xx は保存済みを残して返す。
-func (m *Manager) refreshLocked(ctx context.Context, reg registration, t tokens) (string, error) {
+// refreshLocked はアカウントのリフレッシュトークンで更新し、置き換えを保存する（refreshMu を持って呼ぶ）。
+// 更新できない（再ログインが必要な）ときはそのアカウントのトークンを消して ErrReauthRequired。通信失敗・5xx は保存済みを残して返す。
+func (m *Manager) refreshLocked(ctx context.Context, clientID string, t tokens) (string, error) {
 	tr, err := m.requestTokens(ctx, url.Values{
 		"grant_type":    {"refresh_token"},
-		"client_id":     {reg.ClientID},
+		"client_id":     {clientID},
 		"refresh_token": {t.Refresh},
 		"resource":      {resource},
 	})
@@ -202,7 +216,7 @@ func (m *Manager) refreshLocked(ctx context.Context, reg registration, t tokens)
 		if errors.As(err, &se) {
 			switch {
 			case unusableRefreshCodes[se.Code]:
-				if cerr := m.clearTokens(); cerr != nil {
+				if cerr := m.clearTokens(clientID); cerr != nil {
 					return "", cerr
 				}
 				return "", fmt.Errorf("%w: 更新できません（%s）", ErrReauthRequired, se.Code)
@@ -219,11 +233,17 @@ func (m *Manager) refreshLocked(ctx context.Context, reg registration, t tokens)
 	if tr.IDToken == "" {
 		tr.IDToken = t.ID
 	}
-	if err := m.saveTokens(tokens{Access: tr.AccessToken, Refresh: tr.RefreshToken, ID: tr.IDToken}); err != nil {
+	if err := m.saveTokens(clientID, tokens{Access: tr.AccessToken, Refresh: tr.RefreshToken, ID: tr.IDToken}); err != nil {
 		return "", err
 	}
-	reg.ExpiresAt = m.expiry(tr.ExpiresIn)
-	if err := m.saveRegistration(ctx, reg); err != nil {
+	// 通信の間に切り替え・削除があり得るので、登録は読み直して、このアカウントの期限だけを書く。
+	expires := m.expiry(tr.ExpiresIn)
+	if err := m.updateRegistry(ctx, func(r *registry) error {
+		if a := r.find(clientID); a != nil {
+			a.ExpiresAt = expires
+		}
+		return nil
+	}); err != nil {
 		return "", err
 	}
 	return tr.AccessToken, nil

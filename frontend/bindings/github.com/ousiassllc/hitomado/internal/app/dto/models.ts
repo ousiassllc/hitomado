@@ -23,10 +23,15 @@ export interface AIConfig {
     "consentedProviders": string[] | null;
 
     /**
-     * ChatGPTSignedIn は選択中のプロバイダに関わらず、ChatGPT にログイン済みか。ChatGPTEmail は表示用のメールアドレス。
+     * ChatGPTSignedIn は選択中のプロバイダに関わらず、使用中の ChatGPT アカウントがログイン済みか。ChatGPTEmail はそのメールアドレス（表示用）。
      */
     "chatgptSignedIn": boolean;
     "chatgptEmail"?: string;
+
+    /**
+     * ChatGPTAccounts は保存済みの ChatGPT アカウント（登録順。トークンは含まない）。
+     */
+    "chatgptAccounts": ChatGPTAccount[] | null;
 }
 
 /**
@@ -95,6 +100,27 @@ export interface AppInfo {
     "version": string;
     "updateCheckEnabled": boolean;
     "dataDir": string;
+}
+
+/**
+ * ChatGPTAccount は保存済みの ChatGPT アカウント（クライアント登録）1 件。
+ */
+export interface ChatGPTAccount {
+    /**
+     * ID は発行された client_id（登録の識別子）。同じメールアドレスでも、別の登録なら別の ID になる。
+     */
+    "id": string;
+    "email"?: string;
+
+    /**
+     * ログイン中のセッションがあるか
+     */
+    "signedIn": boolean;
+
+    /**
+     * 下書きの生成に使うアカウントか
+     */
+    "active": boolean;
 }
 
 /**

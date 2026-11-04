@@ -97,11 +97,11 @@ func (s *Service) config(ctx context.Context) (dto.AIConfig, error) {
 	if err != nil {
 		return dto.AIConfig{}, err
 	}
-	signedIn, email, err := s.chatGPTStatus(ctx)
+	gpt, err := s.chatGPTStatus(ctx)
 	if err != nil {
 		return dto.AIConfig{}, err
 	}
-	has := signedIn
+	has := gpt.SignedIn
 	if cfg.Provider != providerChatGPT {
 		_, has, err = s.apiKey(cfg.Provider)
 		if err != nil {
@@ -110,7 +110,7 @@ func (s *Service) config(ctx context.Context) (dto.AIConfig, error) {
 	}
 	return dto.AIConfig{
 		Provider: cfg.Provider, Model: cfg.Model, BaseURL: cfg.BaseURL, HasAPIKey: has, ConsentedProviders: consented,
-		ChatGPTSignedIn: signedIn, ChatGPTEmail: email,
+		ChatGPTSignedIn: gpt.SignedIn, ChatGPTEmail: gpt.Email, ChatGPTAccounts: chatGPTAccounts(gpt),
 	}, nil
 }
 

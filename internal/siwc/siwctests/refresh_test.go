@@ -37,7 +37,7 @@ func TestAccessTokenRefreshesNearExpiry(t *testing.T) {
 	assert.False(t, forms[1].Has("scope"), "scope は付けない（付与済みを維持する）")
 
 	// 置き換えられたリフレッシュトークンが保存され、次の更新で使われる。
-	got, err := e.sec.Get(secrets.ChatGPTTokenKey("refresh"))
+	got, err := e.sec.Get(tokenKey("refresh"))
 	require.NoError(t, err)
 	assert.Equal(t, secretRefresh+"-rotated-1", got)
 	e.clk.Advance(time.Hour)
@@ -85,13 +85,13 @@ func TestRefreshFailureModes(t *testing.T) {
 
 			_, err := e.m.AccessToken(t.Context())
 			require.ErrorIs(t, err, siwc.ErrReauthRequired, "再ログインを案内する")
-			_, serr := e.sec.Get(secrets.ChatGPTTokenKey("refresh"))
+			_, serr := e.sec.Get(tokenKey("refresh"))
 			assert.ErrorIs(t, serr, secrets.ErrNotFound, "使えないトークンは消す")
 			st, _ := e.m.Status(t.Context())
 			assert.False(t, st.SignedIn)
 			_, err = e.m.AccessToken(t.Context())
 			assert.ErrorIs(t, err, siwc.ErrNotSignedIn)
-			assert.Equal(t, issuedClient, e.reg(t).ClientID, "登録は残す（同じクライアントで再ログインできる）")
+			assert.Equal(t, issuedClient, e.reg(t).first().ClientID, "登録は残す（同じクライアントで再ログインできる）")
 		})
 	}
 
@@ -105,7 +105,7 @@ func TestRefreshFailureModes(t *testing.T) {
 		_, err := e.m.AccessToken(t.Context())
 		require.Error(t, err)
 		assert.NotErrorIs(t, err, siwc.ErrReauthRequired)
-		got, serr := e.sec.Get(secrets.ChatGPTTokenKey("refresh"))
+		got, serr := e.sec.Get(tokenKey("refresh"))
 		require.NoError(t, serr)
 		assert.Equal(t, secretRefresh, got)
 
@@ -147,7 +147,7 @@ func TestNotSignedIn(t *testing.T) {
 func TestSignOutRevokesThenClears(t *testing.T) {
 	e := newEnv(t, nil, nil)
 	e.signIn(t)
-	revoked, err := e.m.SignOut(t.Context())
+	revoked, err := e.m.SignOut(t.Context(), issuedClient)
 	require.NoError(t, err)
 	assert.True(t, revoked)
 	forms := e.f.revokeFormsCopy()
@@ -156,15 +156,15 @@ func TestSignOutRevokesThenClears(t *testing.T) {
 	assert.Equal(t, "refresh_token", forms[0].Get("token_type_hint"))
 	assert.Equal(t, issuedClient, forms[0].Get("client_id"))
 	for _, k := range []string{"access", "refresh", "id"} {
-		_, err := e.sec.Get(secrets.ChatGPTTokenKey(k))
+		_, err := e.sec.Get(tokenKey(k))
 		assert.ErrorIs(t, err, secrets.ErrNotFound, k)
 	}
 	st, _ := e.m.Status(t.Context())
 	assert.False(t, st.SignedIn)
-	assert.Equal(t, issuedClient, e.reg(t).ClientID, "登録（クライアントとホスト）は残す")
+	assert.Equal(t, issuedClient, e.reg(t).first().ClientID, "登録（クライアントとホスト）は残す")
 	assert.NotEmpty(t, e.reg(t).HostID)
 
-	revoked, err = e.m.SignOut(t.Context())
+	revoked, err = e.m.SignOut(t.Context(), issuedClient)
 	require.NoError(t, err, "ログインしていなくてもエラーにしない")
 	assert.True(t, revoked)
 }
@@ -175,10 +175,10 @@ func TestSignOutClearsLocallyEvenWhenRevocationFails(t *testing.T) {
 	e.f.mu.Lock()
 	e.f.revokeStatus = http.StatusBadGateway
 	e.f.mu.Unlock()
-	revoked, err := e.m.SignOut(t.Context())
+	revoked, err := e.m.SignOut(t.Context(), issuedClient)
 	require.NoError(t, err)
 	assert.False(t, revoked, "失効を確認できなかったことを伝える")
 	assert.Len(t, e.f.revokeFormsCopy(), 3, "5xx は再試行する")
-	_, serr := e.sec.Get(secrets.ChatGPTTokenKey("refresh"))
+	_, serr := e.sec.Get(tokenKey("refresh"))
 	assert.ErrorIs(t, serr, secrets.ErrNotFound)
 }

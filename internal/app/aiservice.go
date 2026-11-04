@@ -37,18 +37,27 @@ func (s *AIService) RecordAIConsent(ctx context.Context, provider string) (dto.A
 	return s.core.RecordAIConsent(ctx, provider)
 }
 
-// SignInChatGPT は OpenAI の公式画面（システムブラウザ）で ChatGPT にログインする。完了・中止・時間切れまでブロックする。
-// differentAccount が true なら、保存済みの登録を使わず別の ChatGPT アカウントとして登録し直す。
-func (s *AIService) SignInChatGPT(ctx context.Context, differentAccount bool) (dto.AIConfig, error) {
-	return s.core.SignInChatGPT(ctx, differentAccount)
+// SignInChatGPT は OpenAI の公式画面で ChatGPT にログインする（完了・中止・時間切れまでブロック）。accountId が空なら別のアカウントを追加し、指定したときはその登録で再ログインする。
+func (s *AIService) SignInChatGPT(ctx context.Context, accountID string) (dto.AIConfig, error) {
+	return s.core.SignInChatGPT(ctx, accountID)
 }
 
 // CancelSignInChatGPT は進行中の ChatGPT ログインを中止する（SignInChatGPT は OAUTH_CANCELLED で終わる）。
 func (s *AIService) CancelSignInChatGPT() error { return s.core.CancelSignInChatGPT() }
 
-// SignOutChatGPT は ChatGPT からログアウトする（OpenAI 側の失効を試み、ローカルのトークンを消す）。
-func (s *AIService) SignOutChatGPT(ctx context.Context) (dto.ChatGPTSignOutResult, error) {
-	return s.core.SignOutChatGPT(ctx)
+// SelectChatGPTAccount は下書きに使う ChatGPT アカウントを切り替える（ログイン中のアカウントだけ）。
+func (s *AIService) SelectChatGPTAccount(ctx context.Context, accountID string) (dto.AIConfig, error) {
+	return s.core.SelectChatGPTAccount(ctx, accountID)
+}
+
+// SignOutChatGPT は指定した ChatGPT アカウントだけログアウトする（OpenAI 側の失効を試み、そのトークンを消す）。
+func (s *AIService) SignOutChatGPT(ctx context.Context, accountID string) (dto.ChatGPTSignOutResult, error) {
+	return s.core.SignOutChatGPT(ctx, accountID)
+}
+
+// RemoveChatGPTAccount はログアウト済みの ChatGPT アカウントの登録を忘れる。
+func (s *AIService) RemoveChatGPTAccount(ctx context.Context, accountID string) (dto.AIConfig, error) {
+	return s.core.RemoveChatGPTAccount(ctx, accountID)
 }
 
 // ListAIModels は provider のモデル一覧を取得する。取得できないときはエラーではなく Reason つきの空の一覧を返す（手入力へ切り替える）。

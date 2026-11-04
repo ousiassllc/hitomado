@@ -70,27 +70,33 @@ func mapSignInError(ctx context.Context, err error) error {
 type pendingAuth struct {
 	state, nonce, verifier string
 	redirectURI            string
-	clientID               string // 発行済みの client_id（新規登録は空）
+	clientID               string // 再ログインする登録の client_id（新規登録は空）
 }
 
 func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error) {
-	reg, err := m.loadRegistration(ctx)
+	hostID, err := m.ensureHostID(ctx)
 	if err != nil {
 		return Status{}, err
 	}
-	reg, err = m.ensureHostID(ctx, reg)
+	reg, err := m.loadRegistry(ctx)
 	if err != nil {
 		return Status{}, err
+	}
+	// 再ログインする登録（無ければ新規登録）。選んだ登録以外は、このログインでは読まない・変えない。
+	var target account
+	if opts.AccountID != "" {
+		a := reg.find(opts.AccountID)
+		if a == nil {
+			return Status{}, ErrUnknownAccount
+		}
+		target = *a
 	}
 	prov, err := m.discover(ctx)
 	if err != nil {
 		return Status{}, err
 	}
 
-	var p pendingAuth
-	if !opts.DifferentAccount {
-		p.clientID = reg.ClientID
-	}
+	p := pendingAuth{clientID: target.ClientID}
 	for _, f := range []*string{&p.state, &p.nonce, &p.verifier} {
 		if *f, err = randomToken(32); err != nil {
 			return Status{}, fmt.Errorf("%w: 乱数を作れません", ErrFailed)
@@ -103,16 +109,17 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 	defer cb.close()
 	p.redirectURI = cb.redirectURI()
 
-	// 保存済みの ID トークン（ログアウトで消えていれば無い）は同じアカウントを示すヒントとして OpenAI の認可エンドポイントにだけ送る。
+	// 選んだ登録の保存済みの ID トークン（ログアウトで消えていれば無い）は同じアカウントを示すヒントとして
+	// OpenAI の認可エンドポイントにだけ送る。ほかの登録の ID トークンは送らない。
 	hintToken := ""
 	if p.clientID != "" {
 		m.refreshMu.Lock() // 更新の途中の（新旧が混ざった）値を読まない
-		if t, terr := m.loadTokens(); terr == nil {
+		if t, terr := m.loadTokens(p.clientID); terr == nil {
 			hintToken = t.ID
 		}
 		m.refreshMu.Unlock()
 	}
-	authURL := m.authorizeURL(prov.Endpoint().AuthURL, p, reg, hintToken, opts)
+	authURL := m.authorizeURL(prov.Endpoint().AuthURL, p, hostID, target, hintToken)
 	if err := m.opts.OpenBrowser(authURL); err != nil {
 		return Status{}, fmt.Errorf("%w: ブラウザを開けません", ErrFailed)
 	}
@@ -130,10 +137,11 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 	if res.err != nil {
 		return Status{}, res.err
 	}
-	return m.complete(ctx, prov, reg, p, res, opts)
+	return m.complete(ctx, prov, target, p, res)
 }
 
-func (m *Manager) authorizeURL(authEndpoint string, p pendingAuth, reg registration, idTokenHint string, opts SignInOptions) string {
+// authorizeURL は認可 URL。target は再ログインする登録（新規登録なら零値）。
+func (m *Manager) authorizeURL(authEndpoint string, p pendingAuth, hostID string, target account, idTokenHint string) string {
 	clientID := p.clientID
 	q := url.Values{}
 	if clientID == "" {
@@ -142,7 +150,7 @@ func (m *Manager) authorizeURL(authEndpoint string, p pendingAuth, reg registrat
 		q.Set("agent_name_hint", AgentName)
 	}
 	q.Set("client_id", clientID)
-	q.Set("ext_agent_host_id", reg.HostID)
+	q.Set("ext_agent_host_id", hostID)
 	q.Set("response_type", "code")
 	q.Set("redirect_uri", p.redirectURI)
 	q.Set("scope", requestScopes)
@@ -151,14 +159,14 @@ func (m *Manager) authorizeURL(authEndpoint string, p pendingAuth, reg registrat
 	q.Set("nonce", p.nonce)
 	q.Set("code_challenge_method", "S256")
 	q.Set("code_challenge", pkceChallenge(p.verifier))
-	if p.clientID != "" && !opts.DifferentAccount {
+	if p.clientID != "" {
 		if idTokenHint != "" {
 			q.Set("id_token_hint", idTokenHint)
 		}
-		if reg.Email != "" {
-			q.Set("login_hint", reg.Email)
+		if target.Email != "" {
+			q.Set("login_hint", target.Email)
 		}
-		if reg.ConsentNeeded {
+		if target.ConsentNeeded {
 			// 前回 ChatGPT プランの利用が許可されなかった。利用者が改めてログインを選んだので、同意を求め直す。
 			q.Set("prompt", "consent")
 		}
@@ -174,8 +182,9 @@ func authEndpointWithQuery(endpoint string, q url.Values) string {
 	return endpoint + sep + q.Encode()
 }
 
-// complete はコードの交換・ID トークンと scope の検証・保存を行う。
-func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, reg registration, p pendingAuth, res callbackResult, opts SignInOptions) (Status, error) {
+// complete はコードの交換・ID トークンと scope の検証・保存を行う。target は再ログインした登録（新規登録なら零値）。
+// 検証に通るまで、保存済みの登録・トークン・使用中のアカウントは変えない。保存するのは、このログインのアカウントのトークンと登録だけ。
+func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target account, p pendingAuth, res callbackResult) (Status, error) {
 	clientID := p.clientID
 	if clientID == "" {
 		// 新規登録: コールバックが発行された client_id を返す。無ければ登録は未完了。
@@ -220,8 +229,8 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, reg registr
 	if err := idt.Claims(&claims); err != nil {
 		return Status{}, fmt.Errorf("%w: ID トークンが不正です", ErrInvalidResponse)
 	}
-	// 保存済みの登録へ再ログインするときは、同じアカウントであること。
-	if p.clientID != "" && reg.Subject != "" && reg.Subject != idt.Subject {
+	// 選んだ登録へ再ログインするときは、同じアカウントであること。
+	if p.clientID != "" && target.Subject != "" && target.Subject != idt.Subject {
 		m.revokeQuietly(ctx, clientID, tr.RefreshToken)
 		return Status{}, ErrAccountMismatch
 	}
@@ -236,41 +245,46 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, reg registr
 	defer m.refreshMu.Unlock()
 	// 取得したトークンを保存し終えるまで、ログインの中止（ctx）で中断しない（トークンと登録が食い違わないように）。
 	ctx = context.WithoutCancel(ctx)
-	// 登録が置き換わる（別アカウント）ときは、後で古いセッションを失効させるため控えておく。
-	old, _ := m.loadTokens()
-	oldClient := reg.ClientID
 
 	if !granted || tr.RefreshToken == "" {
 		// ログインはできたが ChatGPT プランの利用が許可されていない。得たトークンは使わず失効させる。
 		m.revokeQuietly(ctx, clientID, tr.RefreshToken)
-		if oldClient != "" && old.Refresh != "" {
-			// ログイン中のセッションがあるときは、それを変えない（利用者が使っている登録を壊さない）。
-			return Status{}, ErrPlanNotGranted
-		}
-		// セッションが無いときは、次のログインで同じクライアントを使い同意を求め直すため、登録だけ残す。
-		reg.ClientID, reg.Subject, reg.Email, reg.ConsentNeeded, reg.ExpiresAt = clientID, idt.Subject, claims.Email, true, 0
-		if err := m.clearTokens(); err != nil {
-			return Status{}, err
-		}
-		if err := m.saveRegistration(ctx, reg); err != nil {
-			return Status{}, err
-		}
-		return Status{}, ErrPlanNotGranted
+		return Status{}, m.declinePlan(ctx, clientID, idt.Subject, claims.Email)
 	}
 
-	if err := m.saveTokens(tokens{Access: tr.AccessToken, Refresh: tr.RefreshToken, ID: tr.IDToken}); err != nil {
+	if err := m.saveTokens(clientID, tokens{Access: tr.AccessToken, Refresh: tr.RefreshToken, ID: tr.IDToken}); err != nil {
 		return Status{}, err
 	}
-	reg.ClientID, reg.Subject, reg.Email, reg.ConsentNeeded = clientID, idt.Subject, claims.Email, false
-	reg.ExpiresAt = m.expiry(tr.ExpiresIn)
-	if err := m.saveRegistration(ctx, reg); err != nil {
-		_ = m.clearTokens()
+	expires := m.expiry(tr.ExpiresIn)
+	if err := m.updateRegistry(ctx, func(r *registry) error {
+		a := r.upsert(clientID)
+		a.Subject, a.Email, a.ConsentNeeded, a.ExpiresAt = idt.Subject, claims.Email, false, expires
+		r.Active = clientID // 検証を終えたこのアカウントを使用中にする
+		return nil
+	}); err != nil {
+		_ = m.clearTokens(clientID)
 		return Status{}, err
 	}
-	if oldClient != "" && oldClient != clientID && old.Refresh != "" {
-		m.revokeQuietly(ctx, oldClient, old.Refresh)
+	return m.Status(ctx)
+}
+
+// declinePlan は ChatGPT プランの利用が許可されなかったログインの後始末をして ErrPlanNotGranted を返す（refreshMu を持って呼ぶ）。
+// ログイン中のアカウント（このアカウントを含む）のセッションは変えない。ログイン中でないアカウントだけ、次のログインで
+// 同じクライアントを使い同意を求め直すため、登録を残す（ほかのアカウントの登録・使用中のアカウントは変えない）。
+func (m *Manager) declinePlan(ctx context.Context, clientID, subject, email string) error {
+	if live, err := m.hasSession(clientID); err != nil {
+		return err
+	} else if live {
+		return ErrPlanNotGranted
 	}
-	return Status{SignedIn: true, Email: claims.Email}, nil
+	if err := m.updateRegistry(ctx, func(r *registry) error {
+		a := r.upsert(clientID)
+		a.Subject, a.Email, a.ConsentNeeded, a.ExpiresAt = subject, email, true, 0
+		return nil
+	}); err != nil {
+		return err
+	}
+	return ErrPlanNotGranted
 }
 
 // revokeQuietly は失効を 1 度だけ試み、結果は問わない（検証に失敗した・不要になったトークンの後始末）。
