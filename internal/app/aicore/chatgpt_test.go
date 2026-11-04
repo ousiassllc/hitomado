@@ -202,7 +202,7 @@ func TestChatGPTReloginIsRequestedWhenRefreshFails(t *testing.T) {
 	f.ChatGPT.RefreshErr = fmt.Errorf("%w: %s", siwc.ErrReauthRequired, chatgptRefresh)
 	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
 	ae := requireError(t, "AI_NOT_CONFIGURED", err)
-	assert.Contains(t, ae.Message, "でログイン」をやり直してください")
+	assert.Contains(t, ae.Message, "「再ログイン」")
 	assert.NotContains(t, ae.Message, chatgptRefresh)
 
 	// 事前の更新（AccessToken）で再ログインが必要と分かった場合も同じ案内。

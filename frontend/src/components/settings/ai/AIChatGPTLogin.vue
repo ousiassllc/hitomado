@@ -19,6 +19,10 @@ const ui = useUiStore()
 
 const busy = ref<'login' | 'logout' | 'select' | 'remove'>()
 const error = ref<string>()
+// 操作中の行だけに進行表示を出すための、操作対象のアカウント ID。
+const busyId = ref<string>()
+// 切り替えに失敗したとき、利用者が押したラジオを使用中のアカウントへ戻すために、ラジオを作り直すための版。
+const radioRev = ref(0)
 
 /** 同じメールアドレスの登録が複数あるときは、登録の ID の末尾で見分ける（ラベルは登録ごとに安定）。 */
 function label(a: ChatGPTAccount): string {
@@ -69,6 +73,8 @@ async function select(a: ChatGPTAccount): Promise<void> {
     emit('accountChanged')
   } catch (e) {
     error.value = parseBindingError(e).message
+    // 押したラジオが選択されたまま残らないよう、使用中のアカウントの表示へ戻す。
+    radioRev.value++
   } finally {
     busy.value = undefined
   }
@@ -78,6 +84,7 @@ async function logout(a: ChatGPTAccount): Promise<void> {
   if (busy.value) return
   error.value = undefined
   busy.value = 'logout'
+  busyId.value = a.id
   try {
     const revoked = await store.signOutChatGPT(a.id)
     ui.pushToast(revoked ? 'success' : 'info', revoked ? msg.ai.chatgpt.signedOut : msg.ai.chatgpt.revokeUnconfirmed)
@@ -85,6 +92,7 @@ async function logout(a: ChatGPTAccount): Promise<void> {
     error.value = parseBindingError(e).message
   } finally {
     busy.value = undefined
+    busyId.value = undefined
   }
 }
 
@@ -121,7 +129,7 @@ async function remove(a: ChatGPTAccount): Promise<void> {
 
     <fieldset v-if="props.accounts.length > 0" class="accounts" data-testid="ai-chatgpt-accounts">
       <legend class="legend">{{ msg.ai.chatgpt.accountsLabel }}</legend>
-      <ul class="list">
+      <ul class="list" :aria-label="msg.ai.chatgpt.accountsHeading">
         <li
           v-for="a in props.accounts"
           :key="a.id"
@@ -130,10 +138,12 @@ async function remove(a: ChatGPTAccount): Promise<void> {
         >
           <label v-if="a.signedIn" class="pick">
             <input
+              :key="`${a.id}-${radioRev}`"
               type="radio"
               name="chatgpt-account"
               :value="a.id"
               :checked="a.active"
+              :aria-label="msg.ai.chatgpt.select(label(a))"
               :disabled="busy !== undefined"
               @change="select(a)"
             />
@@ -148,7 +158,7 @@ async function remove(a: ChatGPTAccount): Promise<void> {
             <template v-if="a.signedIn">
               <BaseButton
                 variant="danger"
-                :loading="busy === 'logout'"
+                :loading="busy === 'logout' && busyId === a.id"
                 :disabled="busy !== undefined"
                 :aria-label="msg.ai.chatgpt.logoutAccount(label(a))"
                 data-testid="ai-chatgpt-logout"

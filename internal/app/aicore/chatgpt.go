@@ -124,7 +124,7 @@ func mapChatGPTError(err error) error {
 	case errors.Is(err, siwc.ErrAccountInUse):
 		return apperr.Wrap(apperr.Validation, "ログイン中の ChatGPT アカウントは削除できません。先にログアウトしてください。", err)
 	case errors.Is(err, siwc.ErrNotSignedIn), errors.Is(err, siwc.ErrReauthRequired):
-		return apperr.Wrap(apperr.AINotConfigured, "ChatGPT のログインが切れました。設定画面で「ChatGPT でログイン」をやり直してください。", err)
+		return apperr.Wrap(apperr.AINotConfigured, "この ChatGPT アカウントはログアウト済みか、ログインが切れています。設定画面の「再ログイン」（アカウントがないときは「Continue with ChatGPT」）からもう一度ログインしてください。", err)
 	case errors.Is(err, siwc.ErrInvalidResponse):
 		return apperr.Wrap(apperr.AIFailed, "OpenAI からの応答を確認できませんでした。もう一度お試しください。", err)
 	case errors.Is(err, siwc.ErrFailed):
