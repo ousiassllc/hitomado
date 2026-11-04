@@ -47,8 +47,8 @@ type AppError = {
 | `OFFLINE` | ネットワーク不通 | true | Gmail／AI／GitHub 呼び出し |
 | `RATE_LIMITED` | 429（バックオフで解消せず） | true | Gmail／AI |
 | `OAUTH_CLIENT_REJECTED` | OAuth クライアントの資格情報が Google に拒否された（`invalid_client`／`unauthorized_client`／トークン更新・認可コード交換の 401）。Client ID／Secret の設定を確認する | false | Gmail 呼び出し, StartAddAccount, Reconnect |
-| `GMAIL_ERROR` | Gmail API のその他のエラー | 状況による | Gmail 呼び出し |
-| `NEEDS_REAUTH` | トークン失効（`invalid_grant`）。当該アカウントを「要再接続」にする | false | Gmail 呼び出し |
+| `GMAIL_ERROR` | Gmail API のその他のエラー。`message` に HTTP ステータスと Google が返した reason（`forbidden` など。文字種を制限したもの）を添える。Google Cloud のプロジェクトで Gmail API が無効（reason が `SERVICE_DISABLED`／`accessNotConfigured`）のときは、有効にする案内の固定文言にし、`details.reason = "gmail_api_disabled"` を持つ | 状況による | Gmail 呼び出し |
+| `NEEDS_REAUTH` | トークン失効（`invalid_grant`）、認証切れ（401。アクセストークンを取り直して 1 回再試行しても 401）、権限（スコープ）不足（403 で reason が `ACCESS_TOKEN_SCOPE_INSUFFICIENT`／`insufficientPermissions`）。当該アカウントを「要再接続」にする。権限不足のときは、再接続して権限を許可し直す案内の固定文言にし、`details.reason = "scope_insufficient"` を持つ | false | Gmail 呼び出し |
 | `ACCOUNT_DUPLICATE` | 同じアドレスのアカウントが登録済み | false | StartAddAccount |
 | `OAUTH_CLIENT_IN_USE` | OAuth クライアントを使うアカウントが存在する | false | DeleteOAuthClient |
 | `OAUTH_CANCELLED` | 利用者が認可をキャンセルした | false | StartAddAccount, SignInChatGPT |
@@ -142,6 +142,7 @@ type ThreadPage = {
 type InboxQuery = {
   accountIds: string[];     // 空配列なら「すべて」
   unreadOnly: boolean;
+  tab?: "all" | "primary" | "social" | "promotions" | "new"; // 受信箱のタブ。省略・"all" は絞り込まない。未知の値は VALIDATION
   limit: number;            // 1〜100、既定 50
   cursor?: string;          // 前回の nextCursor
 };
@@ -156,7 +157,7 @@ type SearchQuery = {
 
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
-| `ListInbox(query)` | `InboxQuery` | `ThreadPage` | ローカル DB の `INBOX` スレッドを `last_message_at` 降順で返す（キーセットページング）。ローカルの行が尽き、かつ対象アカウントの `inbox_exhausted = 0` なら、`inbox_page_token` で Gmail から追加取得して保存し、続きを返す。絞り込み（未読のみ等）で追加取得分がすべて落ちても Gmail 側に続きがあるときは、`items` が 0 件でも `nextCursor` を返す |
+| `ListInbox(query)` | `InboxQuery` | `ThreadPage` | ローカル DB の `INBOX` スレッドを `last_message_at` 降順で返す（キーセットページング）。ローカルの行が尽き、かつ対象アカウントの `inbox_exhausted = 0` なら、`inbox_page_token` で Gmail から追加取得して保存し、続きを返す。絞り込み（未読のみ・`tab` 等）で追加取得分がすべて落ちても Gmail 側に続きがあるときは、`items` が 0 件でも `nextCursor` を返す。**`tab` の絞り込み**（F-02）: `primary` は `CATEGORY_PERSONAL` を持つ、またはどの `CATEGORY_*` も持たない `INBOX` スレッド、`social`／`promotions` は `CATEGORY_SOCIAL`／`CATEGORY_PROMOTIONS` を持つスレッド、`new` は `is_unread = 1`（`unreadOnly` と同じ。両方指定は AND）。ラベルはスレッド内のいずれかのメッセージの `message_labels`。**ローカルのキャッシュ（`threads`／`message_labels`）にだけ掛け、Gmail への追加取得は絞り込まない `INBOX` の続き（アカウントごと 1 本の `inbox_page_token`）を進める**（理由: 追加取得の経路は `threads.list(labelIds=INBOX)` のページ送りだけで、`q`／`labelIds` を変えるとタブごとにトークンと取得済みの範囲を別管理する必要があり、同期状態（`account_sync_state`）が複雑になるため。カテゴリのラベルはメッセージを取得するまで分からず、`INBOX` を取得して初めて判定できる）。カーソルは絞り込みに依存しない位置（`last_message_at`・アカウント・スレッド ID）で、タブごとに独立して辿れる。タブを切り替えたら呼び出し側がカーソルを捨てて先頭から取り直す（別のタブのカーソルを渡しても位置としては有効で、そのタブの絞り込みで続きを返す） |
 | `Refresh(accountIds)` | `string[]`（空＝全） | `{ results: { accountId: string; ok: boolean; error?: AppError }[] }` | 差分同期を今すぐ実行し完了を待つ（直近の手動更新から 5 秒未満の呼び出しは直近の結果を返す） |
 | `GetUnreadCounts()` | — | `Record<accountId, number>` | `threads` の `in_inbox = 1 AND is_unread = 1` の件数 |
 | `Search(query)` | `SearchQuery` | `ThreadPage` | 各アカウントで `threads.list(q)`＋`threads.get(metadata)` を並列実行し、`lastMessageAt` 降順に統合する。結果は DB に保存しない。カーソルはアカウントごとの `pageToken` を含む不透明文字列。クエリが空文字は `VALIDATION` |
@@ -505,6 +506,8 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 - `invalid_grant` は `NEEDS_REAUTH` に変換し、`accounts.status = 'needs_reauth'` を更新して `account:status` を発行する
 - `invalid_client`／`unauthorized_client`／トークン更新の 401 は `OAUTH_CLIENT_REJECTED` に変換する。同期では `needs_reauth` と同様に自動再試行を止め、`message` に「OAuth クライアントの設定（Client ID／Secret）を確認してください」を載せる（設定を直したあと `Reconnect` で再開する）
 - ネットワーク不通は `OFFLINE` に変換する。取得済みのキャッシュ表示は維持する
+- Gmail API がエラー応答を返したときは、Google の応答（`error.status`、`error.message`、`error.errors[].reason`、`error.details[].reason`、`error.details[].metadata` のうち `service`／`consumer`／`containerInfo`／`activationUrl`）を解析し、reason をエラー文言とログ（「Gmail API がエラーを返しました」。`op`／`status`／`api_status`／`reasons`／`api_message`／`api_metadata`）に含める。すべての Gmail 呼び出しが共通のエラー処理を通るので、`users.getProfile` 以外も同じに扱う。同期の周期失敗のログ（`sync cycle failed`）にも reason が入る。`message` は先頭 4096 バイトだけを使い、制御文字（改行を含む）を空白に置き換えてトークン・メールアドレスを伏せ（`logging.Scrub`）、300 文字に切り詰める。reason・`error.status` は英数字と `_.-` のみ・64 文字以内のものだけを載せ、reason は 8 件まで。本文が 64KiB を超える応答は JSON として解析せず、`googleapi.Error` が解析済みの `errors[].reason` だけを使う。JSON でない応答（プロキシの HTML など）は先頭の一部だけを使う。利用者に表示する `AppError.message` には Google の `message` 本文を載せない（HTTP ステータスと reason だけ）
+- 403 で reason が `SERVICE_DISABLED`／`accessNotConfigured` のときは `GMAIL_ERROR`（同期では `error` 状態でメッセージ「Google Cloud のプロジェクトで Gmail API が有効になっていません。有効にしてください」。有効にすれば次の周期で回復する）、`ACCESS_TOKEN_SCOPE_INSUFFICIENT`／`insufficientPermissions` のときは `NEEDS_REAUTH`（同期では `needs_reauth` で「Gmail の権限（スコープ）が足りません。再接続して、すべての権限を許可してください」。再試行しない）に変換する。401 は従来どおり 1 回だけトークンを取り直して再試行し、それでも 401 なら `NEEDS_REAUTH`
 
 ## 改訂履歴
 
@@ -535,6 +538,8 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.22 | 2026-11-04 | `ChatGPTAccount`・`AIConfig.chatgptAccounts` を追加し、`SignInChatGPT`／`SignOutChatGPT` の引数を `differentAccount`（真偽値）／なしから `accountId` に変え、`SelectChatGPTAccount`／`RemoveChatGPTAccount` を追加。§6.2 に複数の ChatGPT アカウント（登録・トークンをアカウントごとに保存、選んで使う、追加は検証までほかに影響しない、ログアウトは選んだアカウントだけ）と旧形式からの移行を追記 | 複数の ChatGPT アカウント（#79） |
 | 1.23 | 2026-11-04 | `ChatGPTAccount.planNoticePending` と `AckChatGPTPlanNotice` を追加し、§6.2 に初めてのログインの確認を追記。利用枠の超過の `AI_FAILED` に `details.reason = "usage_limit_exceeded"` を付け、画面が「Manage usage」を主なアクションにした案内を出すことを明記（§1.2・§6.2） | OpenAI の UI/UX ガイドラインへの対応（#80） |
 | 1.24 | 2026-11-04 | §6.2 の ChatGPT の複数アカウントに、新規登録の `client_id` が保存済みの登録と衝突したとき `sub` が未記録で照合できない場合も拒否する旨を追記。更新・ログアウトの直列化をアカウントごとにしたことを追記 | sub を照合できない登録を別アカウントの新規ログインで上書きしないため（#100）。アカウントごとのロック（#93） |
-| 1.25 | 2026-11-04 | §6.2 の ChatGPT の複数アカウントに、`client_id` を大文字小文字を無視して一意として扱い、大文字小文字だけが違う登録・再ログインを拒否する旨を追記 | Windows 資格情報マネージャーがキーの大文字小文字を区別せず、別アカウントの資格情報がぶつかるため（#101） |
-| 1.26 | 2026-11-04 | §1.2 の `OAUTH_CANCELLED`／`OAUTH_DENIED`／`OAUTH_TIMEOUT` の発生元に `SignInChatGPT` を追記（`OAUTH_DENIED` は ChatGPT プランの利用が許可されなかった場合も） | #75 から続いていた発生元の乖離（#94） |
-| 1.27 | 2026-11-04 | `SelectChatGPTAccount` が、ログアウト済みのアカウントで `AI_NOT_CONFIGURED` に `details.reason = "account_signed_out"` と「再ログイン」を案内するメッセージを返す旨を、§6 の表と §6.2 の複数アカウントの記述に追記 | 何をすればよいか分からない文面だったため（#102） |
+| 1.25 | 2026-11-04 | `InboxQuery.tab`（すべて／メイン／ソーシャル／プロモーション／新着）を追加し、`ListInbox` に絞り込みとページングの扱い（ローカルのキャッシュだけに掛ける理由、カーソルはタブごとに独立）を追記 | 受信トレイのカテゴリのタブと新着タブ（#97） |
+| 1.26 | 2026-11-04 | §1.2 の `GMAIL_ERROR`／`NEEDS_REAUTH` に Gmail API の reason による振り分け（API 無効・権限不足・401）と `details.reason`（`gmail_api_disabled`／`scope_insufficient`）を追記し、Google のエラー応答の解析・ログ出力・伏せ字処理の方針を追記 | #96 |
+| 1.27 | 2026-11-04 | §6.2 の ChatGPT の複数アカウントに、`client_id` を大文字小文字を無視して一意として扱い、大文字小文字だけが違う登録・再ログインを拒否する旨を追記 | Windows 資格情報マネージャーがキーの大文字小文字を区別せず、別アカウントの資格情報がぶつかるため（#101） |
+| 1.28 | 2026-11-04 | §1.2 の `OAUTH_CANCELLED`／`OAUTH_DENIED`／`OAUTH_TIMEOUT` の発生元に `SignInChatGPT` を追記（`OAUTH_DENIED` は ChatGPT プランの利用が許可されなかった場合も） | #75 から続いていた発生元の乖離（#94） |
+| 1.29 | 2026-11-04 | `SelectChatGPTAccount` が、ログアウト済みのアカウントで `AI_NOT_CONFIGURED` に `details.reason = "account_signed_out"` と「再ログイン」を案内するメッセージを返す旨を、§6 の表と §6.2 の複数アカウントの記述に追記 | 何をすればよいか分からない文面だったため（#102） |

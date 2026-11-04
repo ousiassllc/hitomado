@@ -10,6 +10,7 @@ import * as InboxService from '../../bindings/github.com/ousiassllc/hitomado/int
 import { type AppError, call, list, parseBindingError } from '../lib/api'
 import { EVENTS, onEvent, type SyncUpdatedPayload } from '../lib/events'
 import { keyOf, mergeHead } from '../lib/inboxItems'
+import type { InboxTab } from '../lib/inboxTabs'
 import { common } from '../lib/messages'
 import { useAccountsStore } from './accounts'
 import { makeApi } from './apiCall'
@@ -31,6 +32,8 @@ export const useInboxStore = defineStore('inbox', () => {
     accountIds: [],
     unreadOnly: false,
   })
+  /** 受信箱のタブ。セッション中だけ保持し（アカウントの切り替え・検索のあとも維持）、保存しない。起動時は「すべて」 */
+  const tab = ref<InboxTab>('all')
   const mode = ref<'inbox' | 'search'>('inbox')
   const searchQuery = ref('')
   const items = ref<ThreadSummary[]>([])
@@ -57,7 +60,7 @@ export const useInboxStore = defineStore('inbox', () => {
 
   const mutations = useInboxMutations({
     items,
-    hidesRead: () => filter.value.unreadOnly && mode.value === 'inbox',
+    hidesRead: () => (filter.value.unreadOnly || tab.value === 'new') && mode.value === 'inbox',
     pendingRemoval,
     api,
     ui,
@@ -76,7 +79,9 @@ export const useInboxStore = defineStore('inbox', () => {
   function fetchPage(cursor?: string): Promise<ThreadPage> {
     const base = { accountIds: [...filter.value.accountIds], limit: PAGE_SIZE, cursor }
     if (mode.value === 'search') return api(InboxService.Search({ q: searchQuery.value, ...base }))
-    return api(InboxService.ListInbox({ unreadOnly: filter.value.unreadOnly, ...base }))
+    return api(
+      InboxService.ListInbox({ unreadOnly: filter.value.unreadOnly, tab: tab.value, ...base }),
+    )
   }
 
   async function fetchUnreadCounts(): Promise<void> {
@@ -224,6 +229,13 @@ export const useInboxStore = defineStore('inbox', () => {
     await load()
   }
 
+  /** 受信箱のタブを切り替える。カーソルを捨てて先頭から取り直す（カーソルはタブごとに独立）。検索中は値だけ保持する。 */
+  async function setTab(t: InboxTab): Promise<void> {
+    if (tab.value === t) return
+    tab.value = t
+    if (mode.value === 'inbox') await load()
+  }
+
   async function setFilter(f: InboxFilter): Promise<void> {
     filter.value = { accountIds: list(f.accountIds), unreadOnly: f.unreadOnly }
     try {
@@ -269,6 +281,7 @@ export const useInboxStore = defineStore('inbox', () => {
 
   return {
     filter,
+    tab,
     mode,
     searchQuery,
     items,
@@ -287,6 +300,7 @@ export const useInboxStore = defineStore('inbox', () => {
     runSearch,
     clearSearch,
     setFilter,
+    setTab,
     onSyncUpdated,
     start,
     stop,

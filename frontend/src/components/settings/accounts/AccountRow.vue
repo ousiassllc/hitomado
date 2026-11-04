@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import type { Account } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { isClientRejectedMessage } from '../../../lib/clientRejected'
 import { settings as msg } from '../../../lib/messages'
+import { isScopeInsufficientMessage } from '../../../lib/scopeInsufficient'
 import AccountChip from '../../account/AccountChip.vue'
 import BaseButton from '../../ui/BaseButton.vue'
 import BaseIconButton from '../../ui/BaseIconButton.vue'
@@ -55,6 +56,9 @@ const clientRejected = computed(
 
 const statusText = computed(() => {
   if (clientRejected.value) return props.statusMessage
+  if (props.status === 'needs_reauth' && isScopeInsufficientMessage(props.statusMessage)) {
+    return props.statusMessage
+  }
   if (props.status === 'needs_reauth') return msg.accounts.needsReauth
   if (props.status === 'error') return msg.accounts.statusError
   return ''
