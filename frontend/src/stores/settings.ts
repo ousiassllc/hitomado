@@ -16,28 +16,17 @@ import type {
   MCPStatus,
   UpdateInfo,
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { aiModelsKey, normalizeAIConfig } from '../lib/aiConfig'
 import { call, list, parseBindingError } from '../lib/api'
-import { EVENTS, onEvent, type UpdateAvailablePayload } from '../lib/events'
+import {
+  EVENTS,
+  onEvent,
+  type UpdateAvailablePayload,
+  type UpdateStatusPayload,
+} from '../lib/events'
 import { settings as msg } from '../lib/messages'
+import { buildUpdateBanner, UPDATE_BANNER_KEY } from '../lib/updateBanner'
 import { useUiStore } from './ui'
-
-const UPDATE_BANNER_KEY = 'update'
-
-/** モデル一覧の保存キー。OpenAI 互換は Base URL ごとに別の一覧になる（Base URL が空の既定の送信先は、プロバイダ名だけ）。 */
-export function aiModelsKey(provider: string, baseUrl = ''): string {
-  const url = baseUrl.trim()
-  return provider === 'openai' && url !== '' ? `${provider}|${url}` : provider
-}
-
-/** Go は consentedProviders・apiKeyProviders・chatgptAccounts を nil にし得るので、画面側は常に配列として扱う。 */
-function normalizeAIConfig(c: AIConfig): AIConfig {
-  return {
-    ...c,
-    consentedProviders: list(c.consentedProviders),
-    apiKeyProviders: list(c.apiKeyProviders),
-    chatgptAccounts: list(c.chatgptAccounts),
-  }
-}
 
 export const useSettingsStore = defineStore('settings', () => {
   const ui = useUiStore()
@@ -46,9 +35,12 @@ export const useSettingsStore = defineStore('settings', () => {
   const aiModels = ref<Record<string, AIModelList>>({})
   const appInfo = ref<AppInfo>()
   const update = ref<UpdateInfo>()
+  /** 自動アップデート（Windows 版）の進み。使わない OS・設定オフでは none。 */
+  const updateStatus = ref<UpdateStatusPayload>({ stage: 'none' })
   const mcp = ref<MCPStatus>()
   let started = false
   let stopUpdateEvents: (() => void) | undefined
+  let stopStatusEvents: (() => void) | undefined
 
   /** 外部リンク（README・更新ページ）は ThreadService.OpenExternal のみで開く。失敗はトーストで知らせる。 */
   async function openExternal(url: string): Promise<void> {
@@ -59,25 +51,35 @@ export const useSettingsStore = defineStore('settings', () => {
     }
   }
 
-  function showUpdateBanner(info: UpdateInfo): void {
-    const { version, url } = info
-    if (!info.available || !version) {
-      ui.clearBanner(UPDATE_BANNER_KEY)
-      return
+  /** 「再起動して更新」。送信中などで始められなければトーストで知らせる（今の版のまま使える）。 */
+  async function restartToUpdate(): Promise<void> {
+    try {
+      await call(AppService.RestartToUpdate())
+    } catch (e) {
+      ui.pushToast('error', parseBindingError(e).message || msg.update.restartFailed)
     }
-    ui.setBanner({
-      key: UPDATE_BANNER_KEY,
-      kind: 'update',
-      message: msg.update.banner(version),
-      action: url
-        ? { label: msg.update.bannerAction, run: () => void openExternal(url) }
-        : undefined,
+  }
+
+  function showUpdateBanner(): void {
+    const banner = buildUpdateBanner({
+      info: update.value,
+      status: updateStatus.value,
+      autoUpdate: !!appInfo.value?.autoUpdateSupported && !!appInfo.value.autoUpdateEnabled,
+      openExternal: (url) => void openExternal(url),
+      restart: () => void restartToUpdate(),
     })
+    if (banner) ui.setBanner(banner)
+    else ui.clearBanner(UPDATE_BANNER_KEY)
   }
 
   function applyUpdate(info: UpdateInfo): void {
     update.value = info
-    showUpdateBanner(info)
+    showUpdateBanner()
+  }
+
+  function applyUpdateStatus(status: UpdateStatusPayload): void {
+    updateStatus.value = status
+    showUpdateBanner()
   }
 
   /** AI 設定とアプリ情報を読み込む。失敗時はエラートーストを出して投げ直さない。 */
@@ -133,15 +135,31 @@ export const useSettingsStore = defineStore('settings', () => {
     stopUpdateEvents = onEvent<UpdateAvailablePayload>(EVENTS.UPDATE_AVAILABLE, (p) => {
       applyUpdate({ available: true, version: p.version, url: p.url })
     })
+    stopStatusEvents = onEvent<UpdateStatusPayload>(EVENTS.UPDATE_STATUS, (p) => {
+      applyUpdateStatus(p)
+    })
     await load()
+    await loadUpdateStatus()
     // Go の起動時確認の `update:available` は購読前に発行され得る（再送なし）ため、ここで一度確認する。
     if (appInfo.value?.updateCheckEnabled) await checkUpdateQuietly()
+  }
+
+  /** 自動アップデートの現在の進みを読む（購読前に始まっていた分）。使えない OS では呼ばない。 */
+  async function loadUpdateStatus(): Promise<void> {
+    if (!appInfo.value?.autoUpdateSupported) return
+    try {
+      applyUpdateStatus((await call(AppService.GetUpdateStatus())) as UpdateStatusPayload)
+    } catch {
+      // 表示だけの情報。次の update:status で追いつく。
+    }
   }
 
   /** テスト・HMR 用の購読解除。 */
   function stop(): void {
     stopUpdateEvents?.()
     stopUpdateEvents = undefined
+    stopStatusEvents?.()
+    stopStatusEvents = undefined
     started = false
   }
 
@@ -222,10 +240,23 @@ export const useSettingsStore = defineStore('settings', () => {
     if (appInfo.value) appInfo.value = { ...appInfo.value, updateCheckEnabled: enabled }
     if (!enabled) {
       update.value = undefined
+      updateStatus.value = { stage: 'none' }
       ui.clearBanner(UPDATE_BANNER_KEY)
       return
     }
     await checkUpdateQuietly()
+  }
+
+  /** 自動アップデートのオン／オフ。オフにすると用意済みの更新を捨て、リンクを出すだけに戻る。オンにすると確認してダウンロードを始める。 */
+  async function setAutoUpdateEnabled(enabled: boolean): Promise<void> {
+    await call(AppService.SetAutoUpdateEnabled(enabled))
+    if (appInfo.value) appInfo.value = { ...appInfo.value, autoUpdateEnabled: enabled }
+    if (!enabled) {
+      updateStatus.value = { stage: 'none' }
+      showUpdateBanner()
+      return
+    }
+    if (appInfo.value?.updateCheckEnabled) await checkUpdateQuietly()
   }
 
   /**
@@ -253,6 +284,7 @@ export const useSettingsStore = defineStore('settings', () => {
     aiModels,
     appInfo,
     update,
+    updateStatus,
     mcp,
     load,
     loadMcp,
@@ -278,6 +310,8 @@ export const useSettingsStore = defineStore('settings', () => {
     generateReplyDraft,
     cancelGenerate,
     setUpdateCheckEnabled,
+    setAutoUpdateEnabled,
+    restartToUpdate,
     checkUpdate,
   }
 })

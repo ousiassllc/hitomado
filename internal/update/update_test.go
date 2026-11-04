@@ -97,14 +97,13 @@ func TestLatest(t *testing.T) {
 	assert.Empty(t, gotCookie)
 }
 
-// 配布物がインストーラー（hitomado-vX.Y.Z-windows-amd64-setup.exe）と SHA256SUMS.txt になっても、
-// 更新確認はタグとリリースページだけで判定する（配布物名に依存しない）。
-func TestLatestIgnoresAssetNames(t *testing.T) {
+// 更新確認（新しい版かどうか）はタグとリリースページだけで判定し、添付ファイルは一覧として持つだけ。
+func TestLatestKeepsAssets(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{"tag_name":"v0.1.2","html_url":"https://github.com/ousiassllc/hitomado/releases/tag/v0.1.2",
 			"assets":[
-				{"name":"hitomado-v0.1.2-windows-amd64-setup.exe","browser_download_url":"https://example.invalid/setup.exe"},
-				{"name":"SHA256SUMS.txt","browser_download_url":"https://example.invalid/SHA256SUMS.txt"}]}`))
+				{"name":"hitomado-v0.1.2-windows-amd64-setup.exe","browser_download_url":"https://example.invalid/setup.exe","size":1234},
+				{"name":"SHA256SUMS.txt","browser_download_url":"https://example.invalid/SHA256SUMS.txt","size":181}]}`))
 	}))
 	t.Cleanup(srv.Close)
 
@@ -112,6 +111,10 @@ func TestLatestIgnoresAssetNames(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "0.1.2", rel.Version)
 	assert.Equal(t, "https://github.com/ousiassllc/hitomado/releases/tag/v0.1.2", rel.URL)
+	assert.Equal(t, []update.Asset{
+		{Name: "hitomado-v0.1.2-windows-amd64-setup.exe", URL: "https://example.invalid/setup.exe", Size: 1234},
+		{Name: "SHA256SUMS.txt", URL: "https://example.invalid/SHA256SUMS.txt", Size: 181},
+	}, rel.Assets)
 	assert.True(t, update.IsNewer("0.1.1", rel.Version), "インストーラーが入れた版（0.1.1）より新しい")
 	assert.False(t, update.IsNewer("0.1.2", rel.Version), "同じ版では通知しない")
 }

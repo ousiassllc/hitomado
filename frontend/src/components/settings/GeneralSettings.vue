@@ -51,6 +51,35 @@ async function checkNow(): Promise<void> {
   }
 }
 
+async function toggleAutoUpdate(enabled: boolean): Promise<void> {
+  try {
+    await store.setAutoUpdateEnabled(enabled)
+  } catch (e) {
+    ui.pushToast('error', parseBindingError(e).message)
+  }
+}
+
+const restarting = ref(false)
+async function restartNow(): Promise<void> {
+  if (restarting.value) return
+  restarting.value = true
+  try {
+    await store.restartToUpdate()
+  } finally {
+    restarting.value = false
+  }
+}
+
+/** 自動アップデートの進み（設定画面の表示）。ready／downloading は文面、failed は Go が組んだ文面。 */
+const autoStatus = computed(() => {
+  const s = store.updateStatus
+  const v = s.version ?? ''
+  if (s.stage === 'downloading') return msg.update.downloading(v)
+  if (s.stage === 'ready') return msg.update.ready(v)
+  if (s.stage === 'failed') return s.message ?? ''
+  return ''
+})
+
 function openUpdate(): void {
   const url = update.value?.url
   if (url) void store.openExternal(url)
@@ -83,6 +112,30 @@ function openUpdate(): void {
           </a>
         </p>
         <p v-else-if="checked" class="hint" role="status">{{ msg.general.upToDate }}</p>
+      </div>
+    </div>
+
+    <!-- 新しい版を自動でダウンロードして入れ替える OS（Windows 版）だけ。 -->
+    <div v-if="platform.supportsAutoUpdate && info?.autoUpdateSupported" class="block" data-testid="auto-update">
+      <div class="toggle">
+        <BaseSwitch
+          :model-value="info.autoUpdateEnabled"
+          :ariaLabel="msg.general.autoUpdateSwitch"
+          @update:model-value="toggleAutoUpdate"
+        />
+        <strong>{{ msg.general.autoUpdate }}</strong>
+      </div>
+      <p class="hint">{{ msg.general.autoUpdateHint }}</p>
+      <p v-if="info.autoUpdateEnabled && !info.updateCheckEnabled" class="hint">
+        {{ msg.general.autoUpdateRequiresCheck }}
+      </p>
+      <p v-if="info.autoUpdateEnabled && autoStatus" class="update" role="status" data-testid="auto-update-status">
+        {{ autoStatus }}
+      </p>
+      <div v-if="info.autoUpdateEnabled && store.updateStatus.stage === 'ready'" class="check">
+        <BaseButton :loading="restarting" data-testid="restart-to-update" @click="restartNow">
+          {{ restarting ? msg.update.restarting : msg.update.restart }}
+        </BaseButton>
       </div>
     </div>
 

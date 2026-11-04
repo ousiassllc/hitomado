@@ -95,6 +95,7 @@ func (s *Service) CloseCompose(_ context.Context, sessionID string) error {
 // DiscardCompose はセッションを破棄し、Gmail の下書きがあれば削除する。
 // 下書きの削除に失敗したときはセッションを残し、エラーを返す（再試行できる）。
 func (s *Service) DiscardCompose(ctx context.Context, sessionID string) error {
+	defer s.d.Busy.Begin()() // 下書きの削除中は自動アップデートの入れ替えをしない
 	cs, view, err := s.snapshot(sessionID)
 	if err != nil {
 		var ae *apperr.Error

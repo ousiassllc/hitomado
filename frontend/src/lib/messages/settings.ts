@@ -234,13 +234,18 @@ export const settings = {
     heading: '一般',
     updateCheck: '更新を確認する',
     updateCheckHint:
-      '起動時と 24 時間ごとに GitHub で新しいバージョンを確認します。メールやアカウントの情報は送信しません。自動ではダウンロード・インストールしません。',
+      '起動時と 24 時間ごとに GitHub で新しいバージョンを確認します。メールやアカウントの情報は送信しません。',
     updateCheckSwitch: '更新の自動確認',
     checkNow: '今すぐ確認',
     checking: '確認中…',
     upToDate: '最新のバージョンです。',
     updateAvailable: (version: string) => `新しいバージョン ${version} があります。`,
     updateLink: 'ダウンロードページを開く',
+    autoUpdate: '自動アップデート',
+    autoUpdateSwitch: '自動アップデート',
+    autoUpdateHint:
+      '新しいバージョンを自動でダウンロードし、公開されているハッシュと照合します。入れ替えは「再起動して更新」を押したとき、または次にアプリを終了するときに行います（送信中・下書きの保存中は行いません）。オフにすると、新しいバージョンのリンクを表示するだけになります。',
+    autoUpdateRequiresCheck: '更新の自動確認がオフのあいだは、自動アップデートも行いません。',
     version: 'バージョン',
     dataDir: 'データの保存先',
     dataDirHint: '設定とメールの一覧キャッシュ（本文は保存しません）が保存されています。',
@@ -312,5 +317,11 @@ export const settings = {
     banner: (version: string) => `新しいバージョン ${version} が公開されています。`,
     bannerAction: 'ダウンロードページを開く',
     openFailed: 'リンクを開けませんでした。',
+    downloading: (version: string) => `新しいバージョン ${version} をダウンロードしています。`,
+    ready: (version: string) =>
+      `新しいバージョン ${version} の準備ができました。次にアプリを終了するときに更新します。`,
+    restart: '再起動して更新',
+    restarting: '更新を始めています…',
+    restartFailed: '更新を始められませんでした。',
   },
 } as const

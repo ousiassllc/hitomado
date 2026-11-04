@@ -1,8 +1,9 @@
 // 設定画面の AI 設定の、編集中（保存前）の選択から導く状態。保存済みの設定（store.aiConfig）とは独立に、選んだプロバイダ・
 // Base URL の資格情報・一覧・同意を扱う（保存前でも取得・同意できる。#105）。
 import { computed, type Ref, watch } from 'vue'
+import { aiModelsKey } from '../../../lib/aiConfig'
 import { settings as msg } from '../../../lib/messages'
-import { aiModelsKey, useSettingsStore } from '../../../stores/settings'
+import { useSettingsStore } from '../../../stores/settings'
 import { aiDestination, DEFAULT_AI_PROVIDER, providerLabel } from './aiDestination'
 
 export function useAiDraftState(provider: Ref<string>, model: Ref<string>, baseUrl: Ref<string>) {

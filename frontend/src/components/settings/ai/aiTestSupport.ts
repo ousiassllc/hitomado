@@ -4,7 +4,8 @@ import type {
   AIConfig,
   AIModelList,
 } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { aiModelsKey, useSettingsStore } from '../../../stores/settings'
+import { aiModelsKey } from '../../../lib/aiConfig'
+import { useSettingsStore } from '../../../stores/settings'
 import AISettings from './AISettings.vue'
 
 export { flushPromises }

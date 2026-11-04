@@ -8,6 +8,8 @@ const (
 	AccountStatus    = "account:status"
 	NotifyOpenThread = "notify:open-thread"
 	UpdateAvailable  = "update:available"
+	// UpdateStatus は自動アップデートの進み（ダウンロード中・入れ替え待ち・失敗・なし）が変わったとき（ペイロード UpdateStatusPayload）。
+	UpdateStatus = "update:status"
 	// BeforeQuit はトレイの「終了」で発行する。フロントは未保存の下書きを保存して AppService.AckBeforeQuit を呼ぶ。
 	BeforeQuit = "app:before-quit"
 	// FilesDropped はウィンドウへのファイルドロップ（ペイロード {files: string[]}）。ドロップ先は data-file-drop-target 属性の要素のみ。
@@ -37,6 +39,21 @@ type OpenThreadPayload struct {
 type UpdateAvailablePayload struct {
 	Version string `json:"version"`
 	URL     string `json:"url"`
+}
+
+// 自動アップデートの段階（UpdateStatusPayload.Stage）。
+const (
+	UpdateStageNone        = "none"
+	UpdateStageDownloading = "downloading"
+	UpdateStageReady       = "ready" // ダウンロード・照合が済み、入れ替え待ち（「再起動して更新」を出す）
+	UpdateStageFailed      = "failed"
+)
+
+// UpdateStatusPayload は自動アップデートの状態。Message は画面に出してよい日本語の文面（失敗・注意があるときだけ。URL・パスを含めない）。
+type UpdateStatusPayload struct {
+	Stage   string `json:"stage"`
+	Version string `json:"version,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 // Emitter はイベント発行の抽象。実装は main（Wails）とテストのフェイク。

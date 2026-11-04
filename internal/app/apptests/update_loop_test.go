@@ -8,8 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/app"
 	"github.com/ousiassllc/hitomado/internal/app/apptest"
+	"github.com/ousiassllc/hitomado/internal/app/deps"
+	"github.com/ousiassllc/hitomado/internal/app/updatecore"
 	"github.com/ousiassllc/hitomado/internal/events"
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/update"
@@ -26,7 +27,7 @@ func runLoop(t *testing.T, e *apptest.Env) (cancel context.CancelFunc, done <-ch
 	t.Helper()
 	ctx, cancel := context.WithCancel(t.Context())
 	d := make(chan struct{})
-	go func() { defer close(d); app.NewUpdateLoop(e.Deps).Run(ctx) }()
+	go func() { defer close(d); updatecore.NewLoop((*deps.Deps)(e.Deps)).Run(ctx) }()
 	t.Cleanup(func() { cancel(); <-d })
 	return cancel, d
 }

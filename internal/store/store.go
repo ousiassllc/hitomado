@@ -217,6 +217,7 @@ const (
 	SettingAIConsent   = "ai.consent"
 	SettingAIChatGPT   = "ai.chatgpt"
 	SettingUpdateCheck = "update.check_enabled"
+	SettingAutoUpdate  = "update.auto_enabled"
 	SettingLastChecked = "update.last_checked_at"
 	SettingWindowState = "window.state"
 	SettingMCPConfig   = "mcp.config"
