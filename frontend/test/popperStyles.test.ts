@@ -39,7 +39,8 @@ async function withScopedStyles(
   // 同じプロセスで走る他のテストに data-v-* 属性やスタイルを残さない。
   return () => {
     for (const el of styles) el.remove()
-    target.__scopeId = before
+    if (before === undefined) delete target.__scopeId
+    else target.__scopeId = before
   }
 }
 
@@ -66,6 +67,7 @@ afterEach(() => {
   wrapper?.unmount()
   wrapper = undefined
   document.body.innerHTML = ''
+  document.body.removeAttribute('style')
 })
 
 /** ダイアログ（z-index 101）の中に popup を出す部品を置く。 */
@@ -78,6 +80,13 @@ function mountInDialog(inner: () => ReturnType<typeof h>): VueWrapper {
 
 function zIndexOf(el: Element): number {
   return Number(getComputedStyle(el).zIndex)
+}
+
+/** ダイアログ本体の z-index。0 のまま比較が素通りしないよう 101 であることも確かめる。 */
+function dialogZIndex(): number {
+  const z = zIndexOf(document.querySelector('.dlg') as Element)
+  expect(z).toBe(101)
+  return z
 }
 
 describe('ダイアログ内のポップアップ（#98）', () => {
@@ -95,9 +104,7 @@ describe('ダイアログ内のポップアップ（#98）', () => {
     const list = document.querySelector('[role="listbox"]')
     expect(list).not.toBeNull()
     expect(document.querySelectorAll('[role="option"]')).toHaveLength(2)
-    expect(zIndexOf(list as Element)).toBeGreaterThan(
-      zIndexOf(document.querySelector('.dlg') as Element),
-    )
+    expect(zIndexOf(list as Element)).toBeGreaterThan(dialogZIndex())
   })
 
   test('BaseMenu: 開いたメニューがダイアログより前面', async () => {
@@ -116,9 +123,7 @@ describe('ダイアログ内のポップアップ（#98）', () => {
 
     const menu = document.querySelector('[role="menu"]')
     expect(menu).not.toBeNull()
-    expect(zIndexOf(menu as Element)).toBeGreaterThan(
-      zIndexOf(document.querySelector('.dlg') as Element),
-    )
+    expect(zIndexOf(menu as Element)).toBeGreaterThan(dialogZIndex())
   })
 })
 
@@ -132,7 +137,5 @@ test('BaseTooltip: 出したツールチップがダイアログより前面', a
 
   const tip = document.querySelector('[data-reka-popper-content-wrapper] > [data-state]')
   expect(tip).not.toBeNull()
-  expect(zIndexOf(tip as Element)).toBeGreaterThan(
-    zIndexOf(document.querySelector('.dlg') as Element),
-  )
+  expect(zIndexOf(tip as Element)).toBeGreaterThan(dialogZIndex())
 })
