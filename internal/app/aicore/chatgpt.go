@@ -63,8 +63,14 @@ func (s *Service) CancelSignInChatGPT() error {
 }
 
 // SelectChatGPTAccount は下書きの生成に使う ChatGPT アカウントを切り替える（ログイン中のアカウントだけ）。
+// ログアウト済みのアカウントは AI_NOT_CONFIGURED（details.reason = "account_signed_out"。画面が「再ログイン」を案内する文面に置き換える）。
 func (s *Service) SelectChatGPTAccount(ctx context.Context, accountID string) (dto.AIConfig, error) {
 	if err := s.d.ChatGPT.SelectAccount(ctx, accountID); err != nil {
+		if errors.Is(err, siwc.ErrNotSignedIn) {
+			// 生成の前提の案内（mapChatGPTError）ではなく、選んだアカウントについて次の操作を伝える。
+			return dto.AIConfig{}, apperr.Wrap(apperr.AINotConfigured, "このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。", err).
+				WithDetail(apperr.DetailReason, apperr.ReasonAccountSignedOut)
+		}
 		return dto.AIConfig{}, mapChatGPTError(err)
 	}
 	return s.config(ctx)

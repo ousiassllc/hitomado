@@ -83,7 +83,14 @@ async function select(a: ChatGPTAccount): Promise<void> {
     ui.pushToast('success', msg.ai.chatgpt.switched(label(a)))
     emit('accountChanged')
   } catch (e) {
-    error.value = parseBindingError(e).message
+    const err = parseBindingError(e)
+    if (err.details?.reason === 'account_signed_out') {
+      // 画面が古く、ログアウト済みのアカウントを選んだ。次にすることを伝え、一覧を最新にして「再ログイン」を出す。
+      error.value = msg.ai.chatgpt.selectSignedOut
+      await store.load()
+    } else {
+      error.value = err.message
+    }
     // 押したラジオが選択されたまま残らないよう、使用中のアカウントの表示へ戻す（要素は作り直さない）。
     resyncRadios()
   } finally {

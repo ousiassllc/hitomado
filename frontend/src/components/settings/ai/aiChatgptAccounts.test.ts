@@ -182,6 +182,37 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     expect(w.findAll('input[type="radio"]')[1]?.element).toBe(pressed)
   })
 
+  test('ログアウト済みのアカウントを選んだときは、再ログインを案内する日本語の文面を出し、一覧を最新にする（#102）', async () => {
+    const { pinia, store } = setup(chatgptCfg([acctA, acctB]))
+    store.selectChatGPTAccount = async () => {
+      throw {
+        code: 'AI_NOT_CONFIGURED',
+        message: 'backend text that the screen replaces',
+        retryable: false,
+        details: { reason: 'account_signed_out' },
+      }
+    }
+    let loaded = 0
+    store.load = async () => {
+      loaded++
+      store.aiConfig = {
+        ...base,
+        ...chatgptCfg([acctA, { ...acctB, signedIn: false }]),
+      }
+    }
+    const w = mountAI(pinia)
+    await w.findAll('input[type="radio"]')[1]?.setValue(true)
+    await flushPromises()
+    expect(w.get('[role="alert"]').text()).toBe(
+      'このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。',
+    )
+    expect(w.get('[role="alert"]').text()).not.toMatch(/[A-Za-z]/) // 日本語だけ
+    expect(loaded).toBe(1)
+    // 一覧は最新になり、ログアウト済みの行から「再ログイン」を押せる（案内した操作が実際にある）。
+    expect(w.find('[data-testid="ai-chatgpt-account-oaiapp_BBBB"] [data-testid="ai-chatgpt-relogin"]').exists()).toBe(true)
+    expect((w.findAll('input[type="radio"]')[0]?.element as HTMLInputElement).checked).toBe(true)
+  })
+
   test('ラジオの名前は「<アカウント> を使う」で、一覧にも名前がある', () => {
     const { pinia } = setup(chatgptCfg([acctA, acctB]))
     const w = mountAI(pinia)

@@ -48,10 +48,13 @@ const (
 	Internal            = "INTERNAL"
 )
 
-// Details の reason（AppError の補足）。AI_FAILED のうち、画面が専用の案内を出すもの。
+// Details の reason（AppError の補足）。画面が専用の案内を出すもの。
 const (
 	DetailReason     = "reason"
-	ReasonUsageLimit = "usage_limit_exceeded" // ChatGPT プランの利用枠の超過（subscription_sharing_usage_limit_exceeded）
+	ReasonUsageLimit = "usage_limit_exceeded" // AI_FAILED: ChatGPT プランの利用枠の超過（subscription_sharing_usage_limit_exceeded）
+	// ReasonAccountSignedOut は AI_NOT_CONFIGURED: SelectChatGPTAccount で選んだ ChatGPT アカウントがログアウト済み。
+	// 画面は「再ログイン」を案内する文面（messages）に置き換える。
+	ReasonAccountSignedOut = "account_signed_out"
 )
 
 // Error は AppError。JSON は {code, message, retryable, accountId?, details?}。
