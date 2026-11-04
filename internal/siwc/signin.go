@@ -153,6 +153,7 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 		clientID = res.clientID
 	} else if res.clientID != "" && res.clientID != clientID {
 		// 再認可で別の client_id が返ったら、選んでいたアカウントの登録を置き換えずに拒否する。
+		// 完全一致で比べるので、大文字小文字だけ違う値（Windows の資格情報ストアでは同じキー）も、トークンの交換より前に拒否される。
 		return Status{}, fmt.Errorf("%w: クライアント ID が一致しません", ErrInvalidResponse)
 	}
 
@@ -204,6 +205,8 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 	// 取得したトークンを保存し終えるまで、ログインの中止（ctx）で中断しない（トークンと登録が食い違わないように）。
 	ctx = context.WithoutCancel(ctx)
 
+	// 新規登録で発行された client_id が保存済みの登録と大文字小文字だけ違うなら、同じ資格情報キーを指す
+	// （Windows の資格情報ストアはキーの大文字小文字を区別しない）別の登録なので、上書きせず拒否する。
 	// 新規登録で発行された client_id が保存済みの登録と同じなら、同じアカウント（sub）であること。
 	// 異なるアカウントの登録・トークンを、sub を照合せずに上書きしない。sub が未記録の登録（旧形式の移行直後など）も
 	// 照合できないので、上書きせず拒否する（誤拒否の影響は小さい。再ログインなら選んだ登録の sub が記録される）。
@@ -211,6 +214,10 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 		reg, err := m.loadRegistry(ctx)
 		if err != nil {
 			return Status{}, err
+		}
+		if reg.collidesIgnoringCase(clientID) {
+			m.revokeQuietly(ctx, clientID, tr.RefreshToken)
+			return Status{}, ErrClientIDCollision
 		}
 		if ex := reg.find(clientID); ex != nil && ex.Subject != idt.Subject {
 			m.revokeQuietly(ctx, clientID, tr.RefreshToken)
