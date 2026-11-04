@@ -209,8 +209,12 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     expect(w.get('[role="alert"]').text()).not.toMatch(/[A-Za-z]/) // 日本語だけ
     expect(loaded).toBe(1)
     // 一覧は最新になり、ログアウト済みの行から「再ログイン」を押せる（案内した操作が実際にある）。
-    expect(w.find('[data-testid="ai-chatgpt-account-oaiapp_BBBB"] [data-testid="ai-chatgpt-relogin"]').exists()).toBe(true)
-    expect((w.findAll('input[type="radio"]')[0]?.element as HTMLInputElement).checked).toBe(true)
+    expect(
+      w
+        .find('[data-testid="ai-chatgpt-account-oaiapp_BBBB"] [data-testid="ai-chatgpt-relogin"]')
+        .exists(),
+    ).toBe(true)
+    expect(w.findAll<HTMLInputElement>('input[type="radio"]')[0]?.element.checked).toBe(true)
   })
 
   test('ラジオの名前は「<アカウント> を使う」で、一覧にも名前がある', () => {
