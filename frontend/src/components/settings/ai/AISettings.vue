@@ -46,17 +46,25 @@ const {
   destinationDecided,
 } = useAiDraftState(provider, model, baseUrl)
 
-/** 選んだ送信先のモデル一覧を取得する。取得できないときは理由が一覧の注記に出て、手入力のままになる（エラーにはしない）。 */
+let loadSeq = 0
+
+/**
+ * 選んだ送信先のモデル一覧を取得する。取得できないときは理由が一覧の注記に出て、手入力のままになる（エラーにはしない）。
+ * 取得は重なり得る（続けてプロバイダを切り替える・取得中に「一覧を更新」）ので、取得ごとに世代番号を持つ。
+ * 処理中の表示（busy）は最新の取得が終わるまで保ち、古い取得の結果・エラーは捨てる（undefined を返す）。
+ */
 async function loadModels(): Promise<AIModelList | undefined> {
   if (busy.value && busy.value !== 'models') return undefined
+  const seq = ++loadSeq
   busy.value = 'models'
   try {
-    return await store.loadAIModels(provider.value, draftBaseUrl.value)
+    const r = await store.loadAIModels(provider.value, draftBaseUrl.value)
+    return seq === loadSeq ? r : undefined
   } catch (e) {
-    errors.value = { ...errors.value, model: parseBindingError(e).message }
+    if (seq === loadSeq) errors.value = { ...errors.value, model: parseBindingError(e).message }
     return undefined
   } finally {
-    busy.value = undefined
+    if (seq === loadSeq) busy.value = undefined
   }
 }
 

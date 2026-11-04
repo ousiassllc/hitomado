@@ -246,3 +246,75 @@ describe('プロバイダを選ぶ → 同意 → モデル一覧（#105）', ()
     expect(w.find('[data-testid="ai-model"] input').exists()).toBe(true)
   })
 })
+
+describe('モデル一覧の取得が重なったとき', () => {
+  /** 取得を保留にして、あとから好きな順で完了させる。 */
+  function deferredLoads(store: ReturnType<typeof setup>['store']) {
+    const pending: { provider: string; resolve: (r: AIModelList) => void }[] = []
+    store.loadAIModels = (p: string) =>
+      new Promise<AIModelList>((resolve) => {
+        pending.push({ provider: p, resolve })
+      }) as ReturnType<typeof store.loadAIModels>
+    return pending
+  }
+  const saveButton = (w: ReturnType<typeof mountAI>) => button(w, '設定を保存')
+
+  test('先の取得が終わっても、後の取得が終わるまで処理中のまま（保存などのボタンを押せない）', async () => {
+    const { pinia, store } = setup({
+      provider: 'openai',
+      model: 'm',
+      consentedProviders: ['openai'],
+    })
+    const pending = deferredLoads(store)
+    const w = mountAI(pinia)
+    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
+    await providerSelect(w)?.vm.$emit('update:modelValue', 'chatgpt')
+    await flushPromises()
+    expect(pending.map((p) => p.provider)).toEqual(['anthropic', 'chatgpt'])
+    expect(button(w, '取得中…').attributes('disabled')).toBeDefined()
+
+    // 1 回目（古い）が先に完了しても、2 回目の取得中なので処理中の表示は消えない。
+    pending[0]?.resolve({ provider: 'anthropic', models: [] })
+    await flushPromises()
+    expect(w.text()).toContain('取得中…')
+    expect(saveButton(w).attributes('disabled')).toBeUndefined() // 設定は未保存の変更あり（ボタン自体は有効）
+    expect(w.find('[data-testid="ai-consent-now"]').attributes('disabled')).toBeDefined()
+
+    pending[1]?.resolve({ provider: 'chatgpt', models: [] })
+    await flushPromises()
+    expect(w.text()).not.toContain('取得中…')
+    expect(w.find('[data-testid="ai-consent-now"]').attributes('disabled')).toBeUndefined()
+  })
+
+  test('古い取得の結果は捨てる。古い結果の consent_required で同意の画面を出さない', async () => {
+    const { pinia, store } = setup({ provider: 'openai', model: 'm' })
+    const pending = deferredLoads(store)
+    const w = mountAI(pinia)
+    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
+    await providerSelect(w)?.vm.$emit('update:modelValue', 'chatgpt')
+    await flushPromises()
+    // 古い（anthropic）の取得が後から consent_required で戻る。
+    pending[1]?.resolve({ provider: 'chatgpt', models: [{ id: 'gpt-plan' }] })
+    await flushPromises()
+    pending[0]?.resolve({ provider: 'anthropic', models: [], reason: 'consent_required' })
+    await flushPromises()
+    expect(consentEl('ai-consent-body')).toBeNull()
+    expect(w.text()).not.toContain('取得中…')
+  })
+
+  test('後の取得が先に終わったとき、古い取得が遅れて終わっても、busy は戻らず結果も反映しない', async () => {
+    const { pinia, store } = setup({ provider: 'openai', model: 'm' })
+    const pending = deferredLoads(store)
+    const w = mountAI(pinia)
+    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
+    await providerSelect(w)?.vm.$emit('update:modelValue', 'chatgpt')
+    await flushPromises()
+    pending[1]?.resolve({ provider: 'chatgpt', models: [] })
+    await flushPromises()
+    expect(w.text()).not.toContain('取得中…') // 最新の取得が終わったので処理中は解除される
+    pending[0]?.resolve({ provider: 'anthropic', models: [], reason: 'no_credentials' })
+    await flushPromises()
+    expect(w.text()).not.toContain('取得中…')
+    expect(w.find('[data-testid="ai-chatgpt-login"]').exists()).toBe(true) // 選択は ChatGPT のまま
+  })
+})
