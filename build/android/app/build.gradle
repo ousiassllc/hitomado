@@ -107,6 +107,18 @@ android {
         doNotStrip '*/arm64-v8a/libwails.so'
         doNotStrip '*/x86_64/libwails.so'
     }
+
+    // .so と dex を APK の中で圧縮して格納する（APK のサイズ優先。docs/environment/android.md §6.1）。
+    // minSdk 31 の AGP 既定は無圧縮（ページ境界に揃えて mmap する形）で、Go 製の libwails.so（約 32MB）が APK を約 46MB にする。
+    // jniLibs の useLegacyPackaging = true は manifest の android:extractNativeLibs="true" になり、端末上で .so が展開される。
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+        dex {
+            useLegacyPackaging = true
+        }
+    }
 }
 
 dependencies {
@@ -116,9 +128,9 @@ dependencies {
     implementation 'androidx.biometric:biometric:1.1.0'
     // 安定版 1.1.0（alpha06 から変更。全 API が deprecated だが動作・保存形式は同じ。理由は docs/environment/android.md §11）。
     implementation 'androidx.security:security-crypto:1.1.0'
-    // 定期同期（#88。15 分間隔・ネットワーク接続が条件）。2.10.5 は 2.10 系の最終（minSdk 21 の最終の系列）。minSdk を 31 に上げたので
-    // 2.11 以降（minSdk 23 以上）も使えるが、上げていない（版の判断は docs/environment/android.md §15）。
-    implementation 'androidx.work:work-runtime:2.10.5'
+    // 定期同期（#88。15 分間隔・ネットワーク接続が条件）。2.12.0 は 2026-11 時点の最新安定版（minSdk 24。minSdk 31 で満たす。
+    // 版の判断は docs/environment/android.md §15.4）。
+    implementation 'androidx.work:work-runtime:2.12.0'
 
     // SecureStore の JVM 単体テスト（./gradlew testDebugUnitTest。docs/environment/android.md §11）
     testImplementation 'junit:junit:4.13.2'

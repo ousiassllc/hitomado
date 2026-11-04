@@ -111,9 +111,30 @@ Wails v3.1.0 のテンプレートは `compileSdk = 36`・`targetSdk = 36`（`ap
 - 削除した権限: `CAMERA`、`ACCESS_FINE_LOCATION`、`ACCESS_COARSE_LOCATION`、`USE_BIOMETRIC`。`androidx.biometric`（`WailsBridge.java` が参照する）がマージ時に `USE_BIOMETRIC`／`USE_FINGERPRINT` を足すため、`tools:node="remove"` で取り除く。カメラ用の `<queries>` も削除した。
 - `allowBackup="false"`、`fullBackupContent="false"`、`dataExtractionRules`（`res/xml/data_extraction_rules.xml`。クラウドバックアップ・端末間移行ともすべて除外）。DB（メール本文のメタデータを含む）と、Android Keystore の鍵に紐づく暗号化済み資格情報は、別の端末に復元しても使えないため。
 
-`task android:verify` は `aapt2 dump badging`／`dump xmltree` と `apksigner verify --print-certs` で、packageName、versionName、versionCode、minSdk（31）、targetSdk（36）、権限が**許可リスト**に収まること（新しい権限が入ると失敗する。意図して増やすときは `verify-apk.sh` の許可リストと manifest を一緒に直す）、`allowBackup=false`、`dataExtractionRules` の有無、debuggable でないこと、署名の種類（`EXPECT_SIGNING=debug|release` を付けるとその種類でなければ失敗）を確認する。
+`task android:verify` は `aapt2 dump badging`／`dump xmltree` と `apksigner verify --print-certs` で、packageName、versionName、versionCode、minSdk（31）、targetSdk（36）、権限が**許可リスト**に収まること（新しい権限が入ると失敗する。意図して増やすときは `verify-apk.sh` の許可リストと manifest を一緒に直す）、`allowBackup=false`、`dataExtractionRules` の有無、debuggable でないこと、`extractNativeLibs=true` と `libwails.so`・`classes.dex` が圧縮（Deflate）で入っていること（§6.1）、署名の種類（`EXPECT_SIGNING=debug|release` を付けるとその種類でなければ失敗）を確認する。
 
 AAB の検査には `bundletool` が要る（SDK に含まれない）。`https://github.com/google/bundletool/releases` の `bundletool-all-<版>.jar`（CI は 1.18.3）を取得して `java -jar bundletool-all-1.18.3.jar validate --bundle bin/hitomado.aab` を実行する。`dump manifest --bundle` で manifest を見られる。
+
+### 6.1 `.so` と dex を圧縮して格納する（サイズ優先）
+
+`app/build.gradle` の `android.packaging` で `jniLibs.useLegacyPackaging = true` と `dex.useLegacyPackaging = true` にしている。minSdk が 28 以上のときの AGP の既定は **`.so` も dex も無圧縮（Stored）** で、Go 製の `libwails.so`（約 32MB）がそのまま APK に入る。
+
+| | 無圧縮（AGP の既定） | 圧縮（本アプリ） |
+|---|---|---|
+| release APK（arm64。`task android:package ARCH=arm64 VERSION=0.1.0`） | 45,838,252 バイト | 17,413,116 バイト |
+| `libwails.so` | Stored（32,026,544） | Defl:N |
+| `classes.dex`・`classes2.dex` | Stored | Defl:N |
+| 端末での `.so` | APK から直接 `mmap`（展開しない。`extractNativeLibs=false` 相当） | インストール時に展開（manifest に `android:extractNativeLibs="true"`） |
+
+（表の無圧縮の行は work-runtime 2.10.5 のとき。圧縮の行は 2.12.0（§15.4）のときで、依存の差の分も含む。）
+
+トレードオフ:
+
+- **得るもの**: APK のダウンロード・保存サイズが約 1/2.6。AAB から Play が作る base の APK（arm64）の合計も約 16.2MB（`bundletool get-size total`）。
+- **失うもの**: `extractNativeLibs="true"` により、インストール時（と更新時）に端末が `.so` を `/data/app/…/lib/arm64` へ**展開する**ので、端末の保存領域を APK の圧縮版と展開版の両方で使う（`libwails.so` の展開後は約 32MB）。無圧縮なら APK から直接 `mmap` して展開が要らない。インストールの時間もわずかに伸びる。dex の圧縮は、起動時に ART が展開する分の手間があるが、dex はコンパイル済みの oat に変換されるため実行時の影響は小さい。
+- Android 12 以上でも動く（`extractNativeLibs=true` は `System.loadLibrary`（Wails の `libwails.so` の読み込み）を含め、従来どおりのパスで読まれる。`task android:verify` が manifest の値を確認する）。
+- AAB（`bundle:fat`）: 生成される base の split APK の manifest も `extractNativeLibs=true` で、`libwails.so` は Deflate で入る（`bundletool build-apks` の結果で確認）。`bundletool validate` も通る。
+- 無圧縮に戻すときは、この 2 つの `useLegacyPackaging` を外す（`android:verify` の検査も外す）。
 
 ## 7. バインディングと生成物の方針
 
@@ -502,7 +523,7 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 
 ### 15.4 WorkManager
 
-- 依存: `androidx.work:work-runtime:2.10.5`。**2.10 系は minSdk 21 の最終の系列**（2.11 以降は minSdk 23、2.12 は 24。`work-runtime` の AAR の manifest で確認）。minSdk を 31 に上げた（§3）ので 2.11／2.12 も使えるが、**上げていない**（版の判断は別）。WorkManager が manifest のマージで足す権限は `WAKE_LOCK`・`RECEIVE_BOOT_COMPLETED`（再起動後の再登録に要る）で、`FOREGROUND_SERVICE` は `tools:node="remove"` で取り除く（前面サービスは使わない）。`SystemForegroundService` の宣言は残るが、起動されない。
+- 依存: `androidx.work:work-runtime:2.12.0`（2026-11 時点の最新安定版。[リリースノート](https://developer.android.com/jetpack/androidx/releases/work)と Google Maven の `maven-metadata.xml` の `release` で確認。rc／beta／alpha は選ばない）。2.10 系は minSdk 21 の最終の系列で、2.11 は minSdk 23、**2.12 は 24**（`work-runtime` の AAR の manifest で確認）。minSdk 31（§3）で満たし、`compileSdk` 36 も要件（33 以上）を満たすので `checkAarMetadata` に引っかからない。2.10.5 から上げて、`SyncWorker`・`SyncScheduler` の変更は要らなかった（`task android:test` の 73 件も通る）。WorkManager が manifest のマージで足す権限は `WAKE_LOCK`・`RECEIVE_BOOT_COMPLETED`（再起動後の再登録に要る）で、`FOREGROUND_SERVICE` は `tools:node="remove"` で取り除く（前面サービスは使わない）。2.12.0 の AAR も同じ `FOREGROUND_SERVICE` を足すが、マージ後の APK に残っていない（`aapt2 dump badging`）。`SystemForegroundService` の宣言は残るが、起動されない。2.12 は minSdk 24 以上になったので、2.10.5 にあった `SystemAlarmService` と `ConstraintProxy*` のレシーバー（API 23 未満のフォールバック）の宣言が無くなり、マージ後の WorkManager 由来の宣言は `SystemJobService`・`SystemForegroundService`・`ForceStopRunnable$BroadcastReceiver`・`RescheduleReceiver`・`DiagnosticsReceiver`・`InitializationProvider` になった。新しい権限・サービスは増えていない。
 - 登録: `SyncScheduler.schedule` が `enqueueUniquePeriodicWork("hitomado-sync", KEEP, 15 分・ネットワーク接続)`。**アプリの起動時**（`run.go` の `startBackground`。アカウントがあれば登録、無ければ解除）と**アカウント追加後**（`AccountService.StartAddAccount`）に、Go が `Background.ScheduleSync(true)` で Java の `scheduleSync` を呼ぶ。`KEEP` なので何度呼んでも 1 つ。最後のアカウントを削除したら解除する（アカウント 0 件では何もしない）。
 - 結果（`SyncPlan`）: すべて失敗（一時エラー）なら `Result.retry()`（WorkManager のバックオフ）。ただし 3 回目の試行からは `success`（次の定期実行に任せる）。**再接続が必要**（`needs_reauth`。リフレッシュトークンの失効・喪失、Client ID／Secret の拒否）は再試行しても直らないので `success` とし、「再接続が必要です」を**そのアカウントにつき 1 回だけ**通知する（`SharedPreferences hitomado_notify_state` に通知済みを保存。再び同期できたら消す）。別の同期が実行中（`busy`）も `success`。
 
