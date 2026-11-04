@@ -47,6 +47,8 @@ type Fetcher interface {
 type Failure struct {
 	Version string
 	Message string
+	// interrupted は「前回の入れ替えが完了しなかった」の失敗（起動時に設定し、noAuto と対）。ダウンロードの成功では消さない。
+	interrupted bool
 }
 
 // State は Manager の状態のスナップショット。
@@ -134,7 +136,7 @@ func (m *Manager) checkLastAttempt() {
 		return
 	}
 	m.log.Warn("前回の更新の入れ替えが完了していません", "version", v, "current", m.current)
-	m.failure = &Failure{Version: v, Message: interruptedMessage}
+	m.failure = &Failure{Version: v, Message: interruptedMessage, interrupted: true}
 	m.noAuto = true
 }
 
@@ -205,8 +207,8 @@ func (m *Manager) Prepare(ctx context.Context, rel Release) (Staged, error) {
 		m.changed(st)
 		return Staged{}, err
 	}
-	if m.failure != nil && m.failure.Version != rel.Version {
-		m.failure = nil
+	if m.failure != nil && !m.failure.interrupted {
+		m.failure = nil // 通信・ハッシュ不一致の失敗は、成功したら版にかかわらず消す
 	}
 	if m.staged != nil && m.staged.Path != staged.Path {
 		_ = os.Remove(m.staged.Path) // 古い版の用意済みファイル

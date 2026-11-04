@@ -245,3 +245,19 @@ func TestManagerPrepareAsync(t *testing.T) {
 	e.m.Close() // 実行中のものの完了を待つ
 	assert.NotNil(t, e.m.State().Staged)
 }
+
+// 同じ版で失敗したあと成功したら、失敗の文面は消える（ready に失敗の文面が付かない）。
+func TestManagerSuccessClearsEarlierFailureOfSameVersion(t *testing.T) {
+	e := newManagerEnv(t, "0.1.0")
+	e.fetcher.err = update.ErrChecksumMismatch
+	_, err := e.m.Prepare(t.Context(), release("0.2.0"))
+	require.Error(t, err)
+	require.NotNil(t, e.m.State().Failure)
+
+	e.fetcher.err = nil
+	_, err = e.m.Prepare(t.Context(), release("0.2.0"))
+	require.NoError(t, err)
+	st := e.m.State()
+	assert.NotNil(t, st.Staged)
+	assert.Nil(t, st.Failure)
+}
