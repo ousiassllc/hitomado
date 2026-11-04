@@ -10,7 +10,11 @@ type InboxFilter struct {
 type AppInfo struct {
 	Version            string `json:"version"`
 	UpdateCheckEnabled bool   `json:"updateCheckEnabled"`
-	DataDir            string `json:"dataDir"`
+	// AutoUpdateSupported はこのビルドが新しい版のダウンロードと入れ替えを行えるか（Windows 版。NF-D03）。
+	AutoUpdateSupported bool `json:"autoUpdateSupported"`
+	// AutoUpdateEnabled は自動アップデートの設定（既定オン。AutoUpdateSupported が false のときは常に false）。
+	AutoUpdateEnabled bool   `json:"autoUpdateEnabled"`
+	DataDir           string `json:"dataDir"`
 }
 
 // UpdateInfo は新バージョン確認の結果。
@@ -18,6 +22,13 @@ type UpdateInfo struct {
 	Available bool   `json:"available"`
 	Version   string `json:"version,omitempty"`
 	URL       string `json:"url,omitempty"`
+}
+
+// UpdateStatus は自動アップデートの状態。Stage は none／downloading／ready／failed。
+type UpdateStatus struct {
+	Stage   string `json:"stage"`
+	Version string `json:"version,omitempty"`
+	Message string `json:"message,omitempty"`
 }
 
 // AccountPatch は UpdateAccount の部分更新（nil は変更なし）。

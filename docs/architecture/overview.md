@@ -65,7 +65,7 @@ graph TD
   INF <-->|HTTPS| GG[Google OAuth / Gmail API]
   INF <-->|HTTPS| AI[AI プロバイダ 利用者のキー／ChatGPT プラン]
   INF <-->|HTTPS| OA[auth.openai.com ChatGPT ログイン]
-  INF <-->|HTTPS| GH[GitHub Releases API]
+  INF <-->|HTTPS| GH[GitHub Releases API と Release の添付ファイル 自動アップデート]
 ```
 
 ## 4. レイヤー構造
@@ -100,7 +100,7 @@ hitomado/
 │  ├─ events/              # フロントへ発行するイベントの名前とペイロード
 │  ├─ clock/               # 時刻の注入（System／Fake）
 │  ├─ logging/             # ログ出力（slog＋ローテーション。機密を出さない）
-│  └─ update/              # GitHub Releases 確認
+│  └─ update/              # GitHub Releases 確認、Windows 版の自動アップデート（ダウンロード・SHA-256 照合・入れ替えの指示）
 ├─ frontend/               # Vue 3 + TS（src/components, src/stores, src/lib）
 └─ docs/
 ```
@@ -114,6 +114,19 @@ hitomado/
 - **レート制限**: アカウントごとの `rate.Limiter`（クォータユニット単位）。429／5xx は指数バックオフ。ただし `messages.send`／`drafts.create` は二重実行を避けるため 5xx を再試行しない（429 は再試行する）
 - **フロントへの通知**: Go から Wails のイベントを発行し、フロントはイベント受信時にバインディングを再呼び出しして再描画する（イベントに本文等の機密は載せない）
 
+### 5.1 自動アップデート（Windows 版。NF-D03）
+
+Windows 版は新しい版を自動でダウンロードして入れ替える。実装は `internal/update`（ダウンロード・照合・入れ替えの指示）と `internal/app/updatecore`（設定・イベント・終了時の入れ替え）。
+
+- **通信先**: 更新確認は `api.github.com`（`releases/latest`。応答の `assets` から添付ファイルの URL を得る）。ダウンロードは `github.com/ousiassllc/hitomado/releases/download/vX.Y.Z/<ファイル名>`（`hitomado-vX.Y.Z-windows-amd64-setup.exe` と `SHA256SUMS.txt`）で、配信元（`release-assets.githubusercontent.com`。以前は `objects.githubusercontent.com`）へ 302 でリダイレクトされる。接続できるのは HTTPS で、`github.com` と `*.githubusercontent.com` だけ（リダイレクト先も同じ検査。リダイレクトは 5 回まで）。署名つきのリダイレクト先 URL のクエリはログ・エラー文面に残さない
+- **ダウンロードと照合**（`update.Stager`）: ①添付に `hitomado-vX.Y.Z-windows-amd64-setup.exe`（`X.Y.Z` は `tag_name` から。数字 3 つだけの版）と `SHA256SUMS.txt` が揃っているか確認（無ければ何も取らずに失敗）→ ②`SHA256SUMS.txt`（64 KiB まで）から該当の行（`<64 桁の 16 進>  <ファイル名>`）を読む → ③インストーラーを保存先 `%APPDATA%\Hitomado\updates`（権限 0700）の一時ファイル（`download-*.tmp`）へ保存しながら SHA-256 を計算（サイズ上限 200 MiB・宣言サイズ〔`assets[].size`〕との一致・全体のタイムアウト 10 分）→ ④ハッシュが一致したときだけ確定名（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）へ移す。一致しなければ一時ファイルを消して `ErrChecksumMismatch`（確定名のファイルは作らない・入れ替えの対象にしない）。同じ版の照合済みファイルが既にあれば取り直さない（ハッシュが変わっていれば消して取り直す）。`SHA256SUMS.txt` は同じ Release の添付で、署名されていない（NF-D02）。このハッシュ照合は、転送の破損と配信経路の差し替えを検出するもので、Release 自体が乗っ取られた場合は防げない（信頼の根は GitHub と公開者の Release で、手動インストールと同じ）
+- **状態**（`update.Manager`）: 「ダウンロード中」「入れ替え待ち（照合済み）」「失敗」「なし」を持ち、変わるたびに `update:status` を発行する（§発行イベント）。新しい版が見つかる（起動時・24 時間ごと・手動確認）たびに、自動アップデートが有効ならバックグラウンドでダウンロードを始める（確認の応答は待たせない）。同じ版が入れ替え待ちなら何もしない。より新しい版が見つかれば古いファイルを消す。起動時に、途中のダウンロードと、今の版以下のインストーラーを保存先から消す
+- **入れ替えのタイミング（既定）**: ダウンロードと照合が済んだら、設定画面（一般）と通知領域（バナー）に「再起動して更新」を出す。**押さなくても、次にアプリを終了するときに入れ替える**（どちらも下の安全条件つき）。設定でオフなら、どちらも行わない
+- **安全条件**: 送信（`Send`）・下書きの保存（`SaveDraft`）・下書きの削除（`DiscardCompose`）は、進行中を `deps.Busy`（カウンタ）に記録する。入れ替えを指示する関数（`Manager.RequestRestart`／`ApplyOnExit`）は、注入された「いま安全か」（`Busy.Active() == false`）を見て、進行中なら `ErrBusy` を返して入れ替えない（「再起動して更新」は `VALIDATION`、終了時は見送って次の終了に回す）。入れ替えの直前に、保存済みのファイルの SHA-256 をもう一度照合し、一致しなければ破棄して入れ替えない
+- **入れ替えの方法（NSIS インストーラーのサイレント実行）**: 実行中の `hitomado.exe` は上書きできず、インストーラーは起動中だと終了コード 5 で中止する（[setup.md §4.3](../environment/setup.md#43-windows-インストーラー)）。そのため、アプリが終了処理（同期・MCP・更新確認ループの停止、ウィンドウ状態の保存）を済ませたあと、`wapp.Quit()` の直前に、インストーラーを**アプリから分離した子プロセス**（`DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`・ウィンドウなし。親が終了しても生き続ける）として起動し、アプリは終了する。引数は `/S /WAIT=60`（「再起動して更新」のときは `/RELAUNCH` を足す）。`/D=` は付けない（前回のインストール先を引き継ぐ）。`/S` はサイレント（管理者権限は不要）、`/WAIT=秒` はサイレント実行のとき、起動中の `hitomado.exe` が終了するまで最大その秒数（0.5 秒ごとに再確認。上限 300）待ってから上書きする（省略時は従来どおり待たず、終了コード 5 で中止する。アプリの終了処理の終わりと、インストーラーの上書きの開始のあいだの競合を避ける）、`/RELAUNCH` はインストールの成功後に（`.onInstSuccess`）インストール先の `hitomado.exe` を起動する。**インストール後の起動し直しは NSIS 側で行う**（既存の `project.nsi` の最小限の拡張。別の起動用ヘルパーは作らない。インストーラーはアプリが終了してから動くため、起動し直しがアプリより長生きでき、失敗時にアプリが残っていない場合も扱える）。終了時の入れ替え（`/RELAUNCH` なし）は、更新したあと次に利用者が自分で起動するまで起動しない。プロセスの分離起動はビルドタグで分ける（`launch_windows.go`／`launch_other.go`。Windows 以外では `ErrUnsupported`）
+- **インストーラーの失敗**: 入れ替えを指示するとき、起動した版を保存先の `last-attempt` に記録する。次の起動で記録の版が今の版より新しければ（版が上がらなかった = インストーラーが完了しなかった）、ログに警告を残し、画面に「前回の更新の入れ替えが完了しませんでした」と出して、終了時の自動の入れ替えは止める（「再起動して更新」を押したときだけ再試行する）。版が上がっていれば記録を消す。起動に失敗（実行ファイルが無い等）したときは記録を残さず、ログに残して、今の版のまま終了する
+- **対象外**: 版が `0.0.0`（dev・ローカルビルド）は確認も自動アップデートもしない（`Manager` を作らない）。Android 版（NF-D05）と、入れ替えを行えないビルド（Windows 以外）も `Manager` を作らず、設定画面にも出さない（`AppInfo.autoUpdateSupported` が偽）。
+
 ### 発行イベント
 
 | イベント名 | ペイロード | 契機 |
@@ -122,6 +135,7 @@ hitomado/
 | `account:status` | `{ accountId, status, message? }` | `active`／`syncing`／`needs_reauth`／`error` が変化した |
 | `notify:open-thread` | `{ accountId, threadId }` | 通知クリック |
 | `update:available` | `{ version, url }` | 新バージョン検出 |
+| `update:status` | `{ stage, version?, message? }` | 自動アップデートの進みの変化（`stage`: `none`／`downloading`／`ready`〔入れ替え待ち〕／`failed`。`message` は失敗・注意の文面） |
 | `app:before-quit` | なし | トレイの「終了」（フロントが下書きを保存して `AckBeforeQuit`） |
 | `files-dropped` | `{ files }` | ファイルドロップ（添付） |
 
@@ -329,3 +343,4 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 | 1.16 | 2026-11-03 | §7.1 に、Android の認可（`Tracker` による、プロセスが止められた認可の検出）を追記 | #86 |
 | 1.17 | 2026-11-03 | §7.2 に Android のバックグラウンド同期（WorkManager・`internal/headless`・Java の通知・二重同期の排他）を追記 | #88 |
 | 1.18 | 2026-11-04 | §5 の ChatGPT プランに、アカウントごとにトークンと登録を分けて保存し、使用中のアカウントで生成する旨を追記 | 複数の ChatGPT アカウント（#79） |
+| 1.19 | 2026-11-04 | `internal/update` に Windows 版の自動アップデート（ダウンロード・`SHA256SUMS.txt` との照合・入れ替えの指示）を追加し、§5.1 に通信先（`github.com` とリダイレクト先）・安全条件・NSIS のサイレント実行（`/S /WAIT=60 /RELAUNCH`）・インストーラーの失敗の扱いを追記。通信先の図と発行イベント（`update:status`）を更新 | #103 |

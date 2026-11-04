@@ -15,6 +15,7 @@ import (
 // 添付（ローカル・転送元・復元した下書きの添付）も下書きに含める（F-12）。
 // 宛先は形式が正しいアドレスだけを保存する（入力途中の値で保存を止めない）。
 func (s *Service) SaveDraft(ctx context.Context, sessionID string, content dto.ComposeContent) (dto.SaveDraftResult, error) {
+	defer s.d.Busy.Begin()() // 保存中は自動アップデートの入れ替えをしない
 	cs, view, err := s.snapshot(sessionID)
 	if err != nil {
 		return dto.SaveDraftResult{}, err

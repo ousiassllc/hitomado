@@ -38,6 +38,7 @@
 | `auth.openai.com` | ChatGPT プランのログイン・トークン更新・失効（Sign in with ChatGPT。利用者が選んだときのみ） | OAuth プロトコルに必要な情報（クライアント ID・ホスト ID・認可コード・トークン）。パスワード・Cookie は Hitomado を通らない |
 | `api.openai.com`（ChatGPT プラン） | AI 下書き（Responses API）・モデル一覧 | AI プロバイダと同じ内容。アクセストークンで認証する |
 | `api.github.com` | 新バージョン確認（NF-D03） | リクエスト（IP・User-Agent）のみ。メール・アカウント情報は含めない |
+| `github.com`、`release-assets.githubusercontent.com` | Windows 版の自動アップデート（NF-D03）: Release の添付ファイル（インストーラー・`SHA256SUMS.txt`）のダウンロード。`github.com` の `releases/download/...` が配信元（`release-assets.githubusercontent.com`。以前は `objects.githubusercontent.com`）へ 302 でリダイレクトする。許可するのは `github.com` と `*.githubusercontent.com` の HTTPS だけ。設定でオフにできる | リクエスト（IP・User-Agent）のみ。メール・アカウント情報は含めない |
 
 - AI 下書きは、初回利用時に「スレッドの内容が選択した AI プロバイダへ送信される」ことを表示し、同意を保存する。同意前は生成しない
 - AI プロバイダが OpenAI 互換のエンドポイントの場合、Base URL は利用者が指定する。送信先は設定画面に常に表示する
@@ -96,9 +97,9 @@
 |----|------|------|
 | NF-D01 | 必須 | GitHub Releases に Windows 向けインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）・依存ライセンスの表記 `NOTICE`（MPL-2.0 依存のソース入手先を含む。インストール先にも `NOTICE.txt` として置く）・`SHA256SUMS.txt` を公開する。インストールは利用者ごと（管理者権限なし）で、スタートメニューへ登録し、「アプリと機能」からアンインストールでき、上書きインストールで更新できる。アンインストールは利用者のデータ（`%APPDATA%\Hitomado`・資格情報マネージャーの秘密）を消さない（[setup.md §4.3](../environment/setup.md#43-windows-インストーラー)）。版番号はインストーラー・アプリ・exe のプロパティで一致させる |
 | NF-D02 | 必須 | コード署名は行わない（インストーラーも）。SmartScreen の警告が出ることを README に明記し、実行手順と `SHA256SUMS.txt` での確認を案内する |
-| NF-D03 | 必須 | 起動時と 24 時間ごとに GitHub Releases API（`api.github.com/repos/ousiassllc/hitomado/releases/latest`）で最新版を確認し、新しければ設定画面・通知領域にリンクを表示する。自動ダウンロード・自動インストールは行わない。設定でオフにできる。版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは確認しない（通信せず、新しい版の表示も出さない） |
+| NF-D03 | 必須 | 起動時と 24 時間ごとに GitHub Releases API（`api.github.com/repos/ousiassllc/hitomado/releases/latest`）で最新版を確認し、新しければ設定画面・通知領域に表示する。**Windows 版は新しい版を自動でダウンロードして入れ替える**（自動アップデート）: Release の `hitomado-vX.Y.Z-windows-amd64-setup.exe` を保存先（`%APPDATA%\Hitomado\updates`）へダウンロードし、同じ Release の `SHA256SUMS.txt` の SHA-256 と突き合わせる。合わなければ使わずに捨て（ファイルを消し、入れ替えの対象にしない）、ログに残して画面で知らせる。照合が済んだら画面（設定と通知領域）に「再起動して更新」を出し、押したとき、または押さずに次にアプリを終了するときに、インストーラーをサイレントで動かして入れ替える。送信中・下書きの保存中は入れ替えない（終わったあとの次の終了で入れ替える）。通信・ハッシュの不一致・インストーラーの失敗はログ（URL の署名つきクエリ・秘密を含めない）に残して画面で知らせ、今の版のまま使い続けられる。ダウンロードは HTTPS のみ・接続先とリダイレクト先は `github.com` と `*.githubusercontent.com` に限る・サイズ上限 200 MiB・全体のタイムアウト 10 分で、一時ファイルへ保存して照合に通ったものだけを確定名へ移す。設定で自動アップデートをオフにできる（既定はオン。オフならリンクを表示するだけで、ダウンロードも入れ替えもしない。更新確認そのものをオフにしたときも入れ替えない）。版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは確認も自動アップデートもしない（通信せず、新しい版の表示も出さない）。詳細は [overview §5.1](../architecture/overview.md#51-自動アップデートwindows-版nf-d03) |
 | NF-D04 | 必須 | ビルドは GitHub Actions で再現可能にする |
-| NF-D05 | 必須 | Android 版（配布は Google Play）は、アプリ内の更新確認（NF-D03）を行わない。定期確認も手動確認も動かさず、設定画面にも出さない。保存済みの設定が「有効」でも確認しない |
+| NF-D05 | 必須 | Android 版（配布は Google Play）は、アプリ内の更新確認と自動アップデート（NF-D03）を行わない。定期確認も手動確認も動かさず、設定画面にも出さない。保存済みの設定が「有効」でも確認しない |
 
 ## 9. 外部サービスの制約（README で案内する）
 
@@ -147,3 +148,4 @@
 | 1.14 | 2026-11-03 | §4 に Android 版のバックグラウンド同期（WorkManager の 15 分間隔・Pub/Sub と FCM は使わない・前面サービスは使わない）を追記 | #88 |
 | 1.15 | 2026-11-04 | §5 に Android 版の WebView レンダラ落ちの扱い（アプリ全体を終了させない・作り直し・再試行の上限）を追記 | #90 |
 | 1.16 | 2026-11-04 | §7 に Android の対応 OS（Android 12〔API 31〕以上）を追記 | 最低対応を Android 12 とする決定（minSdk 21 → 31。[android.md §3](../environment/android.md)） |
+| 1.17 | 2026-11-04 | NF-D03 を、Windows 版は新しい版を自動でダウンロードし `SHA256SUMS.txt` と突き合わせて、利用者の操作（「再起動して更新」）または次の終了時に入れ替える（送信中・下書きの保存中は入れ替えない・設定でオフ・失敗は画面で知らせ今の版のまま使える）内容に変更。NF-D05 に自動アップデートも行わない旨を追記。§2 の通信先に Release の添付ファイルの配信元を追加 | #103 |

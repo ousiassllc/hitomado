@@ -34,7 +34,7 @@ Android 版（試験段階）の動作環境: Android 12（API 31）以上。
 
 ### 更新
 
-- アプリは起動時と 24 時間ごとに新しい版を確認し、あれば設定画面などにリンクを出します（設定でオフにできます。自動ダウンロード・自動インストールはしません）。
+- アプリは起動時と 24 時間ごとに新しい版を確認し、あれば設定画面などに表示します（設定でオフにできます）。Windows 版は、新しい版を自動でダウンロードして `SHA256SUMS.txt` と照合し、「再起動して更新」を押したとき、または次にアプリを終了するときに入れ替えます（送信中・下書きの保存中は入れ替えません。設定の「自動アップデート」でオフにでき、オフならリンクを出すだけです）。ハッシュが合わないファイルは使わずに捨てます。
 - 更新するには、新しい版のインストーラーをそのまま実行します（**上書きインストール**）。前回の場所に入り、データ・アカウント・設定はそのまま残ります。Hitomado が起動中なら、タスクトレイのアイコンから「終了」してから実行してください（起動中はインストーラーが先へ進めません）。
 - 版番号は、インストーラー・アプリの設定画面・「アプリと機能」・`hitomado.exe` のプロパティで同じ値です。
 
@@ -112,7 +112,7 @@ OAuth 同意画面の公開ステータスが **外部かつ「テスト」** �
   - Gmail（`gmail.googleapis.com`。メールの取得・操作・送信）
   - AI プロバイダ（設定したもの。「AI で下書き」を押したときだけ、スレッド本文の一部・表示名・署名を送信）
   - ChatGPT のログイン（`auth.openai.com`。設定で「ChatGPT プラン」を選んでログインしたときだけ。認可・トークン更新・失効）。ChatGPT プランで下書きを作るときの送信先は `api.openai.com` です
-  - GitHub Releases（`api.github.com`。新バージョンの確認のみ。設定でオフにできます）
+  - GitHub Releases（`api.github.com` で新バージョンの確認、`github.com` と配信元の `release-assets.githubusercontent.com` で Windows 版の自動アップデートのダウンロード。設定でオフにできます）
 - 例外: メールのリモート画像は既定でブロックします。メッセージごとに「画像を表示」を押したときだけ、そのメールが参照する画像を WebView が直接取得します（取得先はメールの送信者が指定したホストです）。
 
 ## AI 返信下書きの設定
@@ -163,7 +163,7 @@ task check                      # CI と同等の検査（生成物の差分な�
 ```
 
 - 動作保証の対象は Windows です。Linux／macOS では Go の単体テスト・フロントのテスト・lint を実行できますが、アプリ本体の実行確認は Windows で行ってください。Linux で Go をビルド・テストするときは GTK を使わない `CGO_ENABLED=0 go test -tags purego ./...` を使います。
-- `task dev`・`task build`（`VERSION` なし）の版は `0.0.0` です（`task package VERSION=X.Y.Z` で渡した値だけが配布物の版になります）。`0.0.0` の dev・ローカルビルドは更新確認をしません（設定画面にも新しい版は出ません）。
+- `task dev`・`task build`（`VERSION` なし）の版は `0.0.0` です（`task package VERSION=X.Y.Z` で渡した値だけが配布物の版になります）。`0.0.0` の dev・ローカルビルドは更新確認も自動アップデートもしません（設定画面にも新しい版は出ません）。
 - **Android 版のビルド**（APK／AAB。`task android:package ARCH=arm64 VERSION=X.Y.Z` で `bin/hitomado.apk`、`task android:install` で実機へ）の手順・署名・版番号は [docs/environment/android.md](docs/environment/android.md) にあります。まだ試験段階で、配布はしていません。
 - 仕様書は [docs/overview.md](docs/overview.md) のドキュメントマップから辿れます。
 - マージは squash／rebase せず、マージコミット方式です。コミットには `git commit -s`（Signed-off-by）を付けます。

@@ -69,7 +69,7 @@ type AppError = {
 | `AI_CONSENT_REQUIRED` | 当該プロバイダへの送信に未同意 | false | AIService |
 | `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト・リダイレクト応答（3xx。追従しない）等）。ChatGPT プランでは、利用枠の超過（`subscription_sharing_usage_limit_exceeded`。`details.reason = "usage_limit_exceeded"` を持ち、画面は「Manage usage」を主なアクションにした案内を出す。ほかの `AI_FAILED` は `details.reason` を持たない）・このアカウントでは使えない（`subscription_sharing_user_not_eligible`）・ログインの検証失敗も含む | 状況による | AIService |
 | `CANCELLED` | 呼び出し側がキャンセルした | false | AIService |
-| `UNSUPPORTED` | この OS では提供しない機能の呼び出し（Android での更新確認の設定） | false | AppService |
+| `UNSUPPORTED` | この OS では提供しない機能の呼び出し（Android での更新確認・自動アップデートの設定） | false | AppService |
 | `INTERNAL` | 想定外の内部エラー | false | 全般 |
 
 ### 1.3 共通型
@@ -419,9 +419,12 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 |----------|------|--------|------|
 | `GetInboxFilter()` | — | `{ accountIds: string[]; unreadOnly: boolean }` | 保存済みフィルタ（`app_settings.inbox.filter`）。存在しないアカウント ID は除いて返す |
 | `SetInboxFilter(filter)` | 同上 | — | 保存 |
-| `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; dataDir: string }` | |
+| `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; autoUpdateSupported: boolean; autoUpdateEnabled: boolean; dataDir: string }` | `autoUpdateSupported` は新しい版の自動ダウンロードと入れ替えを行えるビルド（Windows のリリース版。Android・dev ビルド・開発用の Linux は `false`）。`autoUpdateEnabled` は自動アップデートの設定（既定 `true`。`autoUpdateSupported` が偽なら常に `false`） |
 | `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03。アプリ内の更新確認を持たない OS（Android）では `UNSUPPORTED` |
-| `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時、および版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは通信せず `{ available: false }` |
+| `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時、および版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは通信せず `{ available: false }`。新しい版があり自動アップデートが有効（`autoUpdateEnabled`）なら、更新ファイルのダウンロードと照合をバックグラウンドで始める（応答は待たない。進みは `update:status`） |
+| `SetAutoUpdateEnabled(enabled)` | boolean | — | NF-D03。自動アップデートのオン／オフ（`app_settings.update.auto_enabled`）。オフにするとダウンロード済みのファイルを捨てる。入れ替えを行えないビルド（`autoUpdateSupported` が偽）では `UNSUPPORTED` |
+| `GetUpdateStatus()` | — | `{ stage: 'none' \| 'downloading' \| 'ready' \| 'failed'; version?: string; message?: string }` | 自動アップデートの現在の進み（`update:status` と同じ形）。`ready` はダウンロードと `SHA256SUMS.txt` との照合が済んだ入れ替え待ち。`message` は失敗・注意の日本語の文面（URL・パスを含めない） |
+| `RestartToUpdate()` | — | — | 「再起動して更新」。`stage` が `ready` のとき、終了を要求し（`AckBeforeQuit` を待って未保存の下書きを保存してから終了）、終了処理の最後でインストーラーを `/S /WAIT=60 /RELAUNCH` で分離起動して入れ替える。`ready` でないとき・送信中・下書きの保存中は `VALIDATION`（入れ替えない）。入れ替えを行えないビルドでは `UNSUPPORTED` |
 | `AckBeforeQuit()` | — | — | `app:before-quit` を受けたフロントが、未保存の作成セッションを `SaveDraft` し終えたことを Go に伝える（§9）。Go はこれを受けるか猶予 3 秒の経過で終了処理に進む |
 
 ### 7.1 LogService
@@ -476,6 +479,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | `account:status` | `{ accountId: string; status: 'active' \| 'syncing' \| 'needs_reauth' \| 'error'; message?: string }` | アカウント状態の変化（`syncing` は一時状態で DB に保存しない） |
 | `notify:open-thread` | `{ accountId: string; threadId: string }` | 通知クリック（トレイ操作ではウィンドウを前面に出すだけで、このイベントは発行しない）。Android では、起動済みのアプリが通知のタップで前面に出たとき（フロントが準備済みなら）。起動前のタップは `TakePendingOpenThread` で受け取る |
 | `update:available` | `{ version: string; url: string }` | 新バージョン検出 |
+| `update:status` | `{ stage: 'none' \| 'downloading' \| 'ready' \| 'failed'; version?: string; message?: string }` | 自動アップデートの進みの変化（ダウンロードの開始・照合の完了〔`ready`〕・失敗〔`failed`。ハッシュの不一致・通信・インストーラーの失敗〕・オフにして破棄〔`none`〕）。フロントは `ready` で「再起動して更新」を出す |
 | `app:before-quit` | なし | トレイの「終了」。フロントは未保存の下書きを保存して `AckBeforeQuit` を呼ぶ |
 | `files-dropped` | `{ files: string[] }` | ウィンドウへのファイルドロップ（`data-file-drop-target` 属性の要素上のみ）。フロントは `AddAttachments` に渡す |
 
@@ -498,6 +502,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ。§5.2）、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`（いずれも `gmail.modify` スコープ内） |
 | AI プロバイダ | 下書き生成 | Anthropic Messages API／OpenAI 互換 Chat Completions（Base URL 指定可） |
 | GitHub Releases API | 更新確認 | `GET /repos/ousiassllc/hitomado/releases/latest`（未認証） |
+| GitHub Release の添付ファイル | Windows 版の自動アップデート（NF-D03） | `GET https://github.com/ousiassllc/hitomado/releases/download/vX.Y.Z/hitomado-vX.Y.Z-windows-amd64-setup.exe` と `.../SHA256SUMS.txt`（未認証。`release-assets.githubusercontent.com` へ 302。HTTPS・`github.com`／`*.githubusercontent.com` のみ） |
 
 ### Gmail API の呼び出し規則
 
@@ -543,3 +548,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.27 | 2026-11-04 | §6.2 の ChatGPT の複数アカウントに、`client_id` を大文字小文字を無視して一意として扱い、大文字小文字だけが違う登録・再ログインを拒否する旨を追記 | Windows 資格情報マネージャーがキーの大文字小文字を区別せず、別アカウントの資格情報がぶつかるため（#101） |
 | 1.28 | 2026-11-04 | §1.2 の `OAUTH_CANCELLED`／`OAUTH_DENIED`／`OAUTH_TIMEOUT` の発生元に `SignInChatGPT` を追記（`OAUTH_DENIED` は ChatGPT プランの利用が許可されなかった場合も） | #75 から続いていた発生元の乖離（#94） |
 | 1.29 | 2026-11-04 | `SelectChatGPTAccount` が、ログアウト済みのアカウントで `AI_NOT_CONFIGURED` に `details.reason = "account_signed_out"` と「再ログイン」を案内するメッセージを返す旨を、§6 の表と §6.2 の複数アカウントの記述に追記 | 何をすればよいか分からない文面だったため（#102） |
+| 1.30 | 2026-11-04 | `AppService` に `SetAutoUpdateEnabled`・`GetUpdateStatus`・`RestartToUpdate`、`GetAppInfo` に `autoUpdateSupported`／`autoUpdateEnabled`、イベント `update:status`、外部 API に Release の添付ファイルを追加。`CheckForUpdate` に自動ダウンロードの開始を追記 | #103 |

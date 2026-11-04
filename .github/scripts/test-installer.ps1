@@ -5,6 +5,7 @@
 # 確認すること:
 #   - スタートメニューのショートカットと「アプリと機能」の登録（DisplayVersion）ができる
 #   - 起動中（実行中の exe がある）なら、サイレントインストールは何も変えずに終了コード 5 で終わる
+#   - /WAIT=秒 つきなら、起動中でも終了を待ち、終了したあとで上書きして終了コード 0 で終わる（アプリの自動アップデートが使う）
 #   - 上書きで版が上がり、exe が新しいものに置き換わり、exe のファイルバージョンと埋め込まれた
 #     main.version が版と一致する
 #   - アンインストールでプログラム・ショートカット・登録は消え、利用者のデータ（%APPDATA%\Hitomado）は残る
@@ -102,7 +103,23 @@ try {
     $running.WaitForExit()
   }
 
-  # 3. 上書き（新版）。前回の場所に入る（/D= なしでも InstallLocation を使う）。
+  # 2b. /WAIT=秒 つきなら、起動中は待ち、終了したあとで上書きする（自動アップデートは、終了前にインストーラーを起動する）
+  $running = Start-Process -FilePath "$installDir\hitomado.exe" -ArgumentList '-t', '127.0.0.1' -WindowStyle Hidden -PassThru
+  try {
+    Assert (-not $running.HasExited) 'stand-in hitomado.exe is running again'
+    $waiting = Start-Process -FilePath $NewInstaller -ArgumentList '/S', '/WAIT=60' -PassThru
+    $null = $waiting.Handle # 終了コードを取れるよう、ハンドルを保持する
+    Assert (-not $waiting.WaitForExit(3000)) 'installer with /WAIT keeps waiting while hitomado.exe is running'
+    Assert ((Displayed-Version) -eq $OldVersion) 'the waiting installer has not changed the registration yet'
+  } finally {
+    Stop-Process -Id $running.Id -Force -ErrorAction SilentlyContinue
+    $running.WaitForExit()
+  }
+  Assert ($waiting.WaitForExit(60000)) 'installer with /WAIT finishes after hitomado.exe exits'
+  Assert ($waiting.ExitCode -eq 0) 'installer with /WAIT exits 0 after the wait'
+  Assert ((Displayed-Version) -eq $NewVersion) "Apps & features shows $NewVersion after the waiting install"
+
+  # 3. 上書き（新版。2b で入った同じ版の上に、もう一度入れる）。前回の場所に入る（/D= なしでも InstallLocation を使う）。
   Assert ((Start-Process -FilePath $NewInstaller -ArgumentList '/S' -Wait -PassThru).ExitCode -eq 0) 'new installer exits 0'
   Assert ((Displayed-Version) -eq $NewVersion) "Apps & features shows $NewVersion after overwrite"
   Assert ((Get-FileHash "$installDir\hitomado.exe").Hash -eq (Get-FileHash $Exe).Hash) 'hitomado.exe was replaced by the new build'

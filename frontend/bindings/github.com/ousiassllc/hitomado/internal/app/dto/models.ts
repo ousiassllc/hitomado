@@ -99,6 +99,16 @@ export interface AccountPatch {
 export interface AppInfo {
     "version": string;
     "updateCheckEnabled": boolean;
+
+    /**
+     * AutoUpdateSupported はこのビルドが新しい版のダウンロードと入れ替えを行えるか（Windows 版。NF-D03）。
+     */
+    "autoUpdateSupported": boolean;
+
+    /**
+     * AutoUpdateEnabled は自動アップデートの設定（既定オン。AutoUpdateSupported が false のときは常に false）。
+     */
+    "autoUpdateEnabled": boolean;
     "dataDir": string;
 }
 
@@ -522,4 +532,13 @@ export interface UpdateInfo {
     "available": boolean;
     "version"?: string;
     "url"?: string;
+}
+
+/**
+ * UpdateStatus は自動アップデートの状態。Stage は none／downloading／ready／failed。
+ */
+export interface UpdateStatus {
+    "stage": string;
+    "version"?: string;
+    "message"?: string;
 }
