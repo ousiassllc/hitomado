@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { mount } from '@vue/test-utils'
+import type { Account } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import AccountRow from '../../src/components/settings/accounts/AccountRow.vue'
 import { deriveBanners } from '../../src/lib/banners'
 import { isScopeInsufficientMessage } from '../../src/lib/scopeInsufficient'
@@ -47,7 +48,7 @@ describe('権限（スコープ）不足の要再接続', () => {
       notifyEnabled: true,
       status: 'needs_reauth',
       statusMessage: scope,
-    }
+    } as Account
     const w = mount(AccountRow, {
       props: {
         account,
