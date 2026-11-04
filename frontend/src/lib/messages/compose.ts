@@ -13,20 +13,17 @@ export const compose = {
   sending: '送信中…',
   saving: '保存中…',
   saved: '下書きを保存しました',
-  saveDraft: '下書きを保存',
   senderRequiredHint: '送信元を選択してください',
   discardFailed: '下書きを破棄できませんでした',
   closeFailed: '下書きを保存できなかったため、閉じませんでした。内容は保持しています。',
   saveFailed: '下書きを保存できませんでした',
   openFailed: 'エディタを開けませんでした',
-  shortcutHint: 'Ctrl+Enter で送信確認を開きます',
 
   sender: {
     label: '送信元',
     lockedHint: '返信・転送の送信元は受信アカウントに固定されています',
     unselected: '送信元を選択してください',
     select: '送信元アカウント',
-    none: '（未選択）',
   },
 
   fields: {
@@ -36,8 +33,6 @@ export const compose = {
     subject: '件名',
     showCc: 'Cc',
     showBcc: 'Bcc',
-    hideCc: 'Cc を隠す',
-    hideBcc: 'Bcc を隠す',
     addRecipient: (label: string) => `${label} にアドレスを追加`,
     removeRecipient: (email: string) => `${email} を削除`,
     invalidAddress: '形式が正しくないアドレスです',
@@ -67,7 +62,6 @@ export const compose = {
     forwarded: '転送元の添付',
     dropHint: 'ここにファイルをドロップして添付',
     pickFailed: 'ファイルを選択できませんでした',
-    tooLarge: (limit: string) => `添付の合計が上限（${limit}）を超えるため追加できませんでした`,
   },
 
   ai: {
@@ -97,7 +91,6 @@ export const compose = {
       other: '別のプロバイダを選ぶ',
       cancel: 'あとで',
     },
-    unavailableHint: '返信のみ利用できます',
     consentTitle: 'AI プロバイダへの送信に同意',
     consentBody: (provider: string, url: string) =>
       `スレッドの本文の一部・差出人・日時と、あなたの表示名・署名が ${provider}（${url}）へ送信されます。同意しますか？`,
@@ -125,7 +118,6 @@ export const compose = {
     emptyBody: '（本文なし）',
     archiveNote: '送信後にスレッドをアーカイブします',
     warnings: '確認してください',
-    ownAccount: '他の自分のアカウントのアドレスが含まれています',
     sendFrom: (email: string) => `${email} から送信`,
     sendFromArchive: (email: string) => `${email} から送信してアーカイブ`,
     sendingNow: '送信中…',
@@ -147,7 +139,6 @@ export const compose = {
     sent: '送信しました',
     sentArchived: '送信してアーカイブしました',
     archiveFailed: '送信しましたが、アーカイブできませんでした',
-    draftSaved: '下書きを保存しました',
   },
 
   errors: {

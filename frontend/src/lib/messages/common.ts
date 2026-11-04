@@ -14,7 +14,6 @@ export const common = {
   reconnect: '再接続',
   checkOAuthClient: 'OAuth クライアントを確認',
   syncErrorBanner: (name: string) => `${name} の同期に失敗しました。次回の更新で再試行します。`,
-  updateBanner: (version: string) => `新しいバージョン ${version} があります。`,
   unexpectedError: '予期しないエラーが発生しました。',
 
   // サイドバー・アカウント
@@ -51,7 +50,6 @@ export const common = {
     customizeTitle: '表示名と色',
     displayName: '表示名',
     colorLabel: 'アカウント色',
-    colorOption: (key: string) => `色: ${key}`,
     done: '完了',
     added: (name: string) => `${name} を追加しました。`,
     updateFailed: '表示名・色の保存に失敗しました。設定から変更できます。',
@@ -93,7 +91,6 @@ export const common = {
     labelEmpty: 'ラベルがありません',
     labelMultiAccount: '複数アカウントにまたがる選択ではラベルを変更できません',
     selected: (n: number) => `${n} 件選択中`,
-    searchMode: (q: string) => `検索結果: ${q}`,
     backToInbox: '受信箱に戻る',
   },
   search: {
@@ -114,7 +111,6 @@ export const common = {
     loadFailed: '受信箱の読み込みに失敗しました。',
     searchFailed: '検索に失敗しました。',
     threadGone: 'スレッドが見つかりません。一覧から除去しました。',
-    accountOpFailed: 'アカウントの操作に失敗しました。',
   },
 
   shell: {

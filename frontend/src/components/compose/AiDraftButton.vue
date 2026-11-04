@@ -7,6 +7,7 @@ import { useComposeStore } from '../../stores/compose'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
 import AIConsentDialog from '../settings/ai/AIConsentDialog.vue'
+import AISetupDialog from '../settings/ai/AISetupDialog.vue'
 import { aiDestination } from '../settings/ai/aiDestination'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseDialog from '../ui/BaseDialog.vue'
@@ -89,23 +90,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
     />
     <p v-else-if="ai.error.value" class="ai-error" role="alert">{{ msg.ai.failed }}（{{ ai.error.value }}）</p>
 
-    <BaseDialog :open="setupOpen" :title="msg.ai.setup.title" size="sm" :closable="false">
-      <div class="setup" data-testid="ai-setup">
-        <p class="dlg-text">{{ msg.ai.setup.body }}</p>
-        <p class="ai-note">{{ msg.ai.setup.note }}</p>
-      </div>
-      <template #footer>
-        <BaseButton variant="ghost" data-testid="ai-setup-later" @click="ai.answerSetup()">
-          {{ msg.ai.setup.cancel }}
-        </BaseButton>
-        <BaseButton variant="secondary" data-testid="ai-setup-other" @click="ai.answerSetup('other')">
-          {{ msg.ai.setup.other }}
-        </BaseButton>
-        <BaseButton variant="primary" data-testid="ai-setup-chatgpt" @click="ai.answerSetup('chatgpt')">
-          {{ msg.ai.setup.chatgpt }}
-        </BaseButton>
-      </template>
-    </BaseDialog>
+    <AISetupDialog :open="setupOpen" @choose="ai.answerSetup($event)" />
 
     <AIConsentDialog
       v-if="destination"
@@ -161,12 +146,6 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
   border-radius: var(--radius-sm);
   color: var(--color-danger);
   font-size: var(--font-size-sm);
-}
-
-.setup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 
 .dlg-text {

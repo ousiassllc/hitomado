@@ -33,10 +33,11 @@ describe('SenderField', () => {
     expect(w.text()).toContain('work@example.com')
   })
 
-  test('new は選択式で、未選択状態を示す', () => {
+  test('new は選択式で、未選択の案内はセレクトのプレースホルダの 1 か所だけに出す', () => {
     const w = mount(SenderField, { props: { accountId: undefined, locked: false, accounts } })
     expect(w.find('[role="combobox"]').exists()).toBe(true)
-    expect(w.text()).toContain('送信元を選択してください')
+    expect(w.text().split('送信元を選択してください')).toHaveLength(2)
+    expect(w.find('[role="note"]').exists()).toBe(false)
   })
 })
 
@@ -88,7 +89,8 @@ describe('ComposePane', () => {
     expect(send).toBeDefined()
     expect(send?.attributes('disabled')).toBeDefined()
     expect(w.text()).not.toContain('送信してアーカイブ')
-    expect(w.text()).toContain('送信元を選択してください')
+    // 未選択の案内は、セレクトのプレースホルダと、送信ボタンが無効な理由（フッター）の 2 か所
+    expect(w.text().split('送信元を選択してください')).toHaveLength(3)
     w.unmount()
   })
 
@@ -109,6 +111,17 @@ describe('ComposePane', () => {
   test('新規作成には「AI で下書き」を出さない', async () => {
     const { w } = await mountPane(newSession('a1'))
     expect(w.text()).not.toContain('AI で下書き')
+    w.unmount()
+  })
+
+  test('Ctrl+Enter の案内は常時テキストにせず、送信ボタンのツールチップに出す', async () => {
+    const { w } = await mountPane(newSession('a1'))
+    expect(w.text()).not.toContain('Ctrl+Enter')
+    expect(document.body.querySelector('.tip-pop')).toBeNull()
+    const send = w.findAll('button').find((b) => b.text() === '送信')
+    await send?.trigger('focus')
+    await flushPromises()
+    expect(document.body.querySelector('.tip-pop')?.textContent).toContain('送信 (Ctrl+Enter)')
     w.unmount()
   })
 })

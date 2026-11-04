@@ -87,9 +87,7 @@ function openUpdate(): void {
 </script>
 
 <template>
-  <section class="general" :aria-label="msg.general.heading">
-    <h3 class="heading">{{ msg.general.heading }}</h3>
-
+  <section class="general" :aria-label="msg.tabs.general">
     <!-- アプリ内の更新確認を持たない OS（Android。配布は Google Play）では出さない。 -->
     <div v-if="platform.supportsAutoUpdate" class="block">
       <div class="toggle">
@@ -177,11 +175,6 @@ function openUpdate(): void {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-}
-
-.heading {
-  margin: 0;
-  font-size: var(--font-size-lg);
 }
 
 .block {

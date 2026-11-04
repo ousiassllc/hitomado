@@ -10,7 +10,8 @@ const props = defineProps<{
   /** 操作対象のスレッド数（0 なら操作ボタンは無効） */
   selectedCount: number
   refreshing: boolean
-  searchQuery?: string
+  /** 検索結果モード中（「受信箱に戻る」を出す） */
+  searching?: boolean
   /** 対象が全て同じアカウントのときだけラベルを変更できる */
   labelEnabled: boolean
   /** checked = 対象のスレッドすべてに付いているラベル */
@@ -76,8 +77,7 @@ function onLabelSelect(key: string): void {
     </template>
     <span v-if="selectedCount > 1" class="count" role="status">{{ common.toolbar.selected(selectedCount) }}</span>
     <span class="grow" />
-    <div v-if="searchQuery" class="mode" role="status">
-      <span class="mode-text">{{ common.toolbar.searchMode(searchQuery) }}</span>
+    <div v-if="searching" class="mode">
       <button type="button" class="back" @click="emit('backToInbox')">{{ common.toolbar.backToInbox }}</button>
     </div>
   </div>
@@ -116,13 +116,6 @@ function onLabelSelect(key: string): void {
   gap: var(--space-2);
   min-width: 0;
   font-size: var(--font-size-sm);
-}
-
-.mode-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--color-text-muted);
 }
 
 .back {
