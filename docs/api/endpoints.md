@@ -354,7 +354,7 @@ type ChatGPTAccount = {
   id: string;                 // 登録の識別子（発行された client_id）
   email?: string;
   signedIn: boolean;          // ログイン中のセッションがあるか（ログアウト済みでも登録は残る）
-  active: boolean;            // 下書きの生成に使うアカウントか（高々 1 件）
+  active: boolean;            // 下書きの生成に使うアカウントか（高々 1 件。ログアウト済みでも、選択は変わらないので true のまま残る。`signedIn` と合わせて判断する）
   planNoticePending: boolean; // 初めてログインして ChatGPT プランの利用が有効になったのに、「You're using your ChatGPT plan」の確認をまだ済ませていないか（下記。2 回目以降のログインでは立たない）
 };
 
@@ -379,7 +379,7 @@ type ChatGPTSignOutResult = { config: AIConfig; revocationConfirmed: boolean };
 | `SignInChatGPT(accountId)` | string | `AIConfig` | OpenAI の公式画面（システムブラウザ）で ChatGPT にログインする。完了・中止・時間切れまでブロックする（下記）。`accountId` が空なら別の ChatGPT アカウントとして新しく登録する（追加）。保存済みの `id` を渡すと、その登録の `client_id` で再ログインする（別のアカウントでログインされたら `VALIDATION`、未登録の ID は `NOT_FOUND`）。ID トークンを検証して保存を終えるまで、使用中のアカウントとほかのアカウントのトークン・登録は変えず、成功したアカウントが使用中になる |
 | `SelectChatGPTAccount(accountId)` | string | `AIConfig` | 下書きの生成に使う ChatGPT アカウントを切り替える。通信しない。ログイン中のアカウントだけ選べる（ログアウト済みは `AI_NOT_CONFIGURED`、未登録は `NOT_FOUND`） |
 | `CancelSignInChatGPT()` | — | — | 進行中のログインを中止（`SignInChatGPT` は `OAUTH_CANCELLED` で reject） |
-| `SignOutChatGPT(accountId)` | string | `ChatGPTSignOutResult` | 指定した ChatGPT アカウントだけ、OpenAI 側のセッションを失効させてから、そのローカルのトークンを消す（ほかのアカウントのトークンと登録は残り、このアカウントの登録も残る）。失効を確認できなくてもローカルは消え、`revocationConfirmed = false` を返す（利用者には ChatGPT の設定から連携を解除できると伝える）。使用中のアカウントをログアウトすると使用中は無しになり（ほかのアカウントへ黙って切り替えない）、下書きには選び直しが要る。未登録の ID は `NOT_FOUND` |
+| `SignOutChatGPT(accountId)` | string | `ChatGPTSignOutResult` | 指定した ChatGPT アカウントだけ、OpenAI 側のセッションを失効させてから、そのローカルのトークンを消す（ほかのアカウントのトークンと登録は残り、このアカウントの登録も残る）。失効を確認できなくてもローカルは消え、`revocationConfirmed = false` を返す（利用者には ChatGPT の設定から連携を解除できると伝える）。使用中のアカウントをログアウトしても使用中の選択は変えず（ほかのアカウントへ黙って切り替えない。`ChatGPTAccount` は `active = true`・`signedIn = false` のまま）、そのあいだ下書きは `AI_NOT_CONFIGURED`（ログインが要る）になるので、再ログインするか `SelectChatGPTAccount` でログイン中のほかのアカウントを選ぶ。使用中の選択が外れるのは `RemoveChatGPTAccount` で使用中だった登録を忘れたときだけ。未登録の ID は `NOT_FOUND` |
 | `AckChatGPTPlanNotice(accountId)` | string | `AIConfig` | 「You're using your ChatGPT plan」の確認を済みにする（`planNoticePending` が下りる。何度呼んでも同じ。未登録の ID は `NOT_FOUND`） |
 | `RemoveChatGPTAccount(accountId)` | string | `AIConfig` | ログアウト済みの ChatGPT アカウントの登録（`client_id`・本人情報）を忘れる。ログイン中のアカウントは `VALIDATION`（先にログアウト）。未登録の ID は `NOT_FOUND` |
 | `GenerateReplyDraft(sessionId, requestId)` | string ×2 | `{ bodyHtml: string }` | 返信系セッション（`reply`／`reply_all`）のスレッドから下書きを生成する。署名・引用は含めない。`new`／`forward` は `VALIDATION` |
