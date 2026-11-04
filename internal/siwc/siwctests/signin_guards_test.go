@@ -137,10 +137,11 @@ func TestRegistrySaveFailureOnFirstLoginLeavesNoTokensAndRevokes(t *testing.T) {
 	assert.Equal(t, secretRefresh, forms[0].Get("token"))
 }
 
-// callback の client_id は資格情報ストアのキーに使うので、区切りなどを含む値は受け付けない。
-func TestClientIDWithUnsafeCharactersIsRejected(t *testing.T) {
+// callback の client_id は資格情報ストアのキーに使うので、区切り・空白・制御文字・長すぎる値は受け付けない。
+func TestClientIDThatCollidesWithKeySeparatorsIsRejected(t *testing.T) {
 	for name, bad := range map[string]string{
-		"slash": "a/b", "hash": "a#0", "space": "oaiapp x", "dotdot": "../x", "leading-dash": "-lead", "too-long": strings.Repeat("a", 129),
+		"slash": "a/b", "hash": "a#0", "backslash": `a\b`, "space": "oaiapp x", "dotdot": "../x",
+		"control": "a\x01b", "non-ascii": "oaiapp_é", "too-long": strings.Repeat("a", 129),
 	} {
 		t.Run(name, func(t *testing.T) {
 			e := newEnv(t, nil, nil)
@@ -152,6 +153,28 @@ func TestClientIDWithUnsafeCharactersIsRejected(t *testing.T) {
 			require.ErrorIs(t, err, siwc.ErrInvalidResponse)
 			assert.Empty(t, e.reg(t).Accounts)
 			assert.Empty(t, e.f.tokenFormsCopy(), "コードを交換する前に拒否する")
+		})
+	}
+}
+
+// 形式が仕様書の `oaiapp_…` と違っても、キーの区切りを含まなければログインできる（許可リストでログインを塞がない）。
+func TestClientIDOfUnexpectedButSafeFormatCanSignIn(t *testing.T) {
+	for name, id := range map[string]string{
+		"colon": "app:x", "mixed": "oaiapp_X-1.2", "at": "a@b", "leading-dash": "-lead", "max-length": strings.Repeat("a", 128),
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := newEnv(t, nil, nil)
+			e.f.mu.Lock()
+			e.f.issueQueue = []string{id}
+			e.f.mu.Unlock()
+
+			st, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
+			require.NoError(t, err)
+			require.Len(t, st.Accounts, 1)
+			assert.Equal(t, id, st.Accounts[0].ID)
+			got, err := e.sec.Get(secrets.ChatGPTTokenKey(id, "access"))
+			require.NoError(t, err)
+			assert.Equal(t, secretAccess, got)
 		})
 	}
 }

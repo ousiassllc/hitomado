@@ -72,21 +72,17 @@ func (r *registry) upsert(clientID string) *account {
 
 // maxClientIDLen は受け付ける client_id の長さの上限。
 // 仕様書（api/endpoints §6.2）は発行される client_id を `oaiapp_…` としているが、公式ドキュメントは形式を定めていない。
-// 許可する文字を広げる必要が出たら、区切り（`/`・`#`）・空白・制御文字を除く範囲で広げる。
+// 実際の形式を弾いてログインできなくならないよう、文字は許可リストではなく、キーの区切りと衝突するものだけを禁止する。
 const maxClientIDLen = 128
 
-// validClientID は client_id が資格情報ストアのキー（hitomado/chatgpt_token/<client_id>/<kind>、分割保存の `#<n>`）の
-// 一部として安全な文字だけでできているか。先頭は英数字、続きは英数字と `_`・`-`・`.`。区切り（`/`・`#`）や空白を含む値は使わない。
+// validClientID は client_id を資格情報ストアのキー（hitomado/chatgpt_token/<client_id>/<kind>、分割保存の `#<n>`）の
+// 一部に使ってよいか。空・長すぎる値、キーの区切り（`/`・`#`・`\`）、空白・制御文字、ASCII 以外を含む値は使わない。
 func validClientID(id string) bool {
 	if id == "" || len(id) > maxClientIDLen {
 		return false
 	}
 	for i := range len(id) {
-		c := id[i]
-		switch {
-		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
-		case i > 0 && (c == '_' || c == '-' || c == '.'):
-		default:
+		if c := id[i]; c <= ' ' || c >= 0x7f || c == '/' || c == '#' || c == '\\' {
 			return false
 		}
 	}
