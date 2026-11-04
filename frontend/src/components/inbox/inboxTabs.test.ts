@@ -12,13 +12,13 @@ import {
   responses,
   restoreMocks,
   thread,
-} from './inboxKit'
+} from '../../../test/inboxKit'
 
 installMocks()
 afterAll(restoreMocks)
 
-const { useInboxStore } = await import('../src/stores/inbox')
-const { default: InboxTabs } = await import('../src/components/inbox/InboxTabs.vue')
+const { useInboxStore } = await import('../../stores/inbox')
+const { default: InboxTabs } = await import('./InboxTabs.vue')
 
 beforeEach(resetKit)
 
@@ -125,6 +125,17 @@ describe('InboxTabs', () => {
     const w = mount(InboxTabs, { props: { modelValue: 'all' } })
     await w.get('[data-testid="inbox-tab-new"]').trigger('keydown', { key: 'Enter' })
     expect(w.emitted('update:modelValue')?.at(-1)).toEqual(['new'])
+    w.unmount()
+  })
+})
+
+describe('InboxTabs の aria-controls', () => {
+  test('tabpanel が無いので、存在しない id を指す aria-controls を付けない', () => {
+    const w = mount(InboxTabs, { props: { modelValue: 'all' }, attachTo: document.body })
+    for (const t of w.findAll('[role="tab"]')) {
+      const id = t.attributes('aria-controls')
+      if (id) expect(document.getElementById(id)).not.toBeNull()
+    }
     w.unmount()
   })
 })
