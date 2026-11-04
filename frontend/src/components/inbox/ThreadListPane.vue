@@ -79,7 +79,7 @@ async function toggleLabel(labelId: string): Promise<void> {
     <ListToolbar
       :selected-count="targets.length"
       :refreshing="inbox.refreshing"
-      :search-query="inbox.mode === 'search' ? inbox.searchQuery : undefined"
+      :searching="inbox.mode === 'search'"
       :compact="layout.isStack"
       :label-enabled="labelEnabled"
       :labels="labelItems"

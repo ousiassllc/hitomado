@@ -117,6 +117,7 @@ describe('ComposePane', () => {
   test('Ctrl+Enter の案内は常時テキストにせず、送信ボタンのツールチップに出す', async () => {
     const { w } = await mountPane(newSession('a1'))
     expect(w.text()).not.toContain('Ctrl+Enter')
+    expect(document.body.querySelector('.tip-pop')).toBeNull()
     const send = w.findAll('button').find((b) => b.text() === '送信')
     await send?.trigger('focus')
     await flushPromises()
