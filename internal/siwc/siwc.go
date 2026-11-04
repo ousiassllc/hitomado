@@ -14,6 +14,7 @@ package siwc
 import (
 	"context"
 	"errors"
+	"fmt"
 )
 
 // ログイン・更新・ログアウトのエラー分類。errors.Is で判定できる形で返す。メッセージにトークン・応答本文は含まない。
@@ -35,6 +36,9 @@ var (
 	ErrBusy = errors.New("siwc: 別のログインが進行中です")
 	// ErrAccountMismatch は選んだ登録と別の ChatGPT アカウントでログインされたこと（保存しない）。
 	ErrAccountMismatch = errors.New("siwc: 選んだ登録とは別の ChatGPT アカウントです")
+	// ErrClientIDCollision は新しい登録で発行された client_id が、別のアカウントの既存の登録と同じだったこと（保存しない）。
+	// ErrAccountMismatch でもある（errors.Is）。選んだ登録が無いので、利用者の操作で直る誤りではない。
+	ErrClientIDCollision = fmt.Errorf("%w（発行された登録が既存の登録と重なりました）", ErrAccountMismatch)
 	// ErrUnknownAccount は保存されていない ChatGPT アカウントを指定したこと。
 	ErrUnknownAccount = errors.New("siwc: 登録されていない ChatGPT アカウントです")
 	// ErrAccountInUse はログイン中のアカウントの登録は忘れられないこと（先にログアウトする）。

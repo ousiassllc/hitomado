@@ -4,8 +4,8 @@ import { settings as msg } from '../../../lib/messages'
 import BaseButton from '../../ui/BaseButton.vue'
 
 // ChatGPT アカウント 1 件の行（使うアカウントの選択・ログアウト・再ログイン・登録の削除）。状態は持たず、操作は親へ伝える。
-// busy は何かの操作の途中（ボタンを押せない）、switching は切り替えの途中（ラジオは押せるままにしてフォーカスを保つ）。
-defineProps<{ account: ChatGPTAccount; label: string; busy: boolean; switching: boolean; loggingOut: boolean }>()
+// busy は何かの操作の途中（ボタンを押せない）、radioDisabled はラジオを押せない状態（切り替えの途中は押せるままにしてフォーカスを保つ）。
+defineProps<{ account: ChatGPTAccount; label: string; busy: boolean; radioDisabled: boolean; loggingOut: boolean }>()
 defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
 </script>
 
@@ -18,7 +18,7 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
         :value="account.id"
         :checked="account.active"
         :aria-label="msg.ai.chatgpt.select(label)"
-        :disabled="busy && !switching"
+        :disabled="radioDisabled"
         @change="$emit('select')"
       />
       <span class="who">{{ label }}</span>

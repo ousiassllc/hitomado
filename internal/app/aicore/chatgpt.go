@@ -117,6 +117,8 @@ func mapChatGPTError(err error) error {
 		return apperr.Wrap(apperr.OAuthTimeout, "ChatGPT のログインが時間内に完了しませんでした。", err)
 	case errors.Is(err, siwc.ErrBusy):
 		return apperr.Wrap(apperr.Validation, "別の ChatGPT ログインが進行中です。", err)
+	case errors.Is(err, siwc.ErrClientIDCollision): // ErrAccountMismatch より先に判定する
+		return apperr.Wrap(apperr.Validation, "OpenAI が発行した登録が、別の ChatGPT アカウントの既存の登録と重なったため、保存しませんでした。しばらくしてからもう一度お試しください。", err)
 	case errors.Is(err, siwc.ErrAccountMismatch):
 		return apperr.Wrap(apperr.Validation, "選んだ登録とは別の ChatGPT アカウントでログインされました。同じアカウントでログインするか、「アカウントを追加」から別の登録として追加してください。", err)
 	case errors.Is(err, siwc.ErrUnknownAccount):

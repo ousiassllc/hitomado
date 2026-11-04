@@ -61,7 +61,10 @@ func (f *Fake) status() siwc.Status {
 			ID: a.ID, Email: a.Email, SignedIn: a.SignedIn, Active: active, PlanNoticePending: a.NoticePending,
 		})
 		if active {
-			st.SignedIn, st.Email = a.SignedIn, a.Email
+			st.SignedIn = a.SignedIn
+			if a.SignedIn {
+				st.Email = a.Email // 実装（Manager.Status）と同じ: ログアウト済みの使用中アカウントのメールは返さない
+			}
 		}
 	}
 	return st

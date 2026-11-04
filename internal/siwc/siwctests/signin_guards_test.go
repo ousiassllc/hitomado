@@ -5,7 +5,9 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,38 +16,41 @@ import (
 	"github.com/ousiassllc/hitomado/internal/siwc"
 )
 
-// failingSettings は、あとから数えて n 回目の SetSetting を失敗させる Settings。
-type failingSettings struct {
+// hookSettings は SetSetting を差し込みで制御する Settings。
+//   - armOnBrowser を立てると、次に認可 URL を開いたあと（ホスト ID の保存より後）の書き込みをすべて失敗させる。
+//   - onWrite: 書き込む値を見て、書き込みの直前に呼ばれる（regMu を持った状態で呼ばれる）。
+type hookSettings struct {
 	siwc.Settings
-	mu     sync.Mutex
-	failOn int // 0 なら失敗させない。1 なら次の書き込みを失敗させる
+	armOnBrowser atomic.Bool
+	failing      atomic.Bool
+	onWrite      func(value string)
 }
 
-func (s *failingSettings) failNthWrite(n int) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.failOn = n
-}
-
-func (s *failingSettings) SetSetting(ctx context.Context, key, value string) error {
-	s.mu.Lock()
-	fail := false
-	if s.failOn > 0 {
-		s.failOn--
-		fail = s.failOn == 0
-	}
-	s.mu.Unlock()
-	if fail {
+func (s *hookSettings) SetSetting(ctx context.Context, key, value string) error {
+	if s.failing.Load() {
 		return errors.New("disk full")
+	}
+	if s.onWrite != nil {
+		s.onWrite(value)
 	}
 	return s.Settings.SetSetting(ctx, key, value)
 }
 
-func newFailingEnv(t *testing.T) (*env, *failingSettings) {
+// newHookEnv は hookSettings を使う env。
+func newHookEnv(t *testing.T) (*env, *hookSettings) {
 	t.Helper()
-	fs := &failingSettings{}
-	e := newEnv(t, nil, func(o *siwc.Options) { fs.Settings, o.Settings = o.Settings, fs })
-	return e, fs
+	hs := &hookSettings{}
+	e := newEnv(t, nil, func(o *siwc.Options) {
+		hs.Settings, o.Settings = o.Settings, hs
+		open := o.OpenBrowser
+		o.OpenBrowser = func(u string) error {
+			if hs.armOnBrowser.Load() {
+				hs.failing.Store(true)
+			}
+			return open(u)
+		}
+	})
+	return e, hs
 }
 
 // 新規登録のコールバックが既存の登録と同じ client_id を返しても、sub が違えば既存の登録・トークンを上書きしない。
@@ -61,7 +66,8 @@ func TestNewRegistrationCollidingWithAnExistingClientIDOfAnotherSubjectIsRejecte
 	e.f.mu.Unlock() // 動的登録の発行は issuedClient のまま（既存と衝突する）
 
 	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
-	require.ErrorIs(t, err, siwc.ErrAccountMismatch)
+	require.ErrorIs(t, err, siwc.ErrClientIDCollision)
+	assert.ErrorIs(t, err, siwc.ErrAccountMismatch)
 
 	assert.Equal(t, before, e.reg(t), "登録（sub・メール・使用中）は変わらない")
 	for kind, want := range map[string]string{"access": secretAccess, "refresh": secretRefresh} {
@@ -88,14 +94,14 @@ func TestNewRegistrationCollidingWithAnExistingClientIDOfTheSameSubjectKeepsOneR
 
 // 登録の保存に失敗しても、再ログイン前から有効だったセッションのトークンは消えず、今回得たトークンだけを失効させる。
 func TestRegistrySaveFailureOnReloginKeepsThePreviousSession(t *testing.T) {
-	e, fs := newFailingEnv(t)
+	e, hs := newHookEnv(t)
 	e.signIn(t)
 	e.f.mu.Lock()
 	e.f.accessToken = secondAccess
 	e.f.codeRefreshSuffix = "-new"
 	e.f.mu.Unlock()
 
-	fs.failNthWrite(2) // 1 回目はホスト ID の確認、2 回目が ID トークン検証後の登録の保存
+	hs.armOnBrowser.Store(true) // 認可画面を開いたあとの書き込み（ID トークン検証後の登録の保存）を失敗させる
 	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{AccountID: issuedClient})
 	require.ErrorIs(t, err, siwc.ErrFailed)
 
@@ -117,8 +123,8 @@ func TestRegistrySaveFailureOnReloginKeepsThePreviousSession(t *testing.T) {
 
 // 旧セッションが無かったときは、保存したトークンを残さず、得たリフレッシュトークンを失効させる。
 func TestRegistrySaveFailureOnFirstLoginLeavesNoTokensAndRevokes(t *testing.T) {
-	e, fs := newFailingEnv(t)
-	fs.failNthWrite(2)
+	e, hs := newHookEnv(t)
+	hs.armOnBrowser.Store(true)
 	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
 	require.ErrorIs(t, err, siwc.ErrFailed)
 
@@ -133,8 +139,10 @@ func TestRegistrySaveFailureOnFirstLoginLeavesNoTokensAndRevokes(t *testing.T) {
 
 // callback の client_id は資格情報ストアのキーに使うので、区切りなどを含む値は受け付けない。
 func TestClientIDWithUnsafeCharactersIsRejected(t *testing.T) {
-	for _, bad := range []string{"a/b", "a#0", "oaiapp x", "../x", "-lead", strings.Repeat("a", 129)} {
-		t.Run(bad, func(t *testing.T) {
+	for name, bad := range map[string]string{
+		"slash": "a/b", "hash": "a#0", "space": "oaiapp x", "dotdot": "../x", "leading-dash": "-lead", "too-long": strings.Repeat("a", 129),
+	} {
+		t.Run(name, func(t *testing.T) {
 			e := newEnv(t, nil, nil)
 			e.f.mu.Lock()
 			e.f.issueQueue = []string{bad}
@@ -212,4 +220,46 @@ func TestConcurrentRegistryAccessDoesNotLoseUpdates(t *testing.T) {
 	assert.Equal(t, "done", reg.Accounts[0].PlanNotice)
 	assert.Equal(t, "done", reg.Accounts[1].PlanNotice, "並行したログインの保存で確認の記録が消えない")
 	assert.Equal(t, "pending", reg.Accounts[2].PlanNotice)
+}
+
+// ログインの登録の保存（読み込み→書き込み）の最中に別の更新が来ても、regMu で待たされ、古い登録で上書きして失われない。
+// regMu が無ければ、書き込みの直前に走らせた確認の記録が、そのあとの古い登録の書き戻しで消える。
+func TestRegistryWriteSerializesWithConcurrentUpdates(t *testing.T) {
+	e, hs := newHookEnv(t)
+	e.signIn(t)
+	e.f.mu.Lock()
+	e.f.subject = "sub-account-b"
+	e.f.issueQueue = []string{secondClient}
+	e.f.mu.Unlock()
+
+	var once sync.Once
+	acked := make(chan struct{})
+	hs.onWrite = func(value string) {
+		if !strings.Contains(value, secondClient) {
+			return
+		}
+		once.Do(func() {
+			go func() {
+				assert.NoError(t, e.m.AckPlanNotice(context.Background(), issuedClient))
+				close(acked)
+			}()
+			select {
+			case <-acked: // regMu が無いとここで先に書き込みが終わる
+			case <-time.After(200 * time.Millisecond): // regMu があれば、この書き込みが終わるまで待たされる
+			}
+		})
+	}
+	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
+	require.NoError(t, err)
+	select {
+	case <-acked:
+	case <-time.After(5 * time.Second):
+		t.Fatal("確認の記録が完了しない")
+	}
+
+	reg := e.reg(t)
+	require.Len(t, reg.Accounts, 2)
+	assert.Equal(t, "done", reg.Accounts[0].PlanNotice, "ログインの保存で、並行した確認の記録が失われない")
+	assert.Equal(t, "pending", reg.Accounts[1].PlanNotice)
+	assert.Equal(t, secondClient, reg.Active)
 }

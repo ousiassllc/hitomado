@@ -147,7 +147,7 @@ async function remove(a: ChatGPTAccount): Promise<void> {
           :account="a"
           :label="label(a)"
           :busy="busy !== undefined"
-          :switching="busy === 'select'"
+          :radio-disabled="busy !== undefined && busy !== 'select'"
           :logging-out="busy === 'logout' && busyId === a.id"
           @select="select(a)"
           @logout="logout(a)"

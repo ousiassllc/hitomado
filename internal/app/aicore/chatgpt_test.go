@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 
@@ -101,6 +102,7 @@ func TestChatGPTSignInErrorsAreMappedWithoutDetails(t *testing.T) {
 		{siwc.ErrTimeout, "OAUTH_TIMEOUT"},
 		{siwc.ErrBusy, "VALIDATION"},
 		{siwc.ErrAccountMismatch, "VALIDATION"},
+		{siwc.ErrClientIDCollision, "VALIDATION"},
 		{siwc.ErrUnknownAccount, "NOT_FOUND"},
 		{siwc.ErrAccountInUse, "VALIDATION"},
 		{siwc.ErrInvalidResponse, "AI_FAILED"},
@@ -116,6 +118,7 @@ func TestChatGPTSignInErrorsAreMappedWithoutDetails(t *testing.T) {
 		b, merr := json.Marshal(ae)
 		require.NoError(t, merr)
 		assert.NotContains(t, string(b), chatgptToken)
+		assert.False(t, errors.Is(c.err, siwc.ErrClientIDCollision) && strings.Contains(ae.Message, "アカウントを追加"), "選んだ登録が無い衝突に、アカウントの追加を案内しない")
 	}
 }
 

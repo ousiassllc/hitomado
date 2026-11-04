@@ -109,7 +109,7 @@ describe('AISettings モデル一覧（#76）', () => {
   })
 })
 
-describe('AISettings ChatGPT でログイン（#75）', () => {
+describe('AISettings Continue with ChatGPT（#75）', () => {
   test('API キー・Base URL の欄を出さず、ログインを案内する。未ログインは Continue with ChatGPT', () => {
     const { pinia } = setup({ provider: 'chatgpt', hasApiKey: false })
     const w = mountAI(pinia)

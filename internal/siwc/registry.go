@@ -71,6 +71,8 @@ func (r *registry) upsert(clientID string) *account {
 }
 
 // maxClientIDLen は受け付ける client_id の長さの上限。
+// 仕様書（api/endpoints §6.2）は発行される client_id を `oaiapp_…` としているが、公式ドキュメントは形式を定めていない。
+// 許可する文字を広げる必要が出たら、区切り（`/`・`#`）・空白・制御文字を除く範囲で広げる。
 const maxClientIDLen = 128
 
 // validClientID は client_id が資格情報ストアのキー（hitomado/chatgpt_token/<client_id>/<kind>、分割保存の `#<n>`）の

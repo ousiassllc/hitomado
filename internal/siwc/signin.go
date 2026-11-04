@@ -206,7 +206,8 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 	ctx = context.WithoutCancel(ctx)
 
 	// 新規登録で発行された client_id が保存済みの登録と同じなら、同じアカウント（sub）であること。
-	// 異なるアカウントの登録・トークンを、sub を照合せずに上書きしない。
+	// 異なるアカウントの登録・トークンを、sub を照合せずに上書きしない。sub が未記録の登録（旧形式の移行直後など）は
+	// 照合できないので、ここでは止めない。
 	if target.ClientID == "" {
 		reg, err := m.loadRegistry(ctx)
 		if err != nil {
@@ -214,7 +215,7 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 		}
 		if ex := reg.find(clientID); ex != nil && ex.Subject != "" && ex.Subject != idt.Subject {
 			m.revokeQuietly(ctx, clientID, tr.RefreshToken)
-			return Status{}, ErrAccountMismatch
+			return Status{}, ErrClientIDCollision
 		}
 	}
 
@@ -254,7 +255,8 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 }
 
 // restoreTokens はアカウントのトークンを prev（ログイン前の値。無ければ空）に戻す（refreshMu を持って呼ぶ）。
-// 戻せなかったときは、新旧が混ざったトークンを残さないよう消す。
+// 戻せなかったときは、新旧が混ざったトークンを残さないよう消す。戻した旧トークンが OpenAI 側でまだ有効かは分からない
+// （無効なら次の更新で ErrReauthRequired になり、再ログインを案内する）。ログにトークンの値は出さない。
 func (m *Manager) restoreTokens(clientID string, prev tokens) {
 	if prev.Refresh != "" {
 		if err := m.saveTokens(clientID, prev); err == nil {
@@ -262,7 +264,9 @@ func (m *Manager) restoreTokens(clientID string, prev tokens) {
 		}
 		m.opts.Logger.Warn("chatgpt: could not restore the previous session tokens")
 	}
-	_ = m.clearTokens(clientID)
+	if err := m.clearTokens(clientID); err != nil {
+		m.opts.Logger.Warn("chatgpt: could not clear the tokens of a login that was not saved")
+	}
 }
 
 // declinePlan は ChatGPT プランの利用が許可されなかったログインの後始末をして ErrPlanNotGranted を返す（refreshMu を持って呼ぶ）。
