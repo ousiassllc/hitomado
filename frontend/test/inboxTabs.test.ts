@@ -128,3 +128,14 @@ describe('InboxTabs', () => {
     w.unmount()
   })
 })
+
+describe('InboxTabs の aria-controls', () => {
+  test('tabpanel が無いので、存在しない id を指す aria-controls を付けない', () => {
+    const w = mount(InboxTabs, { props: { modelValue: 'all' }, attachTo: document.body })
+    for (const t of w.findAll('[role="tab"]')) {
+      const id = t.attributes('aria-controls')
+      if (id) expect(document.getElementById(id)).not.toBeNull()
+    }
+    w.unmount()
+  })
+})
