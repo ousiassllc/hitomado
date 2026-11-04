@@ -99,4 +99,21 @@ describe('deriveBanners', () => {
     r[0].action?.run()
     expect(reconnected).toEqual(['a1'])
   })
+
+  test('権限（スコープ）不足の要再接続は Go のメッセージを出し、操作は再接続のまま', () => {
+    const scope = 'Gmail の権限（スコープ）が足りません。再接続して、すべての権限を許可してください'
+    const reconnected: string[] = []
+    const r = deriveBanners({
+      ...base,
+      statuses: { a1: 'needs_reauth' },
+      statusMessages: { a1: scope },
+      reconnect: (id) => reconnected.push(id),
+    })
+    expect(r).toHaveLength(1)
+    expect(r[0].message).toContain(scope)
+    expect(r[0].message).not.toContain('接続が切れました')
+    expect(r[0].action?.label).toBe('再接続')
+    r[0].action?.run()
+    expect(reconnected).toEqual(['a1'])
+  })
 })

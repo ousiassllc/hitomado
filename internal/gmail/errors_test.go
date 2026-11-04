@@ -22,6 +22,9 @@ import (
 
 const secretBody = "SECRET-BODY-should-never-leak"
 
+// Google のエラー message に混ざり得るトークン風のダミー値。伏せ字処理で消えること。
+const leakedToken = "ya29.DUMMY-access-token_0123456789abcdef" //nolint:gosec // 漏えい検査用のダミー値
+
 func profileOK() map[string]any {
 	return map[string]any{"emailAddress": "a@example.com", "historyId": "7"}
 }
@@ -99,7 +102,7 @@ func TestUnauthorizedRefreshesTokenOnceThenNeedsReauth(t *testing.T) {
 	var calls atomic.Int32
 	e.f.Handle("GET "+apiBase+"/profile", func(w http.ResponseWriter, _ *http.Request) {
 		if calls.Add(1) == 1 {
-			writeJSON(w, 401, apiError(401, "authError", secretBody))
+			writeJSON(w, 401, apiError(401, "authError", leakedToken))
 			return
 		}
 		writeJSON(w, 200, profileOK())
@@ -108,19 +111,19 @@ func TestUnauthorizedRefreshesTokenOnceThenNeedsReauth(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 2, e.f.TokenRequests(), "401 のあとアクセストークンを取り直す")
 
-	e.f.HandleJSON("GET "+apiBase+"/profile", 401, apiError(401, "authError", secretBody))
+	e.f.HandleJSON("GET "+apiBase+"/profile", 401, apiError(401, "authError", leakedToken))
 	_, err = e.c.Profile(context.Background(), testAccount)
 	require.ErrorIs(t, err, ErrNeedsReauth)
-	assert.NotContains(t, err.Error(), secretBody)
+	assert.NotContains(t, err.Error(), leakedToken)
 }
 
 func TestRateLimitBackoffGrowsThenGivesUp(t *testing.T) {
 	e := newTestEnv(t)
-	e.f.HandleJSON("GET "+apiBase+"/profile", 429, apiError(429, "rateLimitExceeded", secretBody))
+	e.f.HandleJSON("GET "+apiBase+"/profile", 429, apiError(429, "rateLimitExceeded", leakedToken))
 
 	_, err := e.c.Profile(context.Background(), testAccount)
 	require.ErrorIs(t, err, ErrRateLimited)
-	assert.NotContains(t, err.Error(), secretBody)
+	assert.NotContains(t, err.Error(), leakedToken)
 	assert.Equal(t, []time.Duration{
 		time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second, 32 * time.Second,
 	}, e.sleeper.recorded())
@@ -145,7 +148,7 @@ func TestRateLimitRecoversAfterRetry(t *testing.T) {
 
 func TestForbiddenWithoutRateLimitReasonIsGeneric(t *testing.T) {
 	e := newTestEnv(t)
-	e.f.HandleJSON("GET "+apiBase+"/profile", 403, apiError(403, "insufficientPermissions", "no"))
+	e.f.HandleJSON("GET "+apiBase+"/profile", 403, apiError(403, "forbidden", "no"))
 	_, err := e.c.Profile(context.Background(), testAccount)
 	require.ErrorIs(t, err, ErrGeneric)
 	assert.Empty(t, e.sleeper.recorded())
@@ -154,10 +157,10 @@ func TestForbiddenWithoutRateLimitReasonIsGeneric(t *testing.T) {
 
 func TestServerErrorRetriesThenGeneric(t *testing.T) {
 	e := newTestEnv(t)
-	e.f.HandleJSON("GET "+apiBase+"/profile", 503, apiError(503, "backendError", secretBody))
+	e.f.HandleJSON("GET "+apiBase+"/profile", 503, apiError(503, "backendError", leakedToken))
 	_, err := e.c.Profile(context.Background(), testAccount)
 	require.ErrorIs(t, err, ErrGeneric)
-	assert.NotContains(t, err.Error(), secretBody)
+	assert.NotContains(t, err.Error(), leakedToken)
 	assert.Len(t, e.sleeper.recorded(), maxRetries)
 }
 

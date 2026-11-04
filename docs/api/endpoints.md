@@ -47,8 +47,8 @@ type AppError = {
 | `OFFLINE` | ネットワーク不通 | true | Gmail／AI／GitHub 呼び出し |
 | `RATE_LIMITED` | 429（バックオフで解消せず） | true | Gmail／AI |
 | `OAUTH_CLIENT_REJECTED` | OAuth クライアントの資格情報が Google に拒否された（`invalid_client`／`unauthorized_client`／トークン更新・認可コード交換の 401）。Client ID／Secret の設定を確認する | false | Gmail 呼び出し, StartAddAccount, Reconnect |
-| `GMAIL_ERROR` | Gmail API のその他のエラー | 状況による | Gmail 呼び出し |
-| `NEEDS_REAUTH` | トークン失効（`invalid_grant`）。当該アカウントを「要再接続」にする | false | Gmail 呼び出し |
+| `GMAIL_ERROR` | Gmail API のその他のエラー。`message` に HTTP ステータスと Google が返した reason（`forbidden` など。文字種を制限したもの）を添える。Google Cloud のプロジェクトで Gmail API が無効（reason が `SERVICE_DISABLED`／`accessNotConfigured`）のときは、有効にする案内の固定文言にし、`details.reason = "gmail_api_disabled"` を持つ | 状況による | Gmail 呼び出し |
+| `NEEDS_REAUTH` | トークン失効（`invalid_grant`）、認証切れ（401。アクセストークンを取り直して 1 回再試行しても 401）、権限（スコープ）不足（403 で reason が `ACCESS_TOKEN_SCOPE_INSUFFICIENT`／`insufficientPermissions`）。当該アカウントを「要再接続」にする。権限不足のときは、再接続して権限を許可し直す案内の固定文言にし、`details.reason = "scope_insufficient"` を持つ | false | Gmail 呼び出し |
 | `ACCOUNT_DUPLICATE` | 同じアドレスのアカウントが登録済み | false | StartAddAccount |
 | `OAUTH_CLIENT_IN_USE` | OAuth クライアントを使うアカウントが存在する | false | DeleteOAuthClient |
 | `OAUTH_CANCELLED` | 利用者が認可をキャンセルした | false | StartAddAccount |
@@ -505,6 +505,8 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 - `invalid_grant` は `NEEDS_REAUTH` に変換し、`accounts.status = 'needs_reauth'` を更新して `account:status` を発行する
 - `invalid_client`／`unauthorized_client`／トークン更新の 401 は `OAUTH_CLIENT_REJECTED` に変換する。同期では `needs_reauth` と同様に自動再試行を止め、`message` に「OAuth クライアントの設定（Client ID／Secret）を確認してください」を載せる（設定を直したあと `Reconnect` で再開する）
 - ネットワーク不通は `OFFLINE` に変換する。取得済みのキャッシュ表示は維持する
+- Gmail API がエラー応答を返したときは、Google の応答（`error.status`、`error.message`、`error.errors[].reason`、`error.details[].reason`、`error.details[].metadata` のうち `service`／`consumer`／`containerInfo`／`activationUrl`）を解析し、reason をエラー文言とログ（「Gmail API がエラーを返しました」。`op`／`status`／`api_status`／`reasons`／`api_message`／`api_metadata`）に含める。すべての Gmail 呼び出しが共通のエラー処理を通るので、`users.getProfile` 以外も同じに扱う。同期の周期失敗のログ（`sync cycle failed`）にも reason が入る。`message` は先頭 4096 バイトだけを使い、制御文字（改行を含む）を空白に置き換えてトークン・メールアドレスを伏せ（`logging.Scrub`）、300 文字に切り詰める。reason・`error.status` は英数字と `_.-` のみ・64 文字以内のものだけを載せ、reason は 8 件まで。本文が 64KiB を超える応答は JSON として解析せず、`googleapi.Error` が解析済みの `errors[].reason` だけを使う。JSON でない応答（プロキシの HTML など）は先頭の一部だけを使う。利用者に表示する `AppError.message` には Google の `message` 本文を載せない（HTTP ステータスと reason だけ）
+- 403 で reason が `SERVICE_DISABLED`／`accessNotConfigured` のときは `GMAIL_ERROR`（同期では `error` 状態でメッセージ「Google Cloud のプロジェクトで Gmail API が有効になっていません。有効にしてください」。有効にすれば次の周期で回復する）、`ACCESS_TOKEN_SCOPE_INSUFFICIENT`／`insufficientPermissions` のときは `NEEDS_REAUTH`（同期では `needs_reauth` で「Gmail の権限（スコープ）が足りません。再接続して、すべての権限を許可してください」。再試行しない）に変換する。401 は従来どおり 1 回だけトークンを取り直して再試行し、それでも 401 なら `NEEDS_REAUTH`
 
 ## 改訂履歴
 
@@ -534,3 +536,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.21 | 2026-11-03 | `NotifyService`（§7.4。通知の許可・OS の通知設定・通知のタップで開くスレッド）を追加。`notify:open-thread` の契機に Android の通知のタップを追記 | Android のバックグラウンド同期と通知（#88） |
 | 1.22 | 2026-11-04 | `ChatGPTAccount`・`AIConfig.chatgptAccounts` を追加し、`SignInChatGPT`／`SignOutChatGPT` の引数を `differentAccount`（真偽値）／なしから `accountId` に変え、`SelectChatGPTAccount`／`RemoveChatGPTAccount` を追加。§6.2 に複数の ChatGPT アカウント（登録・トークンをアカウントごとに保存、選んで使う、追加は検証までほかに影響しない、ログアウトは選んだアカウントだけ）と旧形式からの移行を追記 | 複数の ChatGPT アカウント（#79） |
 | 1.23 | 2026-11-04 | `ChatGPTAccount.planNoticePending` と `AckChatGPTPlanNotice` を追加し、§6.2 に初めてのログインの確認を追記。利用枠の超過の `AI_FAILED` に `details.reason = "usage_limit_exceeded"` を付け、画面が「Manage usage」を主なアクションにした案内を出すことを明記（§1.2・§6.2） | OpenAI の UI/UX ガイドラインへの対応（#80） |
+| 1.24 | 2026-11-04 | §1.2 の `GMAIL_ERROR`／`NEEDS_REAUTH` に Gmail API の reason による振り分け（API 無効・権限不足・401）と `details.reason`（`gmail_api_disabled`／`scope_insufficient`）を追記し、Google のエラー応答の解析・ログ出力・伏せ字処理の方針を追記 | #96 |
