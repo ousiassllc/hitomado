@@ -4,8 +4,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 
+	"github.com/ousiassllc/hitomado/internal/secrets"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
@@ -132,6 +134,8 @@ func (m *Manager) updateRegistry(ctx context.Context, fn func(*registry) error) 
 // migrate は旧形式（ai.chatgpt が client_id を直接持ち、トークンが hitomado/chatgpt_token/<kind>）を
 // 複数アカウントの形（アカウントごとの client_id のキー）へ移す。移行済みなら何もしない。
 // 途中で失敗しても、再実行で同じ結果になる（新しい保存先へ書いてから登録を置き換え、旧キーを最後に消す）。
+// 旧キーの削除は、登録を新形式へ置き換えたあとの呼び出しでも、残っていれば（プロセスごとの最初の 1 回）続きをやり直す。
+// 削除に失敗しても移行したアカウントは失わず、Status・ログインは使える（次の呼び出しで削除を再試行する）。
 func (m *Manager) migrate(ctx context.Context) error {
 	if m.migrated.Load() {
 		return nil
@@ -151,13 +155,21 @@ func (m *Manager) migrate(ctx context.Context) error {
 			return fmt.Errorf("%w: 設定を解釈できません", ErrFailed)
 		}
 	}
-	if old.ClientID == "" {
-		m.migrated.Store(true)
-		return nil
+	if old.ClientID != "" {
+		if err := m.migrateLegacyAccount(ctx, old); err != nil {
+			return err
+		}
 	}
+	if err := m.dropLegacyTokens(); err == nil {
+		m.migrated.Store(true)
+	}
+	return nil
+}
 
-	var t tokens
-	if t, err = m.loadTokensAt(legacyTokenBases()); err != nil {
+// migrateLegacyAccount は旧形式の登録とトークンを、アカウント 1 件の新形式として保存する（旧キーは消さない）。
+func (m *Manager) migrateLegacyAccount(ctx context.Context, old legacyRegistration) error {
+	t, err := m.loadTokensAt(legacyTokenBases())
+	if err != nil {
 		return err
 	}
 	signedIn := t.Refresh != ""
@@ -171,22 +183,26 @@ func (m *Manager) migrate(ctx context.Context) error {
 		ConsentNeeded: old.ConsentNeeded, ExpiresAt: old.ExpiresAt,
 	}
 	if old.Subject != "" && !old.ConsentNeeded {
-		acct.PlanNotice = noticeDone // 旧版でログイン済み: 確認は出さない（初めてのログインではない）
+		acct.PlanNotice = noticeDone // 旧版で ChatGPT プランが有効になったことがある登録（ログアウト済みも含む）: 確認は出さない
 	}
 	reg := registry{HostID: old.HostID, Accounts: []account{acct}}
 	if signedIn {
 		reg.Active = old.ClientID
 	}
 	m.regMu.Lock()
-	err = m.writeRegistry(ctx, reg)
-	m.regMu.Unlock()
-	if err != nil {
-		return err
+	defer m.regMu.Unlock()
+	return m.writeRegistry(ctx, reg)
+}
+
+// dropLegacyTokens は旧キー（hitomado/chatgpt_token/<kind>）が残っていれば消す。無ければ何もしない（読むだけ）。
+// 新形式のキーには触れない。
+func (m *Manager) dropLegacyTokens() error {
+	b := legacyTokenBases()
+	for _, k := range []string{b.refresh, b.access, b.id} {
+		if _, err := m.opts.Secrets.Get(k); !errors.Is(err, secrets.ErrNotFound) {
+			return m.clearTokensAt(b) // 残っている（読めない場合も、削除を試す）
+		}
 	}
-	if err := m.clearTokensAt(legacyTokenBases()); err != nil {
-		return err
-	}
-	m.migrated.Store(true)
 	return nil
 }
 

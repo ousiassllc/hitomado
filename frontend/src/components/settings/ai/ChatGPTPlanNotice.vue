@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import type { ChatGPTAccount } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { parseBindingError } from '../../../lib/api'
 import { settings as msg } from '../../../lib/messages'
 import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'
@@ -25,8 +24,8 @@ async function gotIt(): Promise<void> {
   dismissed.value = new Set([...dismissed.value, a.id])
   try {
     await store.ackChatGPTPlanNotice(a.id)
-  } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message || msg.ai.chatgpt.planNotice.ackFailed)
+  } catch {
+    ui.pushToast('error', msg.ai.chatgpt.planNotice.ackFailed)
   }
 }
 </script>

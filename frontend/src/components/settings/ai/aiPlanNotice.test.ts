@@ -3,7 +3,8 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import type { ChatGPTAccount } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { useSettingsStore } from '../../../stores/settings'
-import { acctA, acctB, base, chatgptCfg, setup } from './aiTestSupport'
+import { useUiStore } from '../../../stores/ui'
+import { acctA, acctB } from './aiTestSupport'
 import ChatGPTPlanNotice from './ChatGPTPlanNotice.vue'
 
 beforeEach(() => {
@@ -68,43 +69,54 @@ describe('ChatGPT プランの確認モーダル（#80）', () => {
     w.unmount()
   })
 
-  test('確認の記録に失敗しても、押したあとに出し続けない（トーストで知らせる）', async () => {
+  test('確認の記録に失敗しても、押したあとに出し続けない（記録できなかったことと次回また出ることをトーストで知らせる）', async () => {
     const { store } = mountNotice([pending(acctA)])
     store.ackChatGPTPlanNotice = async () => {
       throw { code: 'INTERNAL', message: '保存に失敗しました', retryable: false }
     }
+    const ui = useUiStore()
     await flushPromises()
     document.body
       .querySelector<HTMLButtonElement>('[data-testid="ai-chatgpt-notice-gotit"]')
       ?.click()
     await flushPromises()
     expect(dialogText()).not.toContain("You're using your ChatGPT plan")
+    expect(ui.toasts.map((t) => [t.kind, t.message])).toEqual([
+      ['error', '確認の記録に失敗しました。次回もう一度表示されます。'],
+    ])
   })
 
   test('2 つ目のアカウントを初めてログインしたときだけ、もう一度出る（1 つ目は確認済みのまま）', async () => {
-    setActivePinia(createPinia())
-    const { pinia, store } = setup(chatgptCfg([acctA]))
-    void pinia
-    const acked: string[] = []
-    store.ackChatGPTPlanNotice = async (id: string) => {
-      acked.push(id)
-      store.aiConfig = {
-        ...base,
-        ...chatgptCfg([acctA, { ...acctB, active: true, planNoticePending: false }]),
-      }
+    const { w, acked } = mountNotice([pending(acctA)])
+    const gotIt = async () => {
+      document.body
+        .querySelector<HTMLButtonElement>('[data-testid="ai-chatgpt-notice-gotit"]')
+        ?.click()
+      await flushPromises()
     }
-    const w = mount(ChatGPTPlanNotice, {
-      props: { accounts: [acctA, pending({ ...acctB, active: true })] },
-      attachTo: document.body,
-    })
+    await flushPromises()
+    expect(dialogText()).toContain('a@chatgpt.example')
+
+    // 1 つ目を確認すると閉じる。
+    await gotIt()
+    expect(acked).toEqual(['oaiapp_AAAA'])
+    expect(dialogText()).not.toContain("You're using your ChatGPT plan")
+
+    // 確認済みになった 1 つ目と、初めてログインした 2 つ目。2 つ目のぶんだけが出る。
+    await w.setProps({ accounts: [acctA, pending({ ...acctB, active: true })] })
     await flushPromises()
     expect(dialogText()).toContain('b@chatgpt.example')
     expect(dialogText()).not.toContain('a@chatgpt.example')
-    document.body
-      .querySelector<HTMLButtonElement>('[data-testid="ai-chatgpt-notice-gotit"]')
-      ?.click()
+
+    await gotIt()
+    expect(acked).toEqual(['oaiapp_AAAA', 'oaiapp_BBBB'])
+    expect(dialogText()).not.toContain("You're using your ChatGPT plan")
+
+    // どちらも確認済みなら、もう出ない。
+    await w.setProps({ accounts: [acctA, { ...acctB, active: true }] })
     await flushPromises()
-    expect(acked).toEqual(['oaiapp_BBBB'])
+    expect(dialogText()).not.toContain("You're using your ChatGPT plan")
+    expect(acked).toEqual(['oaiapp_AAAA', 'oaiapp_BBBB'])
     w.unmount()
   })
 })

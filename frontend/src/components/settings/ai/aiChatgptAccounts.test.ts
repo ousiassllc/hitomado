@@ -82,6 +82,25 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     expect(w.get('[data-testid="ai-chatgpt-status"]').text()).toContain('a@chatgpt.example')
   })
 
+  test('ログアウト中の進行表示は、押した行のボタンだけに出る', async () => {
+    const { pinia, store } = setup(chatgptCfg([acctA, acctB]))
+    let finish: (revoked: boolean) => void = () => {}
+    store.signOutChatGPT = () => new Promise<boolean>((resolve) => (finish = resolve))
+    const w = mountAI(pinia)
+    const busyOf = (id: string) =>
+      w
+        .get(`[data-testid="ai-chatgpt-account-${id}"] [data-testid="ai-chatgpt-logout"]`)
+        .attributes('aria-busy')
+    await w
+      .get('[data-testid="ai-chatgpt-account-oaiapp_BBBB"] [data-testid="ai-chatgpt-logout"]')
+      .trigger('click')
+    expect(busyOf('oaiapp_BBBB')).toBe('true')
+    expect(busyOf('oaiapp_AAAA')).toBeUndefined()
+    finish(true)
+    await flushPromises()
+    expect(busyOf('oaiapp_BBBB')).toBeUndefined()
+  })
+
   test('ログアウト済みの登録は、その登録で再ログインでき、削除もできる', async () => {
     const out = { ...acctB, signedIn: false }
     const { pinia, store } = setup(chatgptCfg([acctA, out]))
@@ -150,8 +169,25 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
       }
     }
     const w = mountAI(pinia)
+    const radios = () =>
+      w.findAll('input[type="radio"]').map((r) => (r.element as HTMLInputElement).checked)
+    expect(radios()).toEqual([true, false])
     await w.findAll('input[type="radio"]')[1]?.setValue(true)
     await flushPromises()
     expect(w.get('[role="alert"]').text()).toContain('ログインが切れました')
+    // 失敗したら、押したラジオが選択されたまま残らず、使用中のアカウントに戻る。
+    expect(radios()).toEqual([true, false])
+  })
+
+  test('ラジオの名前は「<アカウント> を使う」で、一覧にも名前がある', () => {
+    const { pinia } = setup(chatgptCfg([acctA, acctB]))
+    const w = mountAI(pinia)
+    expect(w.findAll('input[type="radio"]').map((r) => r.attributes('aria-label'))).toEqual([
+      'a@chatgpt.example を使う',
+      'b@chatgpt.example を使う',
+    ])
+    expect(w.get('[data-testid="ai-chatgpt-accounts"] ul').attributes('aria-label')).toBe(
+      'ChatGPT アカウント',
+    )
   })
 })

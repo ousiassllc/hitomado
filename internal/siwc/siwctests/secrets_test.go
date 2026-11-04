@@ -245,10 +245,11 @@ func TestPlanDeclinedOnAnotherAccountKeepsTheActiveSession(t *testing.T) {
 	assert.Equal(t, subjectA, e.reg(t).first().Subject)
 }
 
-// flakySecrets は failSet が真の間、Set を失敗させる。
+// flakySecrets は failSet が真の間 Set を、failDelete が真の間 Delete を失敗させる。
 type flakySecrets struct {
 	*secrets.Memory
-	failSet atomic.Bool
+	failSet    atomic.Bool
+	failDelete atomic.Bool
 }
 
 func (f *flakySecrets) Set(key, value string) error {
@@ -256,6 +257,13 @@ func (f *flakySecrets) Set(key, value string) error {
 		return errors.New("store refuses")
 	}
 	return f.Memory.Set(key, value)
+}
+
+func (f *flakySecrets) Delete(key string) error {
+	if f.failDelete.Load() {
+		return errors.New("store refuses to delete")
+	}
+	return f.Memory.Delete(key)
 }
 
 // ログイン前の登録が無い状態で ChatGPT プランが許可されなかったときだけ、次のログインのために登録を残す。
