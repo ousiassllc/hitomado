@@ -88,6 +88,15 @@ export const compose = {
       dismiss: 'Dismiss',
     },
     openSettings: '設定を開く',
+    // AI の設定がまだ無いときに「AI で下書き」を押した場合の案内（#104）。ChatGPT のログインは設定画面の AI の流れへ進む。
+    setup: {
+      title: 'AI の下書きを使うには',
+      body: 'AI の設定がまだありません。ChatGPT のプランで、API キーなしで使えます。ChatGPT でログインして、使うモデルを選んでください。',
+      note: 'Anthropic や OpenAI 互換の API キーを使うこともできます。',
+      chatgpt: 'Continue with ChatGPT',
+      other: '別のプロバイダを選ぶ',
+      cancel: 'あとで',
+    },
     unavailableHint: '返信のみ利用できます',
     consentTitle: 'AI プロバイダへの送信に同意',
     consentBody: (provider: string, url: string) =>

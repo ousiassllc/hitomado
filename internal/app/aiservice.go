@@ -33,8 +33,8 @@ func (s *AIService) ClearAIApiKey(ctx context.Context, provider string) (dto.AIC
 	return s.core.ClearAIApiKey(ctx, provider)
 }
 
-func (s *AIService) RecordAIConsent(ctx context.Context, provider string) (dto.AIConfig, error) {
-	return s.core.RecordAIConsent(ctx, provider)
+func (s *AIService) RecordAIConsent(ctx context.Context, provider, baseURL string) (dto.AIConfig, error) {
+	return s.core.RecordAIConsent(ctx, provider, baseURL)
 }
 
 // SignInChatGPT は OpenAI の公式画面で ChatGPT にログインする（完了・中止・時間切れまでブロック）。accountId が空なら別のアカウントを追加し、指定したときはその登録で再ログインする。
@@ -65,9 +65,10 @@ func (s *AIService) RemoveChatGPTAccount(ctx context.Context, accountID string) 
 	return s.core.RemoveChatGPTAccount(ctx, accountID)
 }
 
-// ListAIModels は provider のモデル一覧を取得する。取得できないときはエラーではなく Reason つきの空の一覧を返す（手入力へ切り替える）。
-func (s *AIService) ListAIModels(ctx context.Context, provider string) (dto.AIModelList, error) {
-	return s.core.ListAIModels(ctx, provider)
+// ListAIModels は provider のモデル一覧を、渡された送信先（openai は baseURL）から取得する（保存前でも可）。
+// 取得できないときはエラーではなく Reason つきの空の一覧を返す（手入力へ切り替える）。
+func (s *AIService) ListAIModels(ctx context.Context, provider, baseURL string) (dto.AIModelList, error) {
+	return s.core.ListAIModels(ctx, provider, baseURL)
 }
 
 // GenerateReplyDraft は reply／reply_all セッションのスレッドから下書きを生成する。ctx キャンセルは CANCELLED。

@@ -10,7 +10,12 @@ function setup(over: { config?: Config; hasBody?: boolean } = {}) {
   let config: Config =
     'config' in over
       ? over.config
-      : { provider: 'anthropic', hasApiKey: true, consentedProviders: ['anthropic'] }
+      : {
+          provider: 'anthropic',
+          configured: true,
+          hasApiKey: true,
+          consentedProviders: ['anthropic'],
+        }
   const ai = useAiDraft({
     config: () => config,
     hasBody: () => over.hasBody ?? false,
@@ -30,6 +35,7 @@ function setup(over: { config?: Config; hasBody?: boolean } = {}) {
     cancel: async (id) => {
       log.push(`cancel:${id}`)
     },
+    openSetup: (c) => log.push(`setup:${c}`),
     onGenerated: (h) => generated.push(h),
     newRequestId: () => `r${gens.length + 1}`,
   })
@@ -39,10 +45,67 @@ function setup(over: { config?: Config; hasBody?: boolean } = {}) {
 // マクロタスク 1 回分、保留中の Promise 連鎖を進める（固定時間の待ちではない）
 const tick = () => new Promise<void>((r) => setTimeout(r, 0))
 
+describe('useAiDraft 初回の案内（#104）', () => {
+  const fresh: Config = {
+    provider: 'chatgpt',
+    configured: false,
+    hasApiKey: false,
+    consentedProviders: [],
+  }
+
+  test('AI の設定が未保存のとき、ボタンを押すと初回の案内になる。生成も同意の記録もしない', async () => {
+    const { ai, log } = setup({ config: fresh })
+    expect(ai.needsSetup.value).toBe(true)
+    expect(ai.needsKey.value).toBe(false) // ボタンは無効にしない（押すと案内が出る）
+    await ai.start()
+    expect(ai.step.value).toBe('setup')
+    expect(log).toEqual([])
+  })
+
+  test('「Continue with ChatGPT」は設定画面の ChatGPT の流れへ、「別のプロバイダ」はプロバイダの選択へ進む。どちらも下書きは作らない', async () => {
+    for (const choice of ['chatgpt', 'other'] as const) {
+      const { ai, log } = setup({ config: fresh })
+      await ai.start()
+      ai.answerSetup(choice)
+      expect(ai.step.value).toBe('idle')
+      expect(log).toEqual([`setup:${choice}`])
+    }
+  })
+
+  test('「あとで」は何もせず閉じる。もう一度押せば、また案内が出る', async () => {
+    const { ai, log } = setup({ config: fresh })
+    await ai.start()
+    ai.answerSetup()
+    expect(ai.step.value).toBe('idle')
+    expect(log).toEqual([])
+    await ai.start()
+    expect(ai.step.value).toBe('setup')
+  })
+
+  test('保存済みの設定（anthropic・openai・chatgpt）では案内を出さず、従来どおりの流れ', async () => {
+    for (const provider of ['anthropic', 'openai', 'chatgpt']) {
+      const { ai, log } = setup({
+        config: { provider, configured: true, hasApiKey: true, consentedProviders: [provider] },
+      })
+      expect(ai.needsSetup.value).toBe(false)
+      void ai.start() // 生成は結果が返るまで終わらない
+      await tick()
+      expect(ai.step.value).toBe('generating')
+      expect(log).toEqual(['generate:r1'])
+    }
+    // キー未設定（保存済み）は、従来どおりボタンを無効にして設定へ誘導する。
+    const { ai } = setup({
+      config: { provider: 'openai', configured: true, hasApiKey: false, consentedProviders: [] },
+    })
+    expect(ai.needsKey.value).toBe(true)
+    expect(ai.needsSetup.value).toBe(false)
+  })
+})
+
 describe('useAiDraft', () => {
   test('キー未設定では何も始めない（needsKey）', async () => {
     const { ai, log } = setup({
-      config: { provider: 'anthropic', hasApiKey: false, consentedProviders: [] },
+      config: { provider: 'anthropic', configured: true, hasApiKey: false, consentedProviders: [] },
     })
     expect(ai.needsKey.value).toBe(true)
     await ai.start()
@@ -56,7 +119,12 @@ describe('useAiDraft', () => {
 
   test('未同意なら同意ダイアログ → 同意を記録して生成する', async () => {
     const { ai, log, gens, generated } = setup({
-      config: { provider: 'openai', hasApiKey: true, consentedProviders: ['anthropic'] },
+      config: {
+        provider: 'openai',
+        configured: true,
+        hasApiKey: true,
+        consentedProviders: ['anthropic'],
+      },
     })
     await ai.start()
     expect(ai.step.value).toBe('consent')
@@ -74,7 +142,7 @@ describe('useAiDraft', () => {
 
   test('同意しなければ生成しない', async () => {
     const { ai, log } = setup({
-      config: { provider: 'openai', hasApiKey: true, consentedProviders: [] },
+      config: { provider: 'openai', configured: true, hasApiKey: true, consentedProviders: [] },
     })
     await ai.start()
     await ai.answerConsent(false)

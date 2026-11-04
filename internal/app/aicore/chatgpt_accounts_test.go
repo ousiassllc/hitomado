@@ -31,7 +31,7 @@ func TestChatGPTTwoAccountsSwitchAndGenerate(t *testing.T) {
 
 	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "")
 	require.NoError(t, err)
-	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt")
+	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt", "")
 	require.NoError(t, err)
 	gen := func(id string) {
 		t.Helper()

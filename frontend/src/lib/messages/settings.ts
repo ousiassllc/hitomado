@@ -210,6 +210,15 @@ export const settings = {
       saveBeforeUse:
         '「設定を保存」でプロバイダを ChatGPT プランに切り替えてから、モデルを選んで保存してください。',
     },
+    // プロバイダを選んだときの同意（F-08）と、同意のあとの取得。同意の画面の文言は compose.ai の consentTitle／consentBody と共通。
+    consentDialogAgree: '同意して一覧を取得する',
+    consentAsk: '同意の画面を開く',
+    consentUnknown: (provider: string) =>
+      `${provider} への送信は、選んだ送信先で未確認です。一覧を取得するときに確認します。`,
+    consentNeeded: (provider: string) =>
+      `${provider} への送信は未同意です。同意すると、使えるモデルの一覧を取得します。`,
+    baseUrlDecide:
+      'Base URL を入力して Enter（または「一覧を更新」）を押すと、その送信先への同意を確認して一覧を取得します。',
     consentAgreeNow: (dest: string) => `${dest} への送信に同意する`,
     consentAgreed: '同意しました。',
     consentHeading: '送信への同意',

@@ -2,7 +2,7 @@
 
 > 関連: [環境構築](setup.md) / [プロジェクト概要](../overview.md) / [アーキテクチャ設計](../architecture/overview.md)
 
-本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。以降の節で、Android で動かさない機能（§10・#89）、資格情報の保管（§11・#84）、`modernc.org/libc` の android/amd64 問題（§12・#83）、添付・ログの保存先（§13・#85）、Google OAuth のリダイレクト方式（§14・#86）、バックグラウンド同期と新着通知（§15・#88）、スマホ向けの画面（§16・#87）、E2E・WebView のクラッシュ対策・性能（§17・#90）を決めた。
+本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。以降の節で、Android で動かさない機能（§10・#89）、資格情報の保管（§11・#84）、`modernc.org/libc` の android/amd64 問題（§12・#83）、添付・ログの保存先（§13・#85）、Google OAuth のリダイレクト方式（§14・#86）、バックグラウンド同期と新着通知（§15・#88）、スマホ向けの画面（§16・#87）、E2E・WebView のクラッシュ対策・性能（§17・#90）、AI の既定のプロバイダと ChatGPT ログイン（§18・#104）を決めた。
 
 ## 1. 必要なもの
 
@@ -712,3 +712,22 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 - WebView を作り直したときの未保存の入力（約 3 秒分）と、Go に残る作成セッション（17.1）。
 - Activity が OS に破棄・再生成された場合（`configChanges` に含まれない変更）に、テンプレートの `onCreate` が新しい `WailsBridge` の `nativeInit` を再度呼ぶ点（Wails のテンプレートの挙動で、この Issue では変えていない）。
 - 実機での起動時間・同期時間の計測（17.5 はホストとエミュレーターのみ）。
+
+## 18. AI の既定のプロバイダと ChatGPT ログイン（#104）
+
+**Android でも Windows と同じく、AI の設定が未保存のときの既定のプロバイダを ChatGPT プランにし、「AI で下書き」の初回の案内も同じに出す**（[F-08](../requirements/functional.md)・[画面の流れ](../components/overview.md#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）。Android 専用の既定・案内は作らない。
+
+調べたこと（2026-11-04。コードの確認で、実機は使っていない）:
+
+| 項目 | 結果 |
+|------|------|
+| ChatGPT ログインの実装（`internal/siwc`） | OS ごとの分岐（ビルドタグ・`runtime.GOOS`）が無い。`127.0.0.1` の一時ポートでコールバックを受け取り（`callback.go`）、PKCE・`state` を使う。Google OAuth（§14）と同じ方式で、Android でも同じコードが動く |
+| ブラウザを開く | `run.go` が `platform.NewBrowser(wapp).Open` を渡す。Android では Intent（ACTION_VIEW）で既定のブラウザを開く（`internal/platform/open_android.go`）。`xdg-open` は使わない |
+| トークンの保管 | `secrets.Store`。Android は EncryptedSharedPreferences（§11）。ChatGPT のトークン（4096 バイトを超える JWT を含む）は §11 で往復を確認している（自動テスト） |
+| 通信先 | Windows と同じ（`auth.openai.com`・`api.openai.com`）。Android のネットワーク権限は既存の `INTERNET` で足りる |
+
+したがって、Android でも ChatGPT ログインは**コード上は使える**ので、既定も案内も Windows と同じにする。
+
+- **未確認（実機）**: 実機の Chrome などで OpenAI のログイン画面が開き、`http://127.0.0.1:<ポート>/auth/callback` へ戻って完了するか（§14.1 と同じく、本物の OpenAI と実機のブラウザは使っていない）。ブラウザが前面に出ている間にアプリのプロセスが止められたときは、ログインの待受が消えて完了できず、時間切れかキャンセルとして終わる（§14.3 と同じ理由。Google OAuth のような「途中で止められた」印と案内は、ChatGPT ログインには無い。再度「Continue with ChatGPT」を押せば最初からやり直せる。トークン・登録は完了するまで書き込まれない）。
+- **ログインできないとき**: ログインのエラーを表示し、案内の「別のプロバイダを選ぶ」（設定画面の AI タブ）で Anthropic・OpenAI 互換の API キーを使える。既定が ChatGPT でも、保存済みのプロバイダ（anthropic・openai・chatgpt）の設定は変えない。
+- Android の画面（§16）でも、初回の案内・同意の画面は同じダイアログで、1 画面ずつの幅のときは全画面で出る（`BaseDialog` の既存の動作）。

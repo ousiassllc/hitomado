@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -23,6 +24,10 @@ const (
 	providerOpenAI    = "openai"
 	providerChatGPT   = "chatgpt" // Sign in with ChatGPT（利用者自身の ChatGPT プラン。Responses API）
 )
+
+// defaultProvider は AI の設定をまだ保存していないときのプロバイダ（利用者自身の ChatGPT プラン。#104）。
+// 画面の既定もこの値に揃える（GetAIConfig の provider をそのまま使う）。保存済みのプロバイダは変えない。
+const defaultProvider = providerChatGPT
 
 // aiGenerateTimeout はプロバイダ呼び出しのタイムアウト（API §6）。
 const aiGenerateTimeout = 60 * time.Second
@@ -59,21 +64,29 @@ func validProvider(p string) bool {
 	return p == providerAnthropic || p == providerOpenAI || p == providerChatGPT
 }
 
+// loadConfig は AI 設定を返す。未保存（または保存値が壊れている・未知のプロバイダ）のときは defaultProvider の既定値。
 func (s *Service) loadConfig(ctx context.Context) (storedAIConfig, error) {
-	cfg := storedAIConfig{Provider: providerOpenAI}
+	cfg, _, err := s.loadConfigState(ctx)
+	return cfg, err
+}
+
+// loadConfigState は loadConfig に加えて、AI 設定を保存済みか（有効なプロバイダを持つ値が app_settings にあるか）を返す。
+func (s *Service) loadConfigState(ctx context.Context) (cfg storedAIConfig, saved bool, err error) {
+	cfg = storedAIConfig{Provider: defaultProvider}
 	v, ok, err := s.d.Store.GetSetting(ctx, store.SettingAIConfig)
 	if err != nil {
-		return cfg, apperr.FromInfra(err, "")
+		return cfg, false, apperr.FromInfra(err, "")
 	}
-	if ok {
-		if err := json.Unmarshal([]byte(v), &cfg); err != nil {
-			return storedAIConfig{Provider: providerOpenAI}, apperr.Wrap(apperr.Internal, "AI 設定を読み込めません。", err)
-		}
+	if !ok {
+		return cfg, false, nil
+	}
+	if err := json.Unmarshal([]byte(v), &cfg); err != nil {
+		return storedAIConfig{Provider: defaultProvider}, false, apperr.Wrap(apperr.Internal, "AI 設定を読み込めません。", err)
 	}
 	if !validProvider(cfg.Provider) {
-		cfg.Provider = providerOpenAI
+		return storedAIConfig{Provider: defaultProvider}, false, nil
 	}
-	return cfg, nil
+	return cfg, true, nil
 }
 
 // apiKey は資格情報ストアの API キー。未設定は ok=false。
@@ -89,7 +102,7 @@ func (s *Service) apiKey(provider string) (key string, ok bool, err error) {
 }
 
 func (s *Service) config(ctx context.Context) (dto.AIConfig, error) {
-	cfg, err := s.loadConfig(ctx)
+	cfg, configured, err := s.loadConfigState(ctx)
 	if err != nil {
 		return dto.AIConfig{}, err
 	}
@@ -101,15 +114,23 @@ func (s *Service) config(ctx context.Context) (dto.AIConfig, error) {
 	if err != nil {
 		return dto.AIConfig{}, err
 	}
-	has := gpt.SignedIn
-	if cfg.Provider != providerChatGPT {
-		_, has, err = s.apiKey(cfg.Provider)
+	keyed := []string{}
+	for _, p := range []string{providerAnthropic, providerOpenAI} {
+		_, ok, err := s.apiKey(p)
 		if err != nil {
 			return dto.AIConfig{}, err
 		}
+		if ok {
+			keyed = append(keyed, p)
+		}
+	}
+	has := gpt.SignedIn
+	if cfg.Provider != providerChatGPT {
+		has = slices.Contains(keyed, cfg.Provider)
 	}
 	return dto.AIConfig{
-		Provider: cfg.Provider, Model: cfg.Model, BaseURL: cfg.BaseURL, HasAPIKey: has, ConsentedProviders: consented,
+		Provider: cfg.Provider, Model: cfg.Model, BaseURL: cfg.BaseURL, Configured: configured, HasAPIKey: has,
+		APIKeyProviders: keyed, ConsentedProviders: consented,
 		ChatGPTSignedIn: gpt.SignedIn, ChatGPTEmail: gpt.Email, ChatGPTAccounts: chatGPTAccounts(gpt),
 	}, nil
 }

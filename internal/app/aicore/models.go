@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
-	"slices"
+	"strings"
 	"time"
 
 	"github.com/ousiassllc/hitomado/internal/ai"
@@ -15,32 +15,34 @@ import (
 // aiModelsTimeout はモデル一覧の取得のタイムアウト。
 const aiModelsTimeout = 20 * time.Second
 
-// ListAIModels は provider のモデル一覧を、保存済みの設定（Base URL）の送信先から取得する（#76）。
-// キーは資格情報ストアから読み、呼び出し元（フロント）には渡さない。呼ぶのは API キーの登録・変更後、Base URL の変更後、
-// 利用者が「更新」を押したときだけで、定期的には呼ばない（呼び出し側の責務）。
+// ListAIModels は provider のモデル一覧を、渡された送信先（openai は baseURL。空は既定）から取得する（#76・#105）。
+// 保存済みの設定には依らないので、設定を保存する前でも、選んだプロバイダ（と Base URL）の一覧を取得できる。
+// baseURL は openai のみ有効（それ以外のプロバイダでは無視する）。
+// キーは資格情報ストアから読み、呼び出し元（フロント）には渡さない。呼ぶのは、プロバイダ・Base URL を選んだとき、API キーの登録・変更後、
+// ChatGPT のログイン後、利用者が「更新」を押したときだけで、定期的には呼ばない（呼び出し側の責務）。
 //
 // 取得できないとき（キー未登録・同意前・不正な Base URL・Models API が無い・通信できない・権限がない）は、エラーではなく
 // Models が空で Reason と短い Message を持つ結果を返し、画面は手入力へ切り替える。
-// 同意前の送信先・使えない Base URL には、一覧の取得も送らない。ログには件数と結果だけを残す（キー・応答の中身は残さない）。
-func (s *Service) ListAIModels(ctx context.Context, provider string) (dto.AIModelList, error) {
+// 同意前の送信先（プロバイダ＋送信先ごとに判定する）・使えない Base URL には、一覧の取得も送らない（画面は consent_required を同意の画面を出す契機にする）。
+// ログには件数と結果だけを残す（キー・応答の中身は残さない）。
+func (s *Service) ListAIModels(ctx context.Context, provider, baseURL string) (dto.AIModelList, error) {
 	if !validProvider(provider) {
 		return dto.AIModelList{}, errBadProvider()
 	}
-	cfg, err := s.loadConfig(ctx)
-	if err != nil {
-		return dto.AIModelList{}, err
+	baseURL = strings.TrimSpace(baseURL)
+	if provider != providerOpenAI {
+		baseURL = ""
 	}
-	baseURL := currentBaseURL(cfg, provider)
 	if baseURL != "" {
 		if err := validateBaseURL(baseURL); err != nil {
 			return s.noModels(provider, dto.AIModelsInvalidBaseURL, "Base URL が使えないため、モデル一覧を取得できません。モデル名を入力してください。"), nil
 		}
 	}
-	consented, err := s.loadConsent(ctx, cfg)
+	consented, err := s.hasConsent(ctx, provider, baseURL)
 	if err != nil {
 		return dto.AIModelList{}, err
 	}
-	if !slices.Contains(consented, provider) {
+	if !consented {
 		return s.noModels(provider, dto.AIModelsConsentRequired, "送信先への同意前は、モデル一覧を取得しません。モデル名を入力してください。"), nil
 	}
 	cred, ok, err := s.credential(ctx, provider)

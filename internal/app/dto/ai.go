@@ -5,8 +5,12 @@ type AIConfig struct {
 	Provider string `json:"provider"` // anthropic / openai / chatgpt
 	Model    string `json:"model"`
 	BaseURL  string `json:"baseUrl,omitempty"`
+	// Configured は AI の設定（プロバイダ・モデル）を一度でも保存したか。false の間、provider は既定（chatgpt）で、画面は初めて使うときの案内を出す。
+	Configured bool `json:"configured"`
 	// HasAPIKey は現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。
-	HasAPIKey          bool     `json:"hasApiKey"`
+	HasAPIKey bool `json:"hasApiKey"`
+	// APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai。chatgpt は ChatGPTSignedIn）。保存前に選んだプロバイダのキーの有無を出すのに使う。null にしない。
+	APIKeyProviders    []string `json:"apiKeyProviders"`
 	ConsentedProviders []string `json:"consentedProviders"`
 	// ChatGPTSignedIn は選択中のプロバイダに関わらず、使用中の ChatGPT アカウントがログイン済みか。ChatGPTEmail はそのメールアドレス（表示用）。
 	ChatGPTSignedIn bool   `json:"chatgptSignedIn"`
