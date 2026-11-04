@@ -269,6 +269,7 @@ erDiagram
 | `label_id` | TEXT | NO | PK(3)。`labels.id` を論理参照（FK なし） |
 
 - 保存対象のラベル: `INBOX`、`UNREAD`、`TRASH`、`CATEGORY_*`、およびユーザー作成ラベル。その他のシステムラベル（`SENT`、`DRAFT` 等）も取得できたものはそのまま保存してよい
+- 受信箱のタブ（[バインディング仕様 §3 `ListInbox`](../api/endpoints.md#3-inboxservice)）は、スレッド内のいずれかのメッセージの `message_labels` に `CATEGORY_PERSONAL`／`CATEGORY_SOCIAL`／`CATEGORY_PROMOTIONS` があるかで絞り込む（`threads` に非正規化した列は持たない。`messages` の `(account_id, thread_id)` と `message_labels` の主キーで引く）。メインは `CATEGORY_PERSONAL` を持つ、またはどの `CATEGORY_*` も持たないスレッド。新着は `threads.is_unread`
 
 ### 3.8 contacts
 
@@ -366,3 +367,4 @@ erDiagram
 | 1.8 | 2026-11-04 | §1 の資格情報キーを `hitomado/chatgpt_token/<client_id>/<kind>`（アカウントごと）に、§3.9 の `ai.chatgpt` を `hostId`・`active`・`accounts[]` の形に変え、v0.1.7 までの 1 アカウントの形式からの移行を追記 | 複数の ChatGPT アカウント（#79） |
 | 1.9 | 2026-11-04 | §3.9 の `ai.chatgpt` の `accounts[]` に `planNotice` を追加 | 初めてのログインの確認をアカウントごとに 1 度だけ出す（#80） |
 | 1.10 | 2026-11-04 | §3.9 の `ai.chatgpt` の値の例を実装の出力（`planNotice` あり・`consentNeeded` は `true` のときだけ）に合わせ、`clientId` の文字種と、新しい登録が既存の `clientId` と衝突したときの扱いを追記 | PR #95 の minor 指摘（#79・#80） |
+| 1.11 | 2026-11-04 | §3.7 に、受信箱のタブがスレッドのカテゴリのラベルを `message_labels` から引いて絞り込む旨を追記（スキーマの変更なし） | 受信トレイのカテゴリのタブと新着タブ（#97） |

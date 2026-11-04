@@ -142,6 +142,7 @@ type ThreadPage = {
 type InboxQuery = {
   accountIds: string[];     // 空配列なら「すべて」
   unreadOnly: boolean;
+  tab?: "all" | "primary" | "social" | "promotions" | "new"; // 受信箱のタブ。省略・"all" は絞り込まない。未知の値は VALIDATION
   limit: number;            // 1〜100、既定 50
   cursor?: string;          // 前回の nextCursor
 };
@@ -156,7 +157,7 @@ type SearchQuery = {
 
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
-| `ListInbox(query)` | `InboxQuery` | `ThreadPage` | ローカル DB の `INBOX` スレッドを `last_message_at` 降順で返す（キーセットページング）。ローカルの行が尽き、かつ対象アカウントの `inbox_exhausted = 0` なら、`inbox_page_token` で Gmail から追加取得して保存し、続きを返す。絞り込み（未読のみ等）で追加取得分がすべて落ちても Gmail 側に続きがあるときは、`items` が 0 件でも `nextCursor` を返す |
+| `ListInbox(query)` | `InboxQuery` | `ThreadPage` | ローカル DB の `INBOX` スレッドを `last_message_at` 降順で返す（キーセットページング）。ローカルの行が尽き、かつ対象アカウントの `inbox_exhausted = 0` なら、`inbox_page_token` で Gmail から追加取得して保存し、続きを返す。絞り込み（未読のみ・`tab` 等）で追加取得分がすべて落ちても Gmail 側に続きがあるときは、`items` が 0 件でも `nextCursor` を返す。**`tab` の絞り込み**（F-02）: `primary` は `CATEGORY_PERSONAL` を持つ、またはどの `CATEGORY_*` も持たない `INBOX` スレッド、`social`／`promotions` は `CATEGORY_SOCIAL`／`CATEGORY_PROMOTIONS` を持つスレッド、`new` は `is_unread = 1`（`unreadOnly` と同じ。両方指定は AND）。ラベルはスレッド内のいずれかのメッセージの `message_labels`。**ローカルのキャッシュ（`threads`／`message_labels`）にだけ掛け、Gmail への追加取得は絞り込まない `INBOX` の続き（アカウントごと 1 本の `inbox_page_token`）を進める**（理由: 追加取得の経路は `threads.list(labelIds=INBOX)` のページ送りだけで、`q`／`labelIds` を変えるとタブごとにトークンと取得済みの範囲を別管理する必要があり、同期状態（`account_sync_state`）が複雑になるため。カテゴリのラベルはメッセージを取得するまで分からず、`INBOX` を取得して初めて判定できる）。カーソルは絞り込みに依存しない位置（`last_message_at`・アカウント・スレッド ID）で、タブごとに独立して辿れる。タブを切り替えたら呼び出し側がカーソルを捨てて先頭から取り直す（別のタブのカーソルを渡しても位置としては有効で、そのタブの絞り込みで続きを返す） |
 | `Refresh(accountIds)` | `string[]`（空＝全） | `{ results: { accountId: string; ok: boolean; error?: AppError }[] }` | 差分同期を今すぐ実行し完了を待つ（直近の手動更新から 5 秒未満の呼び出しは直近の結果を返す） |
 | `GetUnreadCounts()` | — | `Record<accountId, number>` | `threads` の `in_inbox = 1 AND is_unread = 1` の件数 |
 | `Search(query)` | `SearchQuery` | `ThreadPage` | 各アカウントで `threads.list(q)`＋`threads.get(metadata)` を並列実行し、`lastMessageAt` 降順に統合する。結果は DB に保存しない。カーソルはアカウントごとの `pageToken` を含む不透明文字列。クエリが空文字は `VALIDATION` |
@@ -534,3 +535,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.21 | 2026-11-03 | `NotifyService`（§7.4。通知の許可・OS の通知設定・通知のタップで開くスレッド）を追加。`notify:open-thread` の契機に Android の通知のタップを追記 | Android のバックグラウンド同期と通知（#88） |
 | 1.22 | 2026-11-04 | `ChatGPTAccount`・`AIConfig.chatgptAccounts` を追加し、`SignInChatGPT`／`SignOutChatGPT` の引数を `differentAccount`（真偽値）／なしから `accountId` に変え、`SelectChatGPTAccount`／`RemoveChatGPTAccount` を追加。§6.2 に複数の ChatGPT アカウント（登録・トークンをアカウントごとに保存、選んで使う、追加は検証までほかに影響しない、ログアウトは選んだアカウントだけ）と旧形式からの移行を追記 | 複数の ChatGPT アカウント（#79） |
 | 1.23 | 2026-11-04 | `ChatGPTAccount.planNoticePending` と `AckChatGPTPlanNotice` を追加し、§6.2 に初めてのログインの確認を追記。利用枠の超過の `AI_FAILED` に `details.reason = "usage_limit_exceeded"` を付け、画面が「Manage usage」を主なアクションにした案内を出すことを明記（§1.2・§6.2） | OpenAI の UI/UX ガイドラインへの対応（#80） |
+| 1.24 | 2026-11-04 | `InboxQuery.tab`（すべて／メイン／ソーシャル／プロモーション／新着）を追加し、`ListInbox` に絞り込みとページングの扱い（ローカルのキャッシュだけに掛ける理由、カーソルはタブごとに独立）を追記 | 受信トレイのカテゴリのタブと新着タブ（#97） |

@@ -125,10 +125,31 @@ type InboxCursor struct {
 	ThreadID      string
 }
 
+// InboxTab は受信箱のタブ（カテゴリ・新着）による絞り込み。空は「すべて」。
+type InboxTab string
+
+const (
+	InboxTabAll        InboxTab = ""
+	InboxTabPrimary    InboxTab = "primary"    // CATEGORY_PERSONAL を持つ、またはどの CATEGORY_* も持たない
+	InboxTabSocial     InboxTab = "social"     // CATEGORY_SOCIAL
+	InboxTabPromotions InboxTab = "promotions" // CATEGORY_PROMOTIONS
+	InboxTabNew        InboxTab = "new"        // UNREAD（未読のスレッドだけ）
+)
+
+// Valid は t が定義済みのタブかを返す。
+func (t InboxTab) Valid() bool {
+	switch t {
+	case InboxTabAll, InboxTabPrimary, InboxTabSocial, InboxTabPromotions, InboxTabNew:
+		return true
+	}
+	return false
+}
+
 // InboxFilter は受信箱の取得条件。
 type InboxFilter struct {
 	AccountIDs []string // 空は全アカウント
 	UnreadOnly bool
+	Tab        InboxTab     // タブによる絞り込み（UnreadOnly とは AND）
 	After      *InboxCursor // nil は先頭から
 	Limit      int
 }
