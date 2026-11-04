@@ -12,13 +12,13 @@ import {
   responses,
   restoreMocks,
   thread,
-} from './inboxKit'
+} from '../../../test/inboxKit'
 
 installMocks()
 afterAll(restoreMocks)
 
-const { useInboxStore } = await import('../src/stores/inbox')
-const { default: InboxTabs } = await import('../src/components/inbox/InboxTabs.vue')
+const { useInboxStore } = await import('../../stores/inbox')
+const { default: InboxTabs } = await import('./InboxTabs.vue')
 
 beforeEach(resetKit)
 
