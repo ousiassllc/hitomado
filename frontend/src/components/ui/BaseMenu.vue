@@ -26,7 +26,7 @@ const emit = defineEmits<{ select: [key: string] }>()
       <slot name="trigger" />
     </DropdownMenuTrigger>
     <DropdownMenuPortal>
-      <DropdownMenuContent class="menu" :side-offset="4" align="end">
+      <DropdownMenuContent class="menu-pop" :side-offset="4" align="end">
         <DropdownMenuItem
           v-for="item in items"
           :key="item.key"
@@ -44,7 +44,8 @@ const emit = defineEmits<{ select: [key: string] }>()
 </template>
 
 <style scoped>
-.menu {
+/* Popper 本体には scoped 属性が付かない（BaseSelect.vue の .sel-pop と同じ）ので :global で当てる。 */
+:global(.menu-pop) {
   min-width: 160px;
   max-height: 320px;
   overflow: auto;

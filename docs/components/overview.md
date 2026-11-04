@@ -240,6 +240,8 @@ graph TD
 | `BaseChip` | 小さなラベル | 色トークンを受け取る |
 | `Spinner` | 読み込み表示 | `prefers-reduced-motion` 対応 |
 
+> **ポップアップ本体のスタイル（`BaseMenu`／`BaseSelect`／`BaseTooltip`）**: Reka UI の Popper は、親の scoped 属性（`data-v-*`）を外側のラッパーに付け、`class` を付けた本体には付けない。本体（`.menu-pop`／`.sel-pop`／`.tip-pop`）の CSS は `:global(...)` で書く。scoped のままだと `z-index`・背景・枠が効かず、`BaseDialog`（z-index 101）の中で一覧が背面に隠れる（#98）。回帰テストは `frontend/test/popperStyles.test.ts`。
+
 ### 3.4 アカウント・共通（`components/account`、`components/shell`）
 
 | コンポーネント | 責務 | Props／Emits | バインディング／ストア |
