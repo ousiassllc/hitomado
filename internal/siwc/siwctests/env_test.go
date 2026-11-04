@@ -71,3 +71,14 @@ func (e *env) signIn(t *testing.T) siwc.Status {
 	require.NoError(t, err)
 	return st
 }
+
+// tokenKey は issuedClient（既定で発行される client_id）のトークンのキー。
+func tokenKey(kind string) string { return secrets.ChatGPTTokenKey(issuedClient, kind) }
+
+// relogin は issuedClient の登録で再ログインする。
+func (e *env) relogin(t *testing.T) siwc.Status {
+	t.Helper()
+	st, err := e.m.SignIn(t.Context(), siwc.SignInOptions{AccountID: issuedClient})
+	require.NoError(t, err)
+	return st
+}

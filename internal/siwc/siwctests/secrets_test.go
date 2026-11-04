@@ -14,6 +14,7 @@ import (
 
 	"github.com/ousiassllc/hitomado/internal/secrets"
 	"github.com/ousiassllc/hitomado/internal/siwc"
+	"github.com/ousiassllc/hitomado/internal/store"
 )
 
 func TestLongTokensAreSplitUnderTheCredentialStoreLimit(t *testing.T) {
@@ -35,12 +36,12 @@ func TestLongTokensAreSplitUnderTheCredentialStoreLimit(t *testing.T) {
 	tok, err = e.m.AccessToken(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "short-refreshed-1", tok)
-	_, err = sec.Get(secrets.ChatGPTTokenKey("access") + "#2")
+	_, err = sec.Get(tokenKey("access") + "#2")
 	assert.ErrorIs(t, err, secrets.ErrNotFound)
 
-	_, err = e.m.SignOut(t.Context())
+	_, err = e.m.SignOut(t.Context(), issuedClient)
 	require.NoError(t, err)
-	_, err = sec.Get(secrets.ChatGPTTokenKey("access"))
+	_, err = sec.Get(tokenKey("access"))
 	assert.ErrorIs(t, err, secrets.ErrNotFound)
 }
 
@@ -54,7 +55,7 @@ func TestOversizedIDTokenDoesNotFailSignIn(t *testing.T) {
 type failingIDSecrets struct{ *secrets.Memory }
 
 func (f failingIDSecrets) Set(key, value string) error {
-	if key == secrets.ChatGPTTokenKey("id") || strings.HasPrefix(key, secrets.ChatGPTTokenKey("id")+"#") {
+	if key == tokenKey("id") || strings.HasPrefix(key, tokenKey("id")+"#") {
 		return errors.New("store refuses")
 	}
 	return f.Memory.Set(key, value)
@@ -67,7 +68,7 @@ func TestSecretsNeverAppearInLogsErrorsOrStatus(t *testing.T) {
 		return fmt.Sprintf(`{"error":%q,"error_description":"bad %s %s code-1","detail":"%s","access_token":"%s","refresh_token":"%s"}`, code,
 			secretAccess, secretRefresh, secretAccess, secretAccess, secretRefresh)
 	}
-	forbidden := []string{secretAccess, secretRefresh, "code-1", "code_verifier"}
+	forbidden := []string{secretAccess, secretRefresh, secondAccess, refreshTokenFor(secondClient), "code-1", "code_verifier"}
 
 	var all []string
 	collect := func(label string, err error) {
@@ -119,15 +120,43 @@ func TestSecretsNeverAppearInLogsErrorsOrStatus(t *testing.T) {
 	e4.f.mu.Lock()
 	e4.f.revokeStatus = http.StatusInternalServerError
 	e4.f.mu.Unlock()
-	_, err = e4.m.SignOut(t.Context())
+	_, err = e4.m.SignOut(t.Context(), issuedClient)
 	require.NoError(t, err)
+
+	// 複数のアカウント: 切り替え・追加・ログアウト・更新の失敗・不正な指定のどのエラーにも、どちらのアカウントのトークンも出ない。
+	e5 := twoAccounts(t, nil, nil)
+	_, err = e5.m.SignOut(t.Context(), "oaiapp_UNKNOWN")
+	require.Error(t, err)
+	collect("sign out unknown", err)
+	collect("select unknown", e5.m.SelectAccount(t.Context(), "oaiapp_UNKNOWN"))
+	collect("remove in use", e5.m.RemoveAccount(t.Context(), secondClient))
+	e5.f.mu.Lock()
+	e5.f.revokeStatus = http.StatusInternalServerError
+	e5.f.mu.Unlock()
+	_, err = e5.m.SignOut(t.Context(), issuedClient)
+	require.NoError(t, err)
+	collect("select signed out", e5.m.SelectAccount(t.Context(), issuedClient))
+	e5.clk.Advance(2 * time.Hour)
+	e5.f.mu.Lock()
+	e5.f.refreshStatus, e5.f.refreshBody = http.StatusBadRequest, hostile("invalid_grant")
+	e5.f.mu.Unlock()
+	_, err = e5.m.AccessToken(t.Context())
+	require.ErrorIs(t, err, siwc.ErrReauthRequired)
+	collect("refresh second account", err)
+	e5.f.mu.Lock()
+	e5.f.subject = "sub-someone-else"
+	e5.f.tokenStatus, e5.f.tokenBody = http.StatusBadRequest, hostile("invalid_request")
+	e5.f.mu.Unlock()
+	_, err = e5.m.SignIn(t.Context(), siwc.SignInOptions{AccountID: secondClient})
+	require.Error(t, err)
+	collect("relogin exchange 400", err)
 
 	for _, s := range all {
 		for _, bad := range forbidden {
 			assert.NotContains(t, s, bad)
 		}
 	}
-	for _, x := range []*env{e, e2, e3, e4} {
+	for _, x := range []*env{e, e2, e3, e4, e5} {
 		logs := x.logs.String()
 		for _, bad := range forbidden {
 			assert.NotContains(t, logs, bad)
@@ -139,6 +168,16 @@ func TestSecretsNeverAppearInLogsErrorsOrStatus(t *testing.T) {
 	st, err := e.m.Status(t.Context())
 	require.NoError(t, err)
 	assert.NotContains(t, fmt.Sprintf("%+v", st), secretAccess)
+	st5, err := e5.m.Status(t.Context())
+	require.NoError(t, err)
+	for _, bad := range forbidden {
+		assert.NotContains(t, fmt.Sprintf("%+v %#v", st5, st5), bad)
+	}
+	// 登録（app_settings）にもトークンは入らない。
+	reg, _, _ := e5.settings.GetSetting(t.Context(), store.SettingAIChatGPT)
+	for _, bad := range forbidden {
+		assert.NotContains(t, reg, bad)
+	}
 }
 
 // 壊れた（断片が欠けた・形式が不正な）トークンがあっても、状態の取得は失敗しない。トークンは使えず（未ログイン扱い）、再ログインで置き換わる。
@@ -146,7 +185,7 @@ func TestCorruptStoredTokensAreTreatedAsSignedOut(t *testing.T) {
 	e := newEnv(t, nil, nil)
 	e.signIn(t)
 	for _, bad := range []string{"chunks:3", "chunks:x"} {
-		require.NoError(t, e.sec.Set(secrets.ChatGPTTokenKey("refresh"), bad))
+		require.NoError(t, e.sec.Set(tokenKey("refresh"), bad))
 		_, err := e.m.Status(t.Context())
 		require.NoError(t, err)
 		_, err = e.m.AccessToken(t.Context())
@@ -166,7 +205,7 @@ func TestFailedWriteDoesNotDropTheExistingRefreshToken(t *testing.T) {
 	sec.failSet.Store(true)
 	_, err := e.m.AccessToken(t.Context())
 	require.Error(t, err)
-	got, gerr := sec.Get(secrets.ChatGPTTokenKey("refresh"))
+	got, gerr := sec.Get(tokenKey("refresh"))
 	require.NoError(t, gerr)
 	assert.Equal(t, secretRefresh, got)
 }
@@ -197,13 +236,13 @@ func TestPlanDeclinedOnAnotherAccountKeepsTheActiveSession(t *testing.T) {
 	e.f.scope = "email openid profile offline_access"
 	e.f.subject = "sub-account-b"
 	e.f.mu.Unlock()
-	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{DifferentAccount: true})
+	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
 	require.ErrorIs(t, err, siwc.ErrPlanNotGranted)
 	tok, err := e.m.AccessToken(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, secretAccess, tok)
-	assert.Equal(t, issuedClient, e.reg(t).ClientID)
-	assert.Equal(t, subjectA, e.reg(t).Subject)
+	assert.Equal(t, issuedClient, e.reg(t).first().ClientID)
+	assert.Equal(t, subjectA, e.reg(t).first().Subject)
 }
 
 // flakySecrets は failSet が真の間、Set を失敗させる。
@@ -225,6 +264,6 @@ func TestPlanNotGrantedFirstTimeKeepsTheRegistrationForRetry(t *testing.T) {
 	e.f.scope = "email openid profile offline_access"
 	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
 	require.ErrorIs(t, err, siwc.ErrPlanNotGranted)
-	assert.Equal(t, issuedClient, e.reg(t).ClientID)
-	assert.True(t, e.reg(t).ConsentNeeded)
+	assert.Equal(t, issuedClient, e.reg(t).first().ClientID)
+	assert.True(t, e.reg(t).first().ConsentNeeded)
 }

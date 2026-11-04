@@ -52,6 +52,7 @@ describe('AISettings', () => {
       hasApiKey: true,
       consentedProviders: [],
       chatgptSignedIn: false,
+      chatgptAccounts: [],
     }
     const w = mount(AISettings, { global: { plugins: [pinia] } })
     const dest = w.get('[data-testid="ai-destination"]').text()
@@ -64,6 +65,7 @@ describe('AISettings', () => {
       hasApiKey: false,
       consentedProviders: [],
       chatgptSignedIn: false,
+      chatgptAccounts: [],
     }
     await w.vm.$nextTick()
     expect(w.get('[data-testid="ai-destination"]').text()).toContain('https://api.anthropic.com')
@@ -80,6 +82,7 @@ describe('AISettings モデル名', () => {
       hasApiKey: false,
       consentedProviders: [],
       chatgptSignedIn: false,
+      chatgptAccounts: [],
     }
     const w = mount(AISettings, { global: { plugins: [pinia] } })
     expect(w.text()).toContain('モデルを入力してください')
@@ -90,6 +93,7 @@ describe('AISettings モデル名', () => {
       hasApiKey: false,
       consentedProviders: [],
       chatgptSignedIn: false,
+      chatgptAccounts: [],
     }
     await w.vm.$nextTick()
     expect(w.text()).not.toContain('モデルを入力してください')

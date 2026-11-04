@@ -8,9 +8,23 @@ type AIConfig struct {
 	// HasAPIKey は現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。
 	HasAPIKey          bool     `json:"hasApiKey"`
 	ConsentedProviders []string `json:"consentedProviders"`
-	// ChatGPTSignedIn は選択中のプロバイダに関わらず、ChatGPT にログイン済みか。ChatGPTEmail は表示用のメールアドレス。
+	// ChatGPTSignedIn は選択中のプロバイダに関わらず、使用中の ChatGPT アカウントがログイン済みか。ChatGPTEmail はそのメールアドレス（表示用）。
 	ChatGPTSignedIn bool   `json:"chatgptSignedIn"`
 	ChatGPTEmail    string `json:"chatgptEmail,omitempty"`
+	// ChatGPTAccounts は保存済みの ChatGPT アカウント（登録順。トークンは含まない）。
+	ChatGPTAccounts []ChatGPTAccount `json:"chatgptAccounts"`
+}
+
+// ChatGPTAccount は保存済みの ChatGPT アカウント（クライアント登録）1 件。
+type ChatGPTAccount struct {
+	// ID は発行された client_id（登録の識別子）。同じメールアドレスでも、別の登録なら別の ID になる。
+	ID       string `json:"id"`
+	Email    string `json:"email,omitempty"`
+	SignedIn bool   `json:"signedIn"` // ログイン中のセッションがあるか
+	Active   bool   `json:"active"`   // 下書きの生成に使うアカウントか
+	// PlanNoticePending は、初めてログインして ChatGPT プランの利用が有効になったのに、「You're using your ChatGPT plan」の確認を
+	// まだ済ませていないか。画面が確認を出し、「Got it」で AckChatGPTPlanNotice を呼ぶ（2 回目以降のログインでは立たない）。
+	PlanNoticePending bool `json:"planNoticePending"`
 }
 
 // ChatGPTSignOutResult は ChatGPT ログアウトの結果。ローカルのトークンは常に消えている。

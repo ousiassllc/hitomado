@@ -13,7 +13,7 @@
 | `hitomado/refresh_token/<account_id>` | アカウントのリフレッシュトークン |
 | `hitomado/oauth_client_secret/<oauth_client_id>` | OAuth クライアントの Client Secret |
 | `hitomado/ai_api_key/<provider>` | AI プロバイダの API キー（`anthropic`／`openai`） |
-| `hitomado/chatgpt_token/<kind>` | ChatGPT ログイン（Sign in with ChatGPT）のトークン。`kind` は `access`（アクセストークン）／`refresh`（リフレッシュトークン）／`id`（ID トークン。任意）。1 件の上限（Windows は約 2.5KB）を超える値は `<キー>#0`、`#1`… に分割し、先頭のキーに `chunks:<個数>` を置く |
+| `hitomado/chatgpt_token/<client_id>/<kind>` | ChatGPT ログイン（Sign in with ChatGPT）のトークン。ChatGPT アカウント（クライアント登録）ごとに `<client_id>`（発行されたクライアント ID）で別のキーにし、ほかのアカウントのトークンと混ぜない。`kind` は `access`（アクセストークン）／`refresh`（リフレッシュトークン）／`id`（ID トークン。任意）。1 件の上限（Windows は約 2.5KB）を超える値は `<キー>#0`、`#1`… に分割し、先頭のキーに `chunks:<個数>` を置く。v0.1.7 までの `hitomado/chatgpt_token/<kind>`（アカウント 1 件）は、最初の読み取りで新しいキーへ移して消す |
 
 - **ID**: ローカルで採番するテーブルの主キーは **ULID（TEXT）**。Gmail 由来の ID（スレッド・メッセージ・ラベル）は Gmail の文字列 ID を使い、アカウントをまたいで一意でないため **`account_id` との複合主キー**にする
 - **日時**: UTC の Unix ミリ秒（`INTEGER`）。**真偽値**: `INTEGER`（0／1、`CHECK (x IN (0,1))`）
@@ -323,7 +323,7 @@ erDiagram
 |------|--------|------|
 | `inbox.filter` | `{"accountIds":["01H..."],"unreadOnly":false}` | 受信箱フィルタの保持（F-02） |
 | `ai.config` | `{"provider":"openai","model":"...","baseUrl":"https://example.com/v1"}` | AI 設定（API キー・トークンは資格情報ストア。`provider` は `anthropic`／`openai`／`chatgpt`）。`baseUrl` は省略可（Base URL 無しのときはキー自体を保存しない。`null` は保存しない。例: `{"provider":"anthropic","model":"..."}`） |
-| `ai.chatgpt` | `{"hostId":"urn:uuid:...","clientId":"oaiapp_...","subject":"...","email":"me@example.com","consentNeeded":false,"expiresAt":1730000000000}` | ChatGPT ログインの登録情報（**秘密ではない**。トークンは資格情報ストア）。`hostId` はこの PC のホスト ID（`urn:uuid:` ＋ UUIDv4。初回ログインの前に作り、以後変えない）、`clientId` は動的登録で発行されたクライアント ID、`subject`／`email` は検証済み ID トークンの本人情報（表示・同一アカウントの確認用）、`consentNeeded` は前回 ChatGPT プランの利用が許可されなかったこと（次のログインで同意画面を求め直す）、`expiresAt` はアクセストークンの期限。ログアウトしても `hostId`／`clientId`／`subject`／`email` は残す |
+| `ai.chatgpt` | `{"hostId":"urn:uuid:...","active":"oaiapp_AAAA","accounts":[{"clientId":"oaiapp_AAAA","subject":"...","email":"me@example.com","consentNeeded":false,"expiresAt":1730000000000},{"clientId":"oaiapp_BBBB","subject":"...","email":"me@example.com"}]}` | ChatGPT ログインの登録情報（**秘密ではない**。トークンは資格情報ストア）。`hostId` はこの PC のホスト ID（`urn:uuid:` ＋ UUIDv4。初回ログインの前に作り、以後変えない。全アカウントで共通）、`active` は下書きの生成に使うアカウントの `clientId`（無ければ省略）。`accounts` は ChatGPT アカウント（クライアント登録）の配列で、登録順。1 件ごとに、`clientId` は動的登録で発行されたクライアント ID（アカウントの識別子。同じメールアドレスでも別の登録は別の `clientId` で別の要素）、`subject`／`email` は検証済み ID トークンの本人情報（表示・同一アカウントの確認用）、`consentNeeded` は前回 ChatGPT プランの利用が許可されなかったこと（その登録での次のログインで同意画面を求め直す）、`expiresAt` はアクセストークンの期限、`planNotice` は「You're using your ChatGPT plan」の確認の状態（省略＝ChatGPT プランの利用がまだ有効になっていない／`pending`＝初めて有効になり確認はまだ／`done`＝確認済み。初めてのログインで `pending` にし、「Got it」で `done` にする。再ログイン・ログアウト・更新では変えない。要素ごとなので、別のアカウントを初めて追加したときだけ 1 度出る）。ログアウトしても `accounts` の要素（`clientId`／`subject`／`email`）と `hostId` は残す（`RemoveChatGPTAccount` で要素を消す）。v0.1.7 までの形式（`clientId`／`subject`／`email`… を最上位に持つ 1 アカウント分）は、最初の読み取りで `accounts` の 1 要素へ移す（ログイン済みだったアカウントは `planNotice` を `done` にして、確認を出さない） |
 | `ai.consent` | `{"providers":[{"provider":"openai","baseUrl":"https://api.openai.com","agreedAt":1730000000000}]}` | AI 送信の同意（F-08）。「プロバイダ＋送信先（Base URL の scheme とホスト。パスは含めない）」単位の配列で、プロバイダごとに 1 件。`baseUrl` は省略可（省略は既定の送信先）。送信先が変わった同意は無効になり、保存からも外す。旧形式 `{"provider":"anthropic","agreedAt":...}`（単一オブジェクト）は読み取り専用の互換入力で、保存は常に `providers` 形式（`RecordAIConsent` が書き込む。[API §6](../api/endpoints.md)） |
 | `update.check_enabled` | `true` | 新バージョン確認の有効／無効（NF-D03） |
 | `update.last_checked_at` | `1730000000000` | 最終確認日時 |
@@ -363,3 +363,5 @@ erDiagram
 | 1.5 | 2026-11-03 | §5 のアカウント削除に、先に同期ワーカーを止めて実行中の周期の終了を待ち、DB 削除に失敗したら再開する旨を追記 | 実装（`internal/app/account.go`）との整合（#4） |
 | 1.6 | 2026-11-03 | §1 の資格情報キーに `hitomado/chatgpt_token/<kind>` を、§3.9 に `ai.chatgpt` を追加し、`ai.config` の `provider` に `chatgpt` を追記 | Sign in with ChatGPT（#75） |
 | 1.7 | 2026-11-03 | §1 の秘密情報の保存先に Android の EncryptedSharedPreferences（Android Keystore の鍵）を追記 | #84 |
+| 1.8 | 2026-11-04 | §1 の資格情報キーを `hitomado/chatgpt_token/<client_id>/<kind>`（アカウントごと）に、§3.9 の `ai.chatgpt` を `hostId`・`active`・`accounts[]` の形に変え、v0.1.7 までの 1 アカウントの形式からの移行を追記 | 複数の ChatGPT アカウント（#79） |
+| 1.9 | 2026-11-04 | §3.9 の `ai.chatgpt` の `accounts[]` に `planNotice` を追加 | 初めてのログインの確認をアカウントごとに 1 度だけ出す（#80） |

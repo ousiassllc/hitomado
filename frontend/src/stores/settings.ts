@@ -23,9 +23,13 @@ import { useUiStore } from './ui'
 
 const UPDATE_BANNER_KEY = 'update'
 
-/** Go は consentedProviders を nil にし得るので、画面側は常に配列として扱う。 */
+/** Go は consentedProviders・chatgptAccounts を nil にし得るので、画面側は常に配列として扱う。 */
 function normalizeAIConfig(c: AIConfig): AIConfig {
-  return { ...c, consentedProviders: list(c.consentedProviders) }
+  return {
+    ...c,
+    consentedProviders: list(c.consentedProviders),
+    chatgptAccounts: list(c.chatgptAccounts),
+  }
 }
 
 export const useSettingsStore = defineStore('settings', () => {
@@ -158,19 +162,47 @@ export const useSettingsStore = defineStore('settings', () => {
     return res
   }
 
-  async function signInChatGPT(differentAccount: boolean): Promise<void> {
-    aiConfig.value = normalizeAIConfig(await call(AIService.SignInChatGPT(differentAccount)))
+  /** ChatGPT にログインする。accountId が空なら別のアカウントを追加し、指定したときはその登録で再ログインする。 */
+  async function signInChatGPT(accountId: string): Promise<void> {
+    aiConfig.value = normalizeAIConfig(await call(AIService.SignInChatGPT(accountId)))
   }
 
   async function cancelSignInChatGPT(): Promise<void> {
     await call(AIService.CancelSignInChatGPT())
   }
 
-  /** ログアウトする。OpenAI 側の失効を確認できたかを返す。 */
-  async function signOutChatGPT(): Promise<boolean> {
-    const r = await call(AIService.SignOutChatGPT())
+  /** 下書きに使う ChatGPT アカウントを切り替える（ログイン中のアカウントだけ）。 */
+  async function selectChatGPTAccount(accountId: string): Promise<void> {
+    aiConfig.value = normalizeAIConfig(await call(AIService.SelectChatGPTAccount(accountId)))
+  }
+
+  /** 選んだ ChatGPT アカウントだけログアウトする。OpenAI 側の失効を確認できたかを返す。 */
+  async function signOutChatGPT(accountId: string): Promise<boolean> {
+    const r = await call(AIService.SignOutChatGPT(accountId))
     aiConfig.value = normalizeAIConfig(r.config)
     return r.revocationConfirmed
+  }
+
+  /** 返信の下書きを生成する（cancelGenerate で中止できる。requestId は呼び出しごとに一意）。 */
+  async function generateReplyDraft(
+    sessionId: string,
+    requestId: string,
+  ): Promise<{ bodyHtml: string }> {
+    return await call(AIService.GenerateReplyDraft(sessionId, requestId))
+  }
+
+  async function cancelGenerate(requestId: string): Promise<void> {
+    await call(AIService.CancelGenerate(requestId))
+  }
+
+  /** 「You're using your ChatGPT plan」の確認を済みにする（そのアカウントでは以後出さない）。 */
+  async function ackChatGPTPlanNotice(accountId: string): Promise<void> {
+    aiConfig.value = normalizeAIConfig(await call(AIService.AckChatGPTPlanNotice(accountId)))
+  }
+
+  /** ログアウト済みの ChatGPT アカウントの登録を忘れる。 */
+  async function removeChatGPTAccount(accountId: string): Promise<void> {
+    aiConfig.value = normalizeAIConfig(await call(AIService.RemoveChatGPTAccount(accountId)))
   }
 
   async function setUpdateCheckEnabled(enabled: boolean): Promise<void> {
@@ -227,7 +259,12 @@ export const useSettingsStore = defineStore('settings', () => {
     loadAIModels,
     signInChatGPT,
     cancelSignInChatGPT,
+    selectChatGPTAccount,
     signOutChatGPT,
+    removeChatGPTAccount,
+    ackChatGPTPlanNotice,
+    generateReplyDraft,
+    cancelGenerate,
     setUpdateCheckEnabled,
     checkUpdate,
   }

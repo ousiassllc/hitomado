@@ -86,8 +86,8 @@ func TestBridgeStoreLargeValue(t *testing.T) {
 	// ChatGPT のトークン（JWT）は 4096 バイトを超えうる。分割せずそのまま往復できる。
 	s := newBridgeStore(newFakeJava())
 	big := strings.Repeat("a1b2", 2048) + "終"
-	require.NoError(t, s.Set(ChatGPTTokenKey("access"), big))
-	got, err := s.Get(ChatGPTTokenKey("access"))
+	require.NoError(t, s.Set(ChatGPTTokenKey("oaiapp_test", "access"), big))
+	got, err := s.Get(ChatGPTTokenKey("oaiapp_test", "access"))
 	require.NoError(t, err)
 	assert.Equal(t, big, got)
 }
