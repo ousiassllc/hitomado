@@ -15,6 +15,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/gmail/googleerr"
 	"github.com/ousiassllc/hitomado/internal/oauth"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
@@ -154,4 +155,44 @@ func TestUsageLimitCarriesAReasonForTheUI(t *testing.T) {
 	for _, other := range []error{ai.ErrNotEligible, ai.ErrFailed, ai.ErrUnauthorized, ai.ErrRateLimited} {
 		assert.Empty(t, apperr.FromInfra(other, "").Details, other.Error())
 	}
+}
+
+// Gmail API が返した reason に応じて、利用者が自分で直せる案内に変わる（#96）。
+func TestFromInfraGmailAPIReasons(t *testing.T) {
+	wrap := func(kind error, status int, reasons ...string) error {
+		return fmt.Errorf("sync: %w", &gmail.APIError{Info: googleerr.Info{Status: status, Reasons: reasons}, Op: "getProfile", Kind: kind})
+	}
+	tests := []struct {
+		name       string
+		err        error
+		code       string
+		contains   string
+		detailWant any
+	}{
+		{"API 無効（SERVICE_DISABLED）", wrap(gmail.ErrGeneric, 403, "SERVICE_DISABLED"), apperr.GmailError, "Gmail API が有効になっていません", apperr.ReasonGmailAPIDisabled},
+		{"API 無効（accessNotConfigured）", wrap(gmail.ErrGeneric, 403, "accessNotConfigured"), apperr.GmailError, "Gmail API が有効になっていません", apperr.ReasonGmailAPIDisabled},
+		{"スコープ不足（ACCESS_TOKEN_SCOPE_INSUFFICIENT）", wrap(gmail.ErrNeedsReauth, 403, "ACCESS_TOKEN_SCOPE_INSUFFICIENT"), apperr.NeedsReauth, "権限（スコープ）が足りません", apperr.ReasonScopeInsufficient},
+		{"スコープ不足（insufficientPermissions）", wrap(gmail.ErrNeedsReauth, 403, "insufficientPermissions"), apperr.NeedsReauth, "再接続して", apperr.ReasonScopeInsufficient},
+		{"401", wrap(gmail.ErrNeedsReauth, 401, "authError"), apperr.NeedsReauth, "接続が切れました", nil},
+		{"その他の 403 は HTTP ステータスと reason を添える", wrap(gmail.ErrGeneric, 403, "forbidden"), apperr.GmailError, "HTTP 403、理由: forbidden", nil},
+		{"reason なしは HTTP ステータスだけ", wrap(gmail.ErrGeneric, 500), apperr.GmailError, "HTTP 500", nil},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			e := apperr.FromInfra(tc.err, "acc1")
+			assert.Equal(t, tc.code, e.Code)
+			assert.Contains(t, e.Message, tc.contains)
+			assert.Equal(t, tc.detailWant, e.Details[apperr.DetailReason])
+			assert.False(t, e.Retryable)
+			assert.Equal(t, "acc1", e.AccountID)
+		})
+	}
+}
+
+// Google が返した message（トークンが混ざり得る）は画面向けメッセージに載せない。
+func TestGmailAPIMessageIsNotShownToUser(t *testing.T) {
+	ae := &gmail.APIError{Info: googleerr.Info{Status: 403, Reasons: []string{"forbidden"}, Message: "Bearer ya29.DUMMY-token"}, Op: "getProfile", Kind: gmail.ErrGeneric} //nolint:gosec // 漏えい検査用のダミー値
+	e := apperr.FromInfra(ae, "")
+	assert.NotContains(t, e.Message, "ya29")
+	assert.NotContains(t, string(apperr.Marshal(ae)), "ya29")
 }

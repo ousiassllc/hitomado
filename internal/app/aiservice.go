@@ -65,8 +65,7 @@ func (s *AIService) RemoveChatGPTAccount(ctx context.Context, accountID string) 
 	return s.core.RemoveChatGPTAccount(ctx, accountID)
 }
 
-// ListAIModels は provider のモデル一覧を、渡された送信先（openai は baseURL）から取得する（保存前でも可）。
-// 取得できないときはエラーではなく Reason つきの空の一覧を返す（手入力へ切り替える）。
+// ListAIModels は渡された送信先（openai は baseURL）のモデル一覧を、保存前でも取得する。取得できないときは Reason つきの空の一覧を返す。
 func (s *AIService) ListAIModels(ctx context.Context, provider, baseURL string) (dto.AIModelList, error) {
 	return s.core.ListAIModels(ctx, provider, baseURL)
 }

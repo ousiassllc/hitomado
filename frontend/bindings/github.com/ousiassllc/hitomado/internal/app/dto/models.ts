@@ -246,10 +246,13 @@ export interface InboxFilter {
 
 /**
  * InboxQuery は受信箱の取得条件。AccountIDs が空ならすべて。Limit は 1〜100（既定 50）。
+ * Tab は受信箱のタブ（"" または "all"＝すべて、"primary"＝メイン、"social"＝ソーシャル、"promotions"＝プロモーション、
+ * "new"＝新着＝未読だけ）。それ以外は VALIDATION。
  */
 export interface InboxQuery {
     "accountIds": string[] | null;
     "unreadOnly": boolean;
+    "tab"?: string;
     "limit": number;
     "cursor"?: string;
 }

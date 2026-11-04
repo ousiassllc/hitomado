@@ -59,10 +59,14 @@ type Manager struct {
 	hc   *http.Client
 	clk  clock.Clock
 
-	// refreshMu はトークンの読み書き（更新・ログイン保存・ログアウト）を直列化する。回転するリフレッシュトークンを競合させない。
-	refreshMu sync.Mutex
+	// acctMu・acctLocks はアカウント（client_id）ごとのロックの表（lockAccount）。トークンの読み書き（更新・ログイン保存・
+	// ログアウト）を同じアカウントの中だけで直列化し、回転するリフレッシュトークンを競合させない。別のアカウントは互いを待たない。
+	// 表は消さない: 登録済み・ログイン済みの client_id の数（実用上は数件）しか増えず、mutex 1 つは小さいので増え続けても問題ない。
+	acctMu    sync.Mutex
+	acctLocks map[string]*sync.Mutex
 
 	// regMu は登録（app_settings の ai.chatgpt）の読み書きを直列化する。通信中は持たない（短い区間だけ）。
+	// ロック順: アカウントのロック（lockAccount）→ migrateMu → regMu（逆順に取らない。regMu を持ったまま通信・ほかのロックを取らない）。
 	regMu sync.Mutex
 	// migrateMu・migrated は旧形式（アカウント 1 件）の登録・トークンの移行（registry.go の migrate）。
 	migrateMu sync.Mutex
@@ -101,7 +105,7 @@ func New(opts Options) *Manager {
 	if opts.Clock != nil {
 		clk = opts.Clock
 	}
-	return &Manager{opts: opts, hc: &c, clk: clk}
+	return &Manager{opts: opts, hc: &c, clk: clk, acctLocks: map[string]*sync.Mutex{}}
 }
 
 // discover は OpenID Connect のメタデータ（エンドポイント・JWKS の場所）を取得して保持する。
@@ -147,7 +151,7 @@ func (m *Manager) revocationEndpoint(ctx context.Context) (string, error) {
 	return m.revokeURL, nil
 }
 
-// Status は Auth の実装。通信せず、更新・ログアウトの途中でも待たない（refreshMu を取らない）。
+// Status は Auth の実装。通信せず、更新・ログアウトの途中でも待たない（アカウントのロックを取らない）。
 // ログイン済みかは「登録があり、リフレッシュトークンの先頭の要素が資格情報ストアにある」ことで判断する（値の全体は読まない）。
 func (m *Manager) Status(ctx context.Context) (Status, error) {
 	reg, err := m.loadRegistry(ctx)
@@ -174,22 +178,43 @@ func (m *Manager) Status(ctx context.Context) (Status, error) {
 	return st, nil
 }
 
+// lockAccount はアカウント（client_id）のロックを取り、解除する関数を返す。
+func (m *Manager) lockAccount(clientID string) (unlock func()) {
+	m.acctMu.Lock()
+	l, ok := m.acctLocks[clientID]
+	if !ok {
+		l = new(sync.Mutex)
+		m.acctLocks[clientID] = l
+	}
+	m.acctMu.Unlock()
+	l.Lock()
+	return l.Unlock
+}
+
 // AccessToken は Auth の実装。
 func (m *Manager) AccessToken(ctx context.Context) (string, error) { return m.access(ctx, false) }
 
 // ForceRefresh は Auth の実装。
 func (m *Manager) ForceRefresh(ctx context.Context) (string, error) { return m.access(ctx, true) }
 
-// access は使用中のアカウントのアクセストークンを返す。
+// access は使用中のアカウントのアクセストークンを返す。更新の通信は、そのアカウントのロックの下だけで行う
+// （別のアカウントのログアウト・更新を待たない。同じアカウントの並行呼び出しは、先に終わった更新の結果を使う）。
 func (m *Manager) access(ctx context.Context, force bool) (string, error) {
-	m.refreshMu.Lock()
-	defer m.refreshMu.Unlock()
 	reg, err := m.loadRegistry(ctx)
 	if err != nil {
 		return "", err
 	}
 	acct := reg.find(reg.Active)
 	if acct == nil {
+		return "", ErrNotSignedIn
+	}
+	defer m.lockAccount(acct.ClientID)()
+	// ロックを待つ間に、更新・ログアウト・削除があり得る。登録を読み直して判断する。
+	reg, err = m.loadRegistry(ctx)
+	if err != nil {
+		return "", err
+	}
+	if acct = reg.find(acct.ClientID); acct == nil {
 		return "", ErrNotSignedIn
 	}
 	t, err := m.loadTokens(acct.ClientID)
@@ -207,7 +232,7 @@ func (m *Manager) access(ctx context.Context, force bool) (string, error) {
 	return m.refreshLocked(ctx, acct.ClientID, t)
 }
 
-// refreshLocked はアカウントのリフレッシュトークンで更新し、置き換えを保存する（refreshMu を持って呼ぶ）。
+// refreshLocked はアカウントのリフレッシュトークンで更新し、置き換えを保存する（そのアカウントのロックを持って呼ぶ）。
 // 更新できない（再ログインが必要な）ときはそのアカウントのトークンを消して ErrReauthRequired。通信失敗・5xx は保存済みを残して返す。
 func (m *Manager) refreshLocked(ctx context.Context, clientID string, t tokens) (string, error) {
 	tr, err := m.requestTokens(ctx, url.Values{

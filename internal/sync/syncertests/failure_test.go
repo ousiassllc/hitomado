@@ -94,6 +94,20 @@ func TestFetchFailureDoesNotAdvanceHistoryID(t *testing.T) {
 	assert.Empty(t, h.ev.Updated("a"))
 }
 
+func TestScopeInsufficientStopsAccountWithGuidance(t *testing.T) {
+	h := newHarness(t)
+	h.account("a", true, synced("1"))
+	// ErrNeedsReauth にも分類される形（gmail.APIError と同じ）。権限不足の案内が優先される。
+	h.gm.Edit("a", func(a *synctest.Script) {
+		a.HistoryErr = fmt.Errorf("x: %w", errors.Join(gmail.ErrNeedsReauth, gmail.ErrScopeInsufficient))
+	})
+
+	h.s.Start("a")
+	h.waitStatus("a", "needs_reauth", 1)
+	assert.Equal(t, store.StatusNeedsReauth, h.st.Account("a").Status)
+	assert.Equal(t, "Gmail の権限（スコープ）が足りません。再接続して、すべての権限を許可してください", h.st.Account("a").StatusMessage)
+}
+
 func TestErrorClassesMapToStatusMessages(t *testing.T) {
 	tests := []struct {
 		err  error
@@ -102,6 +116,7 @@ func TestErrorClassesMapToStatusMessages(t *testing.T) {
 		{gmail.ErrOffline, "ネットワークに接続できません"},
 		{gmail.ErrRateLimited, "Gmail のリクエスト制限中です。次の周期で再試行します"},
 		{gmail.ErrGeneric, "同期に失敗しました"},
+		{gmail.ErrAPIDisabled, "Google Cloud のプロジェクトで Gmail API が有効になっていません。有効にしてください"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.want, func(t *testing.T) {
