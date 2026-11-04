@@ -35,12 +35,13 @@ func pageLimit(n int) (int, error) {
 
 // ListInbox はローカル DB の受信箱をキーセットページングで返す。ローカルの行が尽き、かつ未取得分のある
 // アカウントがあれば Gmail から追加取得して続きを返す。アカウント別の失敗は Failures に入れ、他は返す。
+// タブ・未読のみの絞り込みはローカルのキャッシュだけに掛かる（appcore.InboxFilterOf）。
 func (s *InboxService) ListInbox(ctx context.Context, q dto.InboxQuery) (dto.ThreadPage, error) {
 	limit, err := pageLimit(q.Limit)
 	if err != nil {
 		return dto.ThreadPage{}, err
 	}
-	after, err := appcore.DecodeInboxCursor(q.Cursor)
+	filter, err := appcore.InboxFilterOf(q) // タブとカーソルの検証もここで行う
 	if err != nil {
 		return dto.ThreadPage{}, err
 	}
@@ -57,7 +58,7 @@ func (s *InboxService) ListInbox(ctx context.Context, q dto.InboxQuery) (dto.Thr
 	for i, a := range targets {
 		ids[i] = a.ID
 	}
-	filter := store.InboxFilter{AccountIDs: ids, UnreadOnly: q.UnreadOnly, After: after, Limit: limit + 1}
+	filter.AccountIDs, filter.Limit = ids, limit+1
 
 	failed := map[string]bool{}
 	var rows []store.ThreadRow
@@ -84,7 +85,7 @@ func (s *InboxService) ListInbox(ctx context.Context, q dto.InboxQuery) (dto.Thr
 	// 続きがある: ローカルに余りがある、または Gmail 側に未取得の受信箱が残っている。
 	// 条件に合う行が 0 件でも後者なら、同じ位置（カーソルなしなら先頭）を指すカーソルを返して続きを取れるようにする。
 	if more || (canFetch && s.hasRemote(ctx, ids, failed)) {
-		next := after
+		next := filter.After
 		if len(rows) > 0 {
 			last := rows[len(rows)-1]
 			next = &store.InboxCursor{LastMessageAt: last.LastMessageAt, AccountID: last.AccountID, ThreadID: last.ThreadID}

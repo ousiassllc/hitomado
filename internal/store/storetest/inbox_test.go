@@ -174,3 +174,44 @@ func TestUnreadCounts(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, map[string]int{a.ID: 1, b.ID: 1}, counts)
 }
+
+func TestListInboxTabs(t *testing.T) {
+	s, _ := newTestStore(t)
+	ctx := context.Background()
+	a := seedAccount(t, s, "a@example.com")
+	b := seedAccount(t, s, "b@example.com")
+	at := time.Date(2026, 10, 1, 9, 0, 0, 0, time.UTC)
+	apply(t, s, snap(a.ID, "personal", at.Add(1*time.Hour), "INBOX", "CATEGORY_PERSONAL"))
+	apply(t, s, snap(a.ID, "social-unread", at.Add(2*time.Hour), "INBOX", "CATEGORY_SOCIAL", "UNREAD"))
+	apply(t, s, snap(b.ID, "promo", at.Add(3*time.Hour), "INBOX", "CATEGORY_PROMOTIONS"))
+	apply(t, s, snap(b.ID, "updates", at.Add(4*time.Hour), "INBOX", "CATEGORY_UPDATES"))
+	apply(t, s, snap(b.ID, "nocat", at.Add(5*time.Hour), "INBOX"))
+	apply(t, s, snap(b.ID, "out", at.Add(6*time.Hour), "CATEGORY_SOCIAL")) // 受信箱外は出ない
+	// 複数メッセージのスレッド: どれかのメッセージにカテゴリがあればそのカテゴリのスレッド（和集合）。
+	multi := snap(a.ID, "multi", at.Add(7*time.Hour), "INBOX", "CATEGORY_PROMOTIONS")
+	multi.Messages = append(multi.Messages, msg("multi-m2", at.Add(7*time.Hour+time.Minute), "INBOX"))
+	apply(t, s, multi)
+
+	keys := func(f store.InboxFilter) []string {
+		f.Limit = 100
+		rows, err := s.ListInbox(ctx, f)
+		require.NoError(t, err)
+		return threadKeys(rows)
+	}
+	assert.Equal(t, []string{a.ID + "/multi", b.ID + "/promo"}, keys(store.InboxFilter{Tab: store.InboxTabPromotions}))
+	assert.Equal(t, []string{a.ID + "/social-unread"}, keys(store.InboxFilter{Tab: store.InboxTabSocial}))
+	assert.Equal(t, []string{b.ID + "/nocat", a.ID + "/personal"}, keys(store.InboxFilter{Tab: store.InboxTabPrimary}))
+	assert.Equal(t, []string{a.ID + "/social-unread"}, keys(store.InboxFilter{Tab: store.InboxTabNew}))
+	assert.Len(t, keys(store.InboxFilter{Tab: store.InboxTabAll}), 6)
+	// アカウント別。
+	assert.Equal(t, []string{b.ID + "/promo"}, keys(store.InboxFilter{Tab: store.InboxTabPromotions, AccountIDs: []string{b.ID}}))
+	assert.Equal(t, []string{b.ID + "/nocat"}, keys(store.InboxFilter{Tab: store.InboxTabPrimary, AccountIDs: []string{b.ID}}))
+	assert.Empty(t, keys(store.InboxFilter{Tab: store.InboxTabNew, AccountIDs: []string{b.ID}}))
+	// 未読のみとの併用は AND。
+	assert.Empty(t, keys(store.InboxFilter{Tab: store.InboxTabPromotions, UnreadOnly: true}))
+	// ページングはタブの絞り込み後の順序で欠落・重複しない。
+	assert.Equal(t, []string{a.ID + "/multi", b.ID + "/promo"}, threadKeys(pageAll(t, s, store.InboxFilter{Tab: store.InboxTabPromotions, Limit: 1})))
+
+	assert.True(t, store.InboxTabNew.Valid())
+	assert.False(t, store.InboxTab("updates").Valid())
+}

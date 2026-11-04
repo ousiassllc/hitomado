@@ -1,9 +1,12 @@
 package dto
 
 // InboxQuery は受信箱の取得条件。AccountIDs が空ならすべて。Limit は 1〜100（既定 50）。
+// Tab は受信箱のタブ（"" または "all"＝すべて、"primary"＝メイン、"social"＝ソーシャル、"promotions"＝プロモーション、
+// "new"＝新着＝未読だけ）。それ以外は VALIDATION。
 type InboxQuery struct {
 	AccountIDs []string `json:"accountIds"`
 	UnreadOnly bool     `json:"unreadOnly"`
+	Tab        string   `json:"tab,omitempty"`
 	Limit      int      `json:"limit"`
 	Cursor     string   `json:"cursor,omitempty"`
 }

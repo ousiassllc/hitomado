@@ -99,9 +99,11 @@ type fakeOpenAI struct {
 	refreshStatus  int
 	refreshBody    string
 	revokeStatus   int
-	refreshDelay   time.Duration
-	expiresIn      int64
-	omitRefresh    bool
+	// revokeHook は失効の要求を受けたとき（応答の前）に client_id つきで呼ばれる。通信を止めるのに使う。
+	revokeHook   func(clientID string)
+	refreshDelay time.Duration
+	expiresIn    int64
+	omitRefresh  bool
 	// codeRefreshSuffix は認可コードの交換で返すリフレッシュトークンの末尾に付ける（同じ client_id の再ログインで、旧と新を見分ける）。
 	codeRefreshSuffix string
 	issueQueue        []string // 動的登録で発行する client_id（先頭から使う。空なら issuedClient）
@@ -244,8 +246,11 @@ func (f *fakeOpenAI) handleRevoke(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
 	f.mu.Lock()
 	f.revokeForms = append(f.revokeForms, cloneForm(r.PostForm))
-	status := f.revokeStatus
+	status, hook := f.revokeStatus, f.revokeHook
 	f.mu.Unlock()
+	if hook != nil {
+		hook(r.PostForm.Get("client_id")) // 失効の通信を止めたいテスト用（f.mu の外で呼ぶ）
+	}
 	w.WriteHeader(status)
 }
 

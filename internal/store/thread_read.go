@@ -106,8 +106,17 @@ FROM threads WHERE in_inbox = 1`)
 			args = append(args, id)
 		}
 	}
-	if f.UnreadOnly {
+	if f.UnreadOnly || f.Tab == InboxTabNew {
 		b.WriteString(" AND is_unread = 1")
+	}
+	switch f.Tab {
+	case InboxTabSocial:
+		b.WriteString(" AND " + threadHasLabel("= 'CATEGORY_SOCIAL'"))
+	case InboxTabPromotions:
+		b.WriteString(" AND " + threadHasLabel("= 'CATEGORY_PROMOTIONS'"))
+	case InboxTabPrimary:
+		// Gmail 本家と同じく、カテゴリを持たない受信箱のスレッドもメインに出す。
+		b.WriteString(" AND (" + threadHasLabel("= 'CATEGORY_PERSONAL'") + " OR NOT " + threadHasLabel("LIKE 'CATEGORY\\_%' ESCAPE '\\'") + ")")
 	}
 	if c := f.After; c != nil {
 		ms := toMillis(c.LastMessageAt)
@@ -121,6 +130,13 @@ FROM threads WHERE in_inbox = 1`)
 	b.WriteString(" ORDER BY last_message_at DESC, account_id, id LIMIT ?")
 	args = append(args, limit)
 	return b.String(), args
+}
+
+// threadHasLabel は、外側の threads 行のいずれかのメッセージが label_id の条件（cond。固定文字列のみ）を満たす
+// ラベルを持つ、という述語を返す。スレッドのラベルは in_inbox／is_unread と同じく、メッセージのラベルの和集合。
+func threadHasLabel(cond string) string {
+	return `EXISTS (SELECT 1 FROM messages m JOIN message_labels ml ON ml.account_id = m.account_id AND ml.message_id = m.id
+ WHERE m.account_id = threads.account_id AND m.thread_id = threads.id AND ml.label_id ` + cond + `)`
 }
 
 func (s *sqlStore) UnreadCounts(ctx context.Context) (map[string]int, error) {
