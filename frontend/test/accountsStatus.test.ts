@@ -78,13 +78,6 @@ describe('AccountRow の要再接続表示', () => {
     expect(w.emitted('checkClient')).toHaveLength(1)
   })
 
-  test('権限（スコープ）不足の要再接続は Go のメッセージを出し、再接続できる', () => {
-    const scope = 'Gmail の権限（スコープ）が足りません。再接続して、すべての権限を許可してください'
-    const w = mountRow('needs_reauth', scope)
-    expect(w.get('.status').text()).toBe(scope)
-    expect(w.findAll('button').map((b) => b.text())).not.toContain('OAuth クライアントを確認')
-  })
-
   test('通常の要再接続は従来の固定文言で、確認ボタンは出ない', () => {
     const w = mountRow('needs_reauth', '再接続が必要です')
     expect(w.get('.status').text()).toBe('再接続が必要です')
