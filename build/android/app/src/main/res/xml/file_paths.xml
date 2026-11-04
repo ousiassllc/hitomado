@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- FileProvider が他のアプリへ公開してよいディレクトリ。最小限にする（#85）。
+     ログファイル（アプリのデータ領域 files/Hitomado/logs）だけを「ファイルを開く」（ACTION_VIEW）の対象にする。
+     データベース・資格情報・添付の保存用の一時ファイル（cache/exports。Java が自分でコピーするだけで他のアプリへは渡さない）は含めない。
+     WailsBridge.OPENABLE_DIR と揃えること。 -->
+<paths>
+    <files-path name="logs" path="Hitomado/logs/" />
+</paths>

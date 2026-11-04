@@ -16,6 +16,8 @@ const props = defineProps<{
   /** checked = 対象のスレッドすべてに付いているラベル */
   labels: { id: string; name: string; checked: boolean }[]
   labelsLoading: boolean
+  /** 操作ボタン（選択中のスレッドが無い画面）を出さない。1 画面ずつのレイアウトの一覧 */
+  compact?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -46,30 +48,32 @@ function onLabelSelect(key: string): void {
       <Spinner v-if="refreshing" :size="14" />
       <span v-else aria-hidden="true">⟳</span>
     </BaseIconButton>
-    <span class="sep" aria-hidden="true" />
-    <BaseIconButton :label="common.toolbar.markRead" :shortcut="SHORTCUT_KEYS.markRead" :disabled="none" @click="emit('toggleRead', true)">
-      <span aria-hidden="true">✉</span>
-    </BaseIconButton>
-    <BaseIconButton :label="common.toolbar.markUnread" :shortcut="SHORTCUT_KEYS.markUnread" :disabled="none" @click="emit('toggleRead', false)">
-      <span aria-hidden="true">●</span>
-    </BaseIconButton>
-    <BaseIconButton :label="common.toolbar.archive" :shortcut="SHORTCUT_KEYS.archive" :disabled="none" @click="emit('archive')">
-      <span aria-hidden="true">🗄</span>
-    </BaseIconButton>
-    <BaseIconButton :label="common.toolbar.trash" :shortcut="SHORTCUT_KEYS.trash" :disabled="none" variant="danger" @click="emit('trash')">
-      <span aria-hidden="true">🗑</span>
-    </BaseIconButton>
-    <BaseMenu :items="menuItems" @select="onLabelSelect">
-      <template #trigger>
-        <BaseIconButton
-          :label="labelEnabled || none ? common.toolbar.label : common.toolbar.labelMultiAccount"
-          :disabled="none || !labelEnabled"
-          @click="emit('openLabels')"
-        >
-          <span aria-hidden="true">🏷</span>
-        </BaseIconButton>
-      </template>
-    </BaseMenu>
+    <template v-if="!compact">
+      <span class="sep" aria-hidden="true" />
+      <BaseIconButton :label="common.toolbar.markRead" :shortcut="SHORTCUT_KEYS.markRead" :disabled="none" @click="emit('toggleRead', true)">
+        <span aria-hidden="true">✉</span>
+      </BaseIconButton>
+      <BaseIconButton :label="common.toolbar.markUnread" :shortcut="SHORTCUT_KEYS.markUnread" :disabled="none" @click="emit('toggleRead', false)">
+        <span aria-hidden="true">●</span>
+      </BaseIconButton>
+      <BaseIconButton :label="common.toolbar.archive" :shortcut="SHORTCUT_KEYS.archive" :disabled="none" @click="emit('archive')">
+        <span aria-hidden="true">🗄</span>
+      </BaseIconButton>
+      <BaseIconButton :label="common.toolbar.trash" :shortcut="SHORTCUT_KEYS.trash" :disabled="none" variant="danger" @click="emit('trash')">
+        <span aria-hidden="true">🗑</span>
+      </BaseIconButton>
+      <BaseMenu :items="menuItems" @select="onLabelSelect">
+        <template #trigger>
+          <BaseIconButton
+            :label="labelEnabled || none ? common.toolbar.label : common.toolbar.labelMultiAccount"
+            :disabled="none || !labelEnabled"
+            @click="emit('openLabels')"
+          >
+            <span aria-hidden="true">🏷</span>
+          </BaseIconButton>
+        </template>
+      </BaseMenu>
+    </template>
     <span v-if="selectedCount > 1" class="count" role="status">{{ common.toolbar.selected(selectedCount) }}</span>
     <span class="grow" />
     <div v-if="searchQuery" class="mode" role="status">

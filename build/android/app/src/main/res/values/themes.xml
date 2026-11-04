@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.WailsApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color. -->
+        <item name="colorPrimary">@color/wails_blue</item>
+        <item name="colorPrimaryVariant">@color/wails_blue_dark</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <!-- システムバーと Window の背景はアプリの背景色に揃える（エッジ・ツー・エッジでは WebView の外側の余白に見える。#87）。 -->
+        <item name="android:statusBarColor">@color/app_background</item>
+        <item name="android:navigationBarColor">@color/app_background</item>
+        <item name="android:windowBackground">@color/app_background</item>
+    </style>
+</resources>

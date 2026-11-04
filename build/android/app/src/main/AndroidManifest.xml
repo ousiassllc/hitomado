@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- 必要な権限だけを置く（#82）。カメラ・位置情報・生体認証は使わないため置かない。
+         通知（POST_NOTIFICATIONS。最初のアカウントを追加したところで要求する）は #88。バックグラウンド同期は WorkManager で行い、
+         前面サービス（FOREGROUND_SERVICE・FOREGROUND_SERVICE_DATA_SYNC・WailsForegroundService）は使わないので宣言しない。
+         権限の一覧は build/android/scripts/verify-apk.sh が許可リストで検査する。 -->
+    <!-- Internet permission for WebView -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Observe network connectivity / type for android:NetworkChanged events -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- WorkManager（work-runtime）が自分のマニフェストで足す FOREGROUND_SERVICE を、マージ時に取り除く
+         （setForeground を使わないため不要。WAKE_LOCK・RECEIVE_BOOT_COMPLETED は WorkManager の動作に要るので残す）。 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+
+    <!-- androidx.biometric（WailsBridge.java が参照するため依存は外せない）が自分のマニフェストで足す権限を、マージ時に取り除く。 -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" tools:node="remove" />
+    <uses-permission android:name="android.permission.USE_FINGERPRINT" tools:node="remove" />
+
+    <application
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.WailsApp"
+        tools:targetApi="31">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="orientation|screenSize|keyboardHidden|uiMode"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+    </application>
+
+</manifest>

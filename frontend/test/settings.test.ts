@@ -44,7 +44,7 @@ mock.module(BINDINGS, () => ({
 }))
 
 mock.module('../src/lib/events', () => ({
-  EVENTS: { UPDATE_AVAILABLE: 'update:available' },
+  ...realEvents,
   onEvent: (name: string, h: Handler) => {
     handlers.set(name, h)
     return () => {

@@ -7,8 +7,10 @@ import (
 
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/threadcache"
+	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/events"
+	"github.com/ousiassllc/hitomado/internal/exportfile"
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/notify"
 	"github.com/ousiassllc/hitomado/internal/oauth"
@@ -19,9 +21,11 @@ import (
 	"github.com/ousiassllc/hitomado/internal/update"
 )
 
-// FileDialog はネイティブの保存ダイアログ。キャンセルは ok=false。
+// FileDialog は保存先を利用者に選ばせる。キャンセルは ok=false。
+// 返した Target の Path へ内容を書いて Commit する（Windows は選ばれたパスそのもの、Android は一時ファイルで、
+// Commit が選ばれた保存先へ確定する）。呼び出し側は Target の Close を必ず呼ぶ。
 type FileDialog interface {
-	SaveFile(ctx context.Context, suggestedName string) (path string, ok bool, err error)
+	SaveFile(ctx context.Context, suggestedName string) (target exportfile.Target, ok bool, err error)
 }
 
 // URLOpener はシステムブラウザ／メーラーで URL を開く。スキーム検証は呼び出し側（ThreadService）が行う。
@@ -50,18 +54,28 @@ type Deps struct {
 	OAuth    oauth.Flow
 	Sync     syncer.Engine
 	Notifier notify.Notifier
-	Update   update.Checker
-	Events   events.Emitter
-	Clock    clock.Clock
-	Files    FileDialog
-	Browser  URLOpener
-	Paths    PathOpener
-	AI       AIFactory
-	AIModels AIModelsLister
-	ChatGPT  siwc.Auth // Sign in with ChatGPT（ログイン・更新・ログアウト）
-	Logger   *slog.Logger
-	DataDir  string // %APPDATA%\Hitomado
-	Version  string
+	// Background は OS のバックグラウンド同期・通知基盤（Android の WorkManager・通知チャネル・通知の許可）。nil は何もしない。
+	Background notify.Background
+	// OpenRequests は通知のタップで開くスレッドの受け渡し口（Android）。nil は常に「なし」。
+	OpenRequests *notify.OpenRequests
+	Update       update.Checker
+	Events       events.Emitter
+	Clock        clock.Clock
+	Files        FileDialog
+	Browser      URLOpener
+	Paths        PathOpener
+	AI           AIFactory
+	AIModels     AIModelsLister
+	ChatGPT      siwc.Auth // Sign in with ChatGPT（ログイン・更新・ログアウト）
+	Logger       *slog.Logger
+	DataDir      string // %APPDATA%\Hitomado
+	Version      string
+
+	// Capabilities はこの OS で提供する機能（MCP・自動更新など。Android では無効）。ゼロ値は全機能が無効。
+	Capabilities capability.Capabilities
+
+	// OAuthTracker は認可の途中でプロセスが止められたことを次の起動で検出する（Android のみ。nil＝検出しない）。
+	OAuthTracker *oauth.Tracker
 
 	// QuitAck は AppService.AckBeforeQuit から呼ばれる（フロントの未保存下書き保存の完了通知。nil 可）。
 	QuitAck func()
@@ -72,4 +86,32 @@ type Deps struct {
 
 	// Threads は NewServices が作成する共有のスレッド本文 LRU（Deps に渡す値は不要）。
 	Threads *threadcache.Cache
+}
+
+// BackgroundOrNop は Background（未設定なら何もしない実装。Windows）。
+func (d *Deps) BackgroundOrNop() notify.Background {
+	if d.Background != nil {
+		return d.Background
+	}
+	return notify.NopBackground{}
+}
+
+// AccountAdded はアカウントの追加が済んだあとに呼ぶ。バックグラウンド同期（Android の WorkManager）を登録し（冪等）、
+// 最初のアカウント（first）の追加が済んだところで通知の許可を求める。
+func (d *Deps) AccountAdded(first bool) {
+	bg := d.BackgroundOrNop()
+	bg.ScheduleSync(true)
+	if first {
+		bg.RequestPermission()
+	}
+}
+
+// AccountRemoved はアカウントの削除が済んだあとに呼ぶ。そのアカウントの通知チャネルと表示中の通知を消し、
+// アカウントが 0 件になったらバックグラウンド同期を解除する。
+func (d *Deps) AccountRemoved(ctx context.Context, accountID string) {
+	bg := d.BackgroundOrNop()
+	bg.ForgetAccount(accountID)
+	if rest, err := d.Store.ListAccounts(ctx); err == nil && len(rest) == 0 {
+		bg.ScheduleSync(false)
+	}
 }

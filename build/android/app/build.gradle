@@ -1,0 +1,139 @@
+plugins {
+    id 'com.android.application'
+}
+
+// ---- 版（#82）----
+// `task android:* VERSION=X.Y.Z` が -PappVersion=X.Y.Z を渡す（Windows の APP_VERSION と同じ値）。
+// versionName は X.Y.Z そのまま、versionCode は major*10_000_000 + minor*10_000 + patch（単調増加）。
+// 0.0.0（VERSION 未指定のローカルビルド）は versionCode が 0 になり不正なので 1 にする。
+def appVersion = (findProperty('appVersion') ?: '0.0.0').toString()
+def versionMatch = (appVersion =~ /^(\d+)\.(\d+)\.(\d+)$/)
+if (!versionMatch.matches()) {
+    throw new GradleException("appVersion must look like X.Y.Z (no leading v), got '${appVersion}'")
+}
+def vMajor = versionMatch.group(1).toInteger()
+def vMinor = versionMatch.group(2).toInteger()
+def vPatch = versionMatch.group(3).toInteger()
+if (vMajor > 209 || vMinor > 999 || vPatch > 9999) {
+    throw new GradleException("appVersion '${appVersion}' is out of range for versionCode (major <= 209, minor <= 999, patch <= 9999)")
+}
+def appVersionCode = Math.max(1, vMajor * 10_000_000 + vMinor * 10_000 + vPatch)
+
+android {
+    namespace = 'com.wails.app'
+    // compileSdk / targetSdk は 36 に揃える（Google Play は 2026-08-31 以降、新規・更新ともに targetSdk 36 以上を要求。
+    // Wails v3.1.0 のテンプレートも 36）。docs/environment/android.md を参照。
+    compileSdk = 36
+
+    buildFeatures {
+        buildConfig = true
+    }
+
+    defaultConfig {
+        applicationId = "jp.ousias.hitomado"
+        minSdk = 31
+        targetSdk = 36
+        versionCode = appVersionCode
+        versionName = appVersion
+
+        // Configure supported ABIs
+        ndk {
+            abiFilters 'arm64-v8a', 'x86_64'
+        }
+    }
+
+    // 署名鍵はリポジトリに入れない。パスワードは環境変数だけから読む（-P やコマンドライン引数に載せると ps に見える）。
+    // ANDROID_KEYSTORE_FILE が無いときは、ローカルで実機へ入れるためのデバッグ鍵（~/.android/debug.keystore）で署名する。
+    // その場合は Play にアップロードできない。署名の種類は Taskfile（android:signing:notice）が表示する。
+    def keystoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
+    def hasKeystore = keystoreFile != null && !keystoreFile.trim().isEmpty()
+    if (hasKeystore) {
+        if (!file(keystoreFile).isFile()) {
+            throw new GradleException("ANDROID_KEYSTORE_FILE does not exist: ${keystoreFile}")
+        }
+        ["ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"].each { name ->
+            def value = System.getenv(name)
+            if (value == null || value.isEmpty()) {
+                throw new GradleException("${name} must be set when ANDROID_KEYSTORE_FILE is set")
+            }
+        }
+    }
+
+    signingConfigs {
+        release {
+            if (hasKeystore) {
+                storeFile = file(keystoreFile)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled = false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            signingConfig = hasKeystore ? signingConfigs.release : signingConfigs.debug
+        }
+        debug {
+            debuggable = true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+
+    // JVM 単体テスト（SecureStoreTest）で android.util.Log などのスタブが例外を投げないようにする。
+    testOptions {
+        unitTests.returnDefaultValues = true
+    }
+
+    // Source sets configuration
+    sourceSets {
+        main {
+            // JNI libraries are in jniLibs folder
+            jniLibs.srcDirs = ['src/main/jniLibs']
+            // Assets for the WebView
+            assets.srcDirs = ['src/main/assets']
+        }
+    }
+
+    // Packaging options
+    packagingOptions {
+        // Don't strip Go symbols in debug builds
+        doNotStrip '*/arm64-v8a/libwails.so'
+        doNotStrip '*/x86_64/libwails.so'
+    }
+
+    // .so と dex を APK の中で圧縮して格納する（APK のサイズ優先。docs/environment/android.md §6.1）。
+    // minSdk 31 の AGP 既定は無圧縮（ページ境界に揃えて mmap する形）で、Go 製の libwails.so（約 32MB）が APK を約 46MB にする。
+    // jniLibs の useLegacyPackaging = true は manifest の android:extractNativeLibs="true" になり、端末上で .so が展開される。
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+        dex {
+            useLegacyPackaging = true
+        }
+    }
+}
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.webkit:webkit:1.9.0'
+    implementation 'com.google.android.material:material:1.11.0'
+    implementation 'androidx.biometric:biometric:1.1.0'
+    // 安定版 1.1.0（alpha06 から変更。全 API が deprecated だが動作・保存形式は同じ。理由は docs/environment/android.md §11）。
+    implementation 'androidx.security:security-crypto:1.1.0'
+    // 定期同期（#88。15 分間隔・ネットワーク接続が条件）。2.12.0 は 2026-11 時点の最新安定版（minSdk 24。minSdk 31 で満たす。
+    // 版の判断は docs/environment/android.md §15.4）。
+    implementation 'androidx.work:work-runtime:2.12.0'
+
+    // SecureStore の JVM 単体テスト（./gradlew testDebugUnitTest。docs/environment/android.md §11）
+    testImplementation 'junit:junit:4.13.2'
+    // SyncOutcome の JSON を読むテスト用（android.jar の org.json は JVM では動かないスタブ）。
+    testImplementation 'org.json:json:20240303'
+}

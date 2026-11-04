@@ -12,6 +12,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app"
 	"github.com/ousiassllc/hitomado/internal/app/threadcache"
+	"github.com/ousiassllc/hitomado/internal/capability"
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/domain/palette"
@@ -35,11 +36,13 @@ type Env struct {
 	Paths    *FakePaths
 	Notifier *FakeNotifier
 	Events   *FakeEmitter
-	Sync     *FakeSync
-	Update   *FakeUpdate
-	Secrets  *secrets.Memory
-	Clock    *clock.Fake
-	ChatGPT  *FakeChatGPT
+	// Background は WorkManager・通知チャネル・通知の許可のフェイク。
+	Background *FakeBackground
+	Sync       *FakeSync
+	Update     *FakeUpdate
+	Secrets    *secrets.Memory
+	Clock      *clock.Fake
+	ChatGPT    *FakeChatGPT
 
 	defaultClient string // AddAccount が使う OAuth クライアントの行 ID
 }
@@ -59,12 +62,12 @@ func NewEnv(tb testing.TB) *Env {
 
 	e := &Env{
 		Store: st, Gmail: NewFakeGmail(), Flow: NewFakeFlow(), Files: &FakeFiles{}, Browser: &FakeBrowser{}, Paths: &FakePaths{},
-		Notifier: &FakeNotifier{}, Events: NewFakeEmitter(), Update: &FakeUpdate{},
+		Notifier: &FakeNotifier{}, Background: &FakeBackground{}, Events: NewFakeEmitter(), Update: &FakeUpdate{},
 		Secrets: secrets.NewMemory(), Clock: clk, ChatGPT: &FakeChatGPT{Token: "chatgpt-access-token"}, //nolint:gosec // テスト用のダミー値
 	}
 	e.Sync = NewFakeSync(st, e.Gmail)
 	e.Deps = &app.Deps{
-		Store: st, Gmail: e.Gmail, Secrets: e.Secrets, OAuth: e.Flow, Sync: e.Sync, Notifier: e.Notifier,
+		Store: st, Gmail: e.Gmail, Secrets: e.Secrets, OAuth: e.Flow, Sync: e.Sync, Notifier: e.Notifier, Background: e.Background,
 		Update: e.Update, Events: e.Events, Clock: e.Clock, Files: e.Files, Browser: e.Browser, Paths: e.Paths,
 		AI: func(string, string, string, string) (ai.Provider, error) {
 			return nil, errors.New("apptest: Deps.AI が未設定です")
@@ -75,7 +78,8 @@ func NewEnv(tb testing.TB) *Env {
 		ChatGPT: e.ChatGPT,
 		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
 		DataDir: tb.TempDir(), Version: "0.1.0",
-		Threads: threadcache.New(e.Gmail, threadcache.DefaultCapacity),
+		Capabilities: capability.Desktop("windows"),
+		Threads:      threadcache.New(e.Gmail, threadcache.DefaultCapacity),
 	}
 	return e
 }

@@ -2,6 +2,8 @@
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { computed, watch } from 'vue'
 import { settings as msg } from '../../lib/messages'
+import { useLayoutStore } from '../../stores/layout'
+import { usePlatformStore } from '../../stores/platform'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
 import BaseDialog from '../ui/BaseDialog.vue'
@@ -15,16 +17,19 @@ import SignatureSettings from './SignatureSettings.vue'
 
 const ui = useUiStore()
 const settingsStore = useSettingsStore()
+const platform = usePlatformStore()
+const layout = useLayoutStore()
 
-const tabs = [
+// MCP サーバーを持たない OS（Android）では MCP のタブを出さない。
+const tabs = computed(() => [
   { value: 'accounts', label: msg.tabs.accounts, component: AccountsSettings },
   { value: 'oauth', label: msg.tabs.oauthClients, component: OAuthClientsSettings },
   { value: 'signature', label: msg.tabs.signature, component: SignatureSettings },
   { value: 'ai', label: msg.tabs.ai, component: AISettings },
-  { value: 'mcp', label: msg.tabs.mcp, component: McpSettings },
+  ...(platform.supportsMcp ? [{ value: 'mcp', label: msg.tabs.mcp, component: McpSettings }] : []),
   { value: 'logs', label: msg.tabs.logs, component: LogSettings },
   { value: 'general', label: msg.tabs.general, component: GeneralSettings },
-] as const
+])
 
 const open = computed({
   get: () => ui.dialogs.settings,
@@ -48,9 +53,9 @@ watch(open, (isOpen) => {
 </script>
 
 <template>
-  <BaseDialog v-model:open="open" size="lg" :title="msg.title" :description="msg.description">
-    <TabsRoot v-model="tab" class="tabs" orientation="horizontal">
-      <TabsList class="tab-list" :aria-label="msg.tabsLabel">
+  <BaseDialog v-model:open="open" size="lg" :title="msg.title" :description="platform.supportsMcp ? msg.description : msg.descriptionWithoutMcp">
+    <TabsRoot v-model="tab" class="tabs" :class="{ full: layout.isStack }" orientation="horizontal">
+      <TabsList class="tab-list" :class="{ scroll: layout.isStack }" :aria-label="msg.tabsLabel">
         <TabsTrigger v-for="t in tabs" :key="t.value" :value="t.value" class="tab">
           {{ t.label }}
         </TabsTrigger>
@@ -97,5 +102,19 @@ watch(open, (isOpen) => {
 
 .panel {
   min-height: 0;
+}
+
+/* 1 画面ずつ: 全画面のダイアログで、タブは横にスクロールする。 */
+.tabs.full {
+  min-height: 0;
+}
+
+.tab-list.scroll {
+  overflow-x: auto;
+}
+
+.tab-list.scroll .tab {
+  flex: none;
+  white-space: nowrap;
 }
 </style>

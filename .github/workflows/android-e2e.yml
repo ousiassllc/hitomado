@@ -1,0 +1,75 @@
+name: Android E2E
+
+# 手動実行専用（workflow_dispatch）。PR の CI（ci.yml）には入れない: KVM つきのエミュレーターは実行時間が長く、
+# 実機・CI で動かして緑になるまでは、PR を赤くしうるジョブを入れない方針（docs/environment/android.md §17）。
+# 起動 → 一覧 → 返信下書き → レンダラ落ちからの復帰を、E2E 用 APK（ビルドタグ e2e。シード済みのフェイク Gmail）で通す。
+# 本物の Google アカウントは使わない。release の APK にはこのモードは入らない（android:verify が検査する）。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  WAILS_VERSION: v3.1.0
+  ANDROID_NDK_VERSION: 26.3.11579264
+  ANDROID_BUILD_TOOLS_VERSION: 36.0.0
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install tools
+        env:
+          CGO_ENABLED: "0"
+        run: go install -tags purego github.com/wailsapp/wails/v3/cmd/wails3@"${WAILS_VERSION}"
+      - name: Install Android SDK packages
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+            "platforms;android-36" "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" "ndk;${ANDROID_NDK_VERSION}"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - name: Go tests of the E2E mode (tag e2e)
+        run: go test -tags e2e ./internal/e2e/...
+      # ubuntu-latest の runner は KVM が使える（udev のルールで権限を付ける。reactivecircus/android-emulator-runner の案内どおり）。
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Build the E2E APK (x86_64)
+        run: wails3 task android:e2e:apk ARCH=amd64
+      - name: Run the E2E on an x86_64 emulator (API 35)
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          force-avd-creation: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          disable-animations: true
+          script: bash build/android/e2e/run.sh bin/hitomado-e2e.apk jp.ousias.hitomado
+        env:
+          E2E_OUT: ${{ runner.temp }}/e2e-out
+          E2E_LIST_TIMEOUT: "300"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-e2e-output
+          path: ${{ runner.temp }}/e2e-out
+          if-no-files-found: ignore

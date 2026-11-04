@@ -6,7 +6,7 @@
 
 - ローカル DB は **SQLite**（`modernc.org/sqlite`、WAL）。スキーマは goose のマイグレーション（`internal/store/migrations/*.sql`）で管理し、クエリは sqlc で生成する
 - **保存するのはヘッダ由来のメタデータとスニペットのみ**。メッセージ本文・添付データ・下書きは保存しない（[NF-S08](../requirements/non-functional.md#1-セキュリティ)。下書きは Gmail 側）
-- **秘密情報は DB に保存しない**。OAuth のリフレッシュトークン、OAuth クライアントの Client Secret、AI の API キー、ChatGPT ログインのトークンは Windows 資格情報マネージャーに保存する
+- **秘密情報は DB に保存しない**。OAuth のリフレッシュトークン、OAuth クライアントの Client Secret、AI の API キー、ChatGPT ログインのトークンは OS の資格情報ストア（Windows は資格情報マネージャー、Android は Android Keystore の鍵で暗号化した EncryptedSharedPreferences）に保存する
 
 | 資格情報キー | 内容 |
 |--------------|------|
@@ -362,3 +362,4 @@ erDiagram
 | 1.4 | 2026-11-03 | §3.8 の `receive_count` を、同期時に加算し閲覧時は加算しない旨に修正（履歴に未記録だった分） | 実装との整合（#32。記録漏れの補正 #53） |
 | 1.5 | 2026-11-03 | §5 のアカウント削除に、先に同期ワーカーを止めて実行中の周期の終了を待ち、DB 削除に失敗したら再開する旨を追記 | 実装（`internal/app/account.go`）との整合（#4） |
 | 1.6 | 2026-11-03 | §1 の資格情報キーに `hitomado/chatgpt_token/<kind>` を、§3.9 に `ai.chatgpt` を追加し、`ai.config` の `provider` に `chatgpt` を追記 | Sign in with ChatGPT（#75） |
+| 1.7 | 2026-11-03 | §1 の秘密情報の保存先に Android の EncryptedSharedPreferences（Android Keystore の鍵）を追記 | #84 |

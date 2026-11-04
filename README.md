@@ -16,7 +16,7 @@
 - Gmail 検索クエリを全アカウント横断で実行
 - 新着のデスクトップ通知とトレイ常駐
 - AI で返信を下書き（任意。ボタンを押したときだけ生成し、送信は必ず人が行います）。Anthropic・OpenAI 互換の API キーのほか、**ChatGPT のプラン（Sign in with ChatGPT）**でもログインして使えます。モデルは API キーの登録後に取得した一覧から選べます
-- MCP でエージェントとつなげる（既定はオフ・トークン必須。状態・ログ・メールの読み取りと返信の下書き作成まで。**送信はできません**）。詳しくは [docs/mcp.md](docs/mcp.md)
+- MCP でエージェントとつなげる（Windows 版のみ。既定はオフ・トークン必須。状態・ログ・メールの読み取りと返信の下書き作成まで。**送信はできません**）。詳しくは [docs/mcp.md](docs/mcp.md)
 - エラーとログの記録（Go とフロントの両方。トークン・本文・件名・宛先は残しません）
 - ライト／ダークテーマ、Gmail 互換のキーボードショートカット
 
@@ -29,6 +29,8 @@
 3. スタートメニューの「Hitomado」から起動します。初回は [OAuth クライアントを作成](#oauth-クライアントの作り方)し、アプリの設定 → OAuth クライアントに登録してから、アカウントを追加します。
 
 動作環境: Windows 10（1809 以降）／Windows 11（x64。ARM64 は対象外）。WebView2 ランタイムが必要です（Windows 11 は標準搭載。未導入ならインストーラーが入れます）。
+
+Android 版（試験段階）の動作環境: Android 12（API 31）以上。
 
 ### 更新
 
@@ -71,6 +73,16 @@ Hitomado は Gmail API を使うため、Google Cloud で OAuth クライアン�
 4. **認証情報 → 認証情報を作成 → OAuth クライアント ID** を選び、アプリケーションの種類に **デスクトップ アプリ** を指定して作成します。
 5. 表示された **クライアント ID** と **クライアント シークレット** を、Hitomado の設定 → OAuth クライアントに名前を付けて登録します。
 6. 設定 → アカウントの追加で、登録した OAuth クライアントを選び、ブラウザで Google の認可を完了します。
+
+### Android で使う場合の OAuth クライアント
+
+Android 版（試験段階。[docs/environment/android.md](docs/environment/android.md)）も、上の手順で作る**「デスクトップ アプリ」種別のクライアントをそのまま使います**。Windows 版と同じ Client ID／Client Secret を、Android の設定 → OAuth クライアントにも登録してください。
+
+- **「Android」種別のクライアントは作らないでください**。Android 版は認可コードを 127.0.0.1 の一時ポートで受け取ります。Google は、この方式を Android 種別のクライアントでは認めておらず（[ループバック移行ガイド](https://developers.google.com/identity/protocols/oauth2/resources/loopback-migration)）、カスタム URI スキームも Android では使えません（[OAuth 2.0 for Desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app)。いずれも 2026-11-03 に確認）。デスクトップ アプリ種別のループバックは引き続きサポートされています。
+- **パッケージ名（`jp.ousias.hitomado`）と署名鍵の SHA-1 は、Google Cloud に登録しません**（Android 種別だけが要るものです）。したがって、デバッグ鍵で入れた APK でも、自分で署名した release 鍵の APK でも、同じクライアントで認可できます。署名が違う APK へ入れ替えるときに要るのは、`adb uninstall jp.ousias.hitomado`（アプリのデータも消えます）だけです。
+- 同意画面が **外部かつ「テスト」** のときは、**Google Auth Platform → 対象（Audience）→ テストユーザー**に、Android で追加する Gmail アドレスを登録してください（登録していないアドレスは認可できません）。「テスト」のままだと 7 日でトークンが失効する点は次のとおりです。
+- 認可はブラウザで行います。同意したあと、ブラウザの「このタブを閉じて Hitomado に戻ってください」の表示を見たら、アプリに戻ってください（自動では戻りません）。ブラウザに出ている間にアプリが終了してしまったときは、アプリに「ログインの途中でアプリが終了したため、完了できませんでした」と出るので、もう一度アカウントの追加からやり直してください。
+- 実機・本物の Google アカウントでの動作確認はまだです（確認の手順は [docs/environment/android.md §14.6](docs/environment/android.md#146-実機で確認する手順未確認)）。
 
 ### 重要: 「テスト」のままだと 7 日でトークンが失効します
 
@@ -152,6 +164,7 @@ task check                      # CI と同等の検査（生成物の差分な�
 
 - 動作保証の対象は Windows です。Linux／macOS では Go の単体テスト・フロントのテスト・lint を実行できますが、アプリ本体の実行確認は Windows で行ってください。Linux で Go をビルド・テストするときは GTK を使わない `CGO_ENABLED=0 go test -tags purego ./...` を使います。
 - `task dev`・`task build`（`VERSION` なし）の版は `0.0.0` です（`task package VERSION=X.Y.Z` で渡した値だけが配布物の版になります）。`0.0.0` の dev・ローカルビルドは更新確認をしません（設定画面にも新しい版は出ません）。
+- **Android 版のビルド**（APK／AAB。`task android:package ARCH=arm64 VERSION=X.Y.Z` で `bin/hitomado.apk`、`task android:install` で実機へ）の手順・署名・版番号は [docs/environment/android.md](docs/environment/android.md) にあります。まだ試験段階で、配布はしていません。
 - 仕様書は [docs/overview.md](docs/overview.md) のドキュメントマップから辿れます。
 - マージは squash／rebase せず、マージコミット方式です。コミットには `git commit -s`（Signed-off-by）を付けます。
 - リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けのインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）・`NOTICE`・`SHA256SUMS.txt` を Releases に添付します（コード署名なし）。手元でインストーラーを作るときは、Windows で [NSIS](https://nsis.sourceforge.io/)（`makensis`）を入れて `task package VERSION=X.Y.Z` を実行します（`bin/` に出力）。手でタグを打つ必要はありません。

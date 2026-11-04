@@ -3,6 +3,8 @@ package mcptests
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -17,6 +19,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/hitomado/internal/exportfile"
 	"github.com/ousiassllc/hitomado/internal/logging"
 )
 
@@ -92,6 +95,20 @@ func TestOpenLogFolderOpensDataDirLogs(t *testing.T) {
 	assert.DirExists(t, want)
 }
 
+func TestOpenLogFolderUnsupportedGivesActionableMessage(t *testing.T) {
+	svc, e, _ := newLogSvc(t)
+	e.Paths.Err = fmt.Errorf("open path: %w", exportfile.ErrFolderNotSupported) // Android
+	err := svc.OpenLogFolder(t.Context())
+	requireCode(t, apperr.Unsupported, err)
+	var ae *apperr.Error
+	require.ErrorAs(t, err, &ae)
+	assert.Contains(t, ae.Message, "ログを書き出す")
+
+	e.Paths.Err = errors.New("boom")
+	err = svc.OpenLogFolder(t.Context())
+	requireCode(t, apperr.Internal, err)
+}
+
 func TestExportLogsWritesZipOfLogFiles(t *testing.T) {
 	svc, e, _ := newLogSvc(t)
 	logDir := filepath.Join(e.Deps.DataDir, "logs")
@@ -108,6 +125,32 @@ func TestExportLogsWritesZipOfLogFiles(t *testing.T) {
 	defer func() { _ = zr.Close() }()
 	require.Len(t, zr.File, 1)
 	assert.Equal(t, logging.FileName, zr.File[0].Name)
+}
+
+func TestExportLogsCommitsTargetAndReturnsItsLocation(t *testing.T) {
+	svc, e, _ := newLogSvc(t)
+	e.Files.Path = filepath.Join(t.TempDir(), "tmp-save")
+	e.Files.Location = "logs.zip"
+
+	res, err := svc.ExportLogs(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, dto.ExportLogsResult{Saved: true, Path: "logs.zip"}, res)
+	assert.Equal(t, 1, e.Files.Committed)
+	assert.Equal(t, 1, e.Files.Closed)
+
+	e.Files.CommitErr = os.ErrClosed
+	_, err = svc.ExportLogs(t.Context())
+	require.Error(t, err)
+	assert.Equal(t, 2, e.Files.Closed, "確定に失敗しても Close する")
+}
+
+func TestExportLogsWriteFailureDoesNotCommit(t *testing.T) {
+	svc, e, _ := newLogSvc(t)
+	e.Files.Path = filepath.Join(t.TempDir(), "no-such-dir", "out.zip")
+	_, err := svc.ExportLogs(t.Context())
+	require.Error(t, err)
+	assert.Zero(t, e.Files.Committed)
+	assert.Equal(t, 1, e.Files.Closed)
 }
 
 func TestExportLogsCancelWritesNothing(t *testing.T) {

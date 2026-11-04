@@ -1,0 +1,123 @@
+/*
+ * タッチ UI（Android）用のスタイル。html に data-touch-ui が付いているときだけ効く（stores/layout.ts が付ける）ので、
+ * Windows 版の表示は変わらない。デザイントークン（色・フォント）は変えず、操作の大きさだけを調整する。
+ *   - タップ領域は 44px 以上（Android のアクセシビリティ指針は 48dp、WCAG 2.5.5 は 44px）
+ *   - hover だけで出る操作は無い（hover は背景色の変化とツールチップだけ。ツールチップの内容はボタンの aria-label・文言と同じ）
+ * 長押し・スワイプの操作は入れない（スコープ外）。
+ * 特異性は :root[data-touch-ui] .x（0,3,0）で、各コンポーネントの scoped 指定（.x[data-v]）に勝つ。
+ */
+:root[data-touch-ui] {
+  --tap-min: 44px;
+}
+
+/* 押せる要素の最小の大きさ（高さ）。幅は内容と余白に任せる */
+:root[data-touch-ui] .btn,
+:root[data-touch-ui] .sel,
+:root[data-touch-ui] .toggle,
+:root[data-touch-ui] .rte-link-btn,
+:root[data-touch-ui] .all-btn,
+:root[data-touch-ui] .back,
+:root[data-touch-ui] button.main,
+:root[data-touch-ui] button.card-toggle {
+  min-height: var(--tap-min);
+}
+
+/* 小さいアイコンボタンは正方形の 44px にする */
+:root[data-touch-ui] .icon-btn,
+:root[data-touch-ui] .dlg-close,
+:root[data-touch-ui] .warn,
+:root[data-touch-ui] .attach-remove,
+:root[data-touch-ui] .chip-remove,
+:root[data-touch-ui] .rte-btn,
+:root[data-touch-ui] .swatch,
+:root[data-touch-ui] .split-menu,
+:root[data-touch-ui] .toggle,
+:root[data-touch-ui] .tab {
+  min-width: var(--tap-min);
+  min-height: var(--tap-min);
+}
+
+:root[data-touch-ui] .chip-remove {
+  /* チップ（宛先）の中のボタンは、見た目の大きさを保ちつつ当たり判定だけ広げる */
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+:root[data-touch-ui] .chip-remove::after {
+  content: "";
+  position: absolute;
+  inset: -11px;
+}
+
+/* メニュー・セレクトの項目 */
+:root[data-touch-ui] .menu-item,
+:root[data-touch-ui] .sel-item {
+  min-height: var(--tap-min);
+  display: flex;
+  align-items: center;
+}
+
+/* 入力欄 */
+:root[data-touch-ui] .subject-input,
+:root[data-touch-ui] .field-input,
+:root[data-touch-ui] .rte-link-input,
+:root[data-touch-ui] .search .input,
+:root[data-touch-ui] .recipient-box,
+:root[data-touch-ui] .sender-field,
+:root[data-touch-ui] input.text {
+  min-height: var(--tap-min);
+}
+
+/* スイッチ: 見た目（40x22）は保ち、当たり判定だけ 44px 以上に広げる */
+:root[data-touch-ui] .sw::after {
+  content: "";
+  position: absolute;
+  inset: -11px -2px;
+}
+
+/* 一覧の 1 行は 72px（ThreadList の ROW_HEIGHT）で足りている。ツールバーだけ高さを 44px に合わせる */
+:root[data-touch-ui] .toolbar {
+  min-height: 52px;
+}
+
+/*
+ * 詳細ペインが狭いレイアウト（2 ペイン・1 画面ずつ。html の data-layout が medium／stack）。
+ * Windows 版（常に wide）には当たらない。
+ */
+:root[data-layout="medium"] .thread-header .title-row,
+:root[data-layout="stack"] .thread-header .title-row {
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+:root[data-layout="medium"] .thread-header .subject,
+:root[data-layout="stack"] .thread-header .subject {
+  flex: 1;
+  min-width: 0;
+}
+
+:root[data-layout="medium"] .thread-header .actions,
+:root[data-layout="stack"] .thread-header .actions {
+  flex: 1 1 100%;
+  justify-content: flex-start;
+}
+
+:root[data-layout="medium"] .thread-header .meta-row,
+:root[data-layout="stack"] .thread-header .meta-row,
+:root[data-layout="medium"] .compose-pane .compose-foot,
+:root[data-layout="stack"] .compose-pane .compose-foot {
+  flex-wrap: wrap;
+}
+
+/* 宛先の入力欄を全幅にし、Cc／Bcc の切り替えは下の行へ */
+:root[data-layout="medium"] .compose-pane .to-row,
+:root[data-layout="stack"] .compose-pane .to-row {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+:root[data-layout="medium"] .compose-pane .toggles,
+:root[data-layout="stack"] .compose-pane .toggles {
+  padding-top: 0;
+}

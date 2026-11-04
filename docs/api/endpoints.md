@@ -22,6 +22,8 @@ Hitomado は HTTP サーバーを持たない。フロントエンド（Vue）�
 | `AppService` | アプリ設定（受信箱フィルタ等）、バージョン、更新確認 |
 | `LogService` | フロントのエラーの記録、ログフォルダを開く、ログの書き出し |
 | `MCPService` | 内蔵 MCP サーバーの設定・トークン・状態 |
+| `PlatformService`（`internal/capability`） | 実行中の OS で提供する機能 |
+| `NotifyService`（`internal/app/notifycore`） | 通知の許可状態・OS の通知設定・通知のタップで開くスレッド |
 
 ### 1.2 エラー
 
@@ -67,6 +69,7 @@ type AppError = {
 | `AI_CONSENT_REQUIRED` | 当該プロバイダへの送信に未同意 | false | AIService |
 | `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト・リダイレクト応答（3xx。追従しない）等）。ChatGPT プランでは、利用枠の超過（`subscription_sharing_usage_limit_exceeded`）・このアカウントでは使えない（`subscription_sharing_user_not_eligible`）・ログインの検証失敗も含む | 状況による | AIService |
 | `CANCELLED` | 呼び出し側がキャンセルした | false | AIService |
+| `UNSUPPORTED` | この OS では提供しない機能の呼び出し（Android での更新確認の設定） | false | AppService |
 | `INTERNAL` | 想定外の内部エラー | false | 全般 |
 
 ### 1.3 共通型
@@ -123,6 +126,7 @@ type ThreadPage = {
 | `ListAccounts()` | — | `Account[]` | `sortOrder` 昇順 |
 | `StartAddAccount(oauthClientId)` | string | `Account` | 認可フローを開始し、**完了またはキャンセル・タイムアウトまでブロック**する。システムブラウザを開く。完了後に初回同期を開始 |
 | `CancelAddAccount()` | — | — | 進行中の認可を中断（`StartAddAccount` は `OAUTH_CANCELLED` で reject） |
+| `TakeInterruptedAuth()` | — | `boolean` | 前回の起動が Google の認可の途中で止められていたか（Android がブラウザに出ている間にプロセスを終了させた場合）を**一度だけ** `true` で返す（2 回目以降と、検出しない構成〔Windows〕は `false`）。画面は起動時に呼び、`true` なら「ログインはやり直し」を案内する。[Android ビルド §14.3](../environment/android.md#143-プロセスが止められたとき決定) |
 | `Reconnect(accountId)` | string | `Account` | `needs_reauth` のアカウントを再認可。**認可されたアドレスが `accounts.email` と異なる場合は拒否**（`VALIDATION`） |
 | `RemoveAccount(accountId)` | string | — | 同期ワーカーを停止（実行中の周期の終了を待つ）→DB カスケード削除→資格情報削除＋トークン revoke（失敗しても削除は成功扱い）。DB 削除に失敗したときは同期を再開してエラーを返す |
 | `UpdateAccount(accountId, patch)` | `{ displayName?, color?, notifyEnabled? }` | `Account` | 表示名・色・通知設定 |
@@ -197,7 +201,7 @@ type ThreadDetail = {
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
 | `GetThread(ref)` | `ThreadRef` | `ThreadDetail` | `threads.get(format=full)`。メモリ LRU に保持。**状態は変更しない**（既読化は、スレッドを開いて表示した後にフロントが `MarkRead` を呼ぶ。F-03） |
-| `SaveAttachment(ref, attachmentId, suggestedName)` | `MessageRef`, string ×2 | `{ saved: boolean; path?: string }` | ネイティブの保存ダイアログを開き、選択先に書き込む。キャンセルは `saved=false`。ファイル名は `suggestedName` を OS の禁止文字で正規化する。保存先と同じディレクトリの一時ファイルへ書いて置き換え、置換後のファイルに Windows の Mark-of-the-Web（`Zone.Identifier` の `ZoneId=3`）を付ける（付けられなくても保存は成功） |
+| `SaveAttachment(ref, attachmentId, suggestedName)` | `MessageRef`, string ×2 | `{ saved: boolean; path?: string }` | ネイティブの保存ダイアログ（Android は Storage Access Framework の保存先選択。[Android ビルド §13](../environment/android.md#13-添付の保存ログの書き出しファイルを開く85)）を開き、選択先に書き込む。キャンセルは `saved=false`。Android では保存先選択のあとに添付を取得し、選ばれた場所へコピーしてから返す。`path` は Windows では保存したパス、Android では選ばれた保存先のファイル名。ファイル名は `suggestedName` を OS の禁止文字で正規化する。保存先と同じディレクトリの一時ファイルへ書いて置き換え、置換後のファイルに Windows の Mark-of-the-Web（`Zone.Identifier` の `ZoneId=3`）を付ける（付けられなくても保存は成功） |
 | `OpenExternal(url)` | string | — | システムブラウザ／メーラーで開く。許可スキームは `http`／`https`／`mailto` のみ（それ以外は `VALIDATION`、NF-S07） |
 
 - 本文の取得は毎回 Gmail に問い合わせ、ディスクには保存しない（NF-S08／S09）。メモリ LRU にあれば再利用し、`history` で当該スレッドが変更されたら破棄する
@@ -400,7 +404,7 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 | `GetInboxFilter()` | — | `{ accountIds: string[]; unreadOnly: boolean }` | 保存済みフィルタ（`app_settings.inbox.filter`）。存在しないアカウント ID は除いて返す |
 | `SetInboxFilter(filter)` | 同上 | — | 保存 |
 | `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; dataDir: string }` | |
-| `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03 |
+| `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03。アプリ内の更新確認を持たない OS（Android）では `UNSUPPORTED` |
 | `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時、および版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは通信せず `{ available: false }` |
 | `AckBeforeQuit()` | — | — | `app:before-quit` を受けたフロントが、未保存の作成セッションを `SaveDraft` し終えたことを Go に伝える（§9）。Go はこれを受けるか猶予 3 秒の経過で終了処理に進む |
 
@@ -409,8 +413,8 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
 | `ReportClientError(error)` | `ClientError` | — | フロントの未処理例外・Promise の reject・Vue の描画エラー・バインディング呼び出しの失敗を Go のログへ記録する。`ClientError` は `{ kind: 'error' \| 'unhandledrejection' \| 'vue' \| 'binding'; message: string; stack?: string; source?: string; code?: string; accountId?: string }`。本文・件名・宛先の項目は持たない。画面側は例外のメッセージ文を送らず、`message` は種類のコード（`TypeError` などのエラークラス名・`unknown`・`render-error:コンポーネント名`・`binding` のエラーコード）、`stack` は関数名とファイル:行:列のフレームだけ。Go 側は 2 枚目の防御として、メッセージ・スタックはログの伏せ処理（NF-S10）を通り、長さを切る。1 秒に 1 件（瞬間 30 件）を超える報告は捨てる（エラーにしない）。`kind` が不正なら `VALIDATION`。`binding` は `code` が `INTERNAL` のときだけ Error、それ以外は Warn |
-| `OpenLogFolder()` | — | — | ログフォルダ（`%APPDATA%\Hitomado\logs`）を OS の標準の方法で開く |
-| `ExportLogs()` | — | `{ saved: boolean; path?: string }` | 保存ダイアログで選んだ先に、ログ（現行とローテーション済み）を zip で書き出す。キャンセルは `saved=false` |
+| `OpenLogFolder()` | — | — | ログフォルダ（`%APPDATA%\Hitomado\logs`）を OS の標準の方法で開く。Android ではフォルダを開く手段が無く `UNSUPPORTED`（メッセージで「ログを書き出す」を案内する） |
+| `ExportLogs()` | — | `{ saved: boolean; path?: string }` | 保存ダイアログ（Android は保存先選択）で選んだ先に、ログ（現行とローテーション済み）を zip で書き出す。キャンセルは `saved=false`。`path` は `SaveAttachment` と同じ |
 
 ### 7.2 MCPService
 
@@ -423,8 +427,28 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 | `IssueMCPToken()` | — | `{ token: string; status: MCPStatus }` | Bearer トークンを（再）発行して資格情報ストア（`hitomado/mcp_token`）に保存する。古いトークンは無効になる。`token` を返すのはこの 1 回だけ |
 | `RevokeMCPToken()` | — | `MCPStatus` | トークンを削除する（以後すべての MCP 接続を拒否） |
 
+- Android（MCP を持たない OS）では `MCPService` をバインディングへ登録しない（`run.go`・`services_binding.go`）。`Start` も、保存済みの設定がオンでも待ち受けない（型・バインディングは OS によらず同じで、登録の有無だけが変わる）
 - `Start`／`Shutdown`（起動・終了処理用）はフロントへ公開しない（`//wails:ignore`）。`SetMCPConfig` の `enabled=false` は検証せずに停止し、保存済みの host／port を維持する。起動時は保存された設定を検証してから待ち受ける
 - MCP は待ち受けのみで、`Bearer` トークンの無い・合わない接続は `401`、`Host`／`Origin` が不正なら `403`。MCP のツール（読み取りと `create_reply_draft`）に送信は無い。ツールの呼び出しは `LogService` と同じログに残る（本文・引数は残さない）
+
+### 7.3 PlatformService
+
+実行中の OS で提供する機能（`internal/capability`）。フロントは OS 名ではなく、ここで返す機能の有無で画面を出し分ける（`frontend/src/stores/platform.ts` の `platformStore`）。バインディングは全 OS で同じ（値だけがビルドタグ `android`／`!android` で変わる）。
+
+| メソッド | 引数 | 戻り値 | 内容 |
+|----------|------|--------|------|
+| `GetCapabilities()` | — | `{ os: string; supportsMcp: boolean; supportsTray: boolean; supportsAutoUpdate: boolean; supportsWindowState: boolean; singleInstance: boolean; touchUi: boolean }` | `os` は `runtime.GOOS` と同じ表記（表示・ログ用）。Windows は `touchUi` 以外が `true`、Android は `touchUi` だけが `true`（MCP サーバー・トレイ・アプリ内の自動更新・ウィンドウ状態の保存復元・多重起動の防止を持たない）。`touchUi` はタッチ操作中心の画面（幅による 1 画面ずつ・2 ペインの表示、44px のタップ領域）を使うか。`true` の OS は最小ウィンドウ幅の制限も外す |
+
+### 7.4 NotifyService
+
+通知の許可（Android 13 以降の `POST_NOTIFICATIONS` と OS のアプリの通知設定）と、通知のタップで開くスレッド。バインディングは全 OS で同じで、Windows では許可を管理しないため `unsupported` を返す（設定画面は項目を出さない）。
+
+| メソッド | 引数 | 戻り値 | 内容 |
+|----------|------|--------|------|
+| `GetNotificationPermission()` | — | `'granted' \| 'denied' \| 'unsupported'` | 通知を出せるか。`denied` は未許可・OS の設定で通知がオフ |
+| `RequestNotificationPermission()` | — | — | 許可のダイアログを出す（許可済み・永続的に拒否済みでは何も出ない）。結果は待たない。最初のアカウントの追加後は Go が自動で呼ぶ |
+| `OpenNotificationSettings()` | — | — | OS の「このアプリの通知設定」を開く。開けなければ `UNSUPPORTED` |
+| `TakePendingOpenThread()` | — | `{ accountId, threadId } \| null` | フロントが購読を始めた**あと**に 1 回呼ぶ。通知のタップで起動されて（コールドスタート）まだ開いていないスレッドがあれば返す。以後のタップは `notify:open-thread` で届く（フロントの準備前に発行したイベントの取りこぼしを避ける） |
 
 ## 8. イベント（Go → フロント）
 
@@ -434,7 +458,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 |-----------|------------|------|
 | `sync:updated` | `{ accountId: string; changedThreadIds: string[] }` | 差分同期・リセット同期でキャッシュが更新された |
 | `account:status` | `{ accountId: string; status: 'active' \| 'syncing' \| 'needs_reauth' \| 'error'; message?: string }` | アカウント状態の変化（`syncing` は一時状態で DB に保存しない） |
-| `notify:open-thread` | `{ accountId: string; threadId: string }` | 通知クリック（トレイ操作ではウィンドウを前面に出すだけで、このイベントは発行しない） |
+| `notify:open-thread` | `{ accountId: string; threadId: string }` | 通知クリック（トレイ操作ではウィンドウを前面に出すだけで、このイベントは発行しない）。Android では、起動済みのアプリが通知のタップで前面に出たとき（フロントが準備済みなら）。起動前のタップは `TakePendingOpenThread` で受け取る |
 | `update:available` | `{ version: string; url: string }` | 新バージョン検出 |
 | `app:before-quit` | なし | トレイの「終了」。フロントは未保存の下書きを保存して `AckBeforeQuit` を呼ぶ |
 | `files-dropped` | `{ files: string[] }` | ウィンドウへのファイルドロップ（`data-file-drop-target` 属性の要素上のみ）。フロントは `AddAttachments` に渡す |
@@ -488,3 +512,8 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.14 | 2026-11-03 | `RemoveAccount` の手順を、同期ワーカーの停止（実行中の周期の終了待ち）→DB 削除に改め、DB 削除に失敗したときは同期を再開してエラーを返す旨を追記 | 実装（`internal/app/account.go`）との整合（#4） |
 | 1.15 | 2026-11-03 | `ReportClientError` の `message`・`stack` を、例外のメッセージ文ではなく種類のコード・位置だけのフレームにしたことを追記 | 実装（`frontend/src/lib/errorReporter.ts`）との整合（#24） |
 | 1.16 | 2026-11-03 | `AIProvider` に `chatgpt` を追加し、`AIConfig` に `chatgptSignedIn`／`chatgptEmail` を追加。`SignInChatGPT`／`CancelSignInChatGPT`／`SignOutChatGPT`／`ListAIModels` と、§6.1 モデル一覧・§6.2 ChatGPT プランを追記。§1.2 の `AI_NOT_CONFIGURED`／`AI_FAILED` の説明を拡張 | Sign in with ChatGPT（#75）とモデル一覧からの選択（#76） |
+| 1.17 | 2026-11-03 | `PlatformService`（§7.3）と `UNSUPPORTED`（§1.2）を追加。§7 の `SetUpdateCheckEnabled` と §7.2 に、Android での扱いを追記 | Android 版で使わない機能の無効化（#89） |
+| 1.18 | 2026-11-03 | `SaveAttachment`・`ExportLogs` の保存先に Android（Storage Access Framework）の動作を、`OpenLogFolder` に Android で `UNSUPPORTED` となる旨を追記 | #85 |
+| 1.19 | 2026-11-03 | `AccountService.TakeInterruptedAuth` を追加 | Android の Google OAuth（#86） |
+| 1.20 | 2026-11-03 | `GetCapabilities` の戻り値に `touchUi` を追加 | Android のスマホ向け画面（#87） |
+| 1.21 | 2026-11-03 | `NotifyService`（§7.4。通知の許可・OS の通知設定・通知のタップで開くスレッド）を追加。`notify:open-thread` の契機に Android の通知のタップを追記 | Android のバックグラウンド同期と通知（#88） |

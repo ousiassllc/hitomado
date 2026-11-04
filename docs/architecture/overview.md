@@ -18,7 +18,7 @@
 | バックエンド言語 | Go | Gmail API 公式クライアント・単一バイナリ配布 |
 | メール API | Gmail API（`google.golang.org/api/gmail/v1`） | `history` による差分同期、`threads`／`drafts`／`messages.send` を使う。IMAP は採用しない（OAuth スコープが粗く、スレッド・ラベル・下書きの対応が弱い） |
 | OAuth | `golang.org/x/oauth2`＋Google エンドポイント（PKCE・ループバック） | NF-S03 |
-| 資格情報ストア | `github.com/zalando/go-keyring`（Windows 資格情報マネージャー） | NF-S01 |
+| 資格情報ストア | `github.com/zalando/go-keyring`（Windows 資格情報マネージャー）、Android は EncryptedSharedPreferences（`androidx.security:security-crypto` 1.1.0。[Android ビルド §10](../environment/android.md#11-資格情報の保管84)） | NF-S01 |
 | ローカル DB | SQLite（`modernc.org/sqlite`、純 Go・CGO なし） | Windows でのビルドが容易（C コンパイラ不要） |
 | クエリ生成・マイグレーション | **sqlc**（型安全なクエリ生成）＋ **goose**（SQL マイグレーションを `embed`） | |
 | MIME 構築 | `github.com/jhillyerd/enmime`（Builder） | `multipart/alternative`・添付・`In-Reply-To`／`References` |
@@ -85,7 +85,7 @@ graph TD
 ```
 hitomado/
 ├─ main.go                 # エントリポイント（run() を呼び、失敗時は致命的エラーを表示して終了）
-├─ run.go                  # composition root（Wails アプリ作成・単一インスタンス・依存の組み立て・サービス登録・トレイ生成）
+├─ run.go                  # composition root（Wails アプリ作成・単一インスタンス・依存の組み立て・サービス登録・トレイ生成。機能の有無は capability に従う）
 ├─ internal/
 │  ├─ app/                 # バインディング（サービス層）
 │  ├─ domain/              # 純粋ロジック（reply, quote, signature, senderpolicy, confirm, contacts, palette, textconv, model）
@@ -107,7 +107,7 @@ hitomado/
 
 ## 5. 実行モデル
 
-- **プロセス**: 単一プロセス。多重起動は Wails v3 の単一インスタンス機能で禁止し、2 つ目の起動は既存ウィンドウを前面に出す
+- **プロセス**: 単一プロセス。多重起動は Wails v3 の単一インスタンス機能で禁止し、2 つ目の起動は既存ウィンドウを前面に出す。**OS ごとの機能差**（Android では MCP サーバー・トレイ・多重起動の防止・ウィンドウ状態の保存復元・アプリ内の自動更新を動かさない）は `internal/capability` の `Capabilities`（`run.go` が `capability.Current()` で決める。ビルドタグ `android`／`!android`）で表し、同じ値を `PlatformService.GetCapabilities` でフロントへ渡す（画面は OS 名ではなくこの値で出し分ける。[Android ビルド §10](environment/android.md#10-android-で動かさない機能)）
 - **ウィンドウ**: メインウィンドウ 1 つ。エディタはメインウィンドウ内のペイン（返信・転送はスレッド下部、新規作成は右ペイン全面）として表示する。独立ウィンドウは v0 では設けない
 - **トレイ**: ウィンドウの × は非表示化（トレイへ格納）。トレイメニュー「開く」「終了」。「終了」でのみ同期スケジューラを停止してプロセスを終了する
 - **同期**: アカウントごとに 1 ゴルーチン。`time.Ticker`（60 秒）＋手動更新シグナル。`context` でキャンセル可能。アカウント追加・削除に応じて起動・停止する
@@ -129,12 +129,12 @@ hitomado/
 
 | データ | 保存先 | 備考 |
 |--------|--------|------|
-| リフレッシュトークン・Client Secret・AI API キー・ChatGPT ログインのトークン | Windows 資格情報マネージャー | `hitomado/<種別>/<ID>` 形式のキー名 |
+| リフレッシュトークン・Client Secret・AI API キー・ChatGPT ログインのトークン | Windows 資格情報マネージャー（Android は EncryptedSharedPreferences。鍵は Android Keystore） | `hitomado/<種別>/<ID>` 形式のキー名。Android で Keystore の鍵が失われたときは、保存済みの値が空になり、`secrets.ErrKeyLost`（`ErrNotFound` も満たす）で「要再接続」へ案内する |
 | アカウント・OAuth クライアント（Secret を除く）・署名・設定・同期状態・スレッド／メッセージのメタデータ・スニペット・連絡先候補 | SQLite（`%APPDATA%\Hitomado\hitomado.db`、WAL） | 本文・添付は保存しない（NF-S08） |
 | メッセージ本文・添付データ | Go プロセスのメモリ（LRU・直近 50 スレッド） | NF-S09 |
 | 下書き | **Gmail の下書き**（`users.drafts`） | ローカルに保存しない。例外: 送信元未選択の新規作成はメモリのみ |
 | ログ | `%APPDATA%\Hitomado\logs\`（JSON Lines。5 MB×5 世代・30 日） | NF-S10 |
-| MCP トークン | Windows 資格情報マネージャー（`hitomado/mcp_token`） | NF-S13 |
+| MCP トークン | Windows 資格情報マネージャー（`hitomado/mcp_token`。Android は上と同じ暗号化ストア） | NF-S13 |
 
 ## 7. 通信フロー
 
@@ -166,6 +166,8 @@ sequenceDiagram
   AS->>AS: 初回同期を開始
 ```
 
+Android も同じ流れ（ループバック＋PKCE）で、ブラウザは `Android.OpenURL`（Intent）で開く。ブラウザに出ている間にプロセスが止められると待受が消えて認可は完了できないため、`oauth.Tracker` が認可の開始から終了までの印（時刻のみ）を資格情報ストアに残し、残っていれば次の起動で `AccountService.TakeInterruptedAuth` が一度だけ検出して、画面が「やり直し」を案内する（[Android ビルド §14](../environment/android.md#14-google-oauth-のリダイレクト方式86)）。Windows は `Tracker` を持たない。
+
 ### 7.2 差分同期と新着通知
 
 ```mermaid
@@ -194,6 +196,31 @@ sequenceDiagram
       SC->>DB: status = needs_reauth（理由: OAuth クライアントの設定を確認）
       SC->>FE: account:status（message つき。自動再試行は止める）
     end
+  end
+```
+
+#### Android のバックグラウンド同期（#88）
+
+Android は前面にいないアプリを止めるため、アプリを閉じている間は WorkManager の定期実行（15 分間隔・ネットワーク接続が条件）が `SyncWorker` を起こし、Go の `internal/headless`（Wails に依存せず、store・gmail・sync だけを組む）で「1 回だけ同期して新着を返す」。通知は Java の `NotificationManager`（アカウント別チャネル・グループ化）が出し、タップで `MainActivity` を開いて `notify:open-thread` でスレッドを開く。アプリ本体と同じプロセスで Worker が動くときは、Go の `Gate` が二重の同期を避ける。Pub/Sub・FCM・前面サービスは使わない。詳細は [Android ビルド §15](../environment/android.md#15-バックグラウンド同期と新着通知88)。
+
+```mermaid
+sequenceDiagram
+  participant WM as WorkManager（15 分）
+  participant SW as SyncWorker（Java）
+  participant HL as headless.SyncOnce（Go）
+  participant GM as gmail.Client
+  participant DB as store
+  participant NM as NotificationManager
+
+  WM->>SW: 起動（プロセスが無ければ OS が起こす）
+  SW->>HL: JNI（libwails.so。資格情報は SecureStore を呼び戻して読む）
+  alt アプリ本体が同じプロセスで動いている
+    HL->>HL: アプリ本体のスケジューラに「今すぐ 1 回更新」を頼む（通知はアプリ本体の経路）
+  else
+    HL->>GM: アカウントごとに差分同期（60 秒ループと同じ cycle）
+    GM->>DB: 反映（新着の判定は DB の ApplyThread）
+    HL-->>SW: 新着・アカウントごとの結果（JSON）
+    SW->>NM: スレッドごとの通知＋アカウントのサマリー、要再接続は 1 回だけ
   end
 ```
 
@@ -298,3 +325,6 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 | 1.12 | 2026-11-03 | 技術選定とデータ保存先に MCP・ログの形式・MCP トークンを追加 | #14 |
 | 1.13 | 2026-11-03 | §8 のインライン画像に、1 枚 5 MiB・1 メッセージ合計 10 MiB の上限と超過時の動作を追記 | 実装（`internal/gmail/message.go`、`internal/app/appcore/html.go`）との整合（#6） |
 | 1.14 | 2026-11-03 | §5 の AI に ChatGPT プラン（`internal/siwc`・Responses API）とモデル一覧を、§6 の保存先に ChatGPT ログインのトークンを、§7.4 に ChatGPT プランでの認証・更新を追記 | Sign in with ChatGPT（#75）、モデル一覧（#76） |
+| 1.15 | 2026-11-03 | §5 に、OS ごとの機能差を `internal/capability`（`Capabilities`・`PlatformService`）で表し、Android では MCP・トレイ・多重起動の防止・ウィンドウ状態・自動更新を動かさない旨を追記 | Android 版で使わない機能の無効化（#89） |
+| 1.16 | 2026-11-03 | §7.1 に、Android の認可（`Tracker` による、プロセスが止められた認可の検出）を追記 | #86 |
+| 1.17 | 2026-11-03 | §7.2 に Android のバックグラウンド同期（WorkManager・`internal/headless`・Java の通知・二重同期の排他）を追記 | #88 |

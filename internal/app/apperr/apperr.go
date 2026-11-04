@@ -44,6 +44,7 @@ const (
 	AIConsentRequired   = "AI_CONSENT_REQUIRED"
 	AIFailed            = "AI_FAILED"
 	Cancelled           = "CANCELLED"
+	Unsupported         = "UNSUPPORTED"
 	Internal            = "INTERNAL"
 )
 
@@ -68,6 +69,11 @@ func (e *Error) Unwrap() error { return e.cause }
 // New は code に対応する AppError を作る。retryable は code から決まる既定値（RATE_LIMITED／OFFLINE／OAUTH_TIMEOUT は true）。
 func New(code, message string) *Error {
 	return &Error{Code: code, Message: message, Retryable: code == RateLimited || code == Offline || code == OAuthTimeout}
+}
+
+// DuplicateAccount は同じアドレスのアカウントがすでにある（ACCOUNT_DUPLICATE）ときのエラー。
+func DuplicateAccount() *Error {
+	return New(AccountDuplicate, "このアドレスのアカウントはすでに登録されています。")
 }
 
 // Wrap は cause を保持した AppError を作る。

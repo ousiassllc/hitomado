@@ -12,7 +12,9 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 
+	"github.com/ousiassllc/hitomado/internal/capability"
 	appevents "github.com/ousiassllc/hitomado/internal/events"
+	"github.com/ousiassllc/hitomado/internal/exportfile"
 	"github.com/ousiassllc/hitomado/internal/notify"
 )
 
@@ -37,27 +39,16 @@ type FilesDroppedPayload struct {
 }
 
 // Files はネイティブの保存ダイアログ（app.FileDialog の実装）。
+// Android では保存ダイアログが Storage Access Framework で非同期に結果を返すので、その待ち合わせ（saver）を持つ。
 type Files struct {
 	app    *application.App
 	window func() application.Window
+	saver  *exportfile.Saver // Android のみ。ほかの OS は nil
 }
 
 // NewFiles は保存ダイアログを main ウィンドウに紐づけて開く FileDialog を返す。
 func NewFiles(app *application.App, window func() application.Window) *Files {
-	return &Files{app: app, window: window}
-}
-
-// SaveFile は保存先を選ばせる。キャンセルは ok=false。
-func (f *Files) SaveFile(_ context.Context, suggestedName string) (string, bool, error) {
-	d := f.app.Dialog.SaveFile().SetFilename(suggestedName).CanCreateDirectories(true)
-	if w := f.window(); w != nil {
-		d = d.AttachToWindow(w)
-	}
-	path, err := d.PromptForSingleSelection()
-	if err != nil {
-		return "", false, fmt.Errorf("save dialog: %w", err)
-	}
-	return path, path != "", nil
+	return &Files{app: app, window: window, saver: newSaver(app)}
 }
 
 // Browser はシステムブラウザ／メーラーで URL を開く（app.URLOpener の実装）。
@@ -66,27 +57,11 @@ type Browser struct{ app *application.App }
 // NewBrowser は URLOpener を返す。スキーム検証は呼び出し側が行う。
 func NewBrowser(app *application.App) *Browser { return &Browser{app: app} }
 
-// Open は URL を開く。
-func (b *Browser) Open(url string) error {
-	if err := b.app.Browser.OpenURL(url); err != nil {
-		return fmt.Errorf("open url: %w", err)
-	}
-	return nil
-}
-
 // Paths はファイル・フォルダを OS の標準の方法で開く（app.PathOpener の実装）。
 type Paths struct{ app *application.App }
 
 // NewPaths は PathOpener を返す。呼び出し側がアプリ自身のデータフォルダのパスだけを渡すこと。
 func NewPaths(app *application.App) *Paths { return &Paths{app: app} }
-
-// OpenPath はパスを開く。
-func (p *Paths) OpenPath(path string) error {
-	if err := p.app.Browser.OpenFile(path); err != nil {
-		return fmt.Errorf("open path: %w", err)
-	}
-	return nil
-}
 
 // ShowMainWindow はウィンドウを表示して前面に出す（通知クリック・トレイ・多重起動時）。
 func ShowMainWindow(w *application.WebviewWindow) {
@@ -101,16 +76,30 @@ const (
 	MinHeight = 600
 )
 
-// NewMainWindow はメインウィンドウを作る。× で終了せずトレイへ格納する（フックで閉じるのを取り消して隠す）。
-// saved の位置・サイズで開き、以後の変化を save へ渡す（window.state。呼び出し側は Flush を終了前に呼ぶ）。
-func NewMainWindow(app *application.App, saved WindowState, save func(WindowState)) (*application.WebviewWindow, *WindowKeeper) {
+// MinWindowSize は OS ごとの最小ウィンドウサイズ。タッチ UI の OS（Android）はウィンドウの大きさを OS が決める
+// （画面幅に合わせて 1 画面ずつの表示になる。Issue #87）ため、制限しない（0 は制限なし）。
+func MinWindowSize(caps capability.Capabilities) (width, height int) {
+	if caps.TouchUI {
+		return 0, 0
+	}
+	return MinWidth, MinHeight
+}
+
+// NewMainWindow はメインウィンドウを作る。トレイがある OS では、× で終了せずトレイへ格納する（フックで閉じるのを取り消して隠す）。
+// ウィンドウ状態を保存する OS（caps.SupportsWindowState）では、saved の位置・サイズで開き、以後の変化を save へ渡す
+// （window.state。呼び出し側は戻り値の WindowKeeper の Flush を終了前に呼ぶ）。保存しない OS では saved・save は使わず、WindowKeeper は nil。
+func NewMainWindow(app *application.App, caps capability.Capabilities, saved WindowState, save func(WindowState)) (*application.WebviewWindow, *WindowKeeper) {
+	if !caps.SupportsWindowState {
+		saved = DefaultWindowState()
+	}
+	minW, minH := MinWindowSize(caps)
 	opts := application.WebviewWindowOptions{
 		Name:           "main",
 		Title:          "Hitomado",
 		Width:          saved.Width,
 		Height:         saved.Height,
-		MinWidth:       MinWidth,
-		MinHeight:      MinHeight,
+		MinWidth:       minW,
+		MinHeight:      minH,
 		URL:            "/",
 		EnableFileDrop: true,
 	}
@@ -119,12 +108,17 @@ func NewMainWindow(app *application.App, saved WindowState, save func(WindowStat
 		opts.X, opts.Y = r.X, r.Y
 	}
 	w := app.Window.NewWithOptions(opts)
-	keeper := newWindowKeeper(app, w, saved, save)
-	w.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
-		e.Cancel()
-		keeper.Flush() // 隠す前に状態を読む
-		w.Hide()
-	})
+	var keeper *WindowKeeper
+	if caps.SupportsWindowState {
+		keeper = newWindowKeeper(app, w, saved, save)
+	}
+	if caps.SupportsTray {
+		w.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+			e.Cancel()
+			keeper.Flush() // 隠す前に状態を読む
+			w.Hide()
+		})
+	}
 	// ファイルのドロップ先は data-file-drop-target 属性の要素のみ。パスは Go でしか得られないため、
 	// フロント（AttachmentBar）へ files-dropped として中継する。
 	w.OnWindowEvent(events.Common.WindowFilesDropped, func(e *application.WindowEvent) {
@@ -193,14 +187,8 @@ func NewNotifier(svc *notifications.NotificationService, tray *Tray, window *app
 
 // NewMail はトーストを出す。本文・件名はログに出さない。
 func (n *Notifier) NewMail(_ context.Context, m notify.NewMailNotice) error {
-	title, body := noticeText(m)
-	err := n.svc.SendNotification(notifications.NotificationOptions{
-		ID:    m.AccountID + ":" + m.ThreadID,
-		Title: title,
-		Body:  body,
-		Data:  map[string]any{"accountId": m.AccountID, "threadId": m.ThreadID},
-	})
-	if err != nil {
+	title, body := notify.Text(m)
+	if err := n.toast(m, title, body); err != nil {
 		return fmt.Errorf("send notification: %w", err)
 	}
 	return nil

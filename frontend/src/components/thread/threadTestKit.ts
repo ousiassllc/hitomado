@@ -4,6 +4,7 @@ import * as realAccount from '../../../bindings/github.com/ousiassllc/hitomado/i
 import * as realApp from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/appservice'
 import type { ThreadDetail } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import * as realInbox from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
+import * as realNotify from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/notifycore/notifyservice'
 import * as realThread from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/threadservice'
 import * as realEvents from '../../lib/events'
 
@@ -57,6 +58,9 @@ export function installMocks(): void {
     SetInboxFilter: binding('SetInboxFilter'),
   }))
   mock.module(`${B}/accountservice`, () => ({}))
+  mock.module(`${B}/notifycore/notifyservice`, () => ({
+    TakePendingOpenThread: binding('TakePendingOpenThread'),
+  }))
   mock.module('../../lib/events', () => ({
     EVENTS,
     onEvent: (name: string, h: Handler) => {
@@ -72,6 +76,7 @@ export function restoreMocks(): void {
   mock.module(`${B}/inboxservice`, () => ({ ...realInbox }))
   mock.module(`${B}/appservice`, () => ({ ...realApp }))
   mock.module(`${B}/accountservice`, () => ({ ...realAccount }))
+  mock.module(`${B}/notifycore/notifyservice`, () => ({ ...realNotify }))
   mock.module('../../lib/events', () => ({ ...realEvents, EVENTS }))
 }
 
@@ -131,6 +136,7 @@ export function resetState(): void {
   ctl.failures = {}
   ctl.responses = {
     GetThread: detail(true),
+    TakePendingOpenThread: null,
     MarkRead: [],
     ListInbox: { items: [], failures: [] },
     GetUnreadCounts: {},

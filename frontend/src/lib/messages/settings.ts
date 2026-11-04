@@ -2,6 +2,7 @@
 export const settings = {
   title: '設定',
   description: 'アカウント・OAuth クライアント・署名・AI・MCP・ログ・一般の設定を変更します。',
+  descriptionWithoutMcp: 'アカウント・OAuth クライアント・署名・AI・ログ・一般の設定を変更します。',
   tabsLabel: '設定の分類',
   tabs: {
     accounts: 'アカウント',
@@ -205,6 +206,17 @@ export const settings = {
     dataDir: 'データの保存先',
     dataDirHint: '設定とメールの一覧キャッシュ（本文は保存しません）が保存されています。',
     unknown: '取得できていません',
+  },
+
+  notifications: {
+    heading: '通知',
+    granted: '新着メールの通知は許可されています。',
+    denied:
+      '新着メールの通知が許可されていません。アプリを閉じているときの新着はお知らせできません。',
+    deniedHint: '「通知を許可する」を押すか、OS の通知設定で Hitomado の通知をオンにしてください。',
+    request: '通知を許可する',
+    openSettings: 'OS の通知設定を開く',
+    openFailed: 'OS の通知設定を開けませんでした。',
   },
 
   mcp: {

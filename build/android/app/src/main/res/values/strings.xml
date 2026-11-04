@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hitomado</string>
+    <!-- WebView のレンダラが繰り返し落ちた／最初の画面を読み込めなかったときのエラー画面（#90） -->
+    <string name="render_error_message">画面の表示を続けられませんでした。アプリを終了して、もう一度起動してください。</string>
+    <string name="render_error_quit">アプリを終了</string>
+</resources>

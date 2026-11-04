@@ -283,3 +283,15 @@ func TestResultUnknown(t *testing.T) {
 		assert.Equal(t, tc.want, resultUnknown(tc.err), tc.name)
 	}
 }
+
+// lostKeyStore は Android で Keystore の鍵が失われた（保存済みの資格情報を復号できない）状態の Store。
+type lostKeyStore struct{ secrets.Store }
+
+func (lostKeyStore) Get(string) (string, error) { return "", secrets.ErrKeyLost }
+
+func TestKeyLostRefreshTokenIsNeedsReauth(t *testing.T) {
+	e := newTestEnvWith(t, func(o *Options) { o.Secrets = lostKeyStore{o.Secrets} })
+	_, err := e.c.Profile(context.Background(), testAccount)
+	require.ErrorIs(t, err, ErrNeedsReauth) // 再ログインへ（アカウントは needs_reauth になる）
+	assert.Empty(t, e.f.Requests("GET", apiBase+"/profile"))
+}
