@@ -32,6 +32,7 @@ export function GetUnreadCounts(): $CancellablePromise<{ [_ in string]?: number 
 /**
  * ListInbox はローカル DB の受信箱をキーセットページングで返す。ローカルの行が尽き、かつ未取得分のある
  * アカウントがあれば Gmail から追加取得して続きを返す。アカウント別の失敗は Failures に入れ、他は返す。
+ * タブ・未読のみの絞り込みはローカルのキャッシュだけに掛かる（appcore.InboxFilterOf）。
  */
 export function ListInbox(q: dto$0.InboxQuery): $CancellablePromise<dto$0.ThreadPage> {
     return $Call.ByID(1786551739, q);
