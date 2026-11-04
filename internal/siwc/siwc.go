@@ -37,7 +37,8 @@ var (
 	// ErrAccountMismatch は選んだ登録と別の ChatGPT アカウントでログインされたこと（保存しない）。
 	ErrAccountMismatch = errors.New("siwc: 選んだ登録とは別の ChatGPT アカウントです")
 	// ErrClientIDCollision は新しい登録で発行された client_id が、既存の登録と同じで、同じアカウントと確認できなかったこと
-	// （sub が違う、または既存の登録に sub が未記録。保存しない）。
+	// （sub が違う、または既存の登録に sub が未記録。保存しない）、または既存の登録と大文字小文字だけが違うこと
+	// （Windows の資格情報ストアはキーの大文字小文字を区別せず、同じ資格情報キーになるため）。
 	// ErrAccountMismatch でもある（errors.Is）。選んだ登録が無いので、利用者の操作で直る誤りではない。
 	ErrClientIDCollision = fmt.Errorf("%w（発行された登録が既存の登録と重なりました）", ErrAccountMismatch)
 	// ErrUnknownAccount は保存されていない ChatGPT アカウントを指定したこと。

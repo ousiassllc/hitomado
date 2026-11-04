@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/ousiassllc/hitomado/internal/secrets"
 	"github.com/ousiassllc/hitomado/internal/store"
@@ -59,6 +60,18 @@ func (r *registry) find(clientID string) *account {
 		}
 	}
 	return nil
+}
+
+// collidesIgnoringCase は client_id が、登録済みの client_id と大文字小文字だけ違う（完全一致ではない）かどうか。
+// 資格情報キーは client_id を含み、Windows の資格情報ストアはキーの大文字小文字を区別しないので、
+// そのような client_id は既存の登録と同じキー（＝同じ資格情報）を指してしまう。完全一致は同じ登録として扱う（find）。
+func (r *registry) collidesIgnoringCase(clientID string) bool {
+	for i := range r.Accounts {
+		if id := r.Accounts[i].ClientID; id != clientID && strings.EqualFold(id, clientID) {
+			return true
+		}
+	}
+	return false
 }
 
 // upsert は client_id の登録を返す。無ければ末尾に作る（登録順を保つ）。
