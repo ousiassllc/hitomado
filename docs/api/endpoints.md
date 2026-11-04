@@ -51,9 +51,9 @@ type AppError = {
 | `NEEDS_REAUTH` | トークン失効（`invalid_grant`）。当該アカウントを「要再接続」にする | false | Gmail 呼び出し |
 | `ACCOUNT_DUPLICATE` | 同じアドレスのアカウントが登録済み | false | StartAddAccount |
 | `OAUTH_CLIENT_IN_USE` | OAuth クライアントを使うアカウントが存在する | false | DeleteOAuthClient |
-| `OAUTH_CANCELLED` | 利用者が認可をキャンセルした | false | StartAddAccount |
-| `OAUTH_DENIED` | Google 側で拒否された（アクセス拒否・スコープ不足） | false | StartAddAccount |
-| `OAUTH_TIMEOUT` | 認可が 5 分以内に完了しなかった | true | StartAddAccount |
+| `OAUTH_CANCELLED` | 利用者が認可をキャンセルした | false | StartAddAccount, SignInChatGPT |
+| `OAUTH_DENIED` | Google／OpenAI 側で拒否された（アクセス拒否・スコープ不足。ChatGPT は ChatGPT プランの利用が許可されなかった場合も） | false | StartAddAccount, SignInChatGPT |
+| `OAUTH_TIMEOUT` | 認可が 5 分以内に完了しなかった | true | StartAddAccount, SignInChatGPT |
 | `SENDER_REQUIRED` | 送信元アカウントが未選択 | false | ComposeService |
 | `SENDER_LOCKED` | 返信・転送で送信元を変更しようとした | false | SetComposeSender |
 | `SENDER_MISMATCH` | 送信元と受信アカウントの不整合を検知（防御的検査） | false | PrepareSend, Send |
@@ -536,3 +536,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.23 | 2026-11-04 | `ChatGPTAccount.planNoticePending` と `AckChatGPTPlanNotice` を追加し、§6.2 に初めてのログインの確認を追記。利用枠の超過の `AI_FAILED` に `details.reason = "usage_limit_exceeded"` を付け、画面が「Manage usage」を主なアクションにした案内を出すことを明記（§1.2・§6.2） | OpenAI の UI/UX ガイドラインへの対応（#80） |
 | 1.24 | 2026-11-04 | §6.2 の ChatGPT の複数アカウントに、新規登録の `client_id` が保存済みの登録と衝突したとき `sub` が未記録で照合できない場合も拒否する旨を追記。更新・ログアウトの直列化をアカウントごとにしたことを追記 | sub を照合できない登録を別アカウントの新規ログインで上書きしないため（#100）。アカウントごとのロック（#93） |
 | 1.25 | 2026-11-04 | §6.2 の ChatGPT の複数アカウントに、`client_id` を大文字小文字を無視して一意として扱い、大文字小文字だけが違う登録・再ログインを拒否する旨を追記 | Windows 資格情報マネージャーがキーの大文字小文字を区別せず、別アカウントの資格情報がぶつかるため（#101） |
+| 1.26 | 2026-11-04 | §1.2 の `OAUTH_CANCELLED`／`OAUTH_DENIED`／`OAUTH_TIMEOUT` の発生元に `SignInChatGPT` を追記（`OAUTH_DENIED` は ChatGPT プランの利用が許可されなかった場合も） | #75 から続いていた発生元の乖離（#94） |
