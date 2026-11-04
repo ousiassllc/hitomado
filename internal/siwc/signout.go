@@ -10,16 +10,15 @@ import (
 // SignOut は Auth の実装。失効はベストエフォート（通信失敗・5xx は再試行し、確認できなくてもローカルは必ず消す）。
 // 消すのは指定したアカウントのトークンだけで、ほかのアカウントのトークン・登録と、使用中のアカウントの選択は変えない。
 func (m *Manager) SignOut(ctx context.Context, accountID string) (bool, error) {
-	m.refreshMu.Lock()
-	defer m.refreshMu.Unlock()
 	reg, err := m.loadRegistry(ctx)
 	if err != nil {
 		return false, err
 	}
 	acct := reg.find(accountID)
 	if acct == nil {
-		return false, ErrUnknownAccount
+		return false, ErrUnknownAccount // 未登録の ID でロックの表を増やさない
 	}
+	defer m.lockAccount(acct.ClientID)() // 失効の通信は、このアカウントだけを止める
 	t, err := m.loadTokens(acct.ClientID)
 	if err != nil {
 		return false, err
@@ -42,15 +41,14 @@ func (m *Manager) SignOut(ctx context.Context, accountID string) (bool, error) {
 
 // RemoveAccount は Auth の実装。ログアウト済みのアカウントの登録（client_id・本人情報）を忘れる。
 func (m *Manager) RemoveAccount(ctx context.Context, accountID string) error {
-	m.refreshMu.Lock()
-	defer m.refreshMu.Unlock()
 	reg, err := m.loadRegistry(ctx)
 	if err != nil {
 		return err
 	}
 	if reg.find(accountID) == nil {
-		return ErrUnknownAccount
+		return ErrUnknownAccount // 未登録の ID でロックの表を増やさない
 	}
+	defer m.lockAccount(accountID)()
 	live, err := m.hasSession(accountID)
 	if err != nil {
 		return err

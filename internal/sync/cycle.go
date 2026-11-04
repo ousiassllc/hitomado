@@ -19,6 +19,9 @@ const (
 	msgOffline     = "ネットワークに接続できません"
 	msgRateLimited = "Gmail のリクエスト制限中です。次の周期で再試行します"
 	msgFailed      = "同期に失敗しました"
+	msgAPIDisabled = "Google Cloud のプロジェクトで Gmail API が有効になっていません。有効にしてください"
+
+	msgScopeInsufficient = "Gmail の権限（スコープ）が足りません。再接続して、すべての権限を許可してください"
 )
 
 // statusSyncing は DB に保存しない一時状態（account:status のみ）。
@@ -109,6 +112,9 @@ func (s *Scheduler) runPhase(ctx context.Context, cyc *cycle, st store.SyncState
 // classify はエラーを保存する状態と UI 向けメッセージに写像する。
 func classify(err error) (status, msg string) {
 	switch {
+	case errors.Is(err, gmail.ErrScopeInsufficient):
+		// ErrNeedsReauth にも分類されるので先に見る。再接続して権限を許可し直すまで止める。
+		return store.StatusNeedsReauth, msgScopeInsufficient
 	case errors.Is(err, gmail.ErrNeedsReauth):
 		return store.StatusNeedsReauth, msgNeedsReauth
 	case errors.Is(err, gmail.ErrClientRejected):
@@ -118,6 +124,9 @@ func classify(err error) (status, msg string) {
 		return store.StatusError, msgOffline
 	case errors.Is(err, gmail.ErrRateLimited):
 		return store.StatusError, msgRateLimited
+	case errors.Is(err, gmail.ErrAPIDisabled):
+		// 利用者が Google Cloud で API を有効にすれば、次の周期で回復する（自動再試行は止めない）。
+		return store.StatusError, msgAPIDisabled
 	default:
 		return store.StatusError, msgFailed
 	}

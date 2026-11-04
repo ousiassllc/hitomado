@@ -174,3 +174,44 @@ func TestLegacySingleAccountIsMigrated(t *testing.T) {
 		require.NoError(t, err, "新形式のキーには触れない")
 	})
 }
+
+// sub が未記録の既存の登録（旧形式から移行した直後など）と同じ client_id が新規登録で発行されたら、sub を照合できないので
+// 上書きせず拒否する。既存の登録・トークンは変えず、得たトークンは失効させる。
+func TestNewRegistrationCollidingWithAnExistingClientIDWithoutSubjectIsRejected(t *testing.T) {
+	e := newEnv(t, nil, nil)
+	legacy := fmt.Sprintf(`{"hostId":"urn:uuid:11111111-1111-4111-8111-111111111111","clientId":%q,"email":"old@chatgpt.example","expiresAt":%d}`,
+		issuedClient, e.clk.Now().Add(time.Hour).UnixMilli()) // subject なし
+	require.NoError(t, e.settings.SetSetting(t.Context(), store.SettingAIChatGPT, legacy))
+	require.NoError(t, e.sec.Set(secrets.LegacyChatGPTTokenKey("access"), "LEGACY-ACCESS"))
+	require.NoError(t, e.sec.Set(secrets.LegacyChatGPTTokenKey("refresh"), "LEGACY-REFRESH"))
+	_, err := e.m.Status(t.Context()) // 新形式へ移行させる
+	require.NoError(t, err)
+	before := e.reg(t)
+	require.Empty(t, before.first().Subject, "前提: sub が未記録")
+	e.f.mu.Lock()
+	e.f.codeRefreshSuffix = "-new" // 動的登録の発行は issuedClient のまま（既存と衝突する）
+	e.f.mu.Unlock()
+
+	_, err = e.m.SignIn(t.Context(), siwc.SignInOptions{})
+	require.ErrorIs(t, err, siwc.ErrClientIDCollision)
+
+	assert.Equal(t, before, e.reg(t), "登録（sub が空のまま・メール・使用中）は変わらない")
+	for kind, want := range map[string]string{"access": "LEGACY-ACCESS", "refresh": "LEGACY-REFRESH"} {
+		got, err := e.sec.Get(tokenKey(kind))
+		require.NoError(t, err)
+		assert.Equal(t, want, got, "既存の %s トークンは上書きされない", kind)
+	}
+	forms := e.f.revokeFormsCopy()
+	require.Len(t, forms, 1, "得たトークンは失効させる")
+	assert.Equal(t, secretRefresh+"-new", forms[0].Get("token"))
+}
+
+// sub が未記録の登録でも、その登録を選んで再ログインすれば（衝突ではない）通り、sub が記録される。
+func TestReloginOfARegistrationWithoutSubjectRecordsIt(t *testing.T) {
+	e := newEnv(t, nil, nil)
+	legacy := `{"hostId":"urn:uuid:11111111-1111-4111-8111-111111111111","clientId":"` + issuedClient + `","email":"old@chatgpt.example"}`
+	require.NoError(t, e.settings.SetSetting(t.Context(), store.SettingAIChatGPT, legacy))
+	require.True(t, e.relogin(t).SignedIn)
+	assert.Equal(t, subjectA, e.reg(t).first().Subject)
+	assert.Len(t, e.reg(t).Accounts, 1)
+}

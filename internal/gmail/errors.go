@@ -12,6 +12,7 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/api/googleapi"
 
+	"github.com/ousiassllc/hitomado/internal/gmail/googleerr"
 	"github.com/ousiassllc/hitomado/internal/gmail/tokenauth"
 )
 
@@ -26,10 +27,12 @@ const (
 )
 
 // failure は分類済みの失敗。kind は公開 sentinel、status は HTTP ステータス（無ければ 0）。
+// api は Gmail API が返したエラー応答の情報（応答を受け取っていれば非 nil）。
 type failure struct {
 	kind   error
 	retry  retryClass
 	status int
+	api    *APIError
 }
 
 // classify は Gmail API／トークン更新／トランスポートのエラーを sentinel に分類する。
@@ -65,7 +68,7 @@ func classify(err error) failure {
 }
 
 func classifyHTTP(ge *googleapi.Error) failure {
-	f := failure{kind: ErrGeneric, status: ge.Code}
+	f := failure{kind: ErrGeneric, status: ge.Code, api: &APIError{Info: googleerr.Parse(ge)}}
 	switch {
 	case ge.Code == http.StatusUnauthorized:
 		f.kind, f.retry = ErrNeedsReauth, retryAuth
@@ -73,6 +76,9 @@ func classifyHTTP(ge *googleapi.Error) failure {
 		f.kind = ErrNotFound
 	case ge.Code == http.StatusTooManyRequests || (ge.Code == http.StatusForbidden && isRateLimitReason(ge)):
 		f.kind, f.retry = ErrRateLimited, retryLimited
+	case ge.Code == http.StatusForbidden && f.api.hasReason(scopeInsufficientReasons):
+		// 権限（スコープ）が足りないのは、再試行では直らず、再接続して許可し直す必要がある。
+		f.kind = ErrNeedsReauth
 	case ge.Code >= 500:
 		f.retry = retryServer
 	}
@@ -114,8 +120,14 @@ func resultUnknown(raw error) bool {
 	return errors.Is(classify(raw).kind, ErrOffline) || errors.Is(raw, context.DeadlineExceeded) || errors.Is(raw, context.Canceled)
 }
 
-// wrapFailure は sentinel を %w で包んだ公開用エラーを作る（元エラーの本文は含めない）。
+// wrapFailure は sentinel を %w で包んだ公開用エラーを作る。Gmail API の応答を受け取った失敗は *APIError にして、
+// Google が返した reason・status・message（伏せ字処理済み）を文言に含める。トークン更新などの元エラーの本文は含めない。
 func wrapFailure(op string, f failure) error {
+	if f.api != nil {
+		ae := *f.api
+		ae.Op, ae.Kind = op, f.kind
+		return &ae
+	}
 	if f.status != 0 {
 		return fmt.Errorf("gmail: %s (HTTP %d): %w", op, f.status, f.kind)
 	}
