@@ -102,7 +102,7 @@ onBeforeUnmount(stop)
   background: var(--surface);
   color: var(--ink);
   font-size: var(--font-size-sm);
-  line-height: 1.5;
+  line-height: var(--line-height-sm);
   pointer-events: auto;
 }
 
