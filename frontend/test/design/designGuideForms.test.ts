@@ -49,7 +49,9 @@ describe('タイポグラフィ（T・#126）', () => {
     ['settings/McpSettings.vue', '\\.token'],
     ['settings/McpSettings.vue', '\\.path'],
     ['settings/oauth/OAuthClientsSettings.vue', '\\.client-id'],
-  ])('%s の %s（識別子・トークン）は JetBrains Mono（--font-mono）', (rel, selector) => {
+    ['account/AccountItem.vue', '\\.badge'],
+    ['account/AccountList.vue', '\\.badge'],
+  ])('%s の %s（識別子・トークン・件数）は JetBrains Mono（--font-mono）', (rel, selector) => {
     expect(rule(read(`../../src/components/${rel}`), selector)).toContain(
       'font-family: var(--font-mono)',
     )

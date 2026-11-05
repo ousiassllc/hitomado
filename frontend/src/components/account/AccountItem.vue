@@ -111,6 +111,7 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   background: var(--accent);
   color: var(--bone);
   font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
   line-height: 20px;
   text-align: center;
 }
