@@ -165,6 +165,8 @@ type SearchQuery = {
 | `MarkRead(refs, read)` | `ThreadRef[]`, boolean | `ThreadSummary[]` | `UNREAD` の付与・除去（`threads.modify`）。更新後のサマリを返す |
 | `Archive(refs)` | `ThreadRef[]` | `ThreadSummary[]` | `INBOX` を除去 |
 | `Trash(refs)` | `ThreadRef[]` | `ThreadSummary[]` | `threads.trash` |
+| `Unarchive(refs)` | `ThreadRef[]` | `ThreadSummary[]` | `Archive` の取り消し。`INBOX` を付け直す（`threads.modify`）。UI のスナックバー「元に戻す」が呼ぶ |
+| `Untrash(refs, backToInbox)` | `ThreadRef[]`, boolean | `ThreadSummary[]` | `Trash` の取り消し（`threads.untrash`）。`backToInbox` が true なら `INBOX` も付け直す（`Trash` は `INBOX` を除去し、`untrash` が戻すとは限らないため。ゴミ箱へ移す前に受信箱にあったスレッドだけ true）。UI のスナックバー「元に戻す」が呼ぶ |
 | `ListLabels(accountId)` | string | `Label[]` | ユーザー作成ラベル（キャッシュ。`labels.list` で更新）【Could】 |
 | `ModifyLabels(ref, addLabelIds, removeLabelIds)` | | `ThreadSummary` | ユーザー作成ラベルの付与・除去（`threads.modify`）【Could】。システムラベルの指定は `VALIDATION` |
 
@@ -509,7 +511,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 外部 API | 用途 | 主なエンドポイント／スコープ |
 |----------|------|------------------------------|
 | Google OAuth 2.0 | 認可・更新・revoke | `https://accounts.google.com/o/oauth2/v2/auth`、`https://oauth2.googleapis.com/token`、`https://oauth2.googleapis.com/revoke`、`https://openidconnect.googleapis.com/v1/userinfo`。スコープ: `https://www.googleapis.com/auth/gmail.modify`、`openid`、`email`、`profile` |
-| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ。§5.2）、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`、`users.settings.sendAs.get`（署名の取得。`FetchGmailSignature`）（いずれも `gmail.modify` スコープ内） |
+| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash／untrash`、`users.messages.send`、`users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ。§5.2）、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`、`users.settings.sendAs.get`（署名の取得。`FetchGmailSignature`）（いずれも `gmail.modify` スコープ内） |
 | AI プロバイダ | 下書き生成 | Anthropic Messages API／OpenAI 互換 Chat Completions（Base URL 指定可） |
 | GitHub Releases API | 更新確認 | `GET /repos/ousiassllc/hitomado/releases/latest`（未認証） |
 | GitHub Release の添付ファイル | Windows 版の自動アップデート（NF-D03） | `GET https://github.com/ousiassllc/hitomado/releases/download/vX.Y.Z/hitomado-vX.Y.Z-windows-amd64-setup.exe` と `.../SHA256SUMS.txt`（未認証。`release-assets.githubusercontent.com` へ 302。HTTPS・`github.com`／`*.githubusercontent.com` のみ） |
@@ -564,3 +566,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.33 | 2026-11-05 | `AccountService.FetchGmailSignature`（Gmail の署名を取得して返す。保存しない）を追加し、§10 の Gmail API 一覧に `users.settings.sendAs.get` を追加 | #110 |
 | 1.34 | 2026-11-05 | `AIConfig.effort`・`AIModel.efforts` を追加し、`SetAIConfig` に `effort?` を足した。§6 にプロバイダごとの渡し方（`output_config.effort`／`reasoning_effort`／`reasoning.effort`）、§6.1 に段階の取得（Anthropic は `capabilities.effort`。OpenAI 互換・ChatGPT は共通の 3 段階）を追記 | #111 |
 | 1.35 | 2026-11-05 | `SendPreview.bodyPreview` を、改行を保ち署名・引用を除いた約 600 文字（従来は空白を畳んだ約 200 文字）に変更 | #115 |
+| 1.36 | 2026-11-05 | `InboxService` に `Unarchive`・`Untrash` を追加し、§10 の Gmail API 一覧に `users.threads.untrash` を追記（アーカイブ・ゴミ箱のスナックバー「元に戻す」） | #156 |

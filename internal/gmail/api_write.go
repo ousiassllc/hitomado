@@ -30,6 +30,14 @@ func (c *client) TrashThread(ctx context.Context, accountID, threadID string) er
 	})
 }
 
+// UntrashThread はスレッドをゴミ箱から戻す（threads.untrash）。
+func (c *client) UntrashThread(ctx context.Context, accountID, threadID string) error {
+	return c.do(ctx, accountID, callSpec{name: "threads.untrash", units: unitsThread, retry5xx: true}, func(s *gmailapi.Service) error {
+		_, err := s.Users.Threads.Untrash(userID, threadID).Context(ctx).Do()
+		return err
+	})
+}
+
 // GetAttachment は添付データを取得する。取得できなければ ErrAttachmentGone（404 は ErrNotFound も満たす）。
 func (c *client) GetAttachment(ctx context.Context, accountID, messageID, attachmentID string) ([]byte, error) {
 	var body *gmailapi.MessagePartBody

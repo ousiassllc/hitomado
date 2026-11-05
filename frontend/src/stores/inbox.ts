@@ -61,6 +61,7 @@ export const useInboxStore = defineStore('inbox', () => {
   const mutations = useInboxMutations({
     items,
     hidesRead: () => (filter.value.unreadOnly || tab.value === 'new') && mode.value === 'inbox',
+    searching: () => mode.value === 'search',
     pendingRemoval,
     api,
     ui,

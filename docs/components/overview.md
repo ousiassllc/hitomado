@@ -79,6 +79,7 @@ type Client interface {
     GetThreadFull(ctx context.Context, accountID, threadID string) (ThreadFull, error)
     ModifyThread(ctx context.Context, accountID, threadID string, add, remove []string) error
     TrashThread(ctx context.Context, accountID, threadID string) error
+    UntrashThread(ctx context.Context, accountID, threadID string) error
     GetAttachment(ctx context.Context, accountID, messageID, attachmentID string) ([]byte, error)
     Send(ctx context.Context, accountID string, raw []byte, threadID string) (SentMessage, error)
     CreateDraft(ctx context.Context, accountID string, raw []byte, threadID string) (draftID string, err error)
@@ -267,7 +268,7 @@ graph TD
 | `AppShell` | レイアウト（§5.1）。サイドバーのドロワーとスクラムはフェード＋小さな移動で出入りし、`--z-drawer`。Windows は常に 3 ペイン（最小幅 960px）。Android は幅で 3 ペイン／2 ペイン／1 画面ずつ（サイドバーはドロワー）。ペイン幅のリサイズ（3 ペイン）。Android の戻るボタンの受け口（`window.hitomadoHandleBack`）を登録 | — | `layoutStore`、`uiStore`、`platformStore` |
 | `BackToListButton` | 1 画面ずつのとき、`ThreadHeader` の件名の左に出す「←」（スレッドを閉じて一覧へ） | — | `layoutStore`、`inboxStore` |
 | `BannerStack` | オフライン、要再接続、更新あり、同期エラーのバナー（優先度順に最大 2 件）。OAuth クライアントの拒否（`needs_reauth` で `statusMessage` が Go の案内文「OAuth クライアントの設定（Client ID／Secret）…」）のアカウントは、再接続ではなく、その `statusMessage` と「OAuth クライアントを確認」ボタン（設定ダイアログの OAuth クライアントタブを開く）を出す | — | `uiStore`、`accountsStore`（`statuses`・`statusMessages`） |
-| `ToastHost` | 通知トースト（O3）。画面下中央（端から 24）・高さ 40・ピル・`--ink` 地に `--bone` 字・アイコン＋1 行の短文。**同時に 1 つ**（新しいものが前を置き換える）・**3 秒**で消える。成功・お知らせの短い結果だけで、エラーの詳細・再試行・確認には使わない | — | `uiStore.toast`／`pushToast`／`dismissToast` |
+| `ToastHost` | 通知トースト（O3）。画面下中央（端から 24）・高さ 40・ピル・`--ink` 地に `--bone` 字・アイコン＋1 行の短文。**同時に 1 つ**（新しいものが前を置き換える）・**3 秒**で消える。成功・お知らせの短い結果だけで、エラーの詳細・再試行・確認には使わない。**戻せる結果（アーカイブ・ゴミ箱）はスナックバー**: 同じピルの右に「元に戻す」のテキストボタン（`--bone` 字・下線）を置き、操作できるよう **6 秒**出す（`toast.action` を持つときだけ。押すと閉じて取り消しを実行） | — | `uiStore.toast`／`pushToast`／`pushSnackbar`／`dismissToast` |
 | `AlertStack` | インラインアラート（アイコン＋見出し＋本文。エラー・お知らせ・成功）。失敗の理由（`pushAlert`。再試行できる失敗は「再試行」つき）や、1 行に収まらない補足（`pushNotice`）を、閉じるまで出す。ダイアログが開いている間は最前面のダイアログの中（`BaseDialog`）、なければ `AppShell` の上部。出現はフェードイン 320ms・消去はフェードアウト 240ms | — | `uiStore.alerts`／`pushAlert`／`pushNotice`／`dismissAlert` |
 | `AddAccountDialog` | OAuth クライアント選択（未登録なら登録へ誘導）→ ブラウザ認可待ち表示（キャンセル可）→ 表示名・色設定 | emits: `done(account)` | `AccountService.StartAddAccount／CancelAddAccount` |
 
@@ -377,13 +378,13 @@ AI の設定の入口は 2 つ（作成画面の「AI で下書き」と設定�
 | ストア | 状態 | 主なアクション | イベント購読 |
 |--------|------|----------------|--------------|
 | `accountsStore` | `accounts`、`oauthClients`、`statuses`（一時状態を含む）、`statusMessages`（アカウントごとの状態の理由。`account:status` の `message` と `Account.statusMessage` から取り込む） | `load`、`add`、`remove`、`update`、`setSignature`、`reorder` | `account:status` |
-| `inboxStore` | `filter`、`tab`（受信箱のタブ。セッション中だけ保持・保存しない。起動時は `all`）、`mode`（`inbox`／`search`）、`items`、`nextCursor`、`unreadCounts`、`selection`、`loading`、`failures` | `load`、`loadMore`、`refresh`、`runSearch`、`clearSearch`、`archive`／`trash`／`markRead`（**楽観的更新、失敗時は元に戻してエラーアラート**）、`setFilter`、`setTab`（カーソルを捨てて先頭から取り直す。検索中は値だけ変える） | `sync:updated`（先頭ページと未読件数を再取得し、スクロール位置・選択を維持） |
+| `inboxStore` | `filter`、`tab`（受信箱のタブ。セッション中だけ保持・保存しない。起動時は `all`）、`mode`（`inbox`／`search`）、`items`、`nextCursor`、`unreadCounts`、`selection`、`loading`、`failures` | `load`、`loadMore`、`refresh`、`runSearch`、`clearSearch`、`archive`／`trash`（**楽観的更新、失敗時は元に戻してエラーアラート。成功したら「元に戻す」つきのスナックバーを出し、押すと `Unarchive`／`Untrash` で Gmail 側も戻して一覧へ差し戻す。取り消しの失敗は「元に戻せませんでした。」＋理由のエラーアラート（再試行つき）。ゴミ箱の取り消しは、受信箱にあったスレッドだけ `INBOX` も付け直す**）／`markRead`（楽観的更新、失敗時は元に戻してエラーアラート）、`setFilter`、`setTab`（カーソルを捨てて先頭から取り直す。検索中は値だけ変える） | `sync:updated`（先頭ページと未読件数を再取得し、スクロール位置・選択を維持） |
 | `threadStore` | `current`（`ThreadDetail`）、`loading`、`error` | `open(ref)`、`close`、`reload` | `sync:updated`（開いているスレッドが `changedThreadIds` に含まれたら `reload`） |
 | `composeStore` | `session`、`content`、`attachments`、`preview`、`dirty`、`saving`、`sending` | `open`（新規作成は `withDefaultSender` で、受信箱のフィルタが単一アカウントならその送信元を初期値にして `OpenCompose` を呼ぶ）、`setSender`、`save`、`prepareSend`、`confirmSend`、`close`、`discard` | — |
 | `settingsStore` | `aiConfig`、`aiModels`（送信先＝プロバイダ（OpenAI 互換は Base URL も）ごとの最後に取得した一覧）、`appInfo`、`update`、`updateStatus`（自動アップデートの進み） | `load`、`setAIConfig`、`loadAIModels`、`signInChatGPT`／`cancelSignInChatGPT`／`selectChatGPTAccount`／`signOutChatGPT`／`removeChatGPTAccount`／`ackChatGPTPlanNotice`／`generateReplyDraft`／`cancelGenerate`、`checkUpdate`、`setAutoUpdateEnabled`、`restartToUpdate` | `update:available`、`update:status`（新しい版のバナーを `lib/updateBanner` で組む） |
 | `platformStore` | `capabilities`（`os`・`supportsMcp`・`supportsTray`・`supportsAutoUpdate`・`supportsWindowState`・`singleInstance`・`touchUi`）、`loaded`、`settled`（読み込みが終わった。成功・失敗とも。`App.vue` はこれが `true` になってから `AppShell` を描く）。読み込み前・失敗時はデスクトップ（全機能あり・`touchUi` なし） | `start`（`PlatformService.GetCapabilities` を 1 回だけ読む） | — |
 | `layoutStore` | `mode`（`wide`／`medium`／`stack`）、`isWide`・`isStack`・`hasDrawer`。タッチ UI でない OS は常に `wide`。**幅の監視（`matchMedia`）はここだけ**で、ブレイクポイントは `lib/layout.ts` の定数（`BREAKPOINT_WIDE`=1024・`BREAKPOINT_MEDIUM`=640。Ousiass デザインガイドの `--bp-lg`・`--bp-sm`）。`html` に `data-touch-ui`・`data-layout` を付ける（`styles/touch.css` が参照） | `start`／`dispose` | — |
-| `uiStore` | `theme`、`banners`、`toast`（同時に 1 つ）、`alerts`、`overlays`（開いているダイアログの印。アラートの出し先を決める）、`dialogs`、`settingsTab`、`online`、`menuOpen`（サイドバーのドロワー） | `pushToast`（成功・お知らせの短い結果）、`pushAlert`（失敗。`retry` つきも可）、`pushNotice`（1 行に収まらないお知らせ・成功）、`openSettings(tab?)`（開く設定タブを指定。既定はアカウント）、`openMenu`／`closeMenu` 等 | `notify:open-thread`（スレッドを開いてウィンドウを前面へ） |
+| `uiStore` | `theme`、`banners`、`toast`（同時に 1 つ）、`alerts`、`overlays`（開いているダイアログの印。アラートの出し先を決める）、`dialogs`、`settingsTab`、`online`、`menuOpen`（サイドバーのドロワー） | `pushToast`（成功・お知らせの短い結果）、`pushSnackbar`（戻せる結果。「元に戻す」つきのトースト）、`pushAlert`（失敗。`retry` つきも可）、`pushNotice`（1 行に収まらないお知らせ・成功）、`openSettings(tab?)`（開く設定タブを指定。既定はアカウント）、`openMenu`／`closeMenu` 等 | `notify:open-thread`（スレッドを開いてウィンドウを前面へ） |
 
 - ストアは**生成されたバインディングを `lib/api` のラッパー経由**で呼び、`AppError`（`parseBindingError`）に統一して扱う
 - `NEEDS_REAUTH` を受け取ったら `accountsStore.statuses` を更新し、`BannerStack` に「要再接続」を出す（他アカウントは通常動作）。OAuth クライアントの拒否（`account:status` が `needs_reauth` で、`message` が OAuth クライアント設定の案内）の場合は、`statusMessages` の理由と設定への導線を出す
@@ -577,3 +578,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.33 | 2026-11-05 | §3.3 に `EmptyState`（空状態の共通部品）を追加し、`ThreadList`・`ThreadPane`・`AccountList`・設定の署名・アカウント・OAuth クライアントの 0 件表示をそれに揃えた。宛先の候補一覧（`RecipientField`）を `BaseMenu` と同じ項目寸法に、`ComposeFields` の項目間を `--gap-field` に、設定の複数文の説明文を `--ink` に、データ保存先・バージョンを `--font-mono` に変更 | #148〜#150 |
 | 1.34 | 2026-11-05 | §3.5 `ThreadList` の続きの読み込みを、末尾到達での自動 `loadMore` から、末尾の明示ボタン（`secondary`・`sm`）だけに変更 | #151 |
 | 1.35 | 2026-11-05 | §5.3 の案件固有部品に、スプリットボタン（`ReplyBar`）・スレッド行（未読ドット・縦帯。`ThreadRow`）・ラベルチップ（Gmail の色。`LabelChip`）を、逸脱にフォーカスリングの内側 offset を追記。§5.2 のフォーカスと §3.3 の `BaseChip`・§3.5 の `LabelChip` を実装の値に揃えた。いずれもガイドへ提案予定（未提出） | #159・#161・#162 |
+| 1.36 | 2026-11-05 | §3.4 `ToastHost` に、戻せる結果のスナックバー（「元に戻す」つき・6 秒）を追加。§3.10 の `inboxStore`（`archive`／`trash` の取り消し）・`uiStore`（`pushSnackbar`）を追記。`gmail.Client` に `UntrashThread` を追加 | #156（ガイド O3） |
