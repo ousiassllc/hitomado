@@ -84,5 +84,6 @@ function submit(): void {
   flex-basis: 100%;
   color: var(--danger);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 </style>

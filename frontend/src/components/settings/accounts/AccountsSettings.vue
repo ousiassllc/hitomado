@@ -160,6 +160,7 @@ const removeOpen = computed({
 .detail {
   margin: 0;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .sr-only {

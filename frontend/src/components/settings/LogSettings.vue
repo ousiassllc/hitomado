@@ -59,6 +59,7 @@ async function exportLogs(): Promise<void> {
   margin: 0;
   color: var(--ink);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .actions {

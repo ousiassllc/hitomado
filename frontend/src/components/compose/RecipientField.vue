@@ -257,6 +257,7 @@ function onKeydown(e: KeyboardEvent): void {
   padding-left: calc(56px + var(--s-2));
   color: var(--danger);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .chip-text {

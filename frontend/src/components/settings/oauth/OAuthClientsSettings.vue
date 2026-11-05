@@ -136,6 +136,7 @@ function openGuide(): void {
   margin: var(--s-2) 0;
   color: var(--ink);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .link {
@@ -173,6 +174,7 @@ function openGuide(): void {
 .meta {
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
   overflow-wrap: anywhere;
 }
 
