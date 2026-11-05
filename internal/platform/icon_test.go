@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 func solidPNG(t *testing.T, size int, c color.Color) []byte {
@@ -58,4 +59,16 @@ func TestBadgeColorMatchesDangerToken(t *testing.T) {
 	m := regexp.MustCompile(`(?m)^\s*--danger:\s*#([0-9a-fA-F]{6});`).FindSubmatch(b)
 	require.NotNil(t, m, "tokens.css に --danger（#rrggbb）が無い")
 	assert.Equal(t, fmt.Sprintf("%02x%02x%02x", badgeColor.R, badgeColor.G, badgeColor.B), strings.ToLower(string(m[1])))
+}
+
+// windowBackground は tokens.css の --bone（ライト＝:root の最初の宣言・ダーク＝prefers-color-scheme: dark の中の宣言）と同じ値を複製している。
+// トークンを変えたらここも直す（docs/components/overview.md §5.3 のウィンドウ外の表面）。
+func TestWindowBackgroundMatchesBoneToken(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "frontend", "src", "styles", "tokens.css"))
+	require.NoError(t, err)
+	all := regexp.MustCompile(`(?m)^\s*--bone:\s*#([0-9a-fA-F]{6});`).FindAllSubmatch(b, -1)
+	require.Len(t, all, 2, "tokens.css の --bone（ライト・ダーク）が 2 つ無い")
+	hex := func(c application.RGBA) string { return fmt.Sprintf("%02x%02x%02x", c.Red, c.Green, c.Blue) }
+	assert.Equal(t, hex(WindowBackground(false)), strings.ToLower(string(all[0][1])), "ライト")
+	assert.Equal(t, hex(WindowBackground(true)), strings.ToLower(string(all[1][1])), "ダーク")
 }
