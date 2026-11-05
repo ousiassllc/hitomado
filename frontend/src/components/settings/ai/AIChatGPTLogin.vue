@@ -225,7 +225,12 @@ async function remove(): Promise<void> {
   font-size: var(--font-size-sm);
 }
 
-.note,
+.note {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--font-size-sm);
+}
+
 .waiting {
   margin: 0;
   color: var(--mute);

@@ -98,7 +98,7 @@ function openUpdate(): void {
         />
         <strong>{{ msg.general.updateCheck }}</strong>
       </div>
-      <p class="hint">{{ msg.general.updateCheckHint }}</p>
+      <p class="body">{{ msg.general.updateCheckHint }}</p>
       <div class="check">
         <BaseButton :disabled="!info?.updateCheckEnabled" :loading="checking" @click="checkNow">
           {{ checking ? msg.general.checking : msg.general.checkNow }}
@@ -149,7 +149,7 @@ function openUpdate(): void {
         {{ msg.notifications.granted }}
       </p>
       <template v-else>
-        <p class="hint" role="status">{{ msg.notifications.denied }}</p>
+        <p class="body" role="status">{{ msg.notifications.denied }}</p>
         <p class="hint">{{ msg.notifications.deniedHint }}</p>
         <div class="check">
           <BaseButton @click="notifications.request()">{{ msg.notifications.request }}</BaseButton>
