@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -45,6 +46,9 @@ type Options struct {
 	ExchangeTimeout time.Duration
 	// Tracker は認可の進行中を印として残し、認可の途中でプロセスが止められたことを次の起動で検出する（Android）。nil なら何もしない。
 	Tracker *Tracker
+	// Logger は認可の段階（待受・ブラウザへの受け渡し・ブラウザからの戻り・トークン交換・userinfo）の進みと失敗の記録先。
+	// nil なら記録しない。トークン・認可コード・state・Client Secret は記録しない。
+	Logger *slog.Logger
 }
 
 type flow struct {
@@ -74,6 +78,9 @@ func NewFlow(opts Options) Flow {
 	if opts.ExchangeTimeout <= 0 {
 		opts.ExchangeTimeout = DefaultExchangeTimeout
 	}
+	if opts.Logger == nil {
+		opts.Logger = slog.New(slog.DiscardHandler)
+	}
 	return &flow{opts: opts}
 }
 
@@ -96,9 +103,11 @@ func (f *flow) Authorize(parent context.Context, cfg ClientConfig) (Result, erro
 	}
 	srv, err := startCallbackServer(state)
 	if err != nil {
+		f.logFailure("listen", err)
 		return Result{}, err
 	}
 	defer srv.close()
+	f.logProgress("listening")
 
 	authURL, err := f.authURL(cfg, srv.redirectURI(), state, verifier)
 	if err != nil {
@@ -108,19 +117,25 @@ func (f *flow) Authorize(parent context.Context, cfg ClientConfig) (Result, erro
 	f.opts.Tracker.Begin()
 	defer f.opts.Tracker.End()
 	if err := f.opts.OpenBrowser(authURL); err != nil {
+		f.logFailure("open_browser", err)
 		return Result{}, fmt.Errorf("oauth: ブラウザを開けませんでした: %w", err)
 	}
+	f.logProgress("browser_opened")
 
 	var cb callbackResult
 	select {
 	case cb = <-srv.result:
 	case <-ctx.Done():
-		return Result{}, ctxError(parent, ctx)
+		err := ctxError(parent, ctx)
+		f.logFailure("wait_callback", err)
+		return Result{}, err
 	}
 	srv.close() // コールバック受信後は待受を閉じてからトークン交換へ進む
 	if cb.err != nil {
+		f.logFailure("callback", cb.err, "oauth_error", cb.oauthError)
 		return Result{}, cb.err
 	}
+	f.logProgress("callback_received")
 
 	// 認可待ちの期限（Timeout）とは別に、交換と userinfo には新しい期限（ExchangeTimeout）を与える。
 	xctx, xcancel := context.WithTimeout(parent, f.opts.ExchangeTimeout)
@@ -132,6 +147,7 @@ func (f *flow) Authorize(parent context.Context, cfg ClientConfig) (Result, erro
 		}
 		return Result{}, err
 	}
+	f.logProgress("completed")
 	return res, nil
 }
 
@@ -142,10 +158,14 @@ func (f *flow) complete(ctx context.Context, cfg ClientConfig, code, verifier, r
 		return Result{}, err
 	}
 	if !hasScope(tok.Scope, gmailModifyScope) {
-		return Result{}, fmt.Errorf("%w: gmail.modify スコープが付与されませんでした", ErrDenied)
+		err := fmt.Errorf("%w: gmail.modify スコープが付与されませんでした", ErrDenied)
+		f.logFailure("scope", err, "grantedScope", tok.Scope)
+		return Result{}, err
 	}
 	if tok.RefreshToken == "" {
-		return Result{}, fmt.Errorf("%w: リフレッシュトークンが発行されませんでした", ErrDenied)
+		err := fmt.Errorf("%w: リフレッシュトークンが発行されませんでした", ErrDenied)
+		f.logFailure("refresh_token", err)
+		return Result{}, err
 	}
 	info, err := f.userinfo(ctx, tok.AccessToken)
 	if err != nil {

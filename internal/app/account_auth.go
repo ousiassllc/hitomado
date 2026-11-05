@@ -11,6 +11,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/domain/palette"
 	"github.com/ousiassllc/hitomado/internal/events"
+	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/oauth"
 	"github.com/ousiassllc/hitomado/internal/secrets"
 	"github.com/ousiassllc/hitomado/internal/store"
@@ -54,7 +55,10 @@ func (s *AccountService) authorize(ctx context.Context, oauthClientID string) (o
 		if errors.Is(err, oauth.ErrCancelled) || errors.Is(err, context.Canceled) || actx.Err() != nil {
 			return oauth.Result{}, apperr.Wrap(apperr.OAuthCancelled, "アカウントの追加をキャンセルしました。", err)
 		}
-		return oauth.Result{}, apperr.FromInfra(err, "")
+		ae := apperr.FromInfra(err, "")
+		// 画面には出ない元のエラー（INTERNAL では特に）を、どの段階の失敗か分かる形で残す。Authorize 自身の段階のログ（oauth: …）と対で読む。
+		logger(s.d).Warn("account authorize failed", "code", ae.Code, "err", err, "chain", logging.ErrorChain(err))
+		return oauth.Result{}, ae
 	}
 	res.Email = strings.ToLower(trimmed(res.Email))
 	if res.Email == "" || res.RefreshToken == "" {

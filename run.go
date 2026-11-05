@@ -126,7 +126,7 @@ func run() error {
 	headless.SetAppRefresh(func(ctx context.Context) ([]headless.AccountResult, error) {
 		return headless.RefreshAll(ctx, st, sched)
 	})
-	flow := oauth.NewFlow(oauth.Options{OpenBrowser: platform.NewBrowser(wapp).Open, Tracker: oauthTracker})
+	flow := oauth.NewFlow(oauth.Options{OpenBrowser: platform.NewBrowser(wapp).Open, Tracker: oauthTracker, Logger: logger})
 
 	// 自動アップデート（NF-D03）は入れ替えを行えるビルド（Windows）の、リリース版（版が 0.0.0 でない）だけ。
 	busy := &appdeps.Busy{}

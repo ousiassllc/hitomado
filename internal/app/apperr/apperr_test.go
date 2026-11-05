@@ -1,10 +1,12 @@
 package apperr_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/url"
 	"testing"
@@ -16,6 +18,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/gmail/googleerr"
+	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/oauth"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
@@ -195,4 +198,39 @@ func TestGmailAPIMessageIsNotShownToUser(t *testing.T) {
 	e := apperr.FromInfra(ae, "")
 	assert.NotContains(t, e.Message, "ya29")
 	assert.NotContains(t, string(apperr.Marshal(ae)), "ya29")
+}
+
+// 分類できないエラー（INTERNAL）は、画面・JSON には原因を出さず、ログへ元のエラーと型のつながりを残す（#184）。
+func TestFromInfraLogsTheCauseOfInternal(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(logging.NewWriter(&buf, slog.LevelInfo, logging.Meta{Version: "test"}))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	cause := fmt.Errorf("oauth: ブラウザを開けませんでした: %w", errors.New("intent failed"))
+	e := apperr.FromInfra(cause, "acc1")
+
+	assert.Equal(t, apperr.Internal, e.Code)
+	assert.NotContains(t, e.Message, "intent failed")
+	assert.NotContains(t, string(apperr.Marshal(cause)), "intent failed")
+	var rec map[string]any
+	require.NoError(t, json.Unmarshal(buf.Bytes()[:bytes.IndexByte(buf.Bytes(), '\n')], &rec))
+	assert.Equal(t, "ERROR", rec["level"])
+	assert.Equal(t, "internal error", rec["msg"])
+	assert.Equal(t, "oauth: ブラウザを開けませんでした: intent failed", rec["err"])
+	assert.Equal(t, "*fmt.wrapError > *errors.errorString", rec["chain"])
+	assert.Equal(t, "acc1", rec["accountId"])
+}
+
+// 分類できたエラーは INTERNAL のログを出さない（想定内の失敗でログを埋めない）。
+func TestFromInfraDoesNotLogClassifiedErrors(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(logging.NewWriter(&buf, slog.LevelInfo, logging.Meta{Version: "test"}))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	_ = apperr.FromInfra(gmail.ErrOffline, "")
+	_ = apperr.FromInfra(apperr.New(apperr.Internal, "既に AppError"), "")
+
+	assert.Empty(t, buf.String())
 }
