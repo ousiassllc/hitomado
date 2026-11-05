@@ -80,6 +80,16 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
   font-size: var(--font-size-sm);
 }
 
+/* ネイティブのラジオのチェック色をトークンに揃える（既定のままだと OS／ブラウザのアクセント＝青になる）。無効は opacity .5。 */
+.pick input[type='radio'] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.pick input[type='radio']:disabled {
+  opacity: 0.5;
+}
+
 .who {
   overflow-wrap: anywhere;
 }

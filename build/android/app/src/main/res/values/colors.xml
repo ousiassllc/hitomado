@@ -1,10 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="wails_blue">#3574D4</color>
-    <color name="wails_blue_dark">#2C5FB8</color>
-    <color name="wails_background">#1B2636</color>
     <!-- フロントの --bone トークン（ライト）と同じ値（frontend/src/styles/tokens.css）。システムバーの背後・起動直後の背景に使う。ダークは values-night。 -->
     <color name="app_background">#F5F5F4</color>
+    <!-- フロントの --accent トークン（ライト）と同じ値。Material テーマの主色に使う。ダークは values-night。 -->
+    <color name="app_accent">#050505</color>
     <color name="white">#FFFFFFFF</color>
     <color name="black">#FF000000</color>
 </resources>
