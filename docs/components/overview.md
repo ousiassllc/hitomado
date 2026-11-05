@@ -243,7 +243,7 @@ graph TD
 
 | コンポーネント | 責務 | 備考 |
 |----------------|------|------|
-| `BaseButton`／`BaseIconButton` | ボタン。`variant`: primary／secondary／danger／ghost。`size`: `md`（高さ 40・16px。既定）／`sm`（高さ 32・14px。ツールバー・行の中）。`loading` 状態。SemiBold・`--r-md`・無効は opacity .4。押下で小さなリップル（`v-ripple`＝`lib/ripple`。280ms。reduced-motion では出さない） | アイコンのみは `aria-label` 必須。`BaseIconButton` は任意の `shortcut` を受け取り、指定時は `BaseTooltip` で「ラベル (キー)」を表示する（`title` は出さない） |
+| `BaseButton`／`BaseIconButton` | ボタン。`variant`: primary／secondary／danger（透明地・`--danger` の文字・`--danger` 45% の枠。ホバーは `--danger-soft`）／ghost。`size`: `md`（高さ 40・16px。既定）／`sm`（高さ 32・14px。ツールバー・行の中）。`loading` 状態。SemiBold・`--r-md`・無効は opacity .4。押下で小さなリップル（`v-ripple`＝`lib/ripple`。280ms。reduced-motion では出さない） | アイコンのみは `aria-label` 必須。`BaseIconButton` は任意の `shortcut` を受け取り、指定時は `BaseTooltip` で「ラベル (キー)」を表示する（`title` は出さない） |
 | `BaseDialog` | モーダル（中央・`--r-xl`・`--shadow-modal`。幅は `min(サイズ, 100vw - 32px)` で、1 画面ずつのレイアウトでも全画面にしない）。フォーカストラップ・Esc・スクロールロック。**外側（スクラム）クリック・Esc・×は `update:open(false)`（キャンセル）**。確認を迫るダイアログは呼び出し側がこれを「キャンセル」と同じ処理につなぐ。送信中・保存中のように中断できない間は `busy` で、「キャンセル」の無い確認（ChatGPT プランの確認）は `closable=false` で、閉じる操作（外側クリック・Esc・×）を無効にする。出現はフェードイン 320ms・退出はフェードアウト 240ms（スクラムも一緒）。開いている間は最前面の印を `uiStore.overlays` に登録し、失敗のアラート（`AlertStack`）をダイアログの中に出す | Reka UI `Dialog` |
 | `ConfirmDialog` | 破壊的操作の確認（O2: トーストで確認しない）。タイトル・補足（`detail`）・「キャンセル」と赤の確認ボタン。実行中（`busy`）は閉じない。OAuth クライアント・ChatGPT アカウント登録の削除、MCP トークンの無効化が使う（アカウントの削除は同じ作りの `BaseDialog`） | `BaseDialog` |
 | `BaseMenu` | ドロップダウンメニュー（返信メニュー・ラベル付け替え等）。項目に任意の `shortcut` を併記できる。`checked` を指定した項目はチェック項目（`menuitemcheckbox`）で、選択中は Iconoir の Check を出す（ラベルの付け替え） | Reka UI `DropdownMenu` |

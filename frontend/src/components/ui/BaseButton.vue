@@ -82,13 +82,13 @@ withDefaults(
 }
 
 .btn-danger {
-  background: var(--danger);
-  border-color: var(--danger);
-  color: var(--bone);
+  background: transparent;
+  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  color: var(--danger);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--danger) 85%, var(--bone));
+  background: var(--danger-soft);
 }
 
 .btn-ghost {
