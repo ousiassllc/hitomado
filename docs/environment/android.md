@@ -463,6 +463,8 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 - 印は起動直後ではなく、最初に必要になったとき（フロントの `TakeInterruptedAuth`、または認可の開始）に読む。起動直後に Java へ JNI で問い合わせないため。
 - Windows（デスクトップ）は `Tracker` を作らない（`nil`。`oauthtracker_other.go`）。Windows の認可の動きは変わらない。バインディング `TakeInterruptedAuth` は常に `false` を返す。
 
+**Activity だけが作り直されたとき（プロセスは残る）は、認可を止めない**（#184・#185・#86）。ブラウザに出ている間に OS が Activity だけを破棄し、戻ったときに作り直すと、テンプレートの `onCreate` が `WailsBridge.nativeInit` を再び呼び、プロセスに残っている Go のランタイムで `main` が 2 回目に起動される。Wails の `App.Run` は 1 プロセスで 1 回しか呼べず、2 回目は `application is running or a previous run has failed` で失敗する。以前はこの失敗で `main` が `os.Exit(1)` を呼び、プロセスごと終えて、実行中の認可（127.0.0.1 の待受）まで道連れにしていた。`runguard.go` の `runExclusive` が、**実行中の 2 回目の `main` を Warn ログ（`main was called again while the app is already running; ignoring it`）だけ残して何もせず戻す**ので、最初の実行（待受・同期・DB）は続き、ブラウザからのコールバックを受けて認可を完了できる（新しい Activity の WebView は、同じ Go のアセット配信を読み込み直す）。最初の実行がすでに終わっていた場合の 2 回目は従来どおり Wails のエラーで終わる。この経路は **JVM・Go の単体テスト（`runguard_test.go`）でだけ確認していて、実機で Activity が作り直される状況は未確認**。
+
 ### 14.4 送信元の固定
 
 リダイレクト方式は認可コードを受け取る経路だけを変える。アカウントのアドレスは、認可後に Google の userinfo から取った値（小文字に正規化）で決まり、返信・転送の送信元は `accounts.email` から作る（変更できない。[バインディング仕様 §5](../api/endpoints.md)・[アーキテクチャ設計 §7.3](../architecture/overview.md)）。`Reconnect` は認可されたアドレスが既存のアカウントと違えば拒否する。テスト: `internal/app/composecore/compose_oauth_sender_test.go`（OAuth で追加したアカウントの返信が、Google が返したアドレスに固定され、`SENDER_LOCKED`／`SENDER_MISMATCH` で変えられず、`From` がそのアドレスになる）、`internal/app/apptests/account_test.go`（`TestReconnectRejectsDifferentAddress`）。
@@ -714,7 +716,7 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 - **実機（arm64）・KVM つき環境で、E2E を最後まで通す**（一覧・返信下書き・レンダラ `kill` からの復帰）。Actions の `android-e2e.yml` を手動実行して緑になることも未確認。
 - このホストの KVM なしエミュレーターでレンダラが落ち続ける原因の特定（実機・KVM つきでも起きるかの確認。起きるなら、`onRenderProcessGone` の上限を超えてエラー画面になる＝アプリは終了しないが使えない）。
 - WebView を作り直したときの未保存の入力（約 3 秒分）と、Go に残る作成セッション（17.1）。
-- Activity が OS に破棄・再生成された場合（`configChanges` に含まれない変更）に、テンプレートの `onCreate` が新しい `WailsBridge` の `nativeInit` を再度呼ぶ点（Wails のテンプレートの挙動で、この Issue では変えていない）。
+- Activity が OS に破棄・再生成された場合（`configChanges` に含まれない変更）に、テンプレートの `onCreate` が新しい `WailsBridge` の `nativeInit` を再度呼ぶ点（Wails のテンプレートの挙動は変えていない）。Go 側は、実行中の 2 回目の `main` を無視して最初の実行を続ける（§14.3、#184）。新しい Activity の WebView が、残っている Go のアプリへ正しくつながり直すかは実機で未確認。
 - 実機での起動時間・同期時間の計測（17.5 はホストとエミュレーターのみ）。
 
 ## 18. AI の既定のプロバイダと ChatGPT ログイン（#104）
@@ -733,5 +735,33 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 したがって、Android でも ChatGPT ログインは**コード上は使える**ので、既定も案内も Windows と同じにする。
 
 - **未確認（実機）**: 実機の Chrome などで OpenAI のログイン画面が開き、`http://127.0.0.1:<ポート>/auth/callback` へ戻って完了するか（§14.1 と同じく、本物の OpenAI と実機のブラウザは使っていない）。ブラウザが前面に出ている間にアプリのプロセスが止められたときは、ログインの待受が消えて完了できず、時間切れかキャンセルとして終わる（§14.3 と同じ理由。Google OAuth のような「途中で止められた」印と案内は、ChatGPT ログインには無い。再度「Continue with ChatGPT」を押せば最初からやり直せる。トークン・登録は完了するまで書き込まれない）。
+- **v0.1.16 の実機で「予期しないエラーが発生しました。」で失敗した**（#185）。Android の転送路がエラーの `cause` を捨てるため、どのエラーもこの定型文になっていた可能性がある。失敗の段階と元のエラーはログに残るようにした（§19）。根本の原因は実機のログで確かめるまで未特定。
 - **ログインできないとき**: ログインのエラーを表示し、案内の「別のプロバイダを選ぶ」（設定画面の AI タブ）で Anthropic・OpenAI 互換の API キーを使える。既定が ChatGPT でも、保存済みのプロバイダ（anthropic・openai・chatgpt）の設定は変えない。
 - Android の画面（§16）でも、初回の案内・同意の画面は同じダイアログで、1 画面ずつの幅のときも中央のモーダル（幅は画面幅 − 32px）で出る（`BaseDialog`。外側のクリックで閉じる）。
+
+## 19. 失敗の原因をログで追う（#184・#185）
+
+Android の実機で Google・ChatGPT のログインが「内部エラー」「予期しないエラー」で失敗したとき、原因がログに残らず追えなかった。次のように、**画面の文言は変えずに**、ログと転送路を直した。
+
+### 19.1 何が起きていたか（コードを読んで確認した範囲）
+
+- **Android の Wails の転送路は、Go のエラーの `cause`（apperr の JSON）を捨てる。** Windows の転送路（HTTP）は `CallError` を JSON で返し、フロントの `parseBindingError` が `error.cause` から `AppError` を復元する。Android の転送路（`WailsJSBridge.invokeAsync` → `handleRuntimeCallForAndroid`）は `{"ok":false,"error":"<文字列>"}` だけを返し、JS は `new Error(文字列)` で reject する（Wails v3.1.0）。そのため `cause` が無く、**どのエラーも `INTERNAL`＋「予期しないエラーが発生しました。」の定型文になっていた**（ChatGPT ログインで出た文言と、Google の追加で出た `code=INTERNAL` の説明がつく）。文字列は `Binding call failed: Bound method returned an error: <CODE>: <利用者向けの文面>` の形。
+- 実行中に `main` が 2 回目に起動されると `fatal run: application is running or a previous run has failed` で `os.Exit(1)`。ブラウザに出ている間に Activity だけが作り直されるとき（§14.3）に起きうる。
+
+### 19.2 直したこと
+
+| 項目 | 内容 |
+|------|------|
+| `INTERNAL` の元のエラー | `apperr.FromInfra` が分類できずに `INTERNAL` にするとき、元のエラーの文面（`err`）と、`Unwrap` のつながりの型名（`chain`。`*fmt.wrapError > *url.Error > …`。`logging.ErrorChain`）を **Error ログ**（`internal error`）に残す。JSON・画面には出さない。`AccountService.authorize` も、失敗の分類（`code`）と元のエラーを Warn ログ（`account authorize failed`）に残す |
+| Google の認可（`internal/oauth`） | `Options.Logger`（`run.go` が渡す）に、段階（`stage`）ごとのログを出す。進み: `listening`（待受の開始）→ `browser_opened` → `callback_received` → `completed`（Info）。失敗: `oauth: failed at <stage>`。stage は `listen`（待受を始められない）・`open_browser`・`wait_callback`（時間切れ・中断。Warn）・`callback`（コールバックの OAuth `error` コードを `oauth_error` に。`access_denied` は Warn）・`token_exchange`・`userinfo`（HTTP ステータスを `status`、応答の `error` コードを `oauth_error` に）・`scope`・`refresh_token`。`oauth_error` は `^[a-z][a-z0-9_]{0,63}$` の形のものだけ（`error_description`・応答本文は載せない）。以前はトークンエンドポイントの `error` を `invalid_client`・`unauthorized_client` しか保持しなかったが、`invalid_grant`・`redirect_uri_mismatch` なども `oauth_error` に残す（クライアント拒否の判定は従来のまま） |
+| ChatGPT ログイン（`internal/siwc`） | 同じく進み（`listening`・`browser_opened`・`callback_received`・`completed`）と失敗（`chatgpt: failed at <stage>`）を、`Options.Logger`（既存）に出す。stage は `prepare`（登録・ホスト ID の読み書き）・`discover`・`listen`・`open_browser`・`wait_callback`・`callback`（`oauth_error`）・`token_exchange`（`status`・`oauth_error`）・`identity_check`（ID トークンの検証。詳細は戻り値のエラーに載せず、ログの `cause`・`cause_chain` にだけ、伏せ処理を通して残す）・`save`。以前は `listen`・`open_browser` の元のエラーを捨てていたので、`%w` で保持するようにした（画面の分類は `ErrFailed` のまま） |
+| 二重起動 | 実行中の 2 回目の `main` を Warn ログに残して無視する（`runguard.go`。§14.3） |
+| Android のエラーの復元 | `frontend/src/lib/api.ts` の `parseBindingError` が、`cause` が無いとき、メッセージの `Bound method returned an error: <CODE>: <文面>` から、**既知のコード**（`ERROR_CODES`）で始まるものだけ `AppError`（`code`・`message`・`retryable`）に戻す。未知のコード・形式の違う文字列は従来どおり `INTERNAL` の定型文。`details`（`reason` など）と `accountId` は転送路で失われるので復元できない（Android では、`reason` で切り替える案内〔使用枠の超過・ログアウト済みの再ログイン〕は一般のエラー文面になる） |
+
+ログには、トークン・認可コード・`state`・Client Secret・メール本文・API キーを載せない（#14。`logging` の伏せ処理が 2 枚目の防御）。
+
+### 19.3 未実施・未確認
+
+- **（任意）`INTERNAL` のときだけ Go 側の短いエラー要約を `ReportClientError` に付ける**は、やっていない。Go のログに元のエラーが残るので、画面側で重ねて送る必要はない（Android の転送路は `cause` を運べないため、フロントには元のエラーが無い）。
+- **実機で、失敗の根本原因を特定していない。** 実機のログはまだ見ていない。上の 19.1 の 2 点（`cause` が捨てられること・`main` の 2 回目で `os.Exit`）はコードの読み取りで確認したもので、実機の失敗がこれで全て説明できるかは、新しいログを取って確かめる必要がある。確かめ方: 失敗したあと、設定 → ログ →「ログを書き出す」で zip を保存し、`internal error`・`account authorize failed`・`oauth: failed at …`・`chatgpt: failed at …`・`main was called again…` を探す。
+- 実機（arm64）で、Google の追加・ChatGPT のログインが完了すること（Issue の完了条件）は未確認。
