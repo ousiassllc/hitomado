@@ -504,6 +504,15 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | `--mute` の文字 | 補助テキスト・キャプション用 | 値（`#8b8b8e`）はガイドのとおり。ページ背景（`--bone`）との比は 4.5:1 に届かない | ガイドの値であり、独自に変えない。複数文の説明文（設定の各タブの冒頭・注意書き・データの送信先の注記・確認ダイアログの注記）は `--ink`（`--font-size-sm`）にし、`--mute` は 1 文以内のキャプションに限る（C6）。ガイドへ見直しを提案する | 未承認（ガイド側の判断待ち） |
 | 確認を伴うダイアログ（`ChatGPTPlanNotice`） | O1: 外側（スクラム）クリックで閉じる | `closable=false`。外側クリック・Esc・× で閉じず、「Got it」だけで確認済みにする | OpenAI の UI/UX ガイドラインで求められる確認で、明示の操作なしに永続しない（キャンセルの無いダイアログ） | 未承認（ガイド側の判断待ち） |
 | 最小ウィンドウ幅 960px（Windows） | `--bp-*`（640/768/1024/1280） | Windows 版の `.shell` は幅 960px の最小サイズを持つ（3 ペインの最小幅）。画面幅で切り替えるブレークポイントはガイドの値（640・1024） | Windows のウィンドウの最小サイズであり、レイアウトの切り替え点ではない | 未承認（案件ガイドで定義する） |
+| 認可の完了ページ（`internal/callbackpage`）のフォント名 | `--font-sans`（`"Sora Variable"`・`"Noto Sans JP Variable"`。アプリに同梱した `@font-face` の名前） | `font-family: Sora,"Noto Sans JP",sans-serif`（`Variable` を付けない端末のフォント名） | ページは素のブラウザタブで開き、アプリ同梱のフォントを読めない（CSP `default-src 'none'`）。端末に Sora・Noto Sans JP があれば使い、無ければ `sans-serif` | ガイドの逸脱ではなく案件固有の実装上の差（承認不要） |
+
+#### フロントの外にある画面（認可の完了ページ）
+
+OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了ページ（`internal/callbackpage`。`oauth`・`siwc` の両方がここを呼ぶ）は、Vue の外の Go 埋め込み HTML なので `styles/tokens.css` を `import` できない。方針は次のとおり。
+
+- **値は複製する**（ビルド時の共有・生成はしない）。完了ページが持つのは、色 `--ink`・`--bone`・`--surface`・`--border`（ライト・ダーク）、フォント、見出し `--font-size-lg`／`--line-height-lg`・本文 `--font-size-base`／`--line-height-base`、カードの `--s-6`・`--r-lg`、見出し下の `--s-3` だけ。色は完了ページの `:root` に同名の変数で置き、ダークは `prefers-color-scheme` で切り替える。
+- **同期はテストで担保する**。`internal/callbackpage/callbackpage_test.go` の `TestPageValuesMatchTokens` が `frontend/src/styles/tokens.css` を読み、上の値が一致しなければ落ちる。トークンを変えたら `callbackpage.go` の `page` も同じ値に直す（`TestPageColorsComeFromTokens` が `:root` の外の色の直書きを、`TestPageTypography`・`TestPageCardShape` がガイドのスケールと形を検証する）。
+- フォント名だけは上の逸脱表のとおり、同梱フォントの名前（`… Variable`）ではなく端末のフォント名にする。ガイドへ提案する事項は無い（案件内で完結する）。
 
 ## 6. 要件との対応
 
