@@ -145,7 +145,7 @@
     --warning: #c4b87a;
     --danger: #c49a9a;
     --info: #9aabbc;
-    --scrim: rgb(0 0 0 / 60%);
+    --scrim: rgb(5 5 5 / 60%);
     --shadow-modal: 0 1px 2px rgb(0 0 0 / 40%);
 
     --account-red: #f87171;
