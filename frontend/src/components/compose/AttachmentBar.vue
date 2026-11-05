@@ -155,4 +155,9 @@ onBeforeUnmount(() => stopDrop?.())
 .attach-remove:hover:not(:disabled) {
   background: var(--accent-soft);
 }
+
+.attach-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
 </style>

@@ -94,12 +94,17 @@ watch(model, () => void nextTick(fit))
   outline: none;
 }
 
+.instruction-input:disabled {
+  opacity: 0.5;
+}
+
 .instruction-foot {
   display: flex;
   justify-content: space-between;
   gap: var(--s-2);
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .instruction-count.over {
