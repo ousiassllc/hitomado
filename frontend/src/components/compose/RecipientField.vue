@@ -235,7 +235,7 @@ function onKeydown(e: KeyboardEvent): void {
   border-radius: var(--r-full);
   background: var(--accent-soft);
   font-size: var(--font-size-sm);
-  line-height: 22px;
+  line-height: var(--line-height-sm);
 }
 
 .chip-invalid {

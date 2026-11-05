@@ -20,7 +20,7 @@ defineProps<{ bg?: string; fg?: string }>()
   color: var(--ink);
   border: 1px solid var(--border);
   font-size: var(--font-size-xs);
-  line-height: 18px;
+  line-height: var(--line-height-xs);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

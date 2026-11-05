@@ -87,7 +87,6 @@ onBeforeUnmount(stop)
   background: var(--ink);
   color: var(--bone);
   font-size: var(--font-size-sm);
-  line-height: 1;
 }
 
 /* スナックバー: トーストとは別の部品。--surface 地 + 1px border・--r-md。1 行に収まらなければ折り返す */
