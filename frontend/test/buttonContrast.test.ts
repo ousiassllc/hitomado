@@ -9,6 +9,8 @@ import { contrastRatio } from '../src/lib/contrast'
 const css = readFileSync(new URL('../src/styles/tokens.css', import.meta.url), 'utf8')
 const darkStart = css.indexOf('@media (prefers-color-scheme: dark)')
 const darkEnd = css.indexOf('@media (prefers-reduced-motion')
+if (darkStart < 0 || darkEnd <= darkStart)
+  throw new Error('tokens.css のダーク区間を見つけられない')
 
 function vars(block: string): Record<string, string> {
   const out: Record<string, string> = {}
@@ -39,7 +41,10 @@ describe('primary / danger ボタンの文字色コントラスト（WCAG AA 4.5
     for (const [name, bg, fg] of variants) {
       test(`${theme}: ${name} は通常・hover（brightness 1.1）とも 4.5:1 以上`, () => {
         expect(contrastRatio(v[bg], v[fg])).toBeGreaterThanOrEqual(4.5)
-        expect(contrastRatio(brighten(v[bg], 1.1), v[fg])).toBeGreaterThanOrEqual(4.5)
+        // filter: brightness は背景にも文字にも掛かる
+        expect(contrastRatio(brighten(v[bg], 1.1), brighten(v[fg], 1.1))).toBeGreaterThanOrEqual(
+          4.5,
+        )
       })
     }
   }
@@ -64,7 +69,8 @@ describe('BaseButton の状態別の見た目', () => {
   }
 
   test('loading（送信中）の primary は薄くしない', () => {
-    expect(opacityOf({ variant: 'primary', loading: true })).not.toBe('0.55')
+    // happy-dom は宣言がなければ opacity を空文字で返す。薄める宣言（0.55）が当たっていないことを確かめる（disabled 側のテストが宣言の解釈を担保する）
+    expect(['', '1']).toContain(opacityOf({ variant: 'primary', loading: true }))
   })
 
   test('disabled の primary は薄くする（押せないことを示す）', () => {
