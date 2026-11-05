@@ -37,6 +37,7 @@ runs:
         VERSION: ${{ inputs.version }}
         ARCH: ${{ inputs.arch }}
       run: |
+        set -x
         version="${VERSION#v}"
         app=bin/Hitomado.app
         zip="bin/hitomado-v${version}-macos-${ARCH}.zip"

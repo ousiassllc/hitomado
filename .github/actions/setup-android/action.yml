@@ -25,6 +25,8 @@ runs:
     - name: Install Android SDK packages
       shell: bash
       run: |
+        # `yes` は sdkmanager が読み終えると SIGPIPE で落ちるので、pipefail を切る（ci.yml の元の書き方と同じ）。
+        set +o pipefail
         yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
         "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
           "platforms;android-36" "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" "ndk;${ANDROID_NDK_VERSION}"
