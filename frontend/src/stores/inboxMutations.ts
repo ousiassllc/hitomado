@@ -130,7 +130,7 @@ export function useInboxMutations(d: MutationDeps) {
     }
   }
 
-  /** 元に戻したスレッドを、今の一覧の条件に合うものだけ一覧へ差し戻す（先頭ページの再取得より先に見せる）。 */
+  /** 元に戻したスレッドを、今の検索か受信箱の表示条件（検索中か・未読のみか）に合うものだけ一覧へ差し戻す（先頭ページの再取得より先に見せる。アカウントの絞り込みは直後の再取得で正される）。 */
   function reinsert(restored: ThreadSummary[]): void {
     const fits = (t: ThreadSummary) =>
       d.searching() || (t.inInbox && (!d.hidesRead() || t.isUnread))
@@ -175,12 +175,16 @@ export function useInboxMutations(d: MutationDeps) {
   ): void {
     const message =
       op === 'archive' ? common.op.archived(refs.length) : common.op.trashed(refs.length)
+    const inbox = refs.filter((r) => wasInInbox.get(keyOf(r)) !== false)
+    const others = refs.filter((r) => wasInInbox.get(keyOf(r)) === false)
+    // アーカイブは INBOX を外すだけなので、受信箱に無かったスレッドは何も変わっておらず、取り消す対象が無い（「元に戻す」は出さない）
+    if (op === 'archive' && inbox.length === 0) {
+      d.ui.pushToast('success', message)
+      return
+    }
     const undo = async () => {
-      if (op === 'archive') return undoRemoval(op, refs, true)
-      const inbox = refs.filter((r) => wasInInbox.get(keyOf(r)) !== false)
-      const others = refs.filter((r) => wasInInbox.get(keyOf(r)) === false)
       if (inbox.length > 0) await undoRemoval(op, inbox, true)
-      if (others.length > 0) await undoRemoval(op, others, false)
+      if (op === 'trash' && others.length > 0) await undoRemoval(op, others, false)
     }
     d.ui.pushSnackbar(message, { label: common.op.undo, run: () => void undo() })
   }
