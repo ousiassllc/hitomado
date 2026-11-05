@@ -146,6 +146,7 @@ function guard(e: Event): void {
 .dlg-title {
   margin: 0;
   font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
   font-weight: 600;
 }
 
