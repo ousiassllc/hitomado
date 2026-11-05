@@ -250,7 +250,7 @@ graph TD
 | `BaseSwitch` | オン／オフ（通知・更新確認）。ガイドのトグル: トラック 36×20・OFF の地 `--accent-soft`＋`1px --border`、つまみ 14×14（OFF は `--surface`＋`0 0 0 1px --border`、ON は `--bone`）、ON のトラックは `--accent`。タッチ UI の当たり判定は `styles/touch.css` の `.sw::after`（上下 12px 拡張で 44px） | Reka UI `Switch` |
 | `BaseTooltip` | ツールチップ（ショートカット表示）。ボタンを包んでホバー／フォーカスで表示。キー表記は `lib/shortcuts` の `SHORTCUT_KEYS`、併記文言は `common.shortcutHint` | Reka UI `Tooltip` |
 | `BaseDisclosure` | 折りたたみ（ネイティブの `<details>`）。初回だけ必要な補足を既定で閉じて置く（MCP の「接続方法」）。枠つきカード（`1px --border`・`--r-lg`・`--surface`）、summary は padding 12/16・SemiBold・`--ink`・右端に 8px のシェブロン（`--mute` の辺。開閉で回転・`--motion-base`。ネイティブのマーカーは非表示）、body は padding `0 16 12`・Regular・`--mute`（ガイドの P1 部品） | `summary` を props で受け取る |
-| `BaseChip` | 小さなラベル | 色トークンを受け取る |
+| `BaseChip` | 小さなチップ。`bg`／`fg`（CSS の色）を任意で受け取り、指定が無ければ `--bone` 地・`--ink` 字。`1px --border`・`--r-sm`・`--font-size-xs`・行の高さ 18px・1 行（はみ出しは省略記号）・padding は左右 `--s-2`。色を渡す呼び出し元は `AccountChip`（アカウント色のトークン `--account-<key>`）と `LabelChip`（Gmail のラベルの色値。[§5.3 案件固有部品](#ガイド未収載の部品案件固有部品)） | `bg`／`fg` を props で受け取る |
 | `Spinner` | 読み込み表示。`size`: `sm`／`md`（既定）／`lg`＝`--icon-sm/md/lg`（16／20／24px）。2px・track `--accent-soft`・先端 `--accent`。**処理中の表示なので `prefers-reduced-motion` でも回し続ける**（M3） | — |
 | `EmptyState` | 空状態（ガイド S4）。`1px dashed --border`・`--r-lg`・padding 48/24（`compact` は `--pad-card-sm`。サイドバー用）、アイコン（`icon` スロット。24px）＋文言（既定スロット。`--mute`）＋次の操作（`action` スロット。任意）。設定の「アカウント」「OAuth クライアント」は、すぐ上に主ボタン（追加）があるため `action` は使わない | スロットで受け取る |
 
@@ -280,7 +280,7 @@ graph TD
 | `ListToolbar` | 更新ボタン（手動更新）、複数選択（2 件以上）のときだけの一括操作（既読／未読・アーカイブ・ゴミ箱・ラベル。1 件はスレッドのヘッダーの操作で足りるので出さない。1 画面ずつのレイアウトでは出さない）、「受信箱に戻る」（検索結果モード中のみ） | emits: `refresh`、`archive`、`trash`、`toggleRead`、`label` | `inboxStore` |
 | `ThreadList` | 仮想スクロール（`@tanstack/vue-virtual`）。続きがある間（`hasMore`）は末尾に「さらに読み込む」ボタン（`secondary`・`sm`）を出し、押すと `loadMore` を通知する（無限スクロールにしない。ガイド O7）。一覧が 0 件（未読のみで該当なし等）でも利用者が続きを読める。行選択・キーボード移動 | props: `items`, `selectedKey`, `loading`, `loadingMore`, `hasMore` | `inboxStore` |
 | `ThreadRow` | 1 行表示（色の帯、アカウントチップ、差出人、件名、スニペット、日時、未読、添付アイコン、ユーザーラベル）。`needs_reauth` アカウントの行は、警告アイコン＋「再接続が必要なアカウントです」を件名の前に出し（`aria-label` にも含める）、文字を `--mute` にする（薄くはしない） | props: `thread`, `selected`, `account` | — |
-| `LabelChip` | ユーザー作成ラベルのチップ（Gmail の色） | props: `label` | — |
+| `LabelChip` | ユーザー作成ラベルのチップ。Gmail で利用者が設定した背景色・文字色（`Label.colorBg`／`colorFg`。Gmail から取得してそのまま保存）を `BaseChip` の `bg`／`fg` に渡す。色の指定が無いラベルは `BaseChip` の既定（`--bone`／`--ink`）。ラベル名は常に文字で出し（`title` にも同じ名前）、色だけに頼らない | props: `label` | — |
 
 ### 3.6 スレッド表示（`components/thread`）
 
@@ -463,7 +463,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 
 - **テーマ**: ライトとダーク。`prefers-color-scheme` に追従する（`composables/useTheme`）。配色は `styles/tokens.css` の CSS 変数（Ousiass デザインガイドの `--ink`・`--bone`・`--mute`・`--surface`・`--border`・`--accent`・`--accent-soft`・`--focus`・状態色 `--success`／`--warning`／`--danger`／`--info`、アカウント色 `--account-<key>`）で定義し、コンポーネントに色値を直書きしない
 - **アカウント色パレット**: 10 色を用意し、ライト／ダークの各背景に対して文字・帯のコントラスト比 4.5:1 を満たす値のみ採用する（NF §11）。**色だけで識別させない**（名前チップを常に併記）
-- **フォーカス**: すべての操作要素で可視フォーカスを表示する。ダイアログはフォーカストラップ（Reka UI）。スレッドリストは矢印キーでも移動できる（`role="listbox"`、`aria-activedescendant`）
+- **フォーカス**: すべての操作要素で可視フォーカスを表示する（`--focus` 2px。既定は外側 offset 2。切れる・隣と重なる場所だけ内側 offset −2px。[§5.3 逸脱](#逸脱)）。ダイアログはフォーカストラップ（Reka UI）。スレッドリストは矢印キーでも移動できる（`role="listbox"`、`aria-activedescendant`）
 - **動き**: `prefers-reduced-motion` では装飾的な動き（移動・スライド・リップル）を無効にし、必要な opacity のフェードは 80ms にする。スピナーなど処理中の表示は止めない
 - **文字**: UI は日本語。文言は `lib/messages/` に集約する（将来の多言語化を妨げない。NF §7）
 - **ダイアログの代替文**: アイコンのみのボタンには `aria-label` を付ける（アイコン本体は `aria-hidden`）
@@ -479,7 +479,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 区分 | 使うトークン・部品 | 使いどころ |
 |------|------------------|------------|
 | 色 | `--ink` `--bone` `--mute` `--surface` `--border` `--accent` `--accent-soft` | 文字は `--ink`、補助は `--mute`、ページは `--bone`、カード・ダイアログ・入力は `--surface`、ホバー・選択は `--accent-soft`、主ボタン・未読ドット・件数バッジは `--accent` 地＋`--bone` 字 |
-| フォーカス | `--focus` `--ring` | フォーカスリング・フォームの focus のみ（青はここだけ）。テキスト入力（宛先・本文エディタは外枠の `:focus-within`）は focus で `border-color: var(--focus)` と `box-shadow: 0 0 0 2px var(--ring)` に揃える。ペイン分割ハンドルも `styles/reset.css` のグローバルな `:focus-visible`（`--focus` 2px・offset 2）を使う |
+| フォーカス | `--focus` `--ring` | フォーカスリング・フォームの focus のみ（青はここだけ）。テキスト入力（宛先・本文エディタは外枠の `:focus-within`）は focus で `border-color: var(--focus)` と `box-shadow: 0 0 0 2px var(--ring)` に揃える。ペイン分割ハンドルも `styles/reset.css` のグローバルな `:focus-visible`（`--focus` 2px・offset 2）を使う。スクロール領域・タブ・リスト行・カードのトグルだけ内側（offset −2px。[逸脱](#逸脱)） |
 | 状態色 | `--success` `--warning` `--danger` `--info` | アイコン＋文言＋状態色の細枠と薄い地（`--*-soft`。バナー（`WarningTriangle`）・送信確認の警告・インラインアラート・作成画面のエラー（`AlertStack` と同じ見た目）・ステータスの小さな札）。色や濃淡だけで状態を伝えない |
 | タイポ | サイズ `xs`〜`3xl`（`--font-size-*`）・行間 `--line-height-*`・Sora + Noto Sans JP（`@fontsource-variable/*`。SIL OFL。アプリに同梱）・JetBrains Mono（`--font-mono`。識別子・トークン・エンドポイントなど桁を揃えたい文字） | 本文 `base`（16px・行間 1.8）。SemiBold は見出し・ボタン・アコーディオンの summary（`BaseDisclosure`。body は Regular `--mute`）のみ（`styles/reset.css` で `h1`〜`h6` は 600、見出しでない `<strong>` は 400。本文エディタで利用者が付けた太字だけ 700）。未読の強調は太字にしない（`--ink`／`--mute` の対比と未読ドット） |
 | 角丸・余白 | `--r-*` `--s-*` | ボタン・入力 `--r-md`、カード `--r-lg`、モーダル `--r-xl`、ピル・バッジ `--r-full`（状態色のステータスの札もピル）。テキスト入力は高さ `--control-h`・左右 padding `--s-3`（検索・select・設定・件名・宛先・AI への指示・リンク入力で揃える） |
@@ -496,6 +496,9 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | アカウント色（`--account-<key>` 10 色） | 案件固有。アカウントを見分ける帯・チップ（色だけに頼らず名前を併記）。ページ・カードの背景で 4.5:1、ホバーで 3:1 以上 | `lib/palette`・`styles/tokens.css` |
 | `--z-popup`（`--z-modal` + 1） | ダイアログの中から開くポップアップ（メニュー・select・ツールチップ）をモーダルの前に出すための補助。ガイドの `--z-dropdown` はモーダルより下になるため | `styles/tokens.css` |
 | ペインのリサイズ・スプリッター | 案件固有（3 ペインのメールクライアント） | `shell/PaneSplitter` |
+| スプリットボタン（主ボタン＋▾メニュー）`ReplyBar` | 案件固有。ガイドのボタン（primary・`sm`）とドロップダウン（`BaseMenu`）の組み合わせ。主ボタン「全員に返信」と、右に隣接する ▾（`NavArrowDown`）のメニューボタン（返信・転送）を並べ、境目の内側の角丸だけ `0`（外側は `--r-md`）にして 1 つの部品に見せる。両方 `BaseButton`（primary・`sm`）で、間隔 0・境目の線は引かない。▾は `aria-label`（「返信の種類」）必須。主ボタンはツールチップでショートカットを示す。ガイドへ提案予定（未提出） | `thread/ReplyBar` |
+| スレッド行（未読ドット・縦帯・キーボードカーソル枠）`ThreadRow` | 案件固有（メールクライアントの一覧）。高さ 88px の行に、アカウント色の縦帯（6px）・アカウントチップ・差出人・件数・添付・日時（1 行目）、未読ドット・件名・スニペット（2 行目）、ラベルチップ（3 行目）を並べる。**未読ドット**は 8px の円（`--r-full`）で `--accent` 地（上の「色」の定めどおり）。未読は太字にせず、ドットと文字色の対比（未読 `--ink`・既読 `--mute`）で伝え、読み上げ用に `aria-label` の先頭へ「未読」を入れる。開いている行・複数選択の行は `--accent-soft`。キーボードカーソル（`aria-activedescendant`）の行は `--focus` の 2px 枠（内側。[逸脱](#逸脱)）。ガイドへ提案予定（未提出） | `inbox/ThreadRow` |
+| ラベルチップ（Gmail の色）`LabelChip`／`BaseChip` | 案件固有。ガイドのトークンに無い、**利用者が Gmail で設定した任意の背景色・文字色**でチップを描く。色値は Gmail のラベル（`colorBg`／`colorFg`）をそのまま使い、アプリ側では検証・補正・トークンへの置き換えをしない（文字と地のコントラスト比は Gmail の組に従い、4.5:1 を保証しない）。色の指定が無いラベルは `--bone` 地・`--ink` 字（既定）。形は他のチップと共通（`1px --border`・`--r-sm`・`--font-size-xs`・1 行）。色だけに頼らずラベル名を常に文字で出す。アカウント色と混同しないよう、アカウント（`AccountChip`。トークン `--account-<key>`）は行頭、ラベルは行の末尾（3 行目）に分けて置く。ガイドへ提案予定（未提出） | `inbox/LabelChip`・`ui/BaseChip` |
 
 #### 逸脱
 
@@ -505,6 +508,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 確認を伴うダイアログ（`ChatGPTPlanNotice`） | O1: 外側（スクラム）クリックで閉じる | `closable=false`。外側クリック・Esc・× で閉じず、「Got it」だけで確認済みにする | OpenAI の UI/UX ガイドラインで求められる確認で、明示の操作なしに永続しない（キャンセルの無いダイアログ） | 未承認（ガイド側の判断待ち） |
 | 最小ウィンドウ幅 960px（Windows） | `--bp-*`（640/768/1024/1280） | Windows 版の `.shell` は幅 960px の最小サイズを持つ（3 ペインの最小幅）。画面幅で切り替えるブレークポイントはガイドの値（640・1024） | Windows のウィンドウの最小サイズであり、レイアウトの切り替え点ではない | 未承認（案件ガイドで定義する） |
 | 認可の完了ページ（`internal/callbackpage`）のフォント名 | `--font-sans`（`"Sora Variable"`・`"Noto Sans JP Variable"`。アプリに同梱した `@font-face` の名前） | `font-family: Sora,"Noto Sans JP",sans-serif`（`Variable` を付けない端末のフォント名） | ページは素のブラウザタブで開き、アプリ同梱のフォントを読めない（CSP `default-src 'none'`）。端末に Sora・Noto Sans JP があれば使い、無ければ `sans-serif` | ガイドの逸脱ではなく案件固有の実装上の差（承認不要） |
+| フォーカスリングの内側 offset（`outline-offset: -2px`） | `:focus-visible` は `--focus` 2px・offset 2（外側。`styles/reset.css`） | 次の 5 か所だけ、リングを要素の内側に描く（`outline: 2px solid var(--focus)`・`outline-offset: -2px`）。(1) `InboxTabs` のタブ（`.tab:focus-visible`）、(2) `ThreadList` のスクロール領域（`.list:focus-visible`）、(3) `ThreadRow` のキーボードカーソル行（`.row.active`。行は `:focus-visible` でなく `aria-activedescendant` で示す）、(4) `MessageCard` のヘッダのトグル（`.card-toggle:focus-visible`）、(5) `BaseDisclosure` の summary（`.disclosure-summary:focus-visible`）。色・太さはガイドのとおりで、offset の向きだけが違う | (1) タブは横スクロール（`overflow-x: auto`）の中にあり、(2) は一覧自体がスクロール領域、(5) は角丸＋`overflow: hidden` のため、外側のリングが切れる。(3)(4) は全幅で隣の行・カード枠や端に接し、外側に出すと重なる・切れる。内側にすれば常に全周が見える。ガイドへ提案予定（未提出） | 未承認（案件ガイドで定義する） |
 
 #### フロントの外にある画面（認可の完了ページ）
 
@@ -572,3 +576,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.32 | 2026-11-05 | Ousiass デザインガイド準拠: §3.3 の `BaseButton`（`size`）・`BaseDialog`（外側クリックで閉じる・`busy`・全画面にしない）・`ConfirmDialog`・`BaseMenu`（`checked`）・`Spinner`、§3.4 の `ToastHost`（下中央・1 つ・3 秒）・`AlertStack`、§3.10 の `uiStore`（`toast`・`alerts`・`overlays`）、§5.1 のブレークポイント（640／1024）、§5.2 の配色・動き、§5.3（ガイド準拠・未収載・逸脱）を追加・更新 | #119〜#124 |
 | 1.33 | 2026-11-05 | §3.3 に `EmptyState`（空状態の共通部品）を追加し、`ThreadList`・`ThreadPane`・`AccountList`・設定の署名・アカウント・OAuth クライアントの 0 件表示をそれに揃えた。宛先の候補一覧（`RecipientField`）を `BaseMenu` と同じ項目寸法に、`ComposeFields` の項目間を `--gap-field` に、設定の複数文の説明文を `--ink` に、データ保存先・バージョンを `--font-mono` に変更 | #148〜#150 |
 | 1.34 | 2026-11-05 | §3.5 `ThreadList` の続きの読み込みを、末尾到達での自動 `loadMore` から、末尾の明示ボタン（`secondary`・`sm`）だけに変更 | #151 |
+| 1.35 | 2026-11-05 | §5.3 の案件固有部品に、スプリットボタン（`ReplyBar`）・スレッド行（未読ドット・縦帯。`ThreadRow`）・ラベルチップ（Gmail の色。`LabelChip`）を、逸脱にフォーカスリングの内側 offset を追記。§5.2 のフォーカスと §3.3 の `BaseChip`・§3.5 の `LabelChip` を実装の値に揃えた。いずれもガイドへ提案予定（未提出） | #159・#161・#162 |
