@@ -1,4 +1,3 @@
-import '../../../test/domPurifyShim'
 import { describe, expect, test } from 'bun:test'
 import { buildCsp, buildSrcdoc, isOpenableUrl, sanitizeEmailHtml } from './index'
 

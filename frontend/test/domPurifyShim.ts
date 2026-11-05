@@ -3,7 +3,8 @@
 //    （実ブラウザの NodeIterator は削除に追従する）。DOMPurify は巡回しながらノードを除去・置換する。
 // 2. happy-dom の Node.prototype.nodeName は常に ''（サブクラスが上書きする）。DOMPurify は
 //    Node.prototype の getter を直接呼ぶため、全要素が「許可されないタグ」になる。
-// sanitize を最初に使う前に（例: テストファイルの先頭の import で）読み込むこと。
+// setup.ts（bun test の preload）が、どのテストよりも先に読み込む（副作用だけのモジュール。動的 import の型検査用に export を置く）。
+export {}
 
 function following(node: Node, root: Node): Node | null {
   if (node.firstChild) return node.firstChild
