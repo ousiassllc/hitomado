@@ -176,6 +176,8 @@ Hitomado 本体は AGPL-3.0（`LICENSE`）。同梱する依存のライセン�
 
 `.github/scripts/test-installer.ps1`（CI の `build` ジョブ、windows-latest）が、旧版（`0.99.1`）を入れる → 起動中（実行中の exe がある状態）の上書きが拒否され登録が変わらない → 新版（`0.99.2`）で上書きして `DisplayVersion`・exe の置き換え・exe のファイルバージョンと埋め込まれた `main.version`（exe 内の文字列。`-X` が効いていること）が新版になる → アンインストールでプログラム・ショートカット・登録が消え、`%APPDATA%\Hitomado` のデータは残る、を確認する。ローカルで実行するときは、実機のアプリと登録キー・`%APPDATA%\Hitomado` を共有するため、既に Hitomado が入っている PC では `-Force` を付けない限り動かない（使い捨ての環境で `-Force` を付ける。スクリプトが消すのは自分が作ったマーカーだけ）。GUI のウィザード（コンポーネント選択・完了ページ）は自動検証していない。
 
+CI では確かめられない項目（実アプリが起動中の上書き拒否、インストーラーの GUI ウィザード、「アプリと機能」の表示、資格情報マネージャー・トースト・トレイ・単一インスタンス、実 Gmail への通信など）は、[Windows 実機・実 Gmail での確認](windows-verification.md) に手順と確認結果を置く（#174）。
+
 ### 4.4 macOS の `.app`（試験版）
 
 検証用の試験版（NF-D06）。署名・公証はしない。`build/darwin/`（`Taskfile.yml`・`Info.plist`・`icons.icns`）は Wails v3.1.0 の `wails3 init`／`wails3 update build-assets` のテンプレートを、`build/windows`・`build/android` と同じ流儀（版は `VERSION=X.Y.Z` で渡し、既定値 `0.0.0` はルートの `Taskfile.yml` の `includes`（`darwin`）の `vars`〔`APP_VERSION`〕に 1 か所だけ書く）に直したもの。
@@ -319,3 +321,4 @@ pre-push:
 | 1.12 | 2026-11-04 | §4.1 の `lint` の行で重複していた android タグ側の lint の記述を 1 つにし、§7 の `.linterly.yml` の例と除外の説明に `build/android/**` を追加 | 実際の `.linterly.yml` との整合（統合の研磨） |
 | 1.13 | 2026-11-04 | §4.3 の上書き更新に、自動アップデートが使うインストーラーの引数（`/S`・`/WAIT=秒`・`/RELAUNCH`）と、CI の `test-installer.ps1` に `/WAIT` の確認を追加した旨を追記 | #103 |
 | 1.14 | 2026-11-05 | Android の APK（§4.2 と android.md §8）・macOS の zip（§4.4 を新設）を Release に添付し、`SHA256SUMS.txt` に載せる。`ci.yml` に `macos` ジョブ、composite action（`setup-android`・`build-android-apk`・`build-macos`）を追加。ツール表・タスク表を更新 | Android・macOS の試験版の配布（NF-D06） |
+| 1.15 | 2026-11-06 | §4.3 の検証に、実機でしか確かめられない項目の手順と結果の記録先として [windows-verification.md](windows-verification.md) への導線を追加 | #174 |
