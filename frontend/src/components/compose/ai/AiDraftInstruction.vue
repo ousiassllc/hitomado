@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, useId, watch } from 'vue'
 import { instructionLength, MAX_INSTRUCTION_CHARS } from '../../../lib/aiInstruction'
 import { compose as msg } from '../../../lib/messages'
 
@@ -11,6 +11,8 @@ defineProps<{ disabled?: boolean }>()
 const MIN_ROWS = 2
 const MAX_ROWS = 6
 
+// 作成画面が同時に複数あっても label と textarea が混ざらないよう、id は固定にしない。
+const inputId = useId()
 const area = ref<HTMLTextAreaElement>()
 const remaining = computed(() => MAX_INSTRUCTION_CHARS - instructionLength(model.value))
 
@@ -34,9 +36,9 @@ watch(model, () => void nextTick(fit))
 
 <template>
   <div class="instruction" data-testid="ai-instruction">
-    <label class="instruction-label" for="ai-instruction-input">{{ msg.ai.instruction.label }}</label>
+    <label class="instruction-label" :for="inputId">{{ msg.ai.instruction.label }}</label>
     <textarea
-      id="ai-instruction-input"
+      :id="inputId"
       ref="area"
       v-model="model"
       class="instruction-input"

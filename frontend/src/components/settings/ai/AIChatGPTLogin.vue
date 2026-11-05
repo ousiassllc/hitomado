@@ -141,12 +141,6 @@ async function remove(a: ChatGPTAccount): Promise<void> {
     <p class="status" role="status" data-testid="ai-chatgpt-status">
       <strong>{{ statusText }}</strong>
     </p>
-    <p v-if="props.signedIn" class="plan">
-      <span>{{ msg.ai.chatgpt.usingPlan }}</span>
-      <BaseButton variant="ghost" @click="store.openExternal(msg.ai.chatgpt.usageUrl)">
-        {{ msg.ai.chatgpt.manageUsage }}
-      </BaseButton>
-    </p>
 
     <fieldset v-if="props.accounts.length > 0" class="accounts" data-testid="ai-chatgpt-accounts">
       <legend class="legend">{{ msg.ai.chatgpt.accountsLabel }}</legend>
@@ -216,14 +210,6 @@ async function remove(a: ChatGPTAccount): Promise<void> {
 }
 
 .status {
-  margin: 0;
-  font-size: var(--font-size-sm);
-}
-
-.plan {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   margin: 0;
   font-size: var(--font-size-sm);
 }

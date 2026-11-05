@@ -51,13 +51,12 @@ describe('ChatGPT プランの確認モーダル（#80）', () => {
     }
   })
 
-  test('Got it で確認を記録して閉じる。Manage usage は ChatGPT の使用状況の画面を開く', async () => {
+  test('Got it で確認を記録して閉じる。「Manage usage」は出さない', async () => {
     const { w, opened, acked } = mountNotice([pending(acctA)])
     await flushPromises()
-    document.body
-      .querySelector<HTMLButtonElement>('[data-testid="ai-chatgpt-notice-manage"]')
-      ?.click()
-    expect(opened).toEqual(['https://chatgpt.com/settings/usage'])
+    expect(dialogText()).not.toContain('Manage usage')
+    expect(document.body.querySelector('[data-testid="ai-chatgpt-notice-manage"]')).toBeNull()
+    expect(opened).toEqual([])
     expect(acked).toEqual([])
 
     document.body

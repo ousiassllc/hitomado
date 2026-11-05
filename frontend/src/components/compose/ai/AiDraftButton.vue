@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useAiDraft } from '../../../composables/useAiDraft'
 import { instructionLength, MAX_INSTRUCTION_CHARS } from '../../../lib/aiInstruction'
 import { compose as msg, settings as settingsMsg } from '../../../lib/messages'
@@ -48,7 +48,7 @@ const destination = computed(() => {
   return c ? aiDestination(c.provider, c.baseUrl) : undefined
 })
 
-// 設定が未保存のあいだは、既定の ChatGPT プランを「使用中」とは表示しない。
+// 設定が未保存のあいだは、既定の ChatGPT プランをログイン済みとして扱わない（案内文の出し分けだけに使う）。
 const usingChatGPT = computed(() => settings.aiConfig?.configured === true && settings.aiConfig.provider === 'chatgpt')
 const needText = computed(() => (usingChatGPT.value ? msg.ai.needLogin : msg.ai.needKey))
 
@@ -59,13 +59,6 @@ const generating = computed(() => ai.step.value === 'generating')
 watch(generating, (v) => (compose.aiGenerating = v), { immediate: true })
 onBeforeUnmount(() => (compose.aiGenerating = false))
 const busy = computed(() => compose.sending || compose.preview !== undefined)
-
-/** 指示の入力欄の開閉（初期は閉じる。値は閉じても作成セッションに残る）。 */
-const instructionOpen = ref(false)
-const instructionLabel = computed(() => {
-  if (instructionOpen.value) return msg.ai.instruction.hide
-  return compose.aiInstruction.trim() === '' ? msg.ai.instruction.add : msg.ai.instruction.edit
-})
 </script>
 
 <template>
@@ -84,26 +77,12 @@ const instructionLabel = computed(() => {
         <span class="ai-progress" role="status"><Spinner :size="14" /> {{ msg.ai.generating }}</span>
         <BaseButton variant="secondary" @click="ai.cancel()">{{ msg.ai.cancel }}</BaseButton>
       </template>
-      <BaseButton
-        variant="ghost"
-        :aria-expanded="instructionOpen"
-        data-testid="ai-instruction-toggle"
-        @click="instructionOpen = !instructionOpen"
-      >
-        {{ instructionLabel }}
-      </BaseButton>
       <template v-if="ai.needsKey.value">
         <span class="ai-note">{{ needText }}</span>
         <BaseButton variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
       </template>
-      <template v-else-if="usingChatGPT">
-        <span class="ai-note" data-testid="ai-using-chatgpt">{{ msg.ai.usingChatGPT }}</span>
-        <BaseButton variant="ghost" @click="settings.openExternal(settingsMsg.ai.chatgpt.usageUrl)">
-          {{ msg.ai.manageUsage }}
-        </BaseButton>
-      </template>
     </div>
-    <AiDraftInstruction v-if="instructionOpen" v-model="compose.aiInstruction" :disabled="generating" />
+    <AiDraftInstruction v-model="compose.aiInstruction" :disabled="generating" />
     <UsageLimitNotice
       v-if="ai.usageLimit.value"
       @manage="settings.openExternal(settingsMsg.ai.chatgpt.usageUrl)"

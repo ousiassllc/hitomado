@@ -3,11 +3,12 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ListToolbar from './ListToolbar.vue'
 
-function mountToolbar(searching: boolean) {
+function mountToolbar(searching: boolean, selectedCount = 0, compact = false) {
   setActivePinia(createPinia())
   return mount(ListToolbar, {
     props: {
-      selectedCount: 0,
+      selectedCount,
+      compact,
       refreshing: false,
       searching,
       labelEnabled: true,
@@ -30,6 +31,41 @@ describe('ListToolbar の検索結果モード', () => {
   test('検索中でなければ「受信箱に戻る」を出さない', () => {
     const w = mountToolbar(false)
     expect(w.find('button.back').exists()).toBe(false)
+    w.unmount()
+  })
+})
+
+// スレッドのヘッダーに同じ 4 操作があるので、一覧のツールバーは複数選択のときだけ出す。
+describe('ListToolbar の一括操作（複数選択のときだけ）', () => {
+  const ops = ['既読にする', '未読にする', 'アーカイブ', 'ゴミ箱へ移動', 'ラベル']
+  const present = (w: ReturnType<typeof mountToolbar>) =>
+    ops.filter((label) => w.find(`button[aria-label="${label}"]`).exists())
+
+  test('0 件・1 件の選択では出さない（更新は残る）', () => {
+    for (const n of [0, 1]) {
+      const w = mountToolbar(false, n)
+      expect(present(w)).toEqual([])
+      expect(w.find('button[aria-label="更新"]').exists()).toBe(true)
+      w.unmount()
+    }
+  })
+
+  test('2 件以上の選択では 4 操作（既読・未読・アーカイブ・ゴミ箱・ラベル）を出し、押せる', async () => {
+    const w = mountToolbar(false, 2)
+    expect(present(w)).toEqual(ops)
+    await w.get('button[aria-label="アーカイブ"]').trigger('click')
+    await w.get('button[aria-label="ゴミ箱へ移動"]').trigger('click')
+    await w.get('button[aria-label="未読にする"]').trigger('click')
+    expect(w.emitted('archive')).toHaveLength(1)
+    expect(w.emitted('trash')).toHaveLength(1)
+    expect(w.emitted('toggleRead')).toEqual([[false]])
+    expect(w.text()).toContain('2 件選択中')
+    w.unmount()
+  })
+
+  test('1 画面ずつのレイアウト（compact）では、複数選択でも出さない', () => {
+    const w = mountToolbar(false, 3, true)
+    expect(present(w)).toEqual([])
     w.unmount()
   })
 })
