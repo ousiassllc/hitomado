@@ -62,6 +62,14 @@ export const useInboxStore = defineStore('inbox', () => {
     items,
     hidesRead: () => (filter.value.unreadOnly || tab.value === 'new') && mode.value === 'inbox',
     searching: () => mode.value === 'search',
+    viewKey: () =>
+      JSON.stringify([
+        mode.value,
+        searchQuery.value,
+        tab.value,
+        filter.value.unreadOnly,
+        filter.value.accountIds,
+      ]),
     pendingRemoval,
     api,
     ui,
