@@ -214,7 +214,7 @@ function onKeydown(e: KeyboardEvent): void {
 }
 
 .recipient-disabled {
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 .chip {

@@ -168,7 +168,7 @@ onBeforeUnmount(() => editor.value?.destroy())
 }
 
 .rte-disabled {
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 .rte-toolbar {

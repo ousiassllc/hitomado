@@ -150,4 +150,8 @@ defineExpose({ commitPending })
   box-shadow: 0 0 0 2px var(--ring);
   outline: none;
 }
+
+.subject-input:disabled {
+  opacity: 0.5;
+}
 </style>

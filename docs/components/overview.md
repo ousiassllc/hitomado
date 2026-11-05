@@ -486,7 +486,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | アイコン | Iconoir（`@iconoir/vue`。MIT）`--icon-sm/md/lg` | `currentColor`・ストローク 1.5。`styles/reset.css` の `.icon`（既定 20px）・`.icon-sm`・`.icon-lg` |
 | モーション | `--motion-*` `--ease-*` | ホバーは色・背景だけ `--motion-base`。出現はフェードイン `--motion-fade-in`、退出はフェードアウト `--motion-fade-out`。押下はリップル `--motion-slow` |
 | レイアウト | `--bp-*`（`lib/layout.ts`）`--z-*` | ブレークポイントは 640（`--bp-sm`）・1024（`--bp-lg`）。z-index は `--z-dropdown` 100・`--z-drawer` 300・`--z-modal` 400・`--z-toast` 500 |
-| 部品 | ボタン・フォーム・タブ・ドロップダウン・ツールチップ・ドロワー・トースト・インラインアラート・モーダル・スピナー | 部品名はガイドのもの |
+| 部品 | ボタン・フォーム・タブ・ドロップダウン・ツールチップ・ドロワー・トースト・インラインアラート・モーダル・スピナー | 部品名はガイドのもの。検索は左に `Search` アイコン（md）・右にクリア。フォームの無効は opacity .5。ドロップダウンは min-width 180、ツールチップは padding 6×10（`--s-*` に無いので px。トークン化はガイド側へ提案） |
 
 #### ガイド未収載の部品・案件固有部品
 
