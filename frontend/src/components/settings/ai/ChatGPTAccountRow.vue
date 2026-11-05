@@ -22,11 +22,11 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
         @change="$emit('select')"
       />
       <span class="who">{{ label }}</span>
-      <span v-if="account.active" class="badge" data-testid="ai-chatgpt-active">{{ msg.ai.chatgpt.accountActive }}</span>
+      <span v-if="account.active" class="badge badge-active" data-testid="ai-chatgpt-active">{{ msg.ai.chatgpt.accountActive }}</span>
     </label>
     <span v-else class="pick">
       <span class="who muted">{{ label }}</span>
-      <span class="badge">{{ msg.ai.chatgpt.accountSignedOut }}</span>
+      <span class="badge badge-signed-out">{{ msg.ai.chatgpt.accountSignedOut }}</span>
     </span>
     <span class="row-actions">
       <BaseButton size="sm"
@@ -100,9 +100,23 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
 
 .badge {
   padding: 0 var(--s-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-sm);
+  border: 1px solid var(--badge-border);
+  border-radius: var(--r-full);
+  background: var(--badge-soft);
+  color: var(--badge-color);
   font-size: var(--font-size-xs);
+}
+
+.badge-active {
+  --badge-color: var(--success);
+  --badge-border: var(--success-border);
+  --badge-soft: var(--success-soft);
+}
+
+.badge-signed-out {
+  --badge-color: var(--warning);
+  --badge-border: var(--warning-border);
+  --badge-soft: var(--warning-soft);
 }
 
 .row-actions {

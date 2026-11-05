@@ -476,12 +476,12 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 本プロダクトの UI は Ousiass 共通デザインガイド（brand-guide）に準拠する。ガイドが正であり、本書は値を複製せず、トークンを名前で参照する（値は `styles/tokens.css`）。
 
 - 正: https://ousiassllc.github.io/brand-guide/ （トークン可視化: https://ousiassllc.github.io/brand-guide/tokens-preview.html ）
-- 参照した時点: 2026-11-05（brand-guide `622ea73`）
+- 参照した時点: 2026-11-06（brand-guide `73d8cf6`）
 - ライト／ダークの両方に対応する。ガイドにない部品・値・モーションは使わない
 
 | 区分 | 使うトークン・部品 | 使いどころ |
 |------|------------------|------------|
-| 色 | `--ink` `--bone` `--mute` `--surface` `--border` `--accent` `--accent-soft` | 文字は `--ink`、補助は `--mute`、ページは `--bone`、カード・ダイアログ・入力は `--surface`、ホバー・選択は `--accent-soft`、主ボタン・未読ドット・件数バッジは `--accent` 地＋`--bone` 字 |
+| 色 | `--ink` `--bone` `--mute` `--surface` `--border` `--accent` `--accent-soft` | 文字は `--ink`、補助は `--mute`、ページは `--bone`、カード・ダイアログ・入力は `--surface`、ホバー・選択は `--accent-soft`、主ボタン・未読ドット・件数バッジは `--accent` 地＋`--bone` 字。`--mute` はライト `#6b6b6e`・ダーク `#8b8b8e` の別値（どちらも `--bone`・`--surface` 上で AA 4.5:1）。複数文の説明文（設定の各タブの冒頭・注意書き・データの送信先の注記・確認ダイアログの注記）は `--ink`（`--font-size-sm`）にし、`--mute` は 1 文以内のキャプションに限る（C6） |
 | 状態色 | `--success` `--warning` `--danger` `--info` | アイコン＋文言＋状態色の細枠（40%・`--*-border`）と薄い地（10%・`--*-soft`。バナー（`WarningTriangle`）・送信確認の警告・インラインアラート・作成画面のエラー（`AlertStack` と同じ見た目）・ステータスの小さな札）。色や濃淡だけで状態を伝えない |
 | フォーカス | `--focus` `--ring` | フォーカスリング・フォームの focus のみ（青はここだけ）。テキスト入力（宛先・本文エディタは外枠の `:focus-within`）は focus で `border-color: var(--focus)` と `box-shadow: 0 0 0 2px var(--ring)` に揃える。ペイン分割ハンドルも `styles/reset.css` のグローバルな `:focus-visible`（`--focus` 2px・offset 2）を使う。**スイッチ（`BaseSwitch`）だけは `box-shadow: 0 0 0 3px var(--ring)`（ガイドのスイッチ節の指定。グローバルの outline は消す）。**スクロール領域・タブ・リスト行・カードのトグル・折りたたみの summary だけ内側（offset −2px。[逸脱](#逸脱)） |
 | タイポ | サイズ `xs`〜`3xl`（`--font-size-*`）・行間 `--line-height-*`・Sora + Noto Sans JP（`@fontsource-variable/*`。SIL OFL。アプリに同梱）・JetBrains Mono（`--font-mono`。識別子・トークン・エンドポイントなど桁を揃えたい文字） | 本文 `base`（16px・行間 1.8）。SemiBold は見出し・ボタン・アコーディオンの summary（`BaseDisclosure`。body は Regular `--mute`）のみ（`styles/reset.css` で `h1`〜`h6` は 600、見出しでない `<strong>` は 400。本文エディタで利用者が付けた太字だけ 700）。未読の強調は太字にしない（`--ink`／`--mute` の対比と未読ドット） |
@@ -511,7 +511,6 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 
 | 箇所 | ガイドの定め | 逸脱の内容 | 理由 | 承認 |
 |------|-------------|-----------|------|------|
-| `--mute` の文字 | 補助テキスト・キャプション用 | 値（`#8b8b8e`）はガイドのとおり。ページ背景（`--bone`）との比は 4.5:1 に届かない | ガイドの値であり、独自に変えない。複数文の説明文（設定の各タブの冒頭・注意書き・データの送信先の注記・確認ダイアログの注記）は `--ink`（`--font-size-sm`）にし、`--mute` は 1 文以内のキャプションに限る（C6）。ガイドへ見直しを提案する | 未承認（ガイド側の判断待ち） |
 | 確認を伴うダイアログ（`ChatGPTPlanNotice`） | O1: 外側（スクラム）クリックで閉じる | `closable=false`。外側クリック・Esc・× で閉じず、「Got it」だけで確認済みにする | OpenAI の UI/UX ガイドラインで求められる確認で、明示の操作なしに永続しない（キャンセルの無いダイアログ） | 未承認（ガイド側の判断待ち） |
 | 最小ウィンドウ幅 960px（Windows） | `--bp-*`（640/768/1024/1280） | Windows 版の `.shell` は幅 960px の最小サイズを持つ（3 ペインの最小幅）。画面幅で切り替えるブレークポイントはガイドの値（640・1024） | Windows のウィンドウの最小サイズであり、レイアウトの切り替え点ではない | 未承認（案件ガイドで定義する） |
 | 認可の完了ページ（`internal/callbackpage`）のフォント名 | `--font-sans`（`"Sora Variable"`・`"Noto Sans JP Variable"`。アプリに同梱した `@font-face` の名前） | `font-family: Sora,"Noto Sans JP",sans-serif`（`Variable` を付けない端末のフォント名） | ページは素のブラウザタブで開き、アプリ同梱のフォントを読めない（CSP `default-src 'none'`）。端末に Sora・Noto Sans JP があれば使い、無ければ `sans-serif` | ガイドの逸脱ではなく案件固有の実装上の差（承認不要） |
@@ -595,3 +594,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.41 | 2026-11-05 | §5.3 の逸脱表の `--mute` の文字に、複数文の説明文は `--ink` にする旨を追記（設定の説明文を実装に揃えた）。認可の完了ページ（`internal/callbackpage`）が `tokens.css` の値を複製する方針（複製・テストでの同期・フォント名の逸脱）を、逸脱表と「フロントの外にある画面」に追記。§5.3 のフォーカスの行に `BaseDisclosure` の summary を加えた | #152・#154 |
 | 1.42 | 2026-11-05 | §3.10 の `inboxStore` に、取り消し対象が無いアーカイブ（受信箱に無かったスレッド）には「元に戻す」を付けないことと、取り消しでスレッドが無い（`NOT_FOUND`）ときの扱いを追記 | #156 の統合レビュー |
 | 1.43 | 2026-11-06 | §3.4 `ToastHost` のスナックバーを、`--ink` 地のピルから `--surface` 地＋border・`--r-md`（折り返しあり）の別の見た目にし、表示時間を 6 秒から 5 秒（アクション付き。ガイド O3）に変更。§5.2 のフォーカスに、スイッチは `--ring` の box-shadow である旨を追記 | #177 |
+| 1.44 | 2026-11-06 | §5.3 の参照時点を brand-guide `73d8cf6` に更新。`--mute` をライト `#6b6b6e`・ダーク `#8b8b8e` に分離（`tokens.css`）したので、逸脱表の `--mute` の行を削除し、複数文の説明文は `--ink` にする運用を「色」の行へ移した。ChatGPT アカウント行のステータスの札（使用中・ログアウト済み）を状態色のピルにした | #178 |

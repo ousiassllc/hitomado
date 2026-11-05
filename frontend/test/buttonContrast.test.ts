@@ -80,3 +80,23 @@ describe('SenderBadge', () => {
     expect(w.text()).toContain('work@example.com')
   })
 })
+
+// ガイド C6: --mute はライト #6b6b6e・ダーク #8b8b8e の別値で、どちらも --bone・--surface 上で AA を満たす。
+describe('--mute の文字色コントラスト（WCAG AA 4.5:1・C6）', () => {
+  test('ダークのブロックが --mute を明示する（ライトの値を継がない）', () => {
+    expect(vars(css.slice(darkStart, darkEnd))['--mute']).toBe('#8b8b8e')
+    expect(light['--mute']).toBe('#6b6b6e')
+  })
+
+  const themes: [string, Record<string, string>][] = [
+    ['ライト', light],
+    ['ダーク', dark],
+  ]
+  for (const [theme, v] of themes) {
+    for (const bg of ['--bone', '--surface']) {
+      test(`${theme}: ${bg} 上で 4.5:1 以上`, () => {
+        expect(contrastRatio(v['--mute'], v[bg])).toBeGreaterThanOrEqual(4.5)
+      })
+    }
+  }
+})

@@ -1,5 +1,7 @@
 // Ousiass デザインガイド準拠の回帰テスト（#129〜）。状態の伝え方（C4）とフォーカス（C3）の規則を確かめる。
 import { beforeEach, describe, expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { parse } from '@vue/compiler-sfc'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import type { ThreadSummary } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
@@ -8,6 +10,7 @@ import ComposePane from '../../src/components/compose/ComposePane.vue'
 import RecipientField from '../../src/components/compose/RecipientField.vue'
 import ThreadRow from '../../src/components/inbox/ThreadRow.vue'
 import AIDestinationBox from '../../src/components/settings/ai/AIDestinationBox.vue'
+import ChatGPTAccountRow from '../../src/components/settings/ai/ChatGPTAccountRow.vue'
 import BannerStack from '../../src/components/shell/BannerStack.vue'
 import MessageBody from '../../src/components/thread/MessageBody.vue'
 import { useComposeStore } from '../../src/stores/compose'
@@ -154,5 +157,44 @@ describe('利用枠超過の案内は状態色の部品（C4・#141）', () => {
     expect(notice.attributes('role')).toBe('alert')
     expect(notice.get('svg').classes()).toContain('icon-warning')
     expect(notice.get('svg').attributes('aria-hidden')).toBe('true')
+  })
+})
+
+describe('ChatGPT アカウント行のステータスの札は状態色のピル（C4・#178）', () => {
+  const account = {
+    id: 'c1',
+    email: 'a@example.com',
+    signedIn: true,
+    active: true,
+    planNoticePending: false,
+  }
+  const props = { label: 'a@example.com', busy: false, radioDisabled: false, loggingOut: false }
+
+  test('使用中は success、ログアウト済みは warning の札にする', () => {
+    const active = mount(ChatGPTAccountRow, { props: { ...props, account } })
+    expect(active.get('[data-testid="ai-chatgpt-active"]').classes()).toEqual([
+      'badge',
+      'badge-active',
+    ])
+    const out = mount(ChatGPTAccountRow, {
+      props: { ...props, account: { ...account, signedIn: false, active: false } },
+    })
+    expect(out.get('.badge').classes()).toContain('badge-signed-out')
+  })
+
+  test('札のスタイルは状態色のトークンと --r-full を使う', () => {
+    const style = parse(
+      readFileSync(
+        new URL('../../src/components/settings/ai/ChatGPTAccountRow.vue', import.meta.url),
+        'utf8',
+      ),
+    ).descriptor.styles[0].content
+    expect(style).toContain('border-radius: var(--r-full)')
+    expect(style).toContain('--badge-color: var(--success)')
+    expect(style).toContain('--badge-border: var(--success-border)')
+    expect(style).toContain('--badge-soft: var(--success-soft)')
+    expect(style).toContain('--badge-color: var(--warning)')
+    expect(style).toContain('--badge-border: var(--warning-border)')
+    expect(style).toContain('--badge-soft: var(--warning-soft)')
   })
 })
