@@ -57,7 +57,7 @@ const options = computed(() =>
   flex-wrap: wrap;
   align-items: center;
   gap: var(--s-2);
-  min-height: 36px;
+  min-height: var(--control-h);
 }
 
 .sender-label {
