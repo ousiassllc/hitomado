@@ -3,6 +3,8 @@ package callbackpage
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -83,5 +85,77 @@ func TestPageCardShape(t *testing.T) {
 	}
 	if strings.Contains(body, "shadow") {
 		t.Error("card must not have a shadow")
+	}
+}
+
+// tokensCSS は frontend/src/styles/tokens.css を読み、ライト（:root）とダーク（prefers-color-scheme: dark の :root）の
+// トークン（--name: value）を返す。完了ページの値の複製がトークンとずれていないかを検証するための読み取り。
+func tokensCSS(t *testing.T) (light, dark map[string]string) {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join("..", "..", "frontend", "src", "styles", "tokens.css"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	css := string(b)
+	const darkStart, darkEnd = "@media (prefers-color-scheme: dark)", "@media (prefers-reduced-motion"
+	i, j := strings.Index(css, darkStart), strings.Index(css, darkEnd)
+	if i < 0 || j < i {
+		t.Fatal("dark block is not found in tokens.css")
+	}
+	decl := regexp.MustCompile(`(?m)^\s*(--[a-z0-9-]+):\s*([^;]+);`)
+	parse := func(s string) map[string]string {
+		m := map[string]string{}
+		for _, d := range decl.FindAllStringSubmatch(s, -1) {
+			m[d[1]] = strings.TrimSpace(d[2])
+		}
+		return m
+	}
+	return parse(css[:i]), parse(css[i:j])
+}
+
+// 完了ページが複製している値（色・フォント・サイズ・行間・角丸・余白）は tokens.css と一致する。
+// トークンを変えたらこのテストが落ちるので、callbackpage.go の page も合わせて直す（ビルド時の共有はしない。docs/components/overview.md §5.3）。
+func TestPageValuesMatchTokens(t *testing.T) {
+	_, body := render(t, "x")
+	light, dark := tokensCSS(t)
+
+	root := regexp.MustCompile(`:root\{([^}]*)\}`).FindAllStringSubmatch(body, -1)
+	if len(root) != 2 {
+		t.Fatalf(":root rules = %d, want 2 (light, dark)", len(root))
+	}
+	for i, want := range []map[string]string{light, dark} {
+		got := regexp.MustCompile(`(--[a-z]+):([^;]+)`).FindAllStringSubmatch(root[i][1], -1)
+		if len(got) != 4 {
+			t.Fatalf("scheme %d: %d tokens, want 4 (ink, bone, surface, border)", i, len(got))
+		}
+		for _, g := range got {
+			if g[2] != want[g[1]] {
+				t.Errorf("scheme %d: %s = %s, tokens.css has %s", i, g[1], g[2], want[g[1]])
+			}
+		}
+	}
+
+	// トークンが改名・削除されると下の期待値が空文字を含んで常に一致してしまうので、先に存在を確かめる。
+	for _, k := range []string{"--font-sans", "--font-size-lg", "--line-height-lg", "--font-size-base", "--line-height-base", "--s-6", "--r-lg", "--s-3"} {
+		if light[k] == "" {
+			t.Fatalf("tokens.css has no %s", k)
+		}
+	}
+
+	// フォントはトークンの family（"Sora Variable" 等は同梱フォントの @font-face 名）から " Variable" を外した、端末のフォント名。
+	fam := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(light["--font-sans"], " Variable", ""), `"Sora"`, "Sora"), ", ", ",")
+	if want := "font-family:" + fam; !strings.Contains(body, want) {
+		t.Errorf("font-family does not match --font-sans: want %q", want)
+	}
+	for _, want := range []string{
+		"font-size:" + light["--font-size-lg"] + ";line-height:" + light["--line-height-lg"],
+		"font-size:" + light["--font-size-base"] + ";line-height:" + light["--line-height-base"],
+		"padding:" + light["--s-6"],
+		"border-radius:" + light["--r-lg"],
+		"margin:0 0 " + light["--s-3"],
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q (tokens.css と不一致)", want)
+		}
 	}
 }

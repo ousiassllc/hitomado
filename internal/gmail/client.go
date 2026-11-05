@@ -151,6 +151,7 @@ type Client interface {
 	GetThreadFull(ctx context.Context, accountID, threadID string) (ThreadFull, error)
 	ModifyThread(ctx context.Context, accountID, threadID string, add, remove []string) error
 	TrashThread(ctx context.Context, accountID, threadID string) error
+	UntrashThread(ctx context.Context, accountID, threadID string) error
 	GetAttachment(ctx context.Context, accountID, messageID, attachmentID string) ([]byte, error)
 	Send(ctx context.Context, accountID string, raw []byte, threadID string) (SentMessage, error)
 	CreateDraft(ctx context.Context, accountID string, raw []byte, threadID string) (draftID string, err error)

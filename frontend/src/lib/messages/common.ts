@@ -106,6 +106,11 @@ export const common = {
 
   // トースト・操作結果
   op: {
+    archived: (n: number) => (n === 1 ? 'アーカイブしました。' : `${n} 件をアーカイブしました。`),
+    trashed: (n: number) =>
+      n === 1 ? 'ゴミ箱へ移動しました。' : `${n} 件をゴミ箱へ移動しました。`,
+    undo: '元に戻す',
+    undoFailed: '元に戻せませんでした。',
     archiveFailed: 'アーカイブに失敗しました。元に戻しました。',
     trashFailed: 'ゴミ箱への移動に失敗しました。元に戻しました。',
     markReadFailed: '既読・未読の変更に失敗しました。元に戻しました。',

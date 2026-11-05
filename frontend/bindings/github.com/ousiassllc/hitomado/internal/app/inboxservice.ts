@@ -80,3 +80,18 @@ export function Search(q: dto$0.SearchQuery): $CancellablePromise<dto$0.ThreadPa
 export function Trash(refs: dto$0.ThreadRef[] | null): $CancellablePromise<dto$0.ThreadSummary[] | null> {
     return $Call.ByID(685588537, refs);
 }
+
+/**
+ * Unarchive は Archive の取り消し。INBOX ラベルを付け直す。
+ */
+export function Unarchive(refs: dto$0.ThreadRef[] | null): $CancellablePromise<dto$0.ThreadSummary[] | null> {
+    return $Call.ByID(1975345532, refs);
+}
+
+/**
+ * Untrash は Trash の取り消し。スレッドをゴミ箱から戻す。backToInbox が true なら INBOX ラベルも付け直す
+ * （ゴミ箱へ移す前に受信箱にあったスレッド用。Trash は INBOX を除去し、Gmail の untrash が INBOX を戻すとは限らない）。
+ */
+export function Untrash(refs: dto$0.ThreadRef[] | null, backToInbox: boolean): $CancellablePromise<dto$0.ThreadSummary[] | null> {
+    return $Call.ByID(3151414372, refs, backToInbox);
+}
