@@ -253,7 +253,7 @@ async function copy(text: string): Promise<void> {
   gap: var(--s-2);
   padding: var(--s-3);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-md);
   background: var(--bone);
 }
 

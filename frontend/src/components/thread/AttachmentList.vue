@@ -38,7 +38,7 @@ ul {
   gap: var(--s-2);
   padding: var(--s-1) var(--s-2);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-sm);
   background: var(--bone);
   font-size: var(--font-size-sm);
   max-width: 100%;

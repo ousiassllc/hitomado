@@ -140,7 +140,7 @@ const statusText = computed(() => {
   gap: var(--s-3);
   padding: var(--s-3);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-md);
   background: var(--bone);
   list-style: none;
 }
