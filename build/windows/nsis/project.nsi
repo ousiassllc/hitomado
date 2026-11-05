@@ -140,11 +140,23 @@ Function .onInit
     ${EndIf}
     ClearErrors
 
-    # 対応は x64 の Windows 10 以降のみ。ARM64 は対象外（動作未確認のため中止する）。
-    ${IfNot} ${AtLeastWin10}
-    ${OrIfNot} ${IsNativeAMD64}
+    # 対応は x64 の Windows 10 以降と、ARM64 の Windows 11（x64 エミュレーションで x64 版の exe を動かす。ARM64 版のビルドは無い）。
+    # ARM64 の Windows 10 は x64 エミュレーションが無い（x86 のみ）ので対象外。Windows 11 は build 22000 以降。
+    StrCpy $0 1
+    ${If} ${IsNativeAMD64}
+        ${IfNot} ${AtLeastWin10}
+            StrCpy $0 0
+        ${EndIf}
+    ${ElseIf} ${IsNativeARM64}
+        ${IfNot} ${AtLeastBuild} 22000
+            StrCpy $0 0
+        ${EndIf}
+    ${Else}
+        StrCpy $0 0
+    ${EndIf}
+    ${If} $0 == 0
         IfSilent silentUnsupported
-        MessageBox MB_OK|MB_ICONSTOP "${APP_NAME} は 64 bit 版の Windows 10 以降にのみインストールできます。"
+        MessageBox MB_OK|MB_ICONSTOP "${APP_NAME} は 64 bit 版の Windows 10 以降（ARM64 は Windows 11 のみ）にのみインストールできます。"
         Quit
         silentUnsupported:
         SetErrorLevel 64
