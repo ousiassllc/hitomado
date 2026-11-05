@@ -43,6 +43,7 @@ type responsesRequest struct {
 	Input        []responseItem `json:"input"`
 	Store        bool           `json:"store"`
 	Stream       bool           `json:"stream"`
+	Reasoning    *effortConfig  `json:"reasoning,omitempty"` // エフォートがあるときだけ（#111）
 }
 
 type responseItem struct {
@@ -94,6 +95,7 @@ func (g *chatGPT) GenerateReply(ctx context.Context, in ReplyInput) (string, err
 		Input:        []responseItem{{Role: "user", Content: userPrompt(in)}},
 		Store:        false,
 		Stream:       true,
+		Reasoning:    effortConfigOf(in.Effort),
 	})
 	if err != nil {
 		return "", fmt.Errorf("%w: 要求を組み立てられません", ErrFailed)

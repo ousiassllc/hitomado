@@ -3,8 +3,10 @@ package aicore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
@@ -30,9 +32,15 @@ var errCancelledByUser = errors.New("ai: cancelled by user")
 
 // GenerateReplyDraft は reply／reply_all セッションのスレッドから返信本文を生成する（F-08）。
 // 署名・引用は含めない。ctx のキャンセルと CancelGenerate は CANCELLED、60 秒超過は AI_FAILED。
-func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID string) (dto.ReplyDraft, error) {
+// instruction は利用者が書いた「AI への指示」（#109）。前後の空白を除いて空なら指示なし。
+// 2,000 文字（rune 数）を超えると、通信せず VALIDATION。指示は保存せず、ログ・エラー文面にも残さない。
+func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID, instruction string) (dto.ReplyDraft, error) {
 	if requestID == "" {
 		return dto.ReplyDraft{}, apperr.New(apperr.Validation, "リクエスト ID が必要です。")
+	}
+	instruction = strings.TrimSpace(instruction)
+	if utf8.RuneCountInString(instruction) > ai.MaxInstructionRunes {
+		return dto.ReplyDraft{}, apperr.New(apperr.Validation, fmt.Sprintf("AI への指示は %d 文字までです。", ai.MaxInstructionRunes))
 	}
 	mode, ref, err := s.sessions.ThreadRef(sessionID)
 	if err != nil {
@@ -57,6 +65,8 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID s
 	if err != nil {
 		return dto.ReplyDraft{}, s.mapError(runCtx, err, ref.AccountID)
 	}
+	in.Instruction = instruction
+	in.Effort = cfg.Effort
 	text, err := s.generate(runCtx, cfg, key, in)
 	if err != nil {
 		return dto.ReplyDraft{}, err
@@ -72,7 +82,7 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID s
 func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key string, in ai.ReplyInput) (string, error) {
 	text, err := s.callProvider(ctx, cfg, key, in)
 	if err == nil || cfg.Provider != providerChatGPT || !errors.Is(err, ai.ErrUnauthorized) || ctx.Err() != nil {
-		return text, s.mapProviderError(cfg.Provider, err)
+		return text, s.mapProviderError(cfg.Provider, in.Effort, err)
 	}
 	key, rerr := s.d.ChatGPT.ForceRefresh(ctx)
 	if rerr != nil {
@@ -82,7 +92,7 @@ func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key string, 
 		return "", mapChatGPTError(rerr)
 	}
 	text, err = s.callProvider(ctx, cfg, key, in)
-	return text, s.mapProviderError(cfg.Provider, err)
+	return text, s.mapProviderError(cfg.Provider, in.Effort, err)
 }
 
 // callProvider はプロバイダを作って GenerateReply を呼ぶ。プロバイダのエラーは生のまま返す（呼び出し側が分類する）。
@@ -108,13 +118,18 @@ func (s *Service) callProvider(ctx context.Context, cfg storedAIConfig, key stri
 }
 
 // mapProviderError はプロバイダのエラーを AppError にする。ChatGPT の 401 は API キーではなくログインの問題として伝える。
-func (s *Service) mapProviderError(provider string, err error) error {
+// effort を載せた要求をプロバイダが拒否したとき（400／422）は、エフォートが原因のことがあるので、設定で「既定」に戻す案内を付ける（#111）。
+func (s *Service) mapProviderError(provider, effort string, err error) error {
 	if err == nil {
 		return nil
 	}
 	var ae *apperr.Error
 	if errors.As(err, &ae) {
 		return err
+	}
+	if effort != "" && errors.Is(err, ai.ErrRejected) {
+		return apperr.Wrap(apperr.AIFailed, "このモデルは選んだエフォートに対応していません。設定でエフォートを「既定」に戻してください。", err).
+			WithDetail(apperr.DetailReason, apperr.ReasonEffortRejected)
 	}
 	if provider == providerChatGPT && errors.Is(err, ai.ErrUnauthorized) {
 		return apperr.Wrap(apperr.AIFailed, "ChatGPT のログインを確認できませんでした。設定画面でログインし直してください。", err)

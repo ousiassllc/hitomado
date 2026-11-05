@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
@@ -48,9 +49,19 @@ type Service struct {
 	inflight map[string]context.CancelCauseFunc // requestID → cancel
 }
 
+// Option は Service の任意の設定。
+type Option func(*Service)
+
+// WithTimeout はプロバイダ呼び出しのタイムアウトを変える（既定は 60 秒。テストで短縮するのに使う）。
+func WithTimeout(d time.Duration) Option { return func(s *Service) { s.timeout = d } }
+
 // New は Service を作る。返信系セッションの参照に sessions を使う。
-func New(d *deps.Deps, sessions SessionLookup) *Service {
-	return &Service{d: d, sessions: sessions, timeout: aiGenerateTimeout, inflight: map[string]context.CancelCauseFunc{}}
+func New(d *deps.Deps, sessions SessionLookup, opts ...Option) *Service {
+	s := &Service{d: d, sessions: sessions, timeout: aiGenerateTimeout, inflight: map[string]context.CancelCauseFunc{}}
+	for _, o := range opts {
+		o(s)
+	}
+	return s
 }
 
 // storedAIConfig は app_settings の ai.config（ER §3.9）。
@@ -58,6 +69,8 @@ type storedAIConfig struct {
 	Provider string `json:"provider"`
 	Model    string `json:"model"`
 	BaseURL  string `json:"baseUrl,omitempty"`
+	// Effort はモデルのエフォート（#111）。「モデルの既定」はキー自体を書かない。範囲外の保存値は loadConfigState が空にする。
+	Effort string `json:"effort,omitempty"`
 }
 
 func validProvider(p string) bool {
@@ -85,6 +98,10 @@ func (s *Service) loadConfigState(ctx context.Context) (cfg storedAIConfig, save
 	}
 	if !validProvider(cfg.Provider) {
 		return storedAIConfig{Provider: defaultProvider}, false, nil
+	}
+	// 範囲外の保存値（手で書き換えられた値）は無視して「モデルの既定」として扱い、プロバイダへ送らない。
+	if !ai.ValidEffort(cfg.Provider, cfg.Effort) {
+		cfg.Effort = ""
 	}
 	return cfg, true, nil
 }
@@ -129,7 +146,7 @@ func (s *Service) config(ctx context.Context) (dto.AIConfig, error) {
 		has = slices.Contains(keyed, cfg.Provider)
 	}
 	return dto.AIConfig{
-		Provider: cfg.Provider, Model: cfg.Model, BaseURL: cfg.BaseURL, Configured: configured, HasAPIKey: has,
+		Provider: cfg.Provider, Model: cfg.Model, BaseURL: cfg.BaseURL, Effort: cfg.Effort, Configured: configured, HasAPIKey: has,
 		APIKeyProviders: keyed, ConsentedProviders: consented,
 		ChatGPTSignedIn: gpt.SignedIn, ChatGPTEmail: gpt.Email, ChatGPTAccounts: chatGPTAccounts(gpt),
 	}, nil
@@ -149,9 +166,15 @@ func errChatGPTNoKey() error {
 
 // SetAIConfig は AI 設定を更新する。baseUrl は openai のみ有効で、http(s) の URL を要する
 // （userinfo・query・fragment は拒否。anthropic のときは無視して保存しない）。
-func (s *Service) SetAIConfig(ctx context.Context, provider, model, baseURL string) (dto.AIConfig, error) {
+// effort（#111）は省略・空で「モデルの既定」（キーを書かない）。指定できるのはプロバイダごとの段階だけで、範囲外は VALIDATION。
+// モデルとの組み合わせは確かめない（確かめるのは画面。生成時にプロバイダが拒否したら AI_FAILED）。渡さなければ前の値は引き継がず「既定」に戻る。
+func (s *Service) SetAIConfig(ctx context.Context, provider, model, baseURL, effort string) (dto.AIConfig, error) {
 	if !validProvider(provider) {
 		return dto.AIConfig{}, errBadProvider()
+	}
+	effort = strings.TrimSpace(effort)
+	if effort != "" && !ai.ValidEffort(provider, effort) {
+		return dto.AIConfig{}, apperr.New(apperr.Validation, "エフォートが正しくありません。")
 	}
 	baseURL = strings.TrimSpace(baseURL)
 	if provider != providerOpenAI {
@@ -162,7 +185,7 @@ func (s *Service) SetAIConfig(ctx context.Context, provider, model, baseURL stri
 			return dto.AIConfig{}, err
 		}
 	}
-	b, err := json.Marshal(storedAIConfig{Provider: provider, Model: strings.TrimSpace(model), BaseURL: baseURL})
+	b, err := json.Marshal(storedAIConfig{Provider: provider, Model: strings.TrimSpace(model), BaseURL: baseURL, Effort: effort})
 	if err != nil {
 		return dto.AIConfig{}, apperr.Wrap(apperr.Internal, "AI 設定を保存できません。", err)
 	}

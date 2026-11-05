@@ -163,8 +163,16 @@ export const useSettingsStore = defineStore('settings', () => {
     started = false
   }
 
-  async function setAIConfig(provider: string, model: string, baseUrl: string): Promise<void> {
-    aiConfig.value = normalizeAIConfig(await call(AIService.SetAIConfig(provider, model, baseUrl)))
+  /** AI 設定を保存する。effort は空で「モデルの既定」（#111）。渡さなければ前の値は引き継がず「既定」に戻る。 */
+  async function setAIConfig(
+    provider: string,
+    model: string,
+    baseUrl: string,
+    effort = '',
+  ): Promise<void> {
+    aiConfig.value = normalizeAIConfig(
+      await call(AIService.SetAIConfig(provider, model, baseUrl, effort)),
+    )
   }
 
   async function setAIApiKey(provider: string, apiKey: string): Promise<void> {
@@ -213,12 +221,13 @@ export const useSettingsStore = defineStore('settings', () => {
     return r.revocationConfirmed
   }
 
-  /** 返信の下書きを生成する（cancelGenerate で中止できる。requestId は呼び出しごとに一意）。 */
+  /** 返信の下書きを生成する（cancelGenerate で中止できる。requestId は呼び出しごとに一意）。instruction は任意の「AI への指示」（保存しない）。 */
   async function generateReplyDraft(
     sessionId: string,
     requestId: string,
+    instruction = '',
   ): Promise<{ bodyHtml: string }> {
-    return await call(AIService.GenerateReplyDraft(sessionId, requestId))
+    return await call(AIService.GenerateReplyDraft(sessionId, requestId, instruction))
   }
 
   async function cancelGenerate(requestId: string): Promise<void> {

@@ -155,7 +155,6 @@ onBeforeUnmount(() => editor.value?.destroy())
 .rte {
   display: flex;
   flex-direction: column;
-  min-height: 0;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-bg);

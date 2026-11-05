@@ -42,9 +42,10 @@ export function ClearAIApiKey(provider: string): $CancellablePromise<dto$0.AICon
 
 /**
  * GenerateReplyDraft は reply／reply_all セッションのスレッドから下書きを生成する。ctx キャンセルは CANCELLED。
+ * instruction は任意の「AI への指示」（空・空白だけは指示なし。2,000 文字まで。保存しない）。
  */
-export function GenerateReplyDraft(sessionID: string, requestID: string): $CancellablePromise<dto$0.ReplyDraft> {
-    return $Call.ByID(4105461667, sessionID, requestID);
+export function GenerateReplyDraft(sessionID: string, requestID: string, instruction: string): $CancellablePromise<dto$0.ReplyDraft> {
+    return $Call.ByID(4105461667, sessionID, requestID, instruction);
 }
 
 export function GetAIConfig(): $CancellablePromise<dto$0.AIConfig> {
@@ -80,8 +81,8 @@ export function SetAIApiKey(provider: string, apiKey: string): $CancellablePromi
     return $Call.ByID(3227425416, provider, apiKey);
 }
 
-export function SetAIConfig(provider: string, model: string, baseURL: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(101858289, provider, model, baseURL);
+export function SetAIConfig(provider: string, model: string, baseURL: string, effort: string): $CancellablePromise<dto$0.AIConfig> {
+    return $Call.ByID(101858289, provider, model, baseURL, effort);
 }
 
 /**

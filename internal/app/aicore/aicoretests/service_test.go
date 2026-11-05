@@ -1,4 +1,4 @@
-package aicore_test
+package aicoretests
 
 import (
 	"bytes"
@@ -69,7 +69,7 @@ func newAIFixture(t *testing.T) *aiFixture {
 // ready は設定・キー・同意をすべて済ませる。
 func (f *aiFixture) ready(t *testing.T) {
 	t.Helper()
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1")
+	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
@@ -90,7 +90,7 @@ func TestAIConfigDefaultsAndRoundTrip(t *testing.T) {
 	assert.NotNil(t, cfg.ConsentedProviders)
 	assert.Empty(t, cfg.ConsentedProviders)
 
-	cfg, err = f.ai.SetAIConfig(t.Context(), "openai", " gpt-x ", "https://llm.example/v1")
+	cfg, err = f.ai.SetAIConfig(t.Context(), "openai", " gpt-x ", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	assert.True(t, cfg.Configured)
 	assert.Equal(t, "gpt-x", cfg.Model)
@@ -108,7 +108,7 @@ func TestAIConfigDefaultsAndRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, cfg.HasAPIKey)
 
-	cfg, err = f.ai.SetAIConfig(t.Context(), "anthropic", "claude", "https://ignored.example")
+	cfg, err = f.ai.SetAIConfig(t.Context(), "anthropic", "claude", "https://ignored.example", "")
 	require.NoError(t, err)
 	assert.Empty(t, cfg.BaseURL, "baseUrl は openai のみ")
 }
@@ -117,7 +117,7 @@ func TestAIConfigDefaultsAndRoundTrip(t *testing.T) {
 func TestSavedProviderIsNotReplacedByTheDefault(t *testing.T) {
 	for _, p := range []string{"anthropic", "openai", "chatgpt"} {
 		f := newAIFixture(t)
-		_, err := f.ai.SetAIConfig(t.Context(), p, "m-"+p, "")
+		_, err := f.ai.SetAIConfig(t.Context(), p, "m-"+p, "", "")
 		require.NoError(t, err)
 		cfg, err := f.ai.GetAIConfig(t.Context())
 		require.NoError(t, err)
@@ -146,10 +146,10 @@ func TestSavedProviderIsNotReplacedByTheDefault(t *testing.T) {
 
 func TestAIConfigValidation(t *testing.T) {
 	f := newAIFixture(t)
-	_, err := f.ai.SetAIConfig(t.Context(), "gemini", "m", "")
+	_, err := f.ai.SetAIConfig(t.Context(), "gemini", "m", "", "")
 	requireCode(t, "VALIDATION", err)
 	for _, u := range []string{"ftp://x.example", "not a url", "https://", "javascript:alert(1)"} {
-		_, err = f.ai.SetAIConfig(t.Context(), "openai", "m", u)
+		_, err = f.ai.SetAIConfig(t.Context(), "openai", "m", u, "")
 		requireCode(t, "VALIDATION", err)
 	}
 	_, err = f.ai.SetAIApiKey(t.Context(), "gemini", "k")
@@ -178,10 +178,10 @@ func TestAIConsentPerProvider(t *testing.T) {
 func TestGenerateRequiresReplySession(t *testing.T) {
 	f := newAIFixture(t)
 	f.ready(t)
-	_, err := f.ai.GenerateReplyDraft(t.Context(), "missing", "r1")
+	_, err := f.ai.GenerateReplyDraft(t.Context(), "missing", "r1", "")
 	requireCode(t, "SESSION_NOT_FOUND", err)
 	for _, s := range []string{f.openNew(t, f.a.ID).SessionID, f.open(t, "forward").SessionID} {
-		_, err = f.ai.GenerateReplyDraft(t.Context(), s, "r1")
+		_, err = f.ai.GenerateReplyDraft(t.Context(), s, "r1", "")
 		requireCode(t, "VALIDATION", err)
 	}
 	assert.Empty(t, f.provider.inputs)
@@ -191,7 +191,7 @@ func TestGeneratePreconditions(t *testing.T) {
 	f := newAIFixture(t)
 	s := f.open(t, "reply")
 	gen := func() error {
-		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 		return err
 	}
 	requireCode(t, "AI_NOT_CONFIGURED", gen())
@@ -200,7 +200,7 @@ func TestGeneratePreconditions(t *testing.T) {
 	require.NoError(t, err)
 	requireCode(t, "AI_NOT_CONFIGURED", gen()) // model が空
 
-	_, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "")
+	_, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "", "")
 	require.NoError(t, err)
 	requireCode(t, "AI_CONSENT_REQUIRED", gen())
 
@@ -221,7 +221,7 @@ func TestGenerateBuildsEscapedHTMLAndNoSecretsInLogs(t *testing.T) {
 		return "こんにちは <b>&</b>\n改行です\n\n次の段落", nil
 	}
 	s := f.open(t, "reply")
-	got, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	got, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	require.NoError(t, err)
 	assert.Equal(t, "<p>こんにちは &lt;b&gt;&amp;&lt;/b&gt;<br>改行です</p><p>次の段落</p>", got.BodyHTML)
 	assert.NotContains(t, got.BodyHTML, "data-hitomado")
@@ -233,7 +233,7 @@ func TestGenerateBuildsEscapedHTMLAndNoSecretsInLogs(t *testing.T) {
 	require.Len(t, in.Messages, 1)
 	assert.Equal(t, "Alice", in.Messages[0].From)
 
-	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2")
+	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2", "")
 	require.NoError(t, err)
 	logged := f.logs.String()
 	assert.NotContains(t, logged, testAPIKey)
@@ -257,7 +257,7 @@ func TestGenerateTruncatesContext(t *testing.T) {
 	s, err := f.svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "reply", Ref: &dto.ThreadRef{AccountID: f.a.ID, ThreadID: "tq"}})
 	require.NoError(t, err)
 
-	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	require.NoError(t, err)
 	in := f.provider.inputs[0]
 	assert.LessOrEqual(t, len(in.Messages), 5)

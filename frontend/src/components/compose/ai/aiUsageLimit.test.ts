@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { isUsageLimit, useAiDraft } from '../../composables/useAiDraft'
-import { useSettingsStore } from '../../stores/settings'
+import { isUsageLimit, useAiDraft } from '../../../composables/useAiDraft'
+import { useSettingsStore } from '../../../stores/settings'
 import AiDraftButton from './AiDraftButton.vue'
 import UsageLimitNotice from './UsageLimitNotice.vue'
 

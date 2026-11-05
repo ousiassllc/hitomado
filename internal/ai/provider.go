@@ -35,10 +35,10 @@ func New(provider, model, baseURL, apiKey string) (Provider, error) {
 	return NewWithClient(provider, model, baseURL, apiKey, nil)
 }
 
-// newHTTPClient は既定の http.Client を返す。
+// NewHTTPClient は既定の http.Client を返す（NewWithClient・ListModels の hc が nil のときに使う。テストからも使う）。
 // リダイレクトは追従しない。307／308 は POST の本文ごと別ホスト・別 scheme へ再送されるため、
 // 同意・検証済みの送信先（scheme＋ホスト）以外にスレッド内容が届き得る。3xx は ErrFailed になる。
-func newHTTPClient() *http.Client {
+func NewHTTPClient() *http.Client {
 	return &http.Client{
 		Timeout:       defaultHTTPTimeout,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
@@ -52,7 +52,7 @@ func NewWithClient(provider, model, baseURL, apiKey string, hc *http.Client) (Pr
 		return nil, errors.New("ai: モデルが指定されていません")
 	}
 	if hc == nil {
-		hc = newHTTPClient()
+		hc = NewHTTPClient()
 	}
 	c := client{hc: hc, model: model, apiKey: apiKey}
 	switch provider {
