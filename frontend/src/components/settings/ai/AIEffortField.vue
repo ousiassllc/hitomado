@@ -49,7 +49,7 @@ const options = computed<SelectOption[]>(() => [
 
 .hint {
   margin: calc(var(--gap-help) - var(--gap-label)) 0 0;
-  color: var(--mute);
-  font-size: var(--font-size-xs);
+  color: var(--ink);
+  font-size: var(--font-size-sm);
 }
 </style>

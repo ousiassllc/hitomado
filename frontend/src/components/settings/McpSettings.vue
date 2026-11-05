@@ -124,7 +124,7 @@ async function copy(text: string): Promise<void> {
           {{ status.listening ? msg.mcp.statusListening : msg.mcp.statusStopped }}
         </span>
       </div>
-      <p class="hint">{{ msg.mcp.enableHint }}</p>
+      <p class="body">{{ msg.mcp.enableHint }}</p>
       <p v-if="status.error" class="error" role="alert">{{ msg.mcp.listenError }}{{ status.error }}</p>
 
       <div class="addr">
@@ -156,7 +156,7 @@ async function copy(text: string): Promise<void> {
         </BaseButton>
         <BaseButton v-if="status.hasToken" :loading="busy" @click="revokeOpen = true">{{ msg.mcp.revoke }}</BaseButton>
       </div>
-      <p v-if="status.hasToken" class="hint">{{ msg.mcp.reissueHint }}</p>
+      <p v-if="status.hasToken" class="body">{{ msg.mcp.reissueHint }}</p>
 
       <div v-if="shownToken" class="token-box" role="status">
         <strong>{{ msg.mcp.tokenShown }}</strong>
