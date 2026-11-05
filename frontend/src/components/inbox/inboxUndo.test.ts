@@ -94,13 +94,14 @@ describe('アーカイブ・ゴミ箱のスナックバー（元に戻す）', (
     gate.resolve()
   })
 
-  test('検索結果で受信箱にないスレッドのアーカイブは、元に戻しても INBOX へ入れない', async () => {
+  test('検索結果で受信箱にないスレッドのアーカイブは、取り消す対象が無いので「元に戻す」を出さない', async () => {
     ctl.responses.Search = { items: [summary('t1', { inInbox: false })], failures: [] }
     const inbox = useInboxStore()
     await inbox.runSearch('is:starred')
     const ui = useUiStore()
     expect(await inbox.archive([REF])).toBe(true)
-    ui.toast?.action?.run()
+    expect(ui.toast?.message).toBe('アーカイブしました。')
+    expect(ui.toast?.action).toBeUndefined()
     expect(callsOf('Unarchive')).toHaveLength(0)
   })
 
@@ -147,21 +148,30 @@ describe('アーカイブ・ゴミ箱のスナックバー（元に戻す）', (
     expect(ui.alerts[0].kind).toBe('error')
   })
 
-  test('元に戻すのに失敗したら、エラーアラート（再試行つき）で知らせる', async () => {
+  test('元に戻すのに失敗したら、エラーアラート（再試行つき）で知らせる。再試行が成功したら一覧へ差し戻す', async () => {
     const inbox = await loaded()
     const ui = useUiStore()
     await inbox.archive([REF])
+    // サーバーの状態: 取り消しが成功するまで t1 は受信箱に戻らない（失敗した Unarchive では戻らない）
+    let undone = false
+    ctl.responses.Unarchive = () => {
+      undone = true
+      return [T1]
+    }
+    ctl.responses.ListInbox = () => ({ items: undone ? [T1, T2] : [T2], failures: [] })
     ctl.failures.Unarchive = appError('RATE_LIMITED', '混み合っています')
     ui.toast?.action?.run()
     await until(() => ui.alerts.length === 1)
     expect(ui.alerts[0].kind).toBe('error')
     expect(ui.alerts[0].message).toBe('元に戻せませんでした。混み合っています')
     expect(ui.alerts[0].retry).toBeDefined()
+    expect(inbox.items.map((t) => t.threadId)).toEqual(['t2'])
 
     delete ctl.failures.Unarchive
     ui.alerts[0].retry?.()
     await until(() => callsOf('Unarchive').length === 2)
     await until(() => inbox.items.length === 2)
+    expect(inbox.items.map((t) => t.threadId)).toEqual(['t1', 't2'])
   })
 
   test('既読・未読にはスナックバーを出さない', async () => {
