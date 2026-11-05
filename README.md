@@ -1,6 +1,6 @@
 # Hitomado
 
-複数の Gmail／Google Workspace アドレスを 1 つの統合受信箱で扱い、**受信したアカウントから正しい送信元で返信できる**デスクトップアプリ（Windows）。アカウント切替と送信元の取り違えをなくすことが目的です。
+複数の Gmail／Google Workspace アドレスを 1 つの統合受信箱で扱い、**受信したアカウントから正しい送信元で返信できる**デスクトップアプリ（Windows。Android・macOS は試験段階の検証用配布）。アカウント切替と送信元の取り違えをなくすことが目的です。
 
 - 公開者のサーバーは持ちません。通信は利用者の PC と Google／AI プロバイダ（任意）／GitHub Releases（更新確認）の間だけで完結します。
 - Gmail の制限付きスコープの審査（CASA）を避けるため、**利用者が自分の Google Cloud で OAuth クライアントを作る**方式（BYO OAuth）です。手順は [OAuth クライアントの作り方](#oauth-クライアントの作り方) を参照してください。
@@ -30,7 +30,7 @@
 
 動作環境: Windows 10（1809 以降）／Windows 11（x64。ARM64 は対象外）。WebView2 ランタイムが必要です（Windows 11 は標準搭載。未導入ならインストーラーが入れます）。
 
-Android 版（試験段階）の動作環境: Android 12（API 31）以上。
+Android と macOS の試験版（検証用。警告が出る前提）は、[Android 版](#android-版試験段階検証用)・[macOS 版](#macos-版試験段階検証用)を参照してください。
 
 ### 更新
 
@@ -59,6 +59,31 @@ Android 版（試験段階）の動作環境: Android 12（API 31）以上。
 2. 表示された **「実行」** をクリックします。
 
 ダウンロード元が [公式の Releases](https://github.com/ousiassllc/hitomado/releases) であることと、`SHA256SUMS.txt` のハッシュが一致することを確認してから実行してください。
+
+## Android 版（試験段階・検証用）
+
+Releases の `hitomado-vX.Y.Z-android-arm64.apk`（arm64 の実機向け。`SHA256SUMS.txt` でハッシュを確認できます）を Android 12（API 31）以上の端末へ入れて試せます。Google Play では配布していません。OAuth クライアントは [Android で使う場合の OAuth クライアント](#android-で使う場合の-oauth-クライアント)を参照してください。
+
+1. 端末の設定で、APK を開くアプリ（ブラウザ・ファイル）に「不明なアプリのインストール」を許可し、APK をインストールします。Play プロテクトの警告が出ることがあります。
+2. 起動して、Windows 版と同じように OAuth クライアントの登録・アカウントの追加をします。
+
+**警告が出る前提です（意図した状態です）。** この APK は、リリースのたびに作る**使い捨ての鍵**で署名しています（正式な署名鍵ではありません）。そのため:
+
+- **版ごとに署名が変わり、上書きインストールはできません**（「競合するパッケージ」などで失敗します）。更新するときは、いったんアンインストールして入れ直します。**アプリのデータ（アカウント・設定・下書き）は消えます**。PC に接続した端末なら `adb uninstall jp.ousias.hitomado` の後に `adb install hitomado-vX.Y.Z-android-arm64.apk`、端末だけなら「設定 → アプリ → Hitomado → アンインストール」の後に新しい APK を入れます。
+- アプリ内の更新確認はありません（新しい版は Releases で確認してください）。
+- エミュレーター（x86_64）向けの APK は添付していません。
+
+## macOS 版（試験段階・検証用）
+
+Releases の `hitomado-vX.Y.Z-macos-arm64.zip`（Apple Silicon）または `hitomado-vX.Y.Z-macos-amd64.zip`（Intel）をダウンロードし、`SHA256SUMS.txt` でハッシュを確認します（`shasum -a 256 hitomado-vX.Y.Z-macos-arm64.zip`）。zip を開くと `Hitomado.app` ができるので、`/Applications` などへ置いて起動します。動作環境は macOS 12 以上です。
+
+**警告が出る前提です（意図した状態です）。** この `.app` は ad-hoc 署名（`codesign -s -`）だけで、Apple の Developer ID の署名も公証もしていません。ダウンロードした直後は Gatekeeper が「開発元を検証できません」「壊れているため開けません」などの警告を出して起動を止めます。次のどちらかで開けます。
+
+- 初回だけ、Finder で `Hitomado.app` を **右クリック（Control＋クリック）→「開く」** を選び、確認で「開く」を押す（macOS 15 以降は、一度ブロックされたあとに「システム設定 → プライバシーとセキュリティ」の「このまま開く」を押す）。
+- ターミナルで検疫属性を外す: `xattr -dr com.apple.quarantine /Applications/Hitomado.app`
+
+ダウンロード元が [公式の Releases](https://github.com/ousiassllc/hitomado/releases) であることと、ハッシュが一致することを確認してから実行してください。データは `~/Library/Application Support/Hitomado/`、資格情報はキーチェーン（サービス名 `Hitomado`）に保存します。アプリ内の更新確認は新しい版のリンクを出すだけで、自動では入れ替えません（新しい `.app` で置き換えてください。データは残ります）。実機での動作確認は限定的です。
+
 
 ## OAuth クライアントの作り方
 
@@ -112,7 +137,7 @@ OAuth 同意画面の公開ステータスが **外部かつ「テスト」** �
   - Gmail（`gmail.googleapis.com`。メールの取得・操作・送信）
   - AI プロバイダ（設定したもの。「AI で下書き」を押したときだけ、スレッド本文の一部・表示名・署名を送信）
   - ChatGPT のログイン（`auth.openai.com`。設定で「ChatGPT プラン」を選んでログインしたときだけ。認可・トークン更新・失効）。ChatGPT プランで下書きを作るときの送信先は `api.openai.com` です
-  - GitHub Releases（`api.github.com` で新バージョンの確認、`github.com` と配信元の `release-assets.githubusercontent.com` で Windows 版の自動アップデートのダウンロード。設定でオフにできます）
+  - GitHub Releases（`api.github.com` で新バージョンの確認、`github.com` と配信元の `release-assets.githubusercontent.com` で Windows 版の自動アップデートのダウンロード。設定でオフにできます。macOS 版は新しい版の確認と案内のリンクだけで、自動では入れ替えません。Android 版は更新確認をしません）
 - 例外: メールのリモート画像は既定でブロックします。メッセージごとに「画像を表示」を押したときだけ、そのメールが参照する画像を WebView が直接取得します（取得先はメールの送信者が指定したホストです）。
 
 ## AI 返信下書きの設定
@@ -162,9 +187,9 @@ task dev                        # 開発サーバー（wails3 dev）
 task check                      # CI と同等の検査（生成物の差分なし＋lint＋test）
 ```
 
-- 動作保証の対象は Windows です。Linux／macOS では Go の単体テスト・フロントのテスト・lint を実行できますが、アプリ本体の実行確認は Windows で行ってください。Linux で Go をビルド・テストするときは GTK を使わない `CGO_ENABLED=0 go test -tags purego ./...` を使います。
+- 動作保証の対象は Windows です（Android・macOS は試験段階の検証用の配布です）。Linux では Go の単体テスト・フロントのテスト・lint を実行できますが、アプリ本体の実行確認は Windows で行ってください。Linux で Go をビルド・テストするときは GTK を使わない `CGO_ENABLED=0 go test -tags purego ./...` を使います。
 - `task dev`・`task build`（`VERSION` なし）の版は `0.0.0` です（`task package VERSION=X.Y.Z` で渡した値だけが配布物の版になります）。`0.0.0` の dev・ローカルビルドは更新確認も自動アップデートもしません（設定画面にも新しい版は出ません）。
-- **Android 版のビルド**（APK／AAB。`task android:package ARCH=arm64 VERSION=X.Y.Z` で `bin/hitomado.apk`、`task android:install` で実機へ）の手順・署名・版番号は [docs/environment/android.md](docs/environment/android.md) にあります。まだ試験段階で、配布はしていません。
+- **Android 版のビルド**（APK／AAB。`task android:package ARCH=arm64 VERSION=X.Y.Z` で `bin/hitomado.apk`、`task android:install` で実機へ）の手順・署名・版番号は [docs/environment/android.md](docs/environment/android.md) にあります。まだ試験段階で、Google Play では配布していません（Releases の APK は検証用です）。
 - 仕様書は [docs/overview.md](docs/overview.md) のドキュメントマップから辿れます。
 - マージは squash／rebase せず、マージコミット方式です。コミットには `git commit -s`（Signed-off-by）を付けます。
-- リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けのインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）・`NOTICE`・`SHA256SUMS.txt` を Releases に添付します（コード署名なし）。手元でインストーラーを作るときは、Windows で [NSIS](https://nsis.sourceforge.io/)（`makensis`）を入れて `task package VERSION=X.Y.Z` を実行します（`bin/` に出力）。手でタグを打つ必要はありません。
+- リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けのインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）・Android の APK（`hitomado-vX.Y.Z-android-arm64.apk`）・macOS の zip（`hitomado-vX.Y.Z-macos-arm64.zip`・`hitomado-vX.Y.Z-macos-amd64.zip`）・`NOTICE`・`SHA256SUMS.txt` を Releases に添付します（Windows は署名なし、Android は使い捨て鍵の署名、macOS は ad-hoc 署名のみで、いずれも正式な署名・公証はしません）。どれか 1 つのビルドが失敗したら Release は作りません。手元でインストーラーを作るときは、Windows で [NSIS](https://nsis.sourceforge.io/)（`makensis`）を入れて `task package VERSION=X.Y.Z` を実行します（`bin/` に出力）。macOS の `.app`・zip は、macOS 上で `task package VERSION=X.Y.Z`（Apple Silicon なら arm64。Intel 向けは `ARCH=amd64` を付ける）で `bin/` に作れます。手でタグを打つ必要はありません。

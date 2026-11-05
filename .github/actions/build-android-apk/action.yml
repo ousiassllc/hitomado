@@ -1,0 +1,41 @@
+name: Build the release APK (throwaway key)
+description: >-
+  使い捨ての署名鍵を作り、release APK（arm64）を作って android:verify で検査し、output へ置く。
+  先に .github/actions/setup-android を実行しておく。鍵はこのステップ以降のジョブの中だけに存在し、成果物には含めない（実鍵は使わない）。
+  使い捨ての鍵なので、版ごとに APK の署名が変わる（更新は uninstall → 入れ直し。README.md）。
+  CI の android ジョブとリリースで同じ手順を使うためのもの。
+inputs:
+  version:
+    description: 版番号。X.Y.Z でも vX.Y.Z（タグ）でもよい（先頭の v は外す）
+    required: true
+  output:
+    description: 検査済みの APK を置くパス（親ディレクトリは作る）
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Create a throwaway release key
+      shell: bash
+      run: |
+        PASSWORD="$(openssl rand -hex 16)"
+        export PASSWORD
+        echo "::add-mask::${PASSWORD}"
+        keytool -genkeypair -keystore "${RUNNER_TEMP}/ci-throwaway.jks" -alias ci -keyalg RSA -keysize 2048 \
+          -validity 3650 -dname "CN=hitomado throwaway" \
+          -storepass:env PASSWORD -keypass:env PASSWORD
+        {
+          echo "ANDROID_KEYSTORE_FILE=${RUNNER_TEMP}/ci-throwaway.jks"
+          echo "ANDROID_KEY_ALIAS=ci"
+          echo "ANDROID_KEYSTORE_PASSWORD=${PASSWORD}"
+          echo "ANDROID_KEY_PASSWORD=${PASSWORD}"
+        } >> "$GITHUB_ENV"
+    - name: Release APK (arm64)
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        OUTPUT: ${{ inputs.output }}
+      run: |
+        wails3 task android:package ARCH=arm64 VERSION="${VERSION#v}"
+        EXPECT_SIGNING=release wails3 task android:verify VERSION="${VERSION#v}"
+        mkdir -p "$(dirname "$OUTPUT")"
+        mv bin/hitomado.apk "$OUTPUT"

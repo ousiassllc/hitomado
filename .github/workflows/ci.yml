@@ -143,35 +143,13 @@ jobs:
           if-no-files-found: error
 
   # Android の APK と AAB を作る。署名は使い捨ての鍵（実鍵は使わない）。
-  # この CI を workflow_call で呼ぶ release.yml（push）では動かさない（Windows のリリースを Android の失敗で止めないため）。
+  # この CI を workflow_call で呼ぶ release.yml（push）では動かさない（release.yml が同じ action でリリース用の APK を作る。二重に動かさない）。
   android:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.3.14
-      - uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: "17"
-      - name: Install tools
-        env:
-          CGO_ENABLED: "0"
-        run: go install -tags purego github.com/wailsapp/wails/v3/cmd/wails3@"${WAILS_VERSION}"
-      - name: Install Android SDK packages
-        run: |
-          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
-            "platforms;android-36" "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" "ndk;${ANDROID_NDK_VERSION}"
-          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
-          echo "$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS_VERSION}" >> "$GITHUB_PATH"
-      - run: bun install --frozen-lockfile
-        working-directory: frontend
+      - uses: ./.github/actions/setup-android
       # SecureStore（資格情報の保管。Keystore の鍵の喪失からの復旧）の JVM 単体テスト。端末は要らない。
       - name: Java unit tests (SecureStore)
         run: wails3 task android:test
@@ -180,26 +158,13 @@ jobs:
         run: |
           wails3 task android:package ARCH=arm64 VERSION=0.99.1
           EXPECT_SIGNING=debug wails3 task android:verify VERSION=0.99.1
-      # 使い捨ての鍵を作って環境変数で渡す（リリースの署名経路）。鍵はこのジョブの中だけに存在し、成果物には含めない。
-      - name: Create a throwaway release key
-        run: |
-          PASSWORD="$(openssl rand -hex 16)"
-          export PASSWORD
-          echo "::add-mask::${PASSWORD}"
-          keytool -genkeypair -keystore "${RUNNER_TEMP}/ci-throwaway.jks" -alias ci -keyalg RSA -keysize 2048 \
-            -validity 2 -dname "CN=hitomado ci throwaway" \
-            -storepass:env PASSWORD -keypass:env PASSWORD
-          {
-            echo "ANDROID_KEYSTORE_FILE=${RUNNER_TEMP}/ci-throwaway.jks"
-            echo "ANDROID_KEY_ALIAS=ci"
-            echo "ANDROID_KEYSTORE_PASSWORD=${PASSWORD}"
-            echo "ANDROID_KEY_PASSWORD=${PASSWORD}"
-          } >> "$GITHUB_ENV"
-      - name: Release APK (arm64)
-        run: |
-          wails3 task android:package ARCH=arm64 VERSION=0.99.1
-          EXPECT_SIGNING=release wails3 task android:verify VERSION=0.99.1
-          mv bin/hitomado.apk bin/hitomado-arm64.apk
+      # 使い捨ての鍵を作って環境変数で渡し、release APK を作る（リリースの署名経路。release.yml も同じ action を使う）。
+      # 鍵はこのジョブの中だけに存在し、成果物には含めない。
+      - name: Release APK (arm64, throwaway key)
+        uses: ./.github/actions/build-android-apk
+        with:
+          version: 0.99.1
+          output: bin/hitomado-arm64.apk
       - name: Release AAB (arm64 + x86_64)
         run: wails3 task android:bundle:fat VERSION=0.99.1
       - name: Validate the AAB
@@ -214,4 +179,26 @@ jobs:
           path: |
             bin/hitomado-arm64.apk
             bin/hitomado.aab
+          if-no-files-found: error
+
+  # macOS の .app（ad-hoc 署名）と zip を作って検査する（Apple Silicon は起動の確認つき。Intel はクロスビルドのみ）。
+  # 署名・公証はしない。この CI を workflow_call で呼ぶ release.yml（push）では動かさない（release.yml が同じ action でリリース用に作る）。
+  macos:
+    if: github.event_name == 'pull_request'
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, amd64]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the app
+        uses: ./.github/actions/build-macos
+        with:
+          version: 0.99.1
+          arch: ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: hitomado-macos-${{ matrix.arch }}
+          path: bin/hitomado-v0.99.1-macos-${{ matrix.arch }}.zip
           if-no-files-found: error

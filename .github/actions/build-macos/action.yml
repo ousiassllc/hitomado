@@ -1,0 +1,85 @@
+name: Build the macOS app
+description: >-
+  macOS のランナーで bin/Hitomado.app（ad-hoc 署名）と bin/hitomado-v<version>-macos-<arch>.zip を作り、検査する。
+  呼び出し側で actions/checkout を済ませておく。CI とリリースで同じ手順を使うためのもの。
+  Developer ID の署名も公証もしない（ダウンロードした zip は Gatekeeper の警告が出る。README.md）。
+inputs:
+  version:
+    description: 版番号。X.Y.Z でも vX.Y.Z（タグ）でもよい（先頭の v は外す）。実行ファイルの -X main.version と Info.plist の版に入る
+    required: true
+  arch:
+    description: arm64（Apple Silicon）か amd64（Intel）。amd64 は arm64 のランナーでのクロスビルドで、検査のうち起動の確認はしない
+    default: arm64
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: 1.3.14
+    - name: Install tools
+      shell: bash
+      env:
+        CGO_ENABLED: "0"
+      # wails3 CLI 自体は cgo なしで作る（アプリ本体のビルドは task が cgo を有効にする）。
+      run: go install -tags purego github.com/wailsapp/wails/v3/cmd/wails3@"${WAILS_VERSION}"
+    - name: Build the app and the zip
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        ARCH: ${{ inputs.arch }}
+      run: wails3 task darwin:package VERSION="${VERSION#v}" ARCH="${ARCH}"
+    - name: Verify the app and the zip
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        ARCH: ${{ inputs.arch }}
+      run: |
+        set -x
+        version="${VERSION#v}"
+        app=bin/Hitomado.app
+        zip="bin/hitomado-v${version}-macos-${ARCH}.zip"
+        exe="${app}/Contents/MacOS/hitomado"
+        plist="${app}/Contents/Info.plist"
+
+        plutil -lint "$plist"
+        for key in CFBundleVersion CFBundleShortVersionString; do
+          got="$(/usr/libexec/PlistBuddy -c "Print :${key}" "$plist")"
+          [ "$got" = "$version" ] || { echo "::error::${key} is '${got}', want '${version}'" >&2; exit 1; }
+        done
+        [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")" = "jp.ousias.hitomado" ]
+        [ -f "${app}/Contents/Resources/icons.icns" ]
+
+        # 実行ファイルの CPU と、-X main.version の値が入っていること。
+        case "$ARCH" in arm64) want_arch=arm64 ;; amd64) want_arch=x86_64 ;; *) echo "::error::unknown arch ${ARCH}" >&2; exit 1 ;; esac
+        [ "$(lipo -archs "$exe")" = "$want_arch" ] || { echo "::error::lipo says '$(lipo -archs "$exe")', want ${want_arch}" >&2; exit 1; }
+        # -trimpath のビルドでは go version -m に -ldflags が載らないので、実行ファイルの中の文字列で確かめる。
+        grep -a -q -F -- "${version}" "$exe" || { echo "::error::version ${version} is not embedded in the executable" >&2; exit 1; }
+
+        # zip を展開し直しても署名が通る（ditto で作った zip の往復）。
+        rm -rf "${RUNNER_TEMP}/unzipped" && mkdir -p "${RUNNER_TEMP}/unzipped"
+        ditto -x -k "$zip" "${RUNNER_TEMP}/unzipped"
+        codesign --verify --deep --strict "${RUNNER_TEMP}/unzipped/Hitomado.app"
+        codesign -dv "${RUNNER_TEMP}/unzipped/Hitomado.app" 2>&1 | grep -F 'Signature=adhoc'
+        ls -l "$zip"
+    - name: Smoke test (the app stays up for 10 seconds)
+      # arm64 のランナーで動かせるのは arm64 だけ（amd64 はクロスビルドなので起動しない）。
+      if: inputs.arch == 'arm64'
+      shell: bash
+      run: |
+        log="${RUNNER_TEMP}/smoke.log"
+        bin/Hitomado.app/Contents/MacOS/hitomado >"$log" 2>&1 &
+        pid=$!
+        trap 'kill "$pid" 2>/dev/null || true' EXIT
+        # 起動直後に落ちる（ライブラリが見つからない・初期化の失敗）ことを、10 秒まで 1 秒ごとの生存確認で調べる。
+        for _ in $(seq 10); do
+          if ! kill -0 "$pid" 2>/dev/null; then
+            echo "::error::the app exited early" >&2
+            cat "$log"
+            exit 1
+          fi
+          sleep 1
+        done
+        cat "$log"

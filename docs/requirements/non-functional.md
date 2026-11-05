@@ -97,11 +97,12 @@
 
 | ID | 区分 | 要件 |
 |----|------|------|
-| NF-D01 | 必須 | GitHub Releases に Windows 向けインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）・依存ライセンスの表記 `NOTICE`（MPL-2.0 依存のソース入手先を含む。インストール先にも `NOTICE.txt` として置く）・`SHA256SUMS.txt` を公開する。インストールは利用者ごと（管理者権限なし）で、スタートメニューへ登録し、「アプリと機能」からアンインストールでき、上書きインストールで更新できる。アンインストールは利用者のデータ（`%APPDATA%\Hitomado`・資格情報マネージャーの秘密）を消さない（[setup.md §4.3](../environment/setup.md#43-windows-インストーラー)）。版番号はインストーラー・アプリ・exe のプロパティで一致させる |
-| NF-D02 | 必須 | コード署名は行わない（インストーラーも）。SmartScreen の警告が出ることを README に明記し、実行手順と `SHA256SUMS.txt` での確認を案内する |
+| NF-D01 | 必須 | GitHub Releases に Windows 向けインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）・依存ライセンスの表記 `NOTICE`（MPL-2.0 依存のソース入手先を含む。インストール先にも `NOTICE.txt` として置く）・`SHA256SUMS.txt`（Android・macOS の成果物〔NF-D06〕も含む全成果物の SHA-256）を公開する。インストールは利用者ごと（管理者権限なし）で、スタートメニューへ登録し、「アプリと機能」からアンインストールでき、上書きインストールで更新できる。アンインストールは利用者のデータ（`%APPDATA%\Hitomado`・資格情報マネージャーの秘密）を消さない（[setup.md §4.3](../environment/setup.md#43-windows-インストーラー)）。版番号はインストーラー・アプリ・exe のプロパティで一致させる |
+| NF-D02 | 必須 | Windows のコード署名は行わない（インストーラーも）。SmartScreen の警告が出ることを README に明記し、実行手順と `SHA256SUMS.txt` での確認を案内する（Android・macOS の署名は NF-D06） |
 | NF-D03 | 必須 | 起動時と 24 時間ごとに GitHub Releases API（`api.github.com/repos/ousiassllc/hitomado/releases/latest`）で最新版を確認し、新しければ設定画面・通知領域に表示する。**Windows 版は新しい版を自動でダウンロードして入れ替える**（自動アップデート）: Release の `hitomado-vX.Y.Z-windows-amd64-setup.exe` を保存先（`%APPDATA%\Hitomado\updates`）へダウンロードし、同じ Release の `SHA256SUMS.txt` の SHA-256 と突き合わせる。合わなければ使わずに捨て（ファイルを消し、入れ替えの対象にしない）、ログに残して画面で知らせる。照合が済んだら画面（設定と通知領域）に「再起動して更新」を出し、押したとき、または押さずに次にアプリを終了するときに、インストーラーをサイレントで動かして入れ替える。送信中・下書きの保存中は入れ替えない（終わったあとの次の終了で入れ替える）。通信・ハッシュの不一致・インストーラーの失敗はログ（URL の署名つきクエリ・秘密を含めない）に残して画面で知らせ、今の版のまま使い続けられる。ダウンロードは HTTPS のみ・接続先とリダイレクト先は `github.com` と `*.githubusercontent.com` に限る・サイズ上限 200 MiB・全体のタイムアウト 10 分で、一時ファイルへ保存して照合に通ったものだけを確定名へ移す。設定で自動アップデートをオフにできる（既定はオン。オフならリンクを表示するだけで、ダウンロードも入れ替えもしない。更新確認そのものをオフにしたときも入れ替えない）。版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは確認も自動アップデートもしない（通信せず、新しい版の表示も出さない）。詳細は [overview §5.1](../architecture/overview.md#51-自動アップデートwindows-版nf-d03) |
 | NF-D04 | 必須 | ビルドは GitHub Actions で再現可能にする |
-| NF-D05 | 必須 | Android 版（配布は Google Play）は、アプリ内の更新確認と自動アップデート（NF-D03）を行わない。定期確認も手動確認も動かさず、設定画面にも出さない。保存済みの設定が「有効」でも確認しない |
+| NF-D05 | 必須 | Android 版は、アプリ内の更新確認と自動アップデート（NF-D03）を行わない。定期確認も手動確認も動かさず、設定画面にも出さない。保存済みの設定が「有効」でも確認しない（Google Play では配布せず、Releases の APK で更新する〔NF-D06〕） |
+| NF-D06 | 必須 | 検証用の試験版として、GitHub Releases に Android の APK（`hitomado-vX.Y.Z-android-arm64.apk`）と macOS の zip（`hitomado-vX.Y.Z-macos-arm64.zip`・`hitomado-vX.Y.Z-macos-amd64.zip`。`.app` を zip にしたもの）も、Windows のインストーラーと同じ版で添付し、`SHA256SUMS.txt` に載せる。署名・公証は行わない: APK はリリースのたびに作る使い捨ての鍵で署名する（版ごとに署名が変わるため、更新はアンインストール → 入れ直し）、macOS は ad-hoc 署名だけ（Gatekeeper の警告が出る）。この警告と回避手順（`adb uninstall jp.ousias.hitomado`／`xattr -dr com.apple.quarantine Hitomado.app`・右クリック → 開く）を README に明記する。Google Play・Apple の署名・公証による正式な配布は対象外。macOS 版は新しい版の確認と案内のリンクだけで、自動では入れ替えない。Windows の自動アップデートは Windows の添付ファイルだけを使い、他の添付が増えても影響を受けない（[setup.md §4.2](../environment/setup.md#42-releaseyml)） |
 
 ## 9. 外部サービスの制約（README で案内する）
 
@@ -154,3 +155,4 @@
 | 1.18 | 2026-11-04 | §12 の AI プロバイダの既定を、AI の設定が未保存のときは ChatGPT プランに変更（Base URL 無しの OpenAI 互換の送信先は従来どおり OpenAI）。同意前はモデル一覧の取得も送らず、同意は設定の保存前にも取る旨を追記 | #104・#105 |
 | 1.19 | 2026-11-05 | §2 に、AI への指示が送信内容に含まれ、同意は新しく取らず、ログ・DB に残さない旨を追記 | #109 |
 | 1.20 | 2026-11-05 | §2 の通信先に署名の取得を追加し、既存スコープで足りること・ログに残さないことを追記 | #110 |
+| 1.21 | 2026-11-05 | NF-D06（Android の APK・macOS の zip の試験版を Release に添付。署名・公証なしの前提と README の案内）を追加。NF-D01・NF-D02・NF-D05 を整合させた | Android・macOS の試験版の配布 |

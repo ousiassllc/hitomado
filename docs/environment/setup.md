@@ -57,6 +57,7 @@ hitomado/
 | Lefthook | Git Hooks | `go install github.com/evilmartians/lefthook@<固定バージョン>` |
 | Task | タスクランナー | `go install github.com/go-task/task/v3/cmd/task@<固定バージョン>` |
 | Linterly | 行数チェック | `bun add -D @linterly/cli`（`bunx linterly` で実行） |
+| Xcode コマンドラインツール（macOS） | macOS の `.app`・zip の作成（`task package`。cgo・`codesign`・`ditto`・`PlistBuddy`）。macOS 上でだけ作る（Linux・Windows からのクロスビルドはしない）。CI の macos-latest ではランナーに入っている | `xcode-select --install` |
 | NSIS（`makensis`） | Windows インストーラーの作成（`task package`）。CI の windows-latest ではイメージに入っていればそれを使い、無ければ `choco install nsis --version=3.11`。使った版はビルドログの `makensis -VERSION` に出る | https://nsis.sourceforge.io/ |
 
 - goose はマイグレーションを `embed` してアプリ起動時に適用するため、**開発には CLI を必須としない**（SQL の雛形作成に使う場合のみ任意で導入）
@@ -80,8 +81,8 @@ task dev                        # 開発サーバー（wails3 dev）
 | タスク | 内容 |
 |--------|------|
 | `task dev` | `wails3 dev`（フロントは `bun run dev`）。版は `-X` なしで `main.go` の既定値 `0.0.0`（§4.3 版番号） |
-| `task build` | `wails3 build`（Windows 向け成果物。`VERSION=X.Y.Z` で版を埋め込む。既定は `0.0.0`） |
-| `task package` | `wails3 package VERSION=X.Y.Z`（`build` のあと NSIS で `bin/hitomado-vX.Y.Z-windows-amd64-setup.exe` を作る。§4.3） |
+| `task build` | `wails3 build`（Windows・macOS では実行中の OS 向けの成果物。`VERSION=X.Y.Z` で版を埋め込む。既定は `0.0.0`） |
+| `task package` | `wails3 package VERSION=X.Y.Z`（Windows: `build` のあと NSIS で `bin/hitomado-vX.Y.Z-windows-amd64-setup.exe` を作る。§4.3。macOS: `bin/Hitomado.app`〔ad-hoc 署名〕と `bin/hitomado-vX.Y.Z-macos-<arch>.zip` を作る。`ARCH=arm64`〔既定は実行中の Mac〕／`amd64`。§4.4） |
 | `task generate` | `sqlc generate` と `wails3 generate bindings` |
 | `task lint` | `golangci-lint run`、`bunx biome ci`、`bun run typecheck`、`bunx linterly check` |
 | `task fmt` | `golangci-lint fmt`、`bunx biome format --write` |
@@ -107,6 +108,8 @@ task dev                        # 開発サーバー（wails3 dev）
 flowchart LR
   L[lint<br/>ubuntu] --> B[build<br/>windows]
   T[test<br/>ubuntu + windows] --> B
+  A[android<br/>ubuntu・PR のみ]
+  M[macos<br/>macos-latest・PR のみ]
 ```
 
 | ジョブ | 実行環境 | 内容 |
@@ -115,6 +118,7 @@ flowchart LR
 | `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため） |
 | `android` | ubuntu-latest | `pull_request` のみ（`release.yml` からの呼び出しでは動かさない）。release APK（arm64）と AAB を作って検査し、アーティファクトに上げる（使い捨ての署名鍵。[Android ビルド §8](android.md)） |
 | `build` | windows-latest | `needs: [lint, test]`。`wails3 package` でインストーラーを作り（版 `0.99.1` と `0.99.2` の 2 つ）、`.github/scripts/test-installer.ps1` で **インストール → 起動中の上書き拒否 → 上書き → アンインストール** を実機で検証する（§4.3）。新しい方のインストーラーを Actions のアーティファクトに保存 |
+| `macos` | macos-latest（マトリクス: `arm64`／`amd64`） | `pull_request` のみ（`release.yml` からの呼び出しでは動かさない）。`.github/actions/build-macos` で `.app`（ad-hoc 署名）と zip を版 `0.99.1` で作って検査し（§4.4）、zip をアーティファクトに上げる。`arm64` は起動して 10 秒生きていることも確認する（`amd64` は arm64 ランナーでのクロスビルドなので起動しない） |
 
 補足: `.github/workflows/android-e2e.yml`（`workflow_dispatch` のみ。PR の CI には含めない）が、KVM つきの x86_64 エミュレーター（API 35）で Android の E2E を回す。手順と位置づけは [Android ビルド §17](android.md#17-実機エミュレーターでの-e2e-webview-のクラッシュ対策性能90)。
 
@@ -126,7 +130,7 @@ flowchart LR
 - トリガー: `main` への push（PR のマージ）。タグの push では動かさない。手でタグを打つ必要はない
 - 版番号: `.github/scripts/next-version.sh` が決める。最新の安定版タグ（`vX.Y.Z`。`-rc1` などハイフン付きは無視）から patch を 1 つ上げる（`v0.1.0` → `v0.1.1`）。安定版タグがまだ無ければ最初の版は `v0.1.0`。そのコミットに既に安定版タグがあれば（失敗した run の再実行）、それをそのまま使う。minor／major を上げる手順は定めていない（最新のタグを基準にするだけなので、より大きい版のタグがあれば次の patch はそこから上がる）。テストは `.github/scripts/next-version_test.sh`（CI の `test` ジョブ・ubuntu で実行）
 - 直列化: ワークフロー全体を `concurrency: release`（`cancel-in-progress: false`）で 1 本ずつ実行し、同時にマージされても版番号がぶつからない。待機中の run は最新の 1 本だけが残るため、間に挟まったコミットは単独のリリースにならず、次のリリースに含まれる
-- 内容: 同じコミットで `ci.yml`（lint・test・Windows ビルドとインストーラーの検証）を呼んで通したうえで、windows-latest で `wails3 package VERSION=<タグから v を除いた値>`（§4.3。`-X main.version`・exe のファイルバージョン・インストーラーの表示が同じ値になる。更新確認の比較に使う）→ インストーラー `hitomado-<タグ>-windows-amd64-setup.exe`・`NOTICE`（リポジトリ直下のファイル。§4.3）・`SHA256SUMS.txt`（この 2 つのハッシュ）を作り、`gh release create <タグ> --target <コミット>` でタグと GitHub Release を成果物つきで同時に作る（[NF-D01](../requirements/non-functional.md#8-配布更新)）。Release が既にある場合（失敗した run の再実行）は、タグが同じコミットを指すときだけ成果物を上書きし、別のコミットなら失敗させる。CI が落ちたらリリースは作られない。ビルドは `contents: read`、タグ作成と公開だけ `contents: write`。コード署名は行わない（NF-D02）
+- 内容: 同じコミットで `ci.yml`（lint・test・Windows ビルドとインストーラーの検証）を呼んで通したうえで、windows-latest で `wails3 package VERSION=<タグから v を除いた値>`（§4.3。`-X main.version`・exe のファイルバージョン・インストーラーの表示が同じ値になる。更新確認の比較に使う）→ インストーラー `hitomado-<タグ>-windows-amd64-setup.exe`・`NOTICE`（リポジトリ直下のファイル。§4.3）を作る。あわせて、`ci.yml` の `android`・`macos` ジョブと同じ composite action（`.github/actions/build-android-apk`・`build-macos`）で、Android の APK `hitomado-<タグ>-android-arm64.apk`（ubuntu-latest。使い捨ての鍵で署名。[Android ビルド §8](android.md)）と macOS の zip `hitomado-<タグ>-macos-arm64.zip`・`hitomado-<タグ>-macos-amd64.zip`（macos-latest。§4.4）を作る（Windows・Android・macOS は別々のジョブで並列に動く）。`publish` ジョブがこれらの成果物（Actions のアーティファクト `release-*`）を集め、全成果物（Windows・Android・macOS・`NOTICE`）の `SHA256SUMS.txt`（`sha256sum`）を作り、`gh release create <タグ> --target <コミット>` でタグと GitHub Release を成果物つきで同時に作る。**どのビルドが 1 つ失敗しても `publish` は動かず、Release は作られない**（成果物の欠けた Release を出さない。直したあと同じコミットの run を再実行する）。アプリ内の更新確認（Windows の自動アップデート）は `SHA256SUMS.txt` から Windows インストーラーの行だけを使い、Android・macOS の添付が増えても影響を受けない（`internal/update` のテストで確認）（[NF-D01](../requirements/non-functional.md#8-配布更新)）。Release が既にある場合（失敗した run の再実行）は、タグが同じコミットを指すときだけ成果物を上書きし、別のコミットなら失敗させる。CI が落ちたらリリースは作られない。ビルドは `contents: read`、タグ作成と公開だけ `contents: write`。コード署名は行わない（NF-D02）
 - `ci.yml` は `main` への push では動かさない（`release.yml` が同じ CI を呼ぶ。両方で動かすと同じ ref の `concurrency` で互いにキャンセルする）。PR では従来どおり動く
 - マージは squash／rebase せず、マージコミット方式（リポジトリ規約）
 
@@ -171,6 +175,20 @@ Hitomado 本体は AGPL-3.0（`LICENSE`）。同梱する依存のライセン�
 #### 検証
 
 `.github/scripts/test-installer.ps1`（CI の `build` ジョブ、windows-latest）が、旧版（`0.99.1`）を入れる → 起動中（実行中の exe がある状態）の上書きが拒否され登録が変わらない → 新版（`0.99.2`）で上書きして `DisplayVersion`・exe の置き換え・exe のファイルバージョンと埋め込まれた `main.version`（exe 内の文字列。`-X` が効いていること）が新版になる → アンインストールでプログラム・ショートカット・登録が消え、`%APPDATA%\Hitomado` のデータは残る、を確認する。ローカルで実行するときは、実機のアプリと登録キー・`%APPDATA%\Hitomado` を共有するため、既に Hitomado が入っている PC では `-Force` を付けない限り動かない（使い捨ての環境で `-Force` を付ける。スクリプトが消すのは自分が作ったマーカーだけ）。GUI のウィザード（コンポーネント選択・完了ページ）は自動検証していない。
+
+### 4.4 macOS の `.app`（試験版）
+
+検証用の試験版（NF-D06）。署名・公証はしない。`build/darwin/`（`Taskfile.yml`・`Info.plist`・`icons.icns`）は Wails v3.1.0 の `wails3 init`／`wails3 update build-assets` のテンプレートを、`build/windows`・`build/android` と同じ流儀（版は `VERSION=X.Y.Z` で渡し、既定値 `0.0.0` はルートの `Taskfile.yml` の `includes`（`darwin`）の `vars`〔`APP_VERSION`〕に 1 か所だけ書く）に直したもの。
+
+| 項目 | 内容 |
+|------|------|
+| ファイル名 | `hitomado-vX.Y.Z-macos-arm64.zip`（Apple Silicon）と `hitomado-vX.Y.Z-macos-amd64.zip`（Intel）。中身は `Hitomado.app` 1 つ（`ditto -c -k --keepParent`。署名と属性を保つ） |
+| ビルド | macOS 上で `task package VERSION=X.Y.Z [ARCH=arm64／amd64]`（`darwin:package`）。`go build -tags production -trimpath`、cgo 有効（WebKit・Cocoa）、`-X main.version=X.Y.Z`、`MACOSX_DEPLOYMENT_TARGET=12.0`（`Info.plist` の `LSMinimumSystemVersion` と同じ）。Linux・Windows からのクロスビルドは行わない。`amd64` は arm64 のランナー（macos-latest）でのクロスビルド |
+| `.app` | `Contents/MacOS/hitomado`・`Contents/Info.plist`・`Contents/Resources/icons.icns`。`CFBundleVersion`・`CFBundleShortVersionString` は `PlistBuddy` で `VERSION` に書き換える。バンドル ID は `jp.ousias.hitomado` |
+| 署名 | ad-hoc（`codesign --force --deep --sign -`）だけ。Developer ID の署名・公証はしない。ダウンロードした zip から出した `.app` は Gatekeeper の警告が出る（README に回避手順: 右クリック → 開く／`xattr -dr com.apple.quarantine`） |
+| 検査 | `.github/actions/build-macos` が、`plutil -lint`、`Info.plist` の版・バンドル ID、`lipo -archs`（`arm64`／`x86_64`）、`go version -m` の `main.version`、zip を展開し直した `.app` の `codesign --verify`（`Signature=adhoc`）を確認する。`arm64` は起動して 10 秒生きていることも確認する |
+| 更新 | アプリは新しい版のリンクを出すだけ（自動アップデートは Windows のみ）。データは `~/Library/Application Support/Hitomado/`、資格情報はキーチェーン |
+| アイコン | `build/darwin/icons.icns` は `build/appicon.png` から `wails3 generate icons -input appicon.png -macfilename darwin/icons.icns` で作ったものをコミットしている（`appicon.png` を変えたら作り直す） |
 
 ## 5. Lint
 
@@ -300,3 +318,4 @@ pre-push:
 | 1.11 | 2026-11-04 | §4.1 に Android の E2E（`android-e2e.yml`。手動実行のみ）の補足を追記 | #90 |
 | 1.12 | 2026-11-04 | §4.1 の `lint` の行で重複していた android タグ側の lint の記述を 1 つにし、§7 の `.linterly.yml` の例と除外の説明に `build/android/**` を追加 | 実際の `.linterly.yml` との整合（統合の研磨） |
 | 1.13 | 2026-11-04 | §4.3 の上書き更新に、自動アップデートが使うインストーラーの引数（`/S`・`/WAIT=秒`・`/RELAUNCH`）と、CI の `test-installer.ps1` に `/WAIT` の確認を追加した旨を追記 | #103 |
+| 1.14 | 2026-11-05 | Android の APK（§4.2 と android.md §8）・macOS の zip（§4.4 を新設）を Release に添付し、`SHA256SUMS.txt` に載せる。`ci.yml` に `macos` ジョブ、composite action（`setup-android`・`build-android-apk`・`build-macos`）を追加。ツール表・タスク表を更新 | Android・macOS の試験版の配布（NF-D06） |
