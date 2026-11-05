@@ -144,6 +144,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
 .ai-note {
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .ai-error {

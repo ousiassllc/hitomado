@@ -73,6 +73,7 @@ const options = computed(() =>
 .sender-hint {
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .sender-select {

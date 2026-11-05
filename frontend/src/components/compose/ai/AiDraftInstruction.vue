@@ -100,6 +100,7 @@ watch(model, () => void nextTick(fit))
   gap: var(--s-2);
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .instruction-count.over {
