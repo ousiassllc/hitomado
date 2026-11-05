@@ -344,6 +344,7 @@ type AIConfig = {
   provider: AIProvider;
   model: string;
   baseUrl?: string;           // openai のみ。未指定は OpenAI 既定
+  effort?: string;            // 下書きの生成に渡すモデルのエフォート（reasoning effort）。未指定は「モデルの既定」（プロバイダへ送らない）。`anthropic` は `low`／`medium`／`high`／`xhigh`／`max`、`openai`／`chatgpt` は `low`／`medium`／`high`（#111）
   configured: boolean;        // AI の設定（`SetAIConfig`）を一度でも保存したか。偽のあいだ、provider は既定の `chatgpt`・model は空（画面は「AI で下書き」で初回の案内を出す）。壊れた保存値・未知のプロバイダの保存値も偽（既定として扱う）
   hasApiKey: boolean;         // 現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。キー・トークン自体は返さない
   apiKeyProviders: AIProvider[];       // API キーを登録済みのプロバイダ（anthropic／openai。chatgpt は含めず chatgptSignedIn で見る）。保存前に選んだプロバイダのキーの有無を出すのに使う。無ければ空配列で null にしない
@@ -362,7 +363,8 @@ type ChatGPTAccount = {
   planNoticePending: boolean; // 初めてログインして ChatGPT プランの利用が有効になったのに、「You're using your ChatGPT plan」の確認をまだ済ませていないか（下記。2 回目以降のログインでは立たない）
 };
 
-type AIModel = { id: string; displayName?: string };
+// efforts: そのモデルが受け付けるエフォートの段階（弱い順）。`anthropic` は Models API の `capabilities.effort` から作る（`supported` が偽、または取れなければ省略＝そのモデルにエフォート設定は出さない）。`openai`（OpenAI 互換）と `chatgpt` の一覧はモデルごとの段階を返さないので、常に省略する（画面は共通の `low`／`medium`／`high` を出す。§6.1）
+type AIModel = { id: string; displayName?: string; efforts?: string[] };
 type AIModelList = {
   provider: AIProvider;
   models: AIModel[];          // 取得できないときは空（null にしない）
@@ -375,7 +377,7 @@ type ChatGPTSignOutResult = { config: AIConfig; revocationConfirmed: boolean };
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
 | `GetAIConfig()` | — | `AIConfig` | 設定を保存していないときは `provider = "chatgpt"`・`model = ""`・`configured = false`（既定のプロバイダは Go の `defaultProvider`。保存済みの `anthropic`／`openai`／`chatgpt` は変えない。#104） |
-| `SetAIConfig(provider, model, baseUrl?)` | | `AIConfig` | `app_settings.ai.config` を更新。`baseUrl` は `openai` のみ有効で、`https://` の URL か、ホストが `localhost`／`127.0.0.1`／`::1` に完全一致する `http://` の URL に限る。それ以外（外部ホストへの `http://`、userinfo・クエリ・フラグメント付き等）は `VALIDATION`（メッセージに URL は含めない）。Base URL が変わって送信先（scheme＋ホスト）が変わると、そのプロバイダの同意は無効になる |
+| `SetAIConfig(provider, model, baseUrl?, effort?)` | | `AIConfig` | `app_settings.ai.config` を更新。`baseUrl` は `openai` のみ有効で、`https://` の URL か、ホストが `localhost`／`127.0.0.1`／`::1` に完全一致する `http://` の URL に限る。それ以外（外部ホストへの `http://`、userinfo・クエリ・フラグメント付き等）は `VALIDATION`（メッセージに URL は含めない）。Base URL が変わって送信先（scheme＋ホスト）が変わると、そのプロバイダの同意は無効になる。`effort`（#111）は省略・空で「モデルの既定」（保存するときも `effort` キーを書かない）。指定できる値は `AIConfig.effort` に挙げたプロバイダごとの集合で、それ以外は `VALIDATION`。モデル名との組み合わせ（そのモデルが受け付けるか）は保存時に確かめない（確かめるのは画面。生成時にプロバイダが拒否したら §6 の `AI_FAILED`）。プロバイダ・モデルを変えて保存するときは、画面が `effort` を渡し直す（渡さなければ「既定」に戻る。前の値を黙って引き継がない） |
 | `SetAIApiKey(provider, apiKey)` | string ×2 | `AIConfig` | 資格情報ストアへ保存。`chatgpt` は API キーを使わないので `VALIDATION` |
 | `ClearAIApiKey(provider)` | string | `AIConfig` | キーを削除。`chatgpt` は `VALIDATION`（ログアウトは `SignOutChatGPT`） |
 | `RecordAIConsent(provider, baseUrl?)` | string ×2 | `AIConfig` | 「スレッド内容が当該プロバイダ・送信先へ送信される」ことの同意を保存（`app_settings.ai.consent`）。同意は「プロバイダ＋送信先」単位で、`openai`（api.openai.com）と `chatgpt`（api.openai.com）は別の同意として取る。**保存済みの設定ではなく、渡された送信先に対する同意を記録する**ので、設定を保存する前に、選んだプロバイダ・Base URL に同意できる（#105）。`baseUrl` は `openai` のみ有効で、空は既定の送信先。`SetAIConfig` と同じ規則で検証し、使えない Base URL は `VALIDATION`。ほかの送信先の同意は消さない。返す `AIConfig.consentedProviders` は、保存済みの設定の送信先に対するもの |
@@ -393,6 +395,7 @@ type ChatGPTSignOutResult = { config: AIConfig; revocationConfirmed: boolean };
 - 送信するコンテキスト: 直近 5 メッセージ・合計 20,000 文字以内（NF §12）。HTML はテキスト化して送る。機密のログ出力は禁止（NF-S10）
 - 自動送信・自動生成は行わない。本メソッドはボタン押下からのみ呼ばれる
 - `instruction` の扱い（#109）: プロンプトでは、スレッド本文とは別の「利用者からの指示」として渡す（スレッド本文に含まれる指示より優先し、「出力は返信の本文だけ・署名と引用を含めない」という形式の規則は上書きさせない）。送る先・同意の単位（プロバイダ＋送信先）・コンテキストの上限（直近 5 メッセージ・20,000 文字）は変えず、指示は 20,000 文字の枠に含めない（別に 2,000 文字まで）
+- `effort` の渡し方（#111）: 設定されているときだけ、生成の要求に載せる（未設定なら載せず、従来と同じ要求になる）。`anthropic` は Messages API の `output_config.effort`、`openai` は Chat Completions の `reasoning_effort`、`chatgpt` は Responses API の `reasoning.effort`。**effort はメール内容ではなくパラメータなので、同意の単位・送信先は変わらない**。プロバイダが拒否したとき（400 など）は `AI_FAILED`（メッセージは「このモデルは選んだエフォートに対応していません。設定でエフォートを「既定」に戻してください。」。応答本文は含めない）
 
 ### 6.1 モデル一覧（`ListAIModels`）
 
@@ -400,6 +403,7 @@ type ChatGPTSignOutResult = { config: AIConfig; revocationConfirmed: boolean };
 - 呼ぶ契機（フロントの責務。定期的には呼ばない）: プロバイダ（OpenAI 互換は Base URL が決まったとき）を選んだとき、API キーの登録・変更のあと、ChatGPT のログインのあと、同意の画面で「同意する」を押したあと、設定画面の「一覧を更新」。流れは [コンポーネント設計 §3.9.1](../components/overview.md#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)
 - 同意の判定: 引数の「プロバイダ＋送信先」（`openai` は `baseUrl` の scheme とホスト。`RecordAIConsent` と同じ単位）に同意していなければ、取得の通信を送らず `consent_required` を返す。画面はこれを、同意の画面（F-08）を出す契機にする（同意の画面を出すかどうかの判断も、UI ではなくこの結果で決める）。同意は `RecordAIConsent(provider, baseUrl)` で保存してから、`ListAIModels` を呼び直す
 - 一覧が取れなくてもエラーにしない（`models` が空で `reason`／`message` を返し、画面は手入力へ切り替える）。**同意前の送信先（`consent_required`）・使えない Base URL（`invalid_base_url`）・キー未登録／未ログイン（`no_credentials`）には取得の通信を送らない**（判定の順は `invalid_base_url` → `consent_required` → `no_credentials`）。https のみ（loopback の http を除く）・リダイレクトに従わない・本文の上限、という `GenerateReplyDraft` と同じ規則を適用する。Models API が無い（404／405／501）は `unsupported`、401／403 は `unauthorized`、429 は `rate_limited`、通信失敗・時間切れは `network`。呼び出し側のキャンセルだけが `CANCELLED`
+- エフォートの段階（#111）: `anthropic` はこの一覧の各モデルの `capabilities.effort`（`low`／`medium`／`high`／`xhigh`／`max` のうち `supported` なもの。`xhigh` は無いモデルがある）を `AIModel.efforts` に入れる（出典: [Effort](https://platform.claude.com/docs/en/build-with-claude/effort)・[List Models](https://platform.claude.com/docs/en/api/models/list)）。`openai` と `chatgpt` は、一覧がモデルごとの対応する段階を返さない（OpenAI の `GET /models` は ID などだけ。ChatGPT プランの一覧に段階が含まれるかは未確認）ので `efforts` は省略し、画面は `low`／`medium`／`high` を出す（`none`・`minimal`・`xhigh` などはモデルによって 400 になるため既定の選択肢にしない）。OpenAI 互換の送信先（ローカルの LLM サーバーなど）は `reasoning_effort` を受け付けないことがあるので、既定は「送らない」のままにする
 - 保存済みのモデルが一覧に無くても、設定は変えない（画面はそのモデルを選択肢に残す）。一覧は使えることの保証ではなく、選んだモデルが使えるかは下書きの生成が成功して初めて分かる（ChatGPT プランのモデル一覧は特に、アカウントの権限の確認ではない）。一覧の取得は設定も同意も変えない（保存するのは `SetAIConfig`）
 - ログには件数（成功）と理由コード（失敗）だけを残す。キー・トークン・応答の中身・モデル名は残さない
 
@@ -557,3 +561,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.31 | 2026-11-04 | `AIConfig` に `configured`（未保存のとき偽。既定のプロバイダは `chatgpt`）と `apiKeyProviders` を追加。`RecordAIConsent` と `ListAIModels` に `baseUrl` を足し、保存済みの設定ではなく渡された送信先に対して同意の保存・一覧の取得をするように変更（保存前でも取得できる。同意前は `consent_required`）。§6.1 の取得先と呼ぶ契機を更新 | #104・#105 |
 | 1.32 | 2026-11-05 | `GenerateReplyDraft` に `instruction?`（AI への指示。2,000 文字まで・保存しない）を追加し、§6 に指示の扱いを追記 | #109 |
 | 1.33 | 2026-11-05 | `AccountService.FetchGmailSignature`（Gmail の署名を取得して返す。保存しない）を追加し、§10 の Gmail API 一覧に `users.settings.sendAs.get` を追加 | #110 |
+| 1.34 | 2026-11-05 | `AIConfig.effort`・`AIModel.efforts` を追加し、`SetAIConfig` に `effort?` を足した。§6 にプロバイダごとの渡し方（`output_config.effort`／`reasoning_effort`／`reasoning.effort`）、§6.1 に段階の取得（Anthropic は `capabilities.effort`。OpenAI 互換・ChatGPT は共通の 3 段階）を追記 | #111 |
