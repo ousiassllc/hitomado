@@ -25,12 +25,13 @@ export interface MutationDeps {
   pendingRemoval: Set<string>
   api: <T>(p: PromiseLike<T>) => Promise<T>
   ui: ReturnType<typeof useUiStore>
+  /** 開いているスレッドが除去対象のとき、'next' は次の行を開く。戻り値は失敗時に元のスレッドを開き直す関数。 */
   afterRemoval: (
     keys: ReadonlySet<string>,
     kept: ThreadSummary[],
     firstIndex: number,
-    closeOpened: boolean,
-  ) => void
+    opened: 'next' | 'close' | 'keep',
+  ) => (failed?: Set<string>) => void
   /** 操作後に先頭ページと未読件数を再取得する */
   reload: () => void
 }
@@ -76,11 +77,17 @@ export function useInboxMutations(d: MutationDeps) {
     const r = removeKeys(d.items.value, keys)
     d.items.value = r.items
     for (const k of keys) d.pendingRemoval.add(k)
-    // 既読化で行が消えるだけ（未読のみ表示中）なら、開いているスレッドは閉じない
-    d.afterRemoval(keys, r.items, r.removed[0]?.index ?? 0, op !== 'read')
+    // アーカイブ・ゴミ箱は次の行を開く。既読化で行が消えるだけ（未読のみ表示中）なら、開いているスレッドは変えない
+    const restoreSelection = d.afterRemoval(
+      keys,
+      r.items,
+      r.removed[0]?.index ?? 0,
+      op === 'read' ? 'keep' : 'next',
+    )
     return (failed) => {
       const back = failed ? r.removed.filter((x) => failed.has(keyOf(x.item))) : r.removed
       d.items.value = restoreRemoved(d.items.value, back)
+      restoreSelection(failed)
     }
   }
 

@@ -45,6 +45,7 @@ export function installMocks(): void {
     Search: binding('Search'),
     GetUnreadCounts: binding('GetUnreadCounts'),
     Archive: binding('Archive'),
+    Unarchive: binding('Unarchive'),
     Trash: binding('Trash'),
     MarkRead: binding('MarkRead'),
     Refresh: binding('Refresh'),

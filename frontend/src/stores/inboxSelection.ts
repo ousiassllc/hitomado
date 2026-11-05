@@ -79,18 +79,34 @@ export function useInboxSelection(items: Ref<ThreadSummary[]>) {
       cursorKey.value = undefined
   }
 
-  /** 行の除去に伴う選択の更新。`closeOpened` が false なら開いているスレッドは閉じない。 */
+  /**
+   * 行の除去に伴う選択の更新。開いているスレッドが除去対象のときの扱いは `opened` で決める:
+   * 'next' = 除去した最初の位置の次の行（末尾なら一つ前。無ければ空表示）を開く、'close' = 閉じる、
+   * 'keep' = 開いたまま。開いていないスレッドの除去では開いているスレッドを変えない。
+   * 戻り値は失敗時のロールバック用。'next' で別スレッドへ切り替えた後、まだそのスレッドを開いているなら
+   * （`failed` があればその中に元のスレッドがあるときだけ）元のスレッドを開き直す。
+   */
   function afterRemoval(
     keys: ReadonlySet<string>,
     kept: ThreadSummary[],
     firstIndex: number,
-    closeOpened: boolean,
-  ): void {
+    opened: 'next' | 'close' | 'keep',
+  ): (failed?: Set<string>) => void {
     checkedKeys.value = checkedKeys.value.filter((k) => !keys.has(k))
-    if (closeOpened && selectedKey.value && keys.has(selectedKey.value))
-      selectedKey.value = undefined
+    const prev = selectedKey.value
+    let autoOpened: string | undefined
+    if (opened !== 'keep' && prev && keys.has(prev)) {
+      autoOpened = opened === 'next' ? cursorAfterRemoval(kept, firstIndex) : undefined
+      selectedKey.value = autoOpened
+    }
     if (cursorKey.value && keys.has(cursorKey.value) && cursorKey.value !== selectedKey.value) {
       cursorKey.value = cursorAfterRemoval(kept, firstIndex)
+    }
+    return (failed) => {
+      if (!autoOpened || !prev || selectedKey.value !== autoOpened) return
+      if (failed && !failed.has(prev)) return
+      selectedKey.value = prev
+      cursorKey.value = prev
     }
   }
 
@@ -99,7 +115,7 @@ export function useInboxSelection(items: Ref<ThreadSummary[]>) {
     const keys = new Set([keyOf(ref)])
     const r = removeKeys(items.value, keys)
     items.value = r.items
-    afterRemoval(keys, r.items, r.removed[0]?.index ?? 0, true)
+    afterRemoval(keys, r.items, r.removed[0]?.index ?? 0, 'close')
   }
 
   return {
