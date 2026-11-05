@@ -298,6 +298,7 @@ graph TD
 | `RichTextEditor` | Tiptap。太字・リンク・箇条書き。署名ブロックを `data-hitomado-signature` として保持。貼り付けは書式をクリーニング | props/emits: `v-model:html` | — |
 | `AttachmentBar` | 添付の一覧・削除・追加ボタン・ドラッグ＆ドロップ。合計サイズ表示と上限エラー | | `ComposeService.AddAttachments／RemoveAttachment` |
 | `AiDraftButton` | 「AI で下書き」。AI の設定が未保存（`aiConfig.configured` が偽）→初回の案内（ChatGPT でログインする「Continue with ChatGPT」・「別のプロバイダを選ぶ」・「あとで」。[§3.9.1](#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）。保存済みでキー未設定（ChatGPT プランは未ログイン）→設定へ誘導。ChatGPT プラン使用中は「Using ChatGPT plan」と「Manage usage」を表示、利用枠の超過（`AI_FAILED` の `details.reason`）は「Manage usage」を主なアクションにしたコンパクトな案内 `UsageLimitNotice`（ChatGPT の見出しを残す。失敗メッセージだけにしない）、未同意→同意ダイアログ（`AIConsentDialog`。設定画面と共通）、生成中→キャンセル可、本文入力済み→置換確認 | emits: `generated(bodyHtml)` | `AIService.GenerateReplyDraft／CancelGenerate／RecordAIConsent`（`settingsStore` 経由） |
+| `AiDraftInstruction` | 「AI への指示」（F-08。#109）。`AiDraftButton` の隣の「指示を追加」で開閉する複数行の入力欄（初期は閉じる。2,000 文字の残り表示。空・空白だけなら指示なしの従来の下書き）。値は `composeStore` の作成セッションにだけ持つ（`localStorage` などには保存しない）。入力欄は内容に応じて 2〜6 行まで伸びる（超えたら内部スクロール） | props/emits: `v-model` | `composeStore.aiInstruction`（`AIService.GenerateReplyDraft` の `instruction`） |
 | `SendConfirmDialog` | `PrepareSend` の結果を表示。**送信元を最大文字で表示（`SenderBadge`）**、宛先・件名・添付数・本文冒頭、`warnings`（他の自アカウント宛・件名なし・本文なし）。確定ボタン「<アドレス> から送信」。ダイアログ表示中はエディタ操作不可 | props: `preview`, `busy` | `composeStore.confirmSend`（`ComposeService.Send`） |
 | `SignatureConflictDialog` | 新規作成で送信元を切り替えたとき、署名部分が編集済みなら差し替える前に確認する（F-07）。「編集した署名を残す」「差し替える」。`ComposePane` が配置する | — | `composeStore.signatureConflict`／`resolveSignatureConflict` |
 
@@ -507,3 +508,4 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 1.22 | 2026-11-04 | `AIChatGPTLogin` が、ログアウト済みのアカウントを選んだとき（`details.reason = "account_signed_out"`）に再ログインを案内する日本語の文面を出し、一覧を読み込み直す旨を追記 | 何をすればよいか分からない文面だったため（#102） |
 | 1.23 | 2026-11-04 | `AppService` に自動アップデート（`internal/app/updatecore`・`update.Manager`）を、`GeneralSettings`・`settingsStore`・`lib/updateBanner` に自動アップデートの設定・進み・「再起動して更新」を追記 | #103 |
 | 1.24 | 2026-11-04 | §3.9 に §3.9.1（AI 設定と初回の案内の流れ。入口 A: 設定画面でプロバイダを選ぶ→同意→モデル一覧、入口 B: 作成画面の「AI で下書き」の初回の案内。同意の画面・ChatGPT ログイン・モデル取得を共有する）を追加。`AISettings`（未保存の既定は ChatGPT・保存前でも同意とモデル取得）・`AiDraftButton`・`settingsStore`・`useAiDraft` を更新し、`AIConsentDialog`／`AIConsentSection`／`AISetupDialog` を追加。Android の扱いを追記 | #104・#105 |
+| 1.25 | 2026-11-05 | §3.7 に `AiDraftInstruction`（AI への指示の入力欄）を追加 | #109 |

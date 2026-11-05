@@ -385,12 +385,13 @@ type ChatGPTSignOutResult = { config: AIConfig; revocationConfirmed: boolean };
 | `SignOutChatGPT(accountId)` | string | `ChatGPTSignOutResult` | 指定した ChatGPT アカウントだけ、OpenAI 側のセッションを失効させてから、そのローカルのトークンを消す（ほかのアカウントのトークンと登録は残り、このアカウントの登録も残る）。失効を確認できなくてもローカルは消え、`revocationConfirmed = false` を返す（利用者には ChatGPT の設定から連携を解除できると伝える）。使用中のアカウントをログアウトしても使用中の選択は変えず（ほかのアカウントへ黙って切り替えない。`ChatGPTAccount` は `active = true`・`signedIn = false` のまま）、そのあいだ下書きは `AI_NOT_CONFIGURED`（ログインが要る）になるので、再ログインするか `SelectChatGPTAccount` でログイン中のほかのアカウントを選ぶ。使用中の選択が外れるのは `RemoveChatGPTAccount` で使用中だった登録を忘れたときだけ。未登録の ID は `NOT_FOUND` |
 | `AckChatGPTPlanNotice(accountId)` | string | `AIConfig` | 「You're using your ChatGPT plan」の確認を済みにする（`planNoticePending` が下りる。何度呼んでも同じ。未登録の ID は `NOT_FOUND`） |
 | `RemoveChatGPTAccount(accountId)` | string | `AIConfig` | ログアウト済みの ChatGPT アカウントの登録（`client_id`・本人情報）を忘れる。ログイン中のアカウントは `VALIDATION`（先にログアウト）。未登録の ID は `NOT_FOUND` |
-| `GenerateReplyDraft(sessionId, requestId)` | string ×2 | `{ bodyHtml: string }` | 返信系セッション（`reply`／`reply_all`）のスレッドから下書きを生成する。署名・引用は含めない。`new`／`forward` は `VALIDATION` |
+| `GenerateReplyDraft(sessionId, requestId, instruction?)` | string ×3 | `{ bodyHtml: string }` | 返信系セッション（`reply`／`reply_all`）のスレッドから下書きを生成する。署名・引用は含めない。`new`／`forward` は `VALIDATION`。`instruction` は利用者が書いた「AI への指示」（省略・空・空白だけは指示なし＝従来の下書き。前後の空白は除く。2,000 文字（rune 数）を超えると、通信せず `VALIDATION`）。保存はしない（ログ・DB・資格情報ストアのいずれにも残さない） |
 | `CancelGenerate(requestId)` | string | — | 生成を中止（`GenerateReplyDraft` は `CANCELLED` で reject） |
 
 - `GenerateReplyDraft` の前提: キー設定済み（`AI_NOT_CONFIGURED`。`chatgpt` ではログイン済み）・同意済み（`AI_CONSENT_REQUIRED`）。タイムアウトは 60 秒（`AI_FAILED`）。プロバイダの応答が 3xx のときは、同意した送信先以外へ内容を再送しないよう追従せず `AI_FAILED` とする（Base URL にはリダイレクト後の最終的な URL を指定する）
 - 送信するコンテキスト: 直近 5 メッセージ・合計 20,000 文字以内（NF §12）。HTML はテキスト化して送る。機密のログ出力は禁止（NF-S10）
 - 自動送信・自動生成は行わない。本メソッドはボタン押下からのみ呼ばれる
+- `instruction` の扱い（#109）: プロンプトでは、スレッド本文とは別の「利用者からの指示」として渡す（スレッド本文に含まれる指示より優先し、「出力は返信の本文だけ・署名と引用を含めない」という形式の規則は上書きさせない）。送る先・同意の単位（プロバイダ＋送信先）・コンテキストの上限（直近 5 メッセージ・20,000 文字）は変えず、指示は 20,000 文字の枠に含めない（別に 2,000 文字まで）
 
 ### 6.1 モデル一覧（`ListAIModels`）
 
@@ -553,3 +554,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.29 | 2026-11-04 | `SelectChatGPTAccount` が、ログアウト済みのアカウントで `AI_NOT_CONFIGURED` に `details.reason = "account_signed_out"` と「再ログイン」を案内するメッセージを返す旨を、§6 の表と §6.2 の複数アカウントの記述に追記 | 何をすればよいか分からない文面だったため（#102） |
 | 1.30 | 2026-11-04 | `AppService` に `SetAutoUpdateEnabled`・`GetUpdateStatus`・`RestartToUpdate`、`GetAppInfo` に `autoUpdateSupported`／`autoUpdateEnabled`、イベント `update:status`、外部 API に Release の添付ファイルを追加。`CheckForUpdate` に自動ダウンロードの開始を追記 | #103 |
 | 1.31 | 2026-11-04 | `AIConfig` に `configured`（未保存のとき偽。既定のプロバイダは `chatgpt`）と `apiKeyProviders` を追加。`RecordAIConsent` と `ListAIModels` に `baseUrl` を足し、保存済みの設定ではなく渡された送信先に対して同意の保存・一覧の取得をするように変更（保存前でも取得できる。同意前は `consent_required`）。§6.1 の取得先と呼ぶ契機を更新 | #104・#105 |
+| 1.32 | 2026-11-05 | `GenerateReplyDraft` に `instruction?`（AI への指示。2,000 文字まで・保存しない）を追加し、§6 に指示の扱いを追記 | #109 |
