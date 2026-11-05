@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { User } from '@iconoir/vue'
 import { computed } from 'vue'
 import { common } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'
 import { useInboxStore } from '../../stores/inbox'
+import EmptyState from '../ui/EmptyState.vue'
 import AccountItem from './AccountItem.vue'
 
 const accounts = useAccountsStore()
@@ -50,7 +52,10 @@ function onSelect(id: string, multi: boolean): void {
         @reconnect="emit('reconnect', a.id)"
       />
     </ul>
-    <p v-if="accounts.accounts.length === 0" class="empty">{{ common.sidebar.noAccounts }}</p>
+    <EmptyState v-if="accounts.accounts.length === 0" compact class="empty">
+      <template #icon><User class="icon icon-lg" /></template>
+      {{ common.sidebar.noAccounts }}
+    </EmptyState>
   </nav>
 </template>
 
@@ -105,7 +110,5 @@ function onSelect(id: string, multi: boolean): void {
 
 .empty {
   margin: var(--s-3);
-  color: var(--mute);
-  font-size: var(--font-size-sm);
 }
 </style>

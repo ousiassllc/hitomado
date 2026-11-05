@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Key } from '@iconoir/vue'
 import { computed, ref } from 'vue'
 import type { OAuthClient } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { parseBindingError } from '../../../lib/api'
@@ -8,6 +9,7 @@ import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'
 import BaseButton from '../../ui/BaseButton.vue'
 import ConfirmDialog from '../../ui/ConfirmDialog.vue'
+import EmptyState from '../../ui/EmptyState.vue'
 import OAuthClientForm from './OAuthClientForm.vue'
 
 const accountsStore = useAccountsStore()
@@ -76,7 +78,10 @@ function openGuide(): void {
       @cancel="editing = undefined"
     />
 
-    <p v-if="clients.length === 0 && editing === undefined" class="empty">{{ msg.oauth.empty }}</p>
+    <EmptyState v-if="clients.length === 0 && editing === undefined">
+      <template #icon><Key class="icon icon-lg" /></template>
+      {{ msg.oauth.empty }}
+    </EmptyState>
     <ul v-else class="list" :aria-label="msg.oauth.listLabel">
       <li v-for="c in clients" :key="c.id" class="item" :data-client-id="c.id">
         <div class="info">
@@ -129,7 +134,7 @@ function openGuide(): void {
 
 .intro {
   margin: var(--s-2) 0;
-  color: var(--mute);
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 
@@ -138,10 +143,6 @@ function openGuide(): void {
   text-decoration: underline;
   text-decoration-color: var(--mute);
   text-underline-offset: 2px;
-}
-
-.empty {
-  color: var(--mute);
 }
 
 .list {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MailOpen } from '@iconoir/vue'
 import { computed, nextTick, ref, watch } from 'vue'
 import { thread as msg } from '../../lib/messages'
 import { useComposeStore } from '../../stores/compose'
@@ -6,6 +7,7 @@ import { useLayoutStore } from '../../stores/layout'
 import { useThreadStore } from '../../stores/thread'
 import ComposePane from '../compose/ComposePane.vue'
 import BaseButton from '../ui/BaseButton.vue'
+import EmptyState from '../ui/EmptyState.vue'
 import Spinner from '../ui/Spinner.vue'
 import MessageCard from './MessageCard.vue'
 import ReplyBar, { type ReplyMode } from './ReplyBar.vue'
@@ -70,9 +72,12 @@ function openDraft(): void {
 
 <template>
   <section class="thread-pane" :aria-label="detail?.subject ?? msg.empty">
-    <div v-if="!store.currentRef" class="state empty" data-testid="thread-empty">
-      <p class="state-title">{{ msg.empty }}</p>
-      <p class="state-hint">{{ msg.emptyHint }}</p>
+    <div v-if="!store.currentRef" class="state" data-testid="thread-empty">
+      <EmptyState>
+        <template #icon><MailOpen class="icon icon-lg" /></template>
+        <p class="state-title">{{ msg.empty }}</p>
+        <p>{{ msg.emptyHint }}</p>
+      </EmptyState>
     </div>
 
     <div v-else-if="!detail && store.loading" class="state" data-testid="thread-loading">
@@ -131,11 +136,6 @@ function openDraft(): void {
   margin: 0;
   font-size: var(--font-size-base);
   color: var(--ink);
-}
-
-.state-hint {
-  margin: 0;
-  font-size: var(--font-size-sm);
 }
 
 .scroll {

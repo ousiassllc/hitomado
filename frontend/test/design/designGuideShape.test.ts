@@ -89,3 +89,44 @@ describe('フォームの間隔レシピ（S2・#143）', () => {
     ).toBe(true)
   })
 })
+
+const body = (file: string, selector: string) =>
+  new RegExp(`${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`).exec(style(file))?.[1] ?? ''
+
+describe('宛先の候補一覧・作成画面の間隔（S2・#150）', () => {
+  test('候補一覧は BaseMenu と同じ寸法（panel padding 4・項目 40・左右 --menu-pad-x・--r-sm）', () => {
+    const file = 'compose/RecipientField.vue'
+    expect(body(file, '.suggest')).toContain('padding: var(--s-1);')
+    const item = body(file, '.suggest-item')
+    expect(item).toContain('min-height: var(--menu-item-h);')
+    expect(item).toContain('padding: 0 var(--menu-pad-x);')
+    expect(item).toContain('border-radius: var(--r-sm);')
+    expect(item).toContain('align-items: center;')
+  })
+
+  test('作成画面の項目と項目の間は --gap-field', () => {
+    expect(body('compose/ComposeFields.vue', '.compose-fields')).toContain('gap: var(--gap-field);')
+  })
+})
+
+describe('空状態は破線の枠・アイコン・文言（S4・#150）', () => {
+  test('EmptyState は 1px dashed --border・--r-lg・padding 48/24', () => {
+    const css = body('ui/EmptyState.vue', '.empty-state')
+    expect(css).toContain('border: 1px dashed var(--border);')
+    expect(css).toContain('border-radius: var(--r-lg);')
+    expect(css).toContain('padding: var(--s-12) var(--s-6);')
+  })
+
+  test.each([
+    'inbox/ThreadList.vue',
+    'thread/ThreadPane.vue',
+    'account/AccountList.vue',
+    'settings/SignatureSettings.vue',
+    'settings/accounts/AccountsSettings.vue',
+    'settings/oauth/OAuthClientsSettings.vue',
+  ])('%s は空状態に EmptyState を使う', (file) => {
+    const src = readFileSync(new URL(`../../src/components/${file}`, import.meta.url), 'utf8')
+    expect(src).toMatch(/import EmptyState from '(\.\.\/)+ui\/EmptyState\.vue'/)
+    expect(src).toContain('<EmptyState')
+  })
+})

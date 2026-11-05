@@ -237,7 +237,12 @@ watch(() => [saved.value !== undefined, ui.aiSetupIntent], startFromIntent, { im
   font-size: var(--font-size-base);
 }
 
-.intro,
+.intro {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--font-size-sm);
+}
+
 .hint {
   margin: 0;
   color: var(--mute);

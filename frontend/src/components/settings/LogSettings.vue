@@ -35,9 +35,9 @@ async function exportLogs(): Promise<void> {
 
 <template>
   <section class="logs" :aria-label="msg.tabs.logs">
-    <p class="hint">{{ msg.logs.redactHint }}</p>
+    <p class="body">{{ msg.logs.redactHint }}</p>
     <BaseDisclosure :summary="msg.logs.storageHeading">
-      <p class="hint">{{ msg.logs.intro }}</p>
+      <p class="body">{{ msg.logs.intro }}</p>
     </BaseDisclosure>
     <div class="actions">
       <BaseButton @click="openFolder">{{ msg.logs.openFolder }}</BaseButton>
@@ -55,9 +55,9 @@ async function exportLogs(): Promise<void> {
   gap: var(--s-3);
 }
 
-.hint {
+.body {
   margin: 0;
-  color: var(--mute);
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 

@@ -299,7 +299,7 @@ function onKeydown(e: KeyboardEvent): void {
   left: 0;
   z-index: var(--z-dropdown);
   margin: var(--s-1) 0 0;
-  padding: var(--s-1) 0;
+  padding: var(--s-1);
   max-height: 240px;
   overflow-y: auto;
   border: 1px solid var(--border);
@@ -310,7 +310,10 @@ function onKeydown(e: KeyboardEvent): void {
 .suggest-item {
   display: flex;
   gap: var(--s-2);
-  padding: var(--s-1) var(--s-3);
+  align-items: center;
+  min-height: var(--menu-item-h);
+  padding: 0 var(--menu-pad-x);
+  border-radius: var(--r-sm);
   font-size: var(--font-size-sm);
   cursor: pointer;
 }

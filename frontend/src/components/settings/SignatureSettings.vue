@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { EditPencil } from '@iconoir/vue'
 import { computed, ref } from 'vue'
 import { parseBindingError } from '../../lib/api'
 import { settings as msg } from '../../lib/messages'
@@ -8,6 +9,7 @@ import RichTextEditor from '../compose/RichTextEditor.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseDialog from '../ui/BaseDialog.vue'
 import BaseSelect from '../ui/BaseSelect.vue'
+import EmptyState from '../ui/EmptyState.vue'
 import { normalizeSignatureHtml } from './signatureHtml'
 
 const accountsStore = useAccountsStore()
@@ -127,7 +129,10 @@ async function save(): Promise<void> {
   <section class="sig" :aria-label="msg.tabs.signature">
     <p class="intro">{{ msg.signature.intro }}</p>
 
-    <p v-if="!current" class="empty">{{ msg.signature.empty }}</p>
+    <EmptyState v-if="!current">
+      <template #icon><EditPencil class="icon icon-lg" /></template>
+      {{ msg.signature.empty }}
+    </EmptyState>
     <template v-else>
       <div class="select">
         <BaseSelect
@@ -183,12 +188,8 @@ async function save(): Promise<void> {
 <style scoped>
 .intro {
   margin: var(--s-2) 0 var(--s-3);
-  color: var(--mute);
+  color: var(--ink);
   font-size: var(--font-size-sm);
-}
-
-.empty {
-  color: var(--mute);
 }
 
 .select {

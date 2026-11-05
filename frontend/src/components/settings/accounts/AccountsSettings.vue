@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Group } from '@iconoir/vue'
 import { computed, nextTick, ref, useTemplateRef } from 'vue'
 import type { Account } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { parseBindingError } from '../../../lib/api'
@@ -7,6 +8,7 @@ import { useAccountsStore } from '../../../stores/accounts'
 import { useUiStore } from '../../../stores/ui'
 import BaseButton from '../../ui/BaseButton.vue'
 import BaseDialog from '../../ui/BaseDialog.vue'
+import EmptyState from '../../ui/EmptyState.vue'
 import AccountRow from './AccountRow.vue'
 
 const accountsStore = useAccountsStore()
@@ -95,7 +97,10 @@ const removeOpen = computed({
       </BaseButton>
     </div>
 
-    <p v-if="accounts.length === 0" class="empty">{{ msg.accounts.empty }}</p>
+    <EmptyState v-if="accounts.length === 0">
+      <template #icon><Group class="icon icon-lg" /></template>
+      {{ msg.accounts.empty }}
+    </EmptyState>
     <ul v-else class="list" :aria-label="msg.accounts.listLabel">
       <AccountRow
         v-for="(a, i) in accounts"
@@ -150,10 +155,6 @@ const removeOpen = computed({
   gap: var(--s-3);
   margin: 0;
   padding: 0;
-}
-
-.empty {
-  color: var(--mute);
 }
 
 .detail {

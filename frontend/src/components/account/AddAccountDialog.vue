@@ -108,7 +108,7 @@ async function save(): Promise<void> {
     <template v-if="step === 'choose'">
       <div v-if="options.length === 0" class="stack">
         <strong>{{ t.noClientTitle }}</strong>
-        <p class="muted">{{ t.noClientBody }}</p>
+        <p class="body">{{ t.noClientBody }}</p>
         <BaseButton variant="primary" @click="openClientSettings">{{ t.openClientSettings }}</BaseButton>
       </div>
       <div v-else class="stack">
@@ -161,6 +161,12 @@ async function save(): Promise<void> {
 .muted {
   margin: 0;
   color: var(--mute);
+  font-size: var(--font-size-sm);
+}
+
+.body {
+  margin: 0;
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 

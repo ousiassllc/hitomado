@@ -89,7 +89,7 @@ defineExpose({ commitPending })
 .compose-fields {
   display: flex;
   flex-direction: column;
-  gap: var(--s-2);
+  gap: var(--gap-field);
 }
 
 .to-row {

@@ -110,7 +110,7 @@ async function copy(text: string): Promise<void> {
 <template>
   <section class="mcp" :aria-label="msg.mcp.heading">
     <h3 class="heading">{{ msg.mcp.heading }}</h3>
-    <p class="hint">{{ msg.mcp.intro }}</p>
+    <p class="body">{{ msg.mcp.intro }}</p>
 
     <div v-if="status" class="block">
       <div class="toggle">
@@ -139,7 +139,7 @@ async function copy(text: string): Promise<void> {
         />
         <strong>{{ msg.mcp.allowNonLoopback }}</strong>
       </div>
-      <p class="hint">{{ msg.mcp.allowNonLoopbackHint }}</p>
+      <p class="body">{{ msg.mcp.allowNonLoopbackHint }}</p>
       <div><BaseButton :loading="busy" @click="apply(status.enabled)">{{ msg.mcp.apply }}</BaseButton></div>
 
       <dl class="info">
@@ -208,6 +208,12 @@ async function copy(text: string): Promise<void> {
 .hint {
   margin: 0;
   color: var(--mute);
+  font-size: var(--font-size-sm);
+}
+
+.body {
+  margin: 0;
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 

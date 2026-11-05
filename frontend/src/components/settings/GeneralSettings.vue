@@ -123,7 +123,7 @@ function openUpdate(): void {
         />
         <strong>{{ msg.general.autoUpdate }}</strong>
       </div>
-      <p class="hint">{{ msg.general.autoUpdateHint }}</p>
+      <p class="body">{{ msg.general.autoUpdateHint }}</p>
       <p v-if="info.autoUpdateEnabled && !info.updateCheckEnabled" class="hint">
         {{ msg.general.autoUpdateRequiresCheck }}
       </p>
@@ -162,7 +162,7 @@ function openUpdate(): void {
 
     <dl class="info">
       <dt>{{ msg.general.version }}</dt>
-      <dd data-testid="app-version">{{ info?.version ?? msg.general.unknown }}</dd>
+      <dd class="path" data-testid="app-version">{{ info?.version ?? msg.general.unknown }}</dd>
       <dt>{{ msg.general.dataDir }}</dt>
       <dd class="path" data-testid="app-datadir">{{ info?.dataDir ?? msg.general.unknown }}</dd>
     </dl>
@@ -200,6 +200,12 @@ function openUpdate(): void {
   font-size: var(--font-size-sm);
 }
 
+.body {
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--font-size-sm);
+}
+
 .update {
   margin: 0;
   font-size: var(--font-size-sm);
@@ -228,6 +234,7 @@ function openUpdate(): void {
 }
 
 .path {
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 </style>

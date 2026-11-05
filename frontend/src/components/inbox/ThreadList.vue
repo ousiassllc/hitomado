@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Mail } from '@iconoir/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { ThreadRef, ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
@@ -6,11 +7,11 @@ import { keyOf } from '../../lib/inboxItems'
 import { common } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'
 import BaseButton from '../ui/BaseButton.vue'
+import EmptyState from '../ui/EmptyState.vue'
 import Spinner from '../ui/Spinner.vue'
 import ThreadRow from './ThreadRow.vue'
 
 const ROW_HEIGHT = 88
-const LOAD_MORE_THRESHOLD = 5
 
 const props = defineProps<{
   items: ThreadSummary[]
@@ -62,15 +63,6 @@ function accountOf(t: ThreadSummary) {
   return a ? { ...a, status: accounts.statusOf(a.id) } : undefined
 }
 
-// 末尾付近に来たら続きを読み込む
-watch(
-  () => [rows.value.at(-1)?.index ?? -1, props.items.length, props.hasMore],
-  () => {
-    const last = rows.value.at(-1)?.index ?? -1
-    if (props.hasMore && !props.loading && last >= props.items.length - LOAD_MORE_THRESHOLD) emit('loadMore')
-  },
-)
-
 // カーソルが画面外に出たらスクロールして見える位置に持ってくる
 watch(
   () => props.cursorKey,
@@ -111,7 +103,12 @@ function onKeydown(ev: KeyboardEvent): void {
     @keydown="onKeydown"
   >
     <div v-if="loading && items.length === 0" class="state"><Spinner /></div>
-    <div v-else-if="items.length === 0" class="state">{{ emptyText }}</div>
+    <div v-else-if="items.length === 0" class="state">
+      <EmptyState>
+        <template #icon><Mail class="icon icon-lg" /></template>
+        {{ emptyText }}
+      </EmptyState>
+    </div>
     <div v-else class="inner" :style="{ height: `${totalSize}px` }">
       <!-- biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: キーボード操作は親の listbox（矢印・j/k・Enter）が担う。この要素は仮想スクロールの位置決め用ラッパー -->
       <div
@@ -131,9 +128,9 @@ function onKeydown(ev: KeyboardEvent): void {
         />
       </div>
     </div>
-    <!-- 自動継続が上限で止まった場合（未読のみで 0 件等）も、続きを利用者が手動で読める -->
+    <!-- 続きは明示のボタンで読み込む（O7: 無限スクロールにしない） -->
     <div v-if="hasMore && !loading" class="more">
-      <BaseButton :loading="loadingMore" @click="emit('loadMore')">{{
+      <BaseButton size="sm" variant="secondary" :loading="loadingMore" @click="emit('loadMore')">{{
         loadingMore ? common.list.loadingMore : common.list.loadMore
       }}</BaseButton>
     </div>
