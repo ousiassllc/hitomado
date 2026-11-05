@@ -13,7 +13,8 @@ defineProps<{ summary: string }>()
 <style scoped>
 .disclosure-summary {
   width: fit-content;
-  color: var(--mute);
+  color: var(--ink);
+  font-weight: 600;
   font-size: var(--font-size-sm);
   cursor: pointer;
 }
@@ -25,5 +26,6 @@ defineProps<{ summary: string }>()
 
 .disclosure-body {
   margin-top: var(--s-2);
+  color: var(--mute);
 }
 </style>
