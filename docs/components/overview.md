@@ -390,6 +390,7 @@ AI の設定の入口は 2 つ（作成画面の「AI で下書き」と設定�
 - ストアは**生成されたバインディングを `lib/api` のラッパー経由**で呼び、`AppError`（`parseBindingError`）に統一して扱う
 - `NEEDS_REAUTH` を受け取ったら `accountsStore.statuses` を更新し、`BannerStack` に「要再接続」を出す（他アカウントは通常動作）。OAuth クライアントの拒否（`account:status` が `needs_reauth` で、`message` が OAuth クライアント設定の案内）の場合は、`statusMessages` の理由と設定への導線を出す
 - `OFFLINE` を受け取ったら `uiStore.online = false`。次の成功呼び出し、または `sync:updated` で復帰する
+- アーカイブ・ゴミ箱で**開いているスレッド**が除去されるとき、`inboxSelection.afterRemoval` が除去した最初の位置の次の行（末尾なら一つ前。無ければ空表示）を `selectedKey` にして開く（`closeOpened` の真偽は `opened: 'next' | 'close' | 'keep'` に変えた。既読化で消えるだけのときは `keep`、`removeThread` は `close`）。開いていないスレッドの除去では `selectedKey` を変えない。`afterRemoval` が返す関数でロールバック（`applyOptimistic` の戻り値）が、まだ自動で開いたスレッドを見ているときだけ元のスレッドを開き直す。「元に戻す」（`reinsert`）は選択に触れない。自動で開いたスレッドは `ThreadPane` の既存の挙動（表示後に未読なら `MarkRead`）で既読になる
 - 一覧が 0 件でも続き（`nextCursor`）があるとき（未読のみで該当なし等）、`inboxStore` が 1 回の操作（起動・フィルタ変更・`loadMore`）で自動的に辿るのは最大 3 ページ（`MAX_AUTO_EMPTY_PAGES`）。超えて止まったら `hasMore` のまま残り、続きは `ThreadList` の「さらに読み込む」（`loadMore`）で利用者が読む
 
 ### 3.11 lib・composables
@@ -590,3 +591,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.37 | 2026-11-05 | §5.3 の案件固有部品に全幅バナー（`BannerStack`。インラインアラートとの使い分け）を、逸脱にメール本文（sandbox iframe）の表示スタイルとタッチ UI のタップ領域（44px）を追記。いずれも案件内で定め、ガイドへの提案は未提出 | #163・#164・#165 |
 | 1.38 | 2026-11-05 | §5.3 の案件固有部品に、ドロップダウンのチェック付き項目（`BaseMenu` の `checked`）、ツールチップの padding（6px 10px。`--s-*` に無い）、ウィンドウ外の表面（トレイの未読バッジ・Android の通知の小アイコン）を、逸脱にトレイの未読バッジの色（ライト値固定＋白縁）を追記。いずれも案件内で定め、ガイドへの提案は未提出。`badgeColor` と `--danger` の一致を検証するテストを追加 | #166・#167・#160 |
 | 1.39 | 2026-11-05 | §5.2 のアカウント色パレットと §5.3 の案件固有部品に、アカウント識別色（10 色のキー・ライト／ダークの値・帯とチップの形・選択 UI・コントラストの根拠）と、ペイン分割ハンドル（`PaneSplitter`）・リサイズ可能な 3 ペイン骨格（`AppShell`。幅の範囲・キー操作・タッチでの差）を、実装の値に揃えて明記。いずれも案件内で定め、ガイドへの提案は未提出 | #157・#158 |
+| 1.40 | 2026-11-05 | §3.10 の `inboxStore` に、アーカイブ・ゴミ箱の後に次の行を自動で開く動作（`afterRemoval` の `opened`・ロールバックの扱い・既読になる旨）を追記 | #168 |
