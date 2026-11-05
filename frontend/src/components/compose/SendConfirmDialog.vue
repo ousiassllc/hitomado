@@ -120,11 +120,19 @@ function onOpen(open: boolean): void {
   font-size: var(--font-size-sm);
 }
 
+.warning-icon {
+  color: var(--warning);
+}
+
 /* 他の自アカウント宛は、送信元より目立たせる（状態色の細枠・薄い地・大きめの文字。太字にしない）。 */
 .warning-strong {
   border-color: var(--danger);
   background: var(--danger-soft);
   font-size: var(--font-size-lg);
+}
+
+.warning-strong .warning-icon {
+  color: var(--danger);
 }
 
 .warning-emails {

@@ -24,7 +24,7 @@ func solidPNG(t *testing.T, size int, c color.Color) []byte {
 	return buf.Bytes()
 }
 
-func TestBadgeIconDrawsRedDotInBottomRight(t *testing.T) {
+func TestBadgeIconDrawsBadgeDotInBottomRight(t *testing.T) {
 	base := solidPNG(t, 32, color.RGBA{R: 10, G: 20, B: 200, A: 255})
 	out, err := BadgeIcon(base)
 	require.NoError(t, err)
@@ -37,7 +37,7 @@ func TestBadgeIconDrawsRedDotInBottomRight(t *testing.T) {
 	assert.EqualValues(t, []uint32{10, 20, 200}, []uint32{r >> 8, g >> 8, b >> 8}, "左上は元のまま")
 
 	r, g, b, _ = img.At(32-8-1, 32-8-1).RGBA()
-	assert.EqualValues(t, []uint32{217, 48, 37}, []uint32{r >> 8, g >> 8, b >> 8}, "バッジ中心は赤")
+	assert.EqualValues(t, []uint32{uint32(badgeColor.R), uint32(badgeColor.G), uint32(badgeColor.B)}, []uint32{r >> 8, g >> 8, b >> 8}, "バッジ中心は --danger 色")
 }
 
 func TestBadgeIconRejectsInvalidPNG(t *testing.T) {
