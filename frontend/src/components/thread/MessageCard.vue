@@ -97,7 +97,6 @@ watch(
 
 .toggle-mark {
   color: var(--mute);
-  width: 1em;
 }
 
 .sender {
