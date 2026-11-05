@@ -186,7 +186,7 @@ function openGuide(): void {
   align-self: flex-start;
   margin-top: var(--s-1);
   padding: 0 var(--s-2);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-full);
   font-size: var(--font-size-xs);
 }
 

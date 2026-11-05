@@ -218,7 +218,7 @@ async function save(): Promise<void> {
   background: var(--warning-soft);
   color: var(--warning);
   padding: 0 var(--s-2);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-full);
   font-size: var(--font-size-xs);
 }
 </style>
