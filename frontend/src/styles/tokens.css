@@ -1,4 +1,4 @@
-/* デザイントークン。コンポーネントに色値を直書きしない（components/overview.md §5）。 */
+/* デザイントークン。コンポーネントに色値を直書きしない（components/overview.md §5）。認可の完了ページ（internal/callbackpage）が一部の値を複製している。変えたら同ページも直す（callbackpage_test.go が検証）。 */
 :root {
   /* 色: Ousiass デザインガイド（brand-guide 622ea73）のコアトークンと状態色。独自の色を足さない。 */
   --ink: #050505;
