@@ -62,6 +62,12 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   cursor: pointer;
 }
 
+.sel:focus-visible {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
+  outline: none;
+}
+
 .sel[data-placeholder] {
   color: var(--mute);
 }

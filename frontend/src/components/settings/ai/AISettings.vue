@@ -247,13 +247,13 @@ watch(() => [saved.value !== undefined, ui.aiSetupIntent], startFromIntent, { im
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--gap-field);
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--gap-label);
   max-width: 320px;
 }
 

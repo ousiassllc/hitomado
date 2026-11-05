@@ -86,7 +86,7 @@ async function submit(): Promise<void> {
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--gap-field);
   padding: var(--s-3);
   border: 1px solid var(--border);
   border-radius: var(--r-md);

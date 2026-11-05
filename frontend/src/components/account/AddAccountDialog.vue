@@ -150,7 +150,7 @@ async function save(): Promise<void> {
 .stack {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--gap-field);
 }
 
 .waiting {
@@ -167,7 +167,7 @@ async function save(): Promise<void> {
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--gap-label);
   font-size: var(--font-size-sm);
 }
 
@@ -178,6 +178,17 @@ async function save(): Promise<void> {
   border-radius: var(--r-md);
   background: var(--surface);
   color: var(--ink);
+  font-size: var(--font-size-sm);
+}
+
+.text:focus {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
+  outline: none;
+}
+
+.text:disabled {
+  opacity: 0.5;
 }
 
 .error {

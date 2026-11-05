@@ -22,6 +22,8 @@ describe('フォームの focus（C3・#125）', () => {
     ['settings/SettingsInput.vue', '.field-input:focus'],
     ['inbox/SearchBar.vue', '.input:focus'],
     ['compose/EditorLinkForm.vue', '.rte-link-input:focus'],
+    ['account/AddAccountDialog.vue', '.text:focus'],
+    ['ui/BaseSelect.vue', '.sel:focus-visible'],
   ])('%s の %s は --focus の枠線と --ring の 2px を使う', (rel, selector) => {
     const body = focusRule(rel, selector)
     expect(body).toContain('border-color: var(--focus)')

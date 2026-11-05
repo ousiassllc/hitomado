@@ -60,6 +60,8 @@
 
   /* 間隔レシピ（ガイドの名前付きトークン。使う部品だけ定義する） */
   --gap-inline: var(--s-2);
+  --gap-label: var(--s-2);
+  --gap-help: var(--s-1);
   --gap-field: var(--s-4);
   --pad-card: var(--s-6);
   --pad-card-sm: var(--s-4);

@@ -86,7 +86,7 @@ const note = computed(() => {
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--gap-label);
   max-width: 320px;
 }
 
@@ -108,7 +108,7 @@ const note = computed(() => {
 }
 
 .error {
-  margin: 0;
+  margin: calc(var(--gap-help) - var(--gap-label)) 0 0;
   color: var(--danger);
   font-size: var(--font-size-sm);
 }
