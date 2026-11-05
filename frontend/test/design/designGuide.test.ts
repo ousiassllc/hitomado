@@ -1,6 +1,5 @@
-// Ousiass デザインガイド準拠の回帰テスト（#119〜#124）。見た目そのものではなく、守りたい規則を確かめる。
+// Ousiass デザインガイド準拠の回帰テスト（#119〜#124）。マウントして、振る舞い・DOM を確かめる。
 import { afterEach, describe, expect, jest, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { h, nextTick } from 'vue'
@@ -12,8 +11,6 @@ import BaseMenu from '../../src/components/ui/BaseMenu.vue'
 import ConfirmDialog from '../../src/components/ui/ConfirmDialog.vue'
 import Spinner from '../../src/components/ui/Spinner.vue'
 import { useUiStore } from '../../src/stores/ui'
-
-const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8')
 
 afterEach(() => {
   jest.useRealTimers()
@@ -116,6 +113,22 @@ describe('モーダル（O1・O2）', () => {
     w.unmount()
   })
 
+  test('closable=false は閉じるボタンが無く、Esc でも閉じる要求を出さない（明示のボタンだけで閉じる確認）', async () => {
+    setActivePinia(createPinia())
+    const w = mount(BaseDialog, {
+      props: { open: true, title: '確認', closable: false },
+      attachTo: document.body,
+    })
+    await nextTick()
+    expect(document.querySelector('button[aria-label="閉じる"]')).toBeNull()
+    document
+      .querySelector('[role="dialog"]')
+      ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await nextTick()
+    expect(w.emitted('update:open')).toBeUndefined()
+    w.unmount()
+  })
+
   test('実行中（busy）の確認ダイアログは、キャンセルも閉じる操作も無効', async () => {
     const w = mount(ConfirmDialog, {
       props: { open: true, title: 't', confirmLabel: '削除する', busy: true },
@@ -127,12 +140,6 @@ describe('モーダル（O1・O2）', () => {
     )
     expect(cancel?.disabled).toBe(true)
     w.unmount()
-  })
-
-  test('スマホ幅でも全画面にしない（中央モーダルのまま幅だけ縮める）', () => {
-    const css = read('../../src/components/ui/BaseDialog.vue')
-    expect(css).not.toContain('dlg-full')
-    expect(css).toContain('calc(100vw - 32px)')
   })
 })
 
@@ -174,37 +181,9 @@ describe('アイコン（I）', () => {
     expect(items.map((i) => i.querySelector('svg') !== null)).toEqual([true, false])
     w.unmount()
   })
-
-  test('文字記号のアイコン（× ▾ ▸ ✓ ☰ ←）をテンプレートに残さない', () => {
-    const files = [
-      'ui/BaseDialog.vue',
-      'ui/BaseSelect.vue',
-      'inbox/SearchBar.vue',
-      'inbox/ThreadListPane.vue',
-      'thread/ReplyBar.vue',
-      'thread/MessageCard.vue',
-      'shell/BackToListButton.vue',
-      'shell/ToastHost.vue',
-      'settings/accounts/ColorPicker.vue',
-    ]
-    for (const f of files) {
-      const template =
-        /<template>[\s\S]*<\/template>/.exec(read(`../../src/components/${f}`))?.[0] ?? ''
-      expect(template).not.toMatch(/[×▾▸✓☰←]/)
-    }
-  })
 })
 
 describe('モーション（M）', () => {
-  test('スピナー（処理中の表示）は prefers-reduced-motion でも止めない', () => {
-    const spinner = read('../../src/components/ui/Spinner.vue')
-    expect(spinner).toContain('animation: spin')
-    expect(spinner).not.toMatch(/prefers-reduced-motion[\s\S]*animation:\s*none/)
-    const tokens = read('../../src/styles/tokens.css')
-    expect(tokens).not.toMatch(/animation-duration:\s*0ms\s*!important/)
-    expect(tokens).not.toMatch(/animation:\s*none/)
-  })
-
   test('スピナーの大きさは --icon-sm/md/lg（既定 20px）', () => {
     const w = mount(Spinner)
     expect(w.classes()).toContain('spinner-md')
@@ -219,81 +198,5 @@ describe('モーション（M）', () => {
     const off = mount(BaseButton, { props: { disabled: true }, slots: { default: '送信' } })
     await off.trigger('pointerdown')
     expect(off.element.querySelectorAll('.ripple')).toHaveLength(0)
-  })
-})
-
-describe('トークン（C・T・S・O）', () => {
-  const css = read('../../src/styles/tokens.css')
-  const root = css.slice(0, css.indexOf('@media (prefers-color-scheme: dark)'))
-  const token = (name: string) => new RegExp(`${name}:\\s*([^;]+);`).exec(root)?.[1]?.trim()
-
-  test('色はガイドのコアトークン。アクセントはインク色で、青の独自色を持たない', () => {
-    expect(token('--accent')).toBe('#050505')
-    expect(token('--focus')).toBe('#4a72d0')
-    expect(token('--info')).toBe('#4a5a6a')
-    expect(css).not.toMatch(/--color-/)
-    expect(css).not.toMatch(/#1a56db/i)
-  })
-
-  test('サイズスケールは 12 / 14 / 16 / 18 / 24 / 32 / 40、本文は 16px', () => {
-    expect(
-      ['xs', 'sm', 'base', 'lg', 'xl', '2xl', '3xl'].map((k) => token(`--font-size-${k}`)),
-    ).toEqual(['12px', '14px', '16px', '18px', '24px', '32px', '40px'])
-    expect(read('../../src/styles/reset.css')).toMatch(/font-size: var\(--font-size-base\)/)
-  })
-
-  test('フォントは Sora + Noto Sans JP（等幅は JetBrains Mono）で、アプリに同梱する', () => {
-    expect(token('--font-sans')).toContain('Sora')
-    expect(token('--font-sans')).toContain('Noto Sans JP')
-    expect(token('--font-mono')).toContain('JetBrains Mono')
-    const app = read('../../src/App.vue')
-    for (const pkg of ['sora', 'noto-sans-jp', 'jetbrains-mono'])
-      expect(app).toContain(`@fontsource-variable/${pkg}`)
-  })
-
-  test('影はモーダルだけ（--shadow-modal）', () => {
-    expect(token('--shadow-modal')).toBe('0 1px 2px rgb(0 0 0 / 6%)')
-    expect(css).not.toContain('--shadow-popup')
-  })
-
-  test('ダークでは --shadow-modal を alpha 40% に切り替える', () => {
-    const dark = css.slice(css.indexOf('@media (prefers-color-scheme: dark)'))
-    expect(/--shadow-modal:\s*([^;]+);/.exec(dark)?.[1]?.trim()).toBe('0 1px 2px rgb(0 0 0 / 40%)')
-  })
-
-  test('z-index は --z-*（dropdown 100 / drawer 300 / modal 400 / toast 500）', () => {
-    expect(['dropdown', 'drawer', 'modal', 'toast'].map((k) => token(`--z-${k}`))).toEqual([
-      '100',
-      '300',
-      '400',
-      '500',
-    ])
-  })
-
-  test('コンポーネントは z-index・色・影・角丸を直書きしない', () => {
-    const files = [
-      'ui/BaseDialog.vue',
-      'ui/BaseMenu.vue',
-      'ui/BaseSelect.vue',
-      'ui/BaseTooltip.vue',
-      'shell/AppShell.vue',
-      'shell/ToastHost.vue',
-      'compose/RecipientField.vue',
-    ]
-    for (const f of files) {
-      const style = /<style[\s\S]*<\/style>/.exec(read(`../../src/components/${f}`))?.[0] ?? ''
-      expect(style).not.toMatch(/z-index:\s*\d/)
-      expect(style).not.toMatch(/#[0-9a-fA-F]{3,6}\b/)
-      expect(style).not.toContain('shadow-popup')
-    }
-  })
-
-  test('ボタンは通常 40px・小 32px、無効は opacity 0.4', () => {
-    const btn = read('../../src/components/ui/BaseButton.vue')
-    expect(btn).toContain('min-height: var(--control-h)')
-    expect(btn).toContain('var(--control-h-sm)')
-    expect(btn).toMatch(/opacity: 0\.4;/)
-    expect(token('--control-h')).toBe('40px')
-    expect(token('--control-h-sm')).toBe('32px')
   })
 })

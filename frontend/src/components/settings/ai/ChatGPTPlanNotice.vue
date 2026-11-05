@@ -8,7 +8,7 @@ import BaseButton from '../../ui/BaseButton.vue'
 import BaseDialog from '../../ui/BaseDialog.vue'
 
 // 初めてログインして ChatGPT プランの利用が有効になったときだけ出す確認（OpenAI の UI/UX ガイドライン）。
-// 出すかどうかは Go が決める（アカウント＝クライアント登録ごとに永続。再ログインでは立たない）。「Got it」で確認済みにする。
+// 出すかどうかは Go が決める（アカウント＝クライアント登録ごとに永続。再ログインでは立たない）。「Got it」を押したときだけ確認済みにする（Esc・外側クリックでは閉じない）。
 const props = defineProps<{ accounts: ChatGPTAccount[] }>()
 
 const store = useSettingsStore()
@@ -31,7 +31,7 @@ async function gotIt(): Promise<void> {
 </script>
 
 <template>
-  <BaseDialog :open="target !== undefined" :title="msg.ai.chatgpt.planNotice.title" size="sm" @update:open="(v) => !v && gotIt()">
+  <BaseDialog :open="target !== undefined" :title="msg.ai.chatgpt.planNotice.title" size="sm" :closable="false">
     <div class="notice" data-testid="ai-chatgpt-plan-notice">
       <p class="text">{{ msg.ai.chatgpt.planNotice.body }}</p>
       <p v-if="target?.email" class="note">{{ msg.ai.chatgpt.planNotice.account(target.email) }}</p>
