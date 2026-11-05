@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import type { ThreadSummary } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import UsageLimitNotice from '../../src/components/compose/ai/UsageLimitNotice.vue'
 import ComposePane from '../../src/components/compose/ComposePane.vue'
 import RecipientField from '../../src/components/compose/RecipientField.vue'
 import ThreadRow from '../../src/components/inbox/ThreadRow.vue'
@@ -189,5 +190,19 @@ describe('警告・エラーの案内はアイコンを付ける（C4・#135）'
     expect(rule).toContain('background: var(--danger-soft)')
     expect(rule).toContain('border-radius: var(--r-md)')
     expect(rule).toContain('border: 1px solid var(--danger)')
+  })
+})
+
+describe('利用枠超過の案内は状態色の部品（C4・#141）', () => {
+  test('警告アイコン＋文言＋--warning の細枠・--warning-soft の地・--r-md', () => {
+    const w = mount(UsageLimitNotice)
+    const notice = w.get('[data-testid="ai-usage-limit"]')
+    expect(notice.attributes('role')).toBe('alert')
+    expect(notice.get('svg').classes()).toContain('icon-warning')
+    expect(notice.get('svg').attributes('aria-hidden')).toBe('true')
+    const rule = /\.limit\s*\{([^}]*)\}/.exec(style('compose/ai/UsageLimitNotice.vue'))?.[1] ?? ''
+    expect(rule).toContain('border: 1px solid var(--warning)')
+    expect(rule).toContain('background: var(--warning-soft)')
+    expect(rule).toContain('border-radius: var(--r-md)')
   })
 })
