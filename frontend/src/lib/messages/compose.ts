@@ -72,8 +72,6 @@ export const compose = {
     cancel: '生成をキャンセル',
     needKey: 'AI の API キーが未設定です。設定画面で登録してください',
     needLogin: 'ChatGPT にログインしていません。設定画面でログインしてください',
-    usingChatGPT: 'Using ChatGPT plan',
-    manageUsage: 'Manage usage',
     // 利用枠の超過（subscription_sharing_usage_limit_exceeded）。文言（英語）は OpenAI の UI/UX ガイドラインに合わせ、
     // Manage usage を主なアクションにする。Hitomado に独自のクレジットは無いので、購入の導線は出さない。
     usageLimit: {
@@ -86,9 +84,6 @@ export const compose = {
     openSettings: '設定を開く',
     // AI への指示（#109）。生成のときだけ送り、保存しない。
     instruction: {
-      add: '指示を追加',
-      edit: '指示を編集（入力あり）',
-      hide: '指示を閉じる',
       label: 'AI への指示',
       placeholder: '例: 日程は来週以降で調整したい旨を丁寧に／断る／3 行で短く',
       note: '下書きの生成だけに使い、保存しません。',

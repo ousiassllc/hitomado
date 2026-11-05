@@ -5,6 +5,7 @@ import { settings as msg } from '../../lib/messages'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
 import BaseButton from '../ui/BaseButton.vue'
+import BaseDisclosure from '../ui/BaseDisclosure.vue'
 
 const store = useSettingsStore()
 const ui = useUiStore()
@@ -34,8 +35,10 @@ async function exportLogs(): Promise<void> {
 
 <template>
   <section class="logs" :aria-label="msg.tabs.logs">
-    <p class="hint">{{ msg.logs.intro }}</p>
     <p class="hint">{{ msg.logs.redactHint }}</p>
+    <BaseDisclosure :summary="msg.logs.storageHeading">
+      <p class="hint">{{ msg.logs.intro }}</p>
+    </BaseDisclosure>
     <div class="actions">
       <BaseButton @click="openFolder">{{ msg.logs.openFolder }}</BaseButton>
       <BaseButton :loading="exporting" @click="exportLogs">

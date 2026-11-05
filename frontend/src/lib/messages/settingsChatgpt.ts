@@ -2,9 +2,9 @@
 export const settingsChatgpt = {
   heading: 'ChatGPT プラン',
   intro:
-    'ChatGPT Plus／Pro のプランの範囲で下書きを作ります。API キーは要りません。ログインは OpenAI の公式画面（ブラウザ）で行い、Hitomado はパスワードも Cookie も受け取りません。',
+    'ChatGPT Plus／Pro のプランの範囲で、API キーなしで下書きを作ります。ログインは OpenAI の公式画面で行い、Hitomado はパスワードも Cookie も受け取りません。',
   notOfficial:
-    'Hitomado は OpenAI の公式アプリではありません。ログインの許可は ChatGPT の設定からいつでも取り消せます。',
+    'Hitomado は OpenAI の公式アプリではありません。許可は ChatGPT の設定でいつでも取り消せます。',
   login: 'Continue with ChatGPT',
   loginWaiting: 'ブラウザで ChatGPT のログインを完了してください…',
   loginCancel: 'ログインを中止',
@@ -32,7 +32,6 @@ export const settingsChatgpt = {
   statusSignedIn: (email: string) => (email ? `ログイン済み（${email}）` : 'ログイン済み'),
   statusSignedOut: '未ログインです。',
   statusChoose: '使うアカウントを選んでください。',
-  usingPlan: 'Using ChatGPT plan',
   manageUsage: 'Manage usage',
   usageUrl: 'https://chatgpt.com/settings/usage',
   // 初めて ChatGPT プランの利用が有効になったときの確認。文言（英語）は OpenAI の UI/UX ガイドラインに合わせる。
@@ -41,7 +40,6 @@ export const settingsChatgpt = {
     body: 'Eligible AI requests in Hitomado will use your ChatGPT plan. You can manage usage in ChatGPT settings.',
     account: (email: string) => `ChatGPT account: ${email}`,
     note: 'Hitomado の「AI で下書き」は、あなたの ChatGPT プランの範囲で使われます。使用状況は ChatGPT の設定で確認・管理できます。',
-    manage: 'Manage usage',
     gotIt: 'Got it',
     ackFailed: '確認の記録に失敗しました。次回もう一度表示されます。',
   },

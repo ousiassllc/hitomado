@@ -142,7 +142,7 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
     expect(w.find('[data-testid="ai-chatgpt-accounts"]').exists()).toBe(false)
   })
 
-  test('ログインを押すとブラウザでのログインを待つ。完了するとメールと Using ChatGPT plan を出す', async () => {
+  test('ログインを押すとブラウザでのログインを待つ。完了するとメールを出し、Using ChatGPT plan／Manage usage の組は出さない', async () => {
     const { pinia, store, calls } = setup({ provider: 'chatgpt', hasApiKey: false })
     let release: () => void = () => {}
     const ids: string[] = []
@@ -161,8 +161,8 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
     release()
     await flushPromises()
     expect(w.get('[data-testid="ai-chatgpt-status"]').text()).toContain('a@chatgpt.example')
-    expect(w.text()).toContain('Using ChatGPT plan')
-    expect(w.text()).toContain('Manage usage')
+    expect(w.text()).not.toContain('Using ChatGPT plan')
+    expect(w.text()).not.toContain('Manage usage')
     expect(calls).toEqual(['models:chatgpt'])
   })
 

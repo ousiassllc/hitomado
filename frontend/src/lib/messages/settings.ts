@@ -120,7 +120,6 @@ export const settings = {
     intro:
       '「AI で下書き」ボタンを押したときだけ、スレッドの一部・表示名・署名が下記の送信先へ送信されます。自動で生成・送信することはありません。',
     destinationHeading: 'データの送信先',
-    destinationLabel: '送信先',
     destination: (provider: string, url: string) => `${provider}（${url}）`,
     destinationDefaultNote: '既定の送信先です。',
     destinationCustomNote: 'Base URL で指定した送信先です。',
@@ -186,7 +185,6 @@ export const settings = {
     baseUrlDecide:
       'Base URL を入力して Enter（または「一覧を更新」）を押すと、その送信先への同意を確認して一覧を取得します。',
     consentAgreeNow: (dest: string) => `${dest} への送信に同意する`,
-    consentAgreed: '同意しました。',
     consentHeading: '送信への同意',
     consentGiven: (provider: string) => `${provider} への送信に同意済みです。`,
     consentNone: (provider: string) =>
@@ -266,6 +264,7 @@ export const settings = {
   logs: {
     intro:
       'アプリのエラーと動作の記録を、データの保存先の logs フォルダに残します（5 MB ごとに切り替え、5 世代・30 日まで）。',
+    storageHeading: '保存場所と保存期間',
     redactHint:
       'トークン・パスワード・OAuth 情報・メール本文・件名・宛先は記録しません。アカウントはアカウント ID で記録します。',
     openFolder: 'ログフォルダを開く',

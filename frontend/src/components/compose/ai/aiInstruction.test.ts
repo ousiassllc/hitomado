@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { defineComponent } from 'vue'
 import { type AiDraftDeps, useAiDraft } from '../../../composables/useAiDraft'
 import { instructionLength, MAX_INSTRUCTION_CHARS } from '../../../lib/aiInstruction'
 import { compose as msg } from '../../../lib/messages'
@@ -77,27 +78,55 @@ describe('AiDraftInstruction（入力欄）', () => {
   })
 })
 
-describe('AiDraftButton の「指示を追加」', () => {
-  test('初期は閉じていて、「指示を追加」で開閉する。入力は作成セッション（composeStore）に入る', async () => {
+describe('AiDraftButton の「AI への指示」欄', () => {
+  test('はじめから開いていて、開け閉めの操作は無い。入力は作成セッション（composeStore）に入る', async () => {
     const { w, compose } = mountButton()
-    expect(el('ai-instruction')).toBeNull()
-    const toggle = el('ai-instruction-toggle')
-    expect(toggle?.textContent?.trim()).toBe('指示を追加')
-    toggle?.click()
-    await flushPromises()
     expect(el('ai-instruction')).not.toBeNull()
-    expect(toggle?.textContent?.trim()).toBe('指示を閉じる')
+    expect(el('ai-instruction-toggle')).toBeNull()
+    expect(w.text()).not.toContain('指示を追加')
     const input = el('ai-instruction-input') as HTMLTextAreaElement
     input.value = '丁寧に断る'
     input.dispatchEvent(new Event('input'))
     await flushPromises()
     expect(compose.aiInstruction).toBe('丁寧に断る')
+    expect(el('ai-instruction')).not.toBeNull()
+    w.unmount()
+  })
 
-    toggle?.click()
+  test('欄の label は自分の textarea を指す（作成画面が複数あっても id が重ならない）', () => {
+    const Two = defineComponent({
+      components: { AiDraftInstruction },
+      template:
+        '<div><AiDraftInstruction model-value="" /><AiDraftInstruction model-value="" /></div>',
+    })
+    const w = mount(Two)
+    const areas = w.findAll('textarea')
+    const labels = w.findAll('label')
+    expect(areas).toHaveLength(2)
+    const ids = areas.map((t) => t.attributes('id'))
+    expect(ids[0]).toBeTruthy()
+    expect(ids[0]).not.toBe(ids[1])
+    expect(labels.map((l) => l.attributes('for'))).toEqual(ids)
+    w.unmount()
+  })
+
+  test('ChatGPT プランを使っていても「Using ChatGPT plan」「Manage usage」の組は出さない', async () => {
+    const settings = useSettingsStore()
+    settings.aiConfig = {
+      provider: 'chatgpt',
+      model: 'gpt-plan',
+      configured: true,
+      hasApiKey: false,
+      apiKeyProviders: [],
+      consentedProviders: ['chatgpt'],
+      chatgptSignedIn: true,
+      chatgptAccounts: [],
+    }
+    const w = mount(AiDraftButton, { props: { sessionId: 's1' }, attachTo: document.body })
     await flushPromises()
-    expect(el('ai-instruction')).toBeNull()
-    expect(compose.aiInstruction).toBe('丁寧に断る') // 閉じても値は残る
-    expect(toggle?.textContent?.trim()).toBe('指示を編集（入力あり）')
+    expect(w.text()).toContain(msg.ai.button)
+    expect(w.text()).not.toContain('Using ChatGPT plan')
+    expect(w.text()).not.toContain('Manage usage')
     w.unmount()
   })
 

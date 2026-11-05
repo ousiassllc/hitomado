@@ -36,9 +36,6 @@ async function gotIt(): Promise<void> {
       <p class="text">{{ msg.ai.chatgpt.planNotice.body }}</p>
       <p v-if="target?.email" class="note">{{ msg.ai.chatgpt.planNotice.account(target.email) }}</p>
       <p class="note">{{ msg.ai.chatgpt.planNotice.note }}</p>
-      <BaseButton variant="ghost" data-testid="ai-chatgpt-notice-manage" @click="store.openExternal(msg.ai.chatgpt.usageUrl)">
-        {{ msg.ai.chatgpt.planNotice.manage }}
-      </BaseButton>
     </div>
     <template #footer>
       <BaseButton variant="primary" data-testid="ai-chatgpt-notice-gotit" @click="gotIt">

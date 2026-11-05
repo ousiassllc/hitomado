@@ -93,3 +93,21 @@ describe('McpSettings の接続方法', () => {
     w.unmount()
   })
 })
+
+describe('LogSettings の保存場所とローテーション', () => {
+  test('記録しない情報は常に見え、保存場所と保存期間（5 MB・5 世代・30 日）は閉じた折りたたみに置く', () => {
+    const w = mount(LogSettings, { global: { plugins: [setup()] } })
+    const details = w.get('details')
+    expect(details.attributes('open')).toBeUndefined()
+    expect(details.get('summary').text()).toBe(settings.logs.storageHeading)
+    expect(details.text()).toContain(settings.logs.intro)
+    expect(settings.logs.intro).toContain('5 MB')
+    expect(settings.logs.intro).toContain('5 世代')
+    expect(settings.logs.intro).toContain('30 日')
+    // 記録しない情報は折りたたみの外にあり、二重には出ない。
+    expect(details.text()).not.toContain(settings.logs.redactHint)
+    expect(w.text().split(settings.logs.redactHint)).toHaveLength(2)
+    expect(w.text().split(settings.logs.intro)).toHaveLength(2)
+    w.unmount()
+  })
+})

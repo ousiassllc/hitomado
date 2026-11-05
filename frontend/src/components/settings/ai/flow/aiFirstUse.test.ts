@@ -49,7 +49,6 @@ describe('「AI で下書き」: AI の設定がまっさらなときの初回�
     expect(el('ai-setup-chatgpt')?.textContent?.trim()).toBe('Continue with ChatGPT')
     expect(el('ai-setup-other')).not.toBeNull() // ほかのプロバイダ（API キー）を選ぶ道も残す
     expect(calls).toEqual([])
-    expect(w.find('[data-testid="ai-using-chatgpt"]').exists()).toBe(false) // 既定の ChatGPT を「使用中」と見せない
     w.unmount()
   })
 

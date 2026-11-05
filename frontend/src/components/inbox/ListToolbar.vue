@@ -7,7 +7,7 @@ import BaseMenu from '../ui/BaseMenu.vue'
 import Spinner from '../ui/Spinner.vue'
 
 const props = defineProps<{
-  /** 操作対象のスレッド数（0 なら操作ボタンは無効） */
+  /** 操作対象のスレッド数。一括操作のボタンは 2 件以上のときだけ出す（1 件はスレッドのヘッダーの操作で足りる） */
   selectedCount: number
   refreshing: boolean
   /** 検索結果モード中（「受信箱に戻る」を出す） */
@@ -17,7 +17,7 @@ const props = defineProps<{
   /** checked = 対象のスレッドすべてに付いているラベル */
   labels: { id: string; name: string; checked: boolean }[]
   labelsLoading: boolean
-  /** 操作ボタン（選択中のスレッドが無い画面）を出さない。1 画面ずつのレイアウトの一覧 */
+  /** 一括操作のボタン（選択中のスレッドが無い画面）を出さない。1 画面ずつのレイアウトの一覧 */
   compact?: boolean
 }>()
 
@@ -31,7 +31,7 @@ const emit = defineEmits<{
   backToInbox: []
 }>()
 
-const none = computed(() => props.selectedCount === 0)
+const bulk = computed(() => !props.compact && props.selectedCount > 1)
 const menuItems = computed(() => {
   if (props.labelsLoading) return [{ key: '', label: common.toolbar.labelLoading, disabled: true }]
   if (props.labels.length === 0) return [{ key: '', label: common.toolbar.labelEmpty, disabled: true }]
@@ -49,25 +49,25 @@ function onLabelSelect(key: string): void {
       <Spinner v-if="refreshing" :size="14" />
       <span v-else aria-hidden="true">⟳</span>
     </BaseIconButton>
-    <template v-if="!compact">
+    <template v-if="bulk">
       <span class="sep" aria-hidden="true" />
-      <BaseIconButton :label="common.toolbar.markRead" :shortcut="SHORTCUT_KEYS.markRead" :disabled="none" @click="emit('toggleRead', true)">
+      <BaseIconButton :label="common.toolbar.markRead" :shortcut="SHORTCUT_KEYS.markRead" @click="emit('toggleRead', true)">
         <span aria-hidden="true">✉</span>
       </BaseIconButton>
-      <BaseIconButton :label="common.toolbar.markUnread" :shortcut="SHORTCUT_KEYS.markUnread" :disabled="none" @click="emit('toggleRead', false)">
+      <BaseIconButton :label="common.toolbar.markUnread" :shortcut="SHORTCUT_KEYS.markUnread" @click="emit('toggleRead', false)">
         <span aria-hidden="true">●</span>
       </BaseIconButton>
-      <BaseIconButton :label="common.toolbar.archive" :shortcut="SHORTCUT_KEYS.archive" :disabled="none" @click="emit('archive')">
+      <BaseIconButton :label="common.toolbar.archive" :shortcut="SHORTCUT_KEYS.archive" @click="emit('archive')">
         <span aria-hidden="true">🗄</span>
       </BaseIconButton>
-      <BaseIconButton :label="common.toolbar.trash" :shortcut="SHORTCUT_KEYS.trash" :disabled="none" variant="danger" @click="emit('trash')">
+      <BaseIconButton :label="common.toolbar.trash" :shortcut="SHORTCUT_KEYS.trash" variant="danger" @click="emit('trash')">
         <span aria-hidden="true">🗑</span>
       </BaseIconButton>
       <BaseMenu :items="menuItems" @select="onLabelSelect">
         <template #trigger>
           <BaseIconButton
-            :label="labelEnabled || none ? common.toolbar.label : common.toolbar.labelMultiAccount"
-            :disabled="none || !labelEnabled"
+            :label="labelEnabled ? common.toolbar.label : common.toolbar.labelMultiAccount"
+            :disabled="!labelEnabled"
             @click="emit('openLabels')"
           >
             <span aria-hidden="true">🏷</span>
