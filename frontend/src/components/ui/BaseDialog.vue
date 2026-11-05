@@ -105,8 +105,8 @@ function guard(e: Event): void {
   transform: translate(-50%, -50%);
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 48px);
-  width: min(var(--dlg-w, 520px), calc(100vw - 32px));
+  max-height: calc(100vh - var(--s-12));
+  width: min(var(--dlg-w, 520px), calc(100vw - var(--s-8)));
   padding: var(--pad-card-sm);
   background: var(--surface);
   color: var(--ink);
@@ -156,7 +156,7 @@ function guard(e: Event): void {
   width: var(--control-h-sm);
   height: var(--control-h-sm);
   border: none;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   background: transparent;
   color: var(--mute);
   line-height: 1;
