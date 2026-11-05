@@ -49,3 +49,22 @@ func TestPageColorsComeFromTokens(t *testing.T) {
 		}
 	}
 }
+
+// フォントは Sora + Noto Sans JP、サイズ・行間はガイドのスケール（デザインガイド T1・T3・T4）。
+func TestPageTypography(t *testing.T) {
+	_, body := render(t, "x")
+	for _, want := range []string{
+		`font-family:Sora,"Noto Sans JP",sans-serif`,
+		"h1{font-size:18px;line-height:1.7;",
+		"p{margin:0;font-size:16px;line-height:1.8}",
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("missing %q", want)
+		}
+	}
+	for _, bad := range []string{"font-family:sans-serif", "1.2rem", "line-height:1.6"} {
+		if strings.Contains(body, bad) {
+			t.Errorf("unexpected %q", bad)
+		}
+	}
+}

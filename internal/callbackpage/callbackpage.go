@@ -9,16 +9,17 @@ import (
 )
 
 // page は完了ページの HTML。色は Ousiass デザインガイドのコアトークン（frontend/src/styles/tokens.css と同じ値）を
-// :root の変数に置き、ダークは prefers-color-scheme で切り替える。
+// :root の変数に置き、ダークは prefers-color-scheme で切り替える。フォントは Sora + Noto Sans JP（利用者の端末にあれば使う。
+// CSP が外部リソースを禁じるため同梱はしない）、サイズ・行間はガイドのスケール（見出し 18px/1.7・本文 16px/1.8）に揃える。
 const page = `<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><title>Hitomado</title>
 <style>
 :root{--ink:#050505;--bone:#f5f5f4;--surface:#fff;--border:#e7e7e5}
 @media (prefers-color-scheme:dark){:root{--ink:#fff;--bone:#050505;--surface:#141414;--border:#2a2a2a}}
-body{font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:var(--bone);color:var(--ink)}
+body{font-family:Sora,"Noto Sans JP",sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:var(--bone);color:var(--ink)}
 main{background:var(--surface);padding:2rem 2.5rem;border-radius:8px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.2);max-width:28rem}
-h1{font-size:1.2rem;margin:0 0 .75rem}
-p{margin:0;line-height:1.6}
+h1{font-size:18px;line-height:1.7;margin:0 0 .75rem}
+p{margin:0;font-size:16px;line-height:1.8}
 </style>
 </head><body><main><h1>Hitomado</h1><p>%s</p></main></body></html>
 `
