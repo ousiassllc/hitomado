@@ -1,0 +1,35 @@
+import { describe, expect, test } from 'bun:test'
+import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import AccountItem from './AccountItem.vue'
+
+function mountItem(needsReauth: boolean) {
+  setActivePinia(createPinia())
+  return mount(AccountItem, {
+    props: {
+      account: { id: 'a1', displayName: '仕事', email: 'work@example.com', color: 'blue' },
+      selected: false,
+      unread: 0,
+      needsReauth,
+    },
+  })
+}
+
+describe('AccountItem の「要再接続」ボタン', () => {
+  test('BaseIconButton（icon-btn・danger）で出し、ラベルと再接続の通知を持つ', async () => {
+    const w = mountItem(true)
+    const btn = w.get('button.warn')
+    expect(btn.classes()).toContain('icon-btn')
+    expect(btn.classes()).toContain('icon-btn-danger')
+    expect(btn.attributes('aria-label')).toBe('仕事: 再接続が必要です（再接続）')
+    await btn.trigger('click')
+    expect(w.emitted('reconnect')).toHaveLength(1)
+    w.unmount()
+  })
+
+  test('再接続が要らなければ出さない', () => {
+    const w = mountItem(false)
+    expect(w.find('button.warn').exists()).toBe(false)
+    w.unmount()
+  })
+})
