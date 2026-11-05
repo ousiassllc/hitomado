@@ -214,6 +214,13 @@ describe('buildSrcdoc / buildCsp', () => {
     expect(doc).toContain('<body><p>x</p></body>')
     expect(buildSrcdoc('', { allowImages: true })).toContain('img-src data: https:;')
   })
+
+  test('iframe の既定のスタイルはライト固定のシステム色＋ 14px/1.5 sans-serif（docs §5.3 逸脱）', () => {
+    const doc = buildSrcdoc('', { allowImages: false })
+    expect(doc).toContain(':root{color-scheme:light}')
+    expect(doc).toContain('background:Canvas;color:CanvasText;')
+    expect(doc).toContain('font:14px/1.5 sans-serif')
+  })
 })
 
 describe('isOpenableUrl', () => {
