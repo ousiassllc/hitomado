@@ -55,6 +55,7 @@ type FakeGmail struct {
 	Sent      []SentRecord
 	Modified  []ModifyRecord
 	Trashed   []string // Key(accountID, threadID)
+	Untrashed []string // Key(accountID, threadID)
 	Forgotten []string // Forget(accountID) の呼び出し
 	// SignatureRequests は GetSignature に渡された sendAsEmail の呼び出し順。
 	SignatureRequests []string
@@ -239,6 +240,20 @@ func (f *FakeGmail) TrashThread(_ context.Context, accountID, threadID string) e
 		return err
 	}
 	f.Trashed = append(f.Trashed, Key(accountID, threadID))
+	return nil
+}
+
+// UntrashThread は TRASH を除去して Untrashed に記録する（INBOX は復元しない）。
+func (f *FakeGmail) UntrashThread(_ context.Context, accountID, threadID string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.enter("UntrashThread", accountID, threadID); err != nil {
+		return err
+	}
+	if err := f.relabel(accountID, threadID, nil, []string{"TRASH"}); err != nil {
+		return err
+	}
+	f.Untrashed = append(f.Untrashed, Key(accountID, threadID))
 	return nil
 }
 

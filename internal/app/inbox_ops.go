@@ -43,6 +43,27 @@ func (s *InboxService) Trash(ctx context.Context, refs []dto.ThreadRef) ([]dto.T
 	return s.apply(ctx, refs, s.d.Gmail.TrashThread)
 }
 
+// Unarchive は Archive の取り消し。INBOX ラベルを付け直す。
+func (s *InboxService) Unarchive(ctx context.Context, refs []dto.ThreadRef) ([]dto.ThreadSummary, error) {
+	return s.apply(ctx, refs, func(ctx context.Context, accountID, threadID string) error {
+		return s.d.Gmail.ModifyThread(ctx, accountID, threadID, []string{"INBOX"}, nil)
+	})
+}
+
+// Untrash は Trash の取り消し。スレッドをゴミ箱から戻す。backToInbox が true なら INBOX ラベルも付け直す
+// （ゴミ箱へ移す前に受信箱にあったスレッド用。Trash は INBOX を除去し、Gmail の untrash が INBOX を戻すとは限らない）。
+func (s *InboxService) Untrash(ctx context.Context, refs []dto.ThreadRef, backToInbox bool) ([]dto.ThreadSummary, error) {
+	return s.apply(ctx, refs, func(ctx context.Context, accountID, threadID string) error {
+		if err := s.d.Gmail.UntrashThread(ctx, accountID, threadID); err != nil {
+			return err
+		}
+		if backToInbox {
+			return s.d.Gmail.ModifyThread(ctx, accountID, threadID, []string{"INBOX"}, nil)
+		}
+		return nil
+	})
+}
+
 // apply は refs をアカウントごとにまとめて op を実行し、Sync.RefreshThread で DB を更新して更新後サマリを返す。
 // Gmail で 404 のスレッドは DB から削除し、NOT_FOUND として failedRefs に含める。
 // 1 件でも失敗したら、失敗した ref を details.failedRefs に載せた AppError で reject する（成功分は反映済み）。

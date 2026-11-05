@@ -206,6 +206,10 @@ func TestModifyAndTrashThread(t *testing.T) {
 
 	require.NoError(t, e.c.TrashThread(context.Background(), testAccount, "t1"))
 	assert.Len(t, e.f.Requests("POST", apiBase+"/threads/t1/trash"), 1)
+
+	e.f.HandleJSON("POST "+apiBase+"/threads/t1/untrash", 200, map[string]any{"id": "t1"})
+	require.NoError(t, e.c.UntrashThread(context.Background(), testAccount, "t1"))
+	assert.Len(t, e.f.Requests("POST", apiBase+"/threads/t1/untrash"), 1)
 }
 
 func TestGetAttachment(t *testing.T) {

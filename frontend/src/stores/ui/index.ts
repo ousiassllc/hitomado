@@ -4,10 +4,18 @@ import { ref } from 'vue'
 /** トースト（一瞬の結果の知らせ。1 行・同時に 1 つ）。失敗は `Alert` で伝える（ガイド O3: エラー詳細をトーストに出さない）。 */
 export type ToastKind = 'success' | 'info'
 
+/** スナックバーの操作（「元に戻す」）。戻せる結果のトーストだけが持つ。 */
+export interface ToastAction {
+  label: string
+  run: () => void
+}
+
 export interface Toast {
   id: number
   kind: ToastKind
   message: string
+  /** 持つ場合はスナックバー（戻せる結果。操作できるよう、トーストより長く出す） */
+  action?: ToastAction
 }
 
 /** インラインアラートの種類（ガイドのお知らせ・成功・エラー）。注意は常設のバナー（`Banner`）が受け持つ。 */
@@ -58,6 +66,13 @@ export const useUiStore = defineStore('ui', () => {
   function pushToast(kind: ToastKind, message: string): number {
     const id = nextId++
     toast.value = { id, kind, message }
+    return id
+  }
+
+  /** 戻せる結果（アーカイブ・ゴミ箱）をスナックバー（「元に戻す」つきのトースト）で知らせる。 */
+  function pushSnackbar(message: string, action: ToastAction): number {
+    const id = nextId++
+    toast.value = { id, kind: 'success', message, action }
     return id
   }
 
@@ -160,6 +175,7 @@ export const useUiStore = defineStore('ui', () => {
     online,
     menuOpen,
     pushToast,
+    pushSnackbar,
     dismissToast,
     pushAlert,
     pushNotice,

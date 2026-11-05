@@ -46,10 +46,13 @@ export function installMocks(): void {
   }))
   mock.module(`${B}/inboxservice`, () => ({
     ListInbox: binding('ListInbox'),
+    Search: binding('Search'),
     GetUnreadCounts: binding('GetUnreadCounts'),
     MarkRead: binding('MarkRead'),
     Archive: binding('Archive'),
     Trash: binding('Trash'),
+    Unarchive: binding('Unarchive'),
+    Untrash: binding('Untrash'),
     ListLabels: binding('ListLabels'),
     ModifyLabels: binding('ModifyLabels'),
   }))
