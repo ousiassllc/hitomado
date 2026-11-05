@@ -105,3 +105,50 @@ func TestSanitizeIdempotent(t *testing.T) {
 	once := Sanitize(in)
 	assert.Equal(t, once, Sanitize(once))
 }
+
+func TestFromGmail(t *testing.T) {
+	tests := []struct {
+		name        string
+		in          string
+		want        string
+		wantDropped bool
+	}{
+		{"空", "", "", false},
+		{"空白のみ", " \n ", "", false},
+		{"行ごとの div は p になる", "<div>a</div><div>b</div>", "<p>a</p><p>b</p>", false},
+		{"Gmail の典型（入れ物の div と dir 属性）", `<div dir="ltr"><div>山田 太郎</div><div>Example Inc.</div></div>`,
+			"<p>山田 太郎</p><p>Example Inc.</p>", false},
+		{"br で区切った 1 つの div は 1 つの p", `<div dir="ltr">a<br>b</div>`, "<p>a<br/>b</p>", false},
+		{"空行の div", "<div>a</div><div><br></div><div>b</div>", "<p>a</p><p><br/></p><p>b</p>", false},
+		{"許可タグと a は保持。落とさない", `<div><strong>a</strong> <a href="https://example.com" target="_blank">l</a></div>`,
+			`<p><strong>a</strong> <a href="https://example.com">l</a></p>`, false},
+		{"装飾でない属性と span は落ちても dropped でない", `<span class="x" id="y" data-smartmail="gmail_signature">a</span>`, "a", false},
+		{"画像は落ちる", `<div>a<img src="https://example.com/x.png"></div>`, "<p>a</p>", true},
+		{"表は中身を残して落ちる", "<table><tr><td>a</td><td>b</td></tr></table>", "ab<br/>", true},
+		{"font は外す", `<div><font color="red" face="Arial">a</font></div>`, "<p>a</p>", true},
+		{"style 属性（文字色）", `<div><span style="color:rgb(255,0,0)">a</span></div>`, "<p>a</p>", true},
+		{"安全でないリンクは文字だけ", `<div><a href="javascript:alert(1)">l</a></div>`, "<p>l</p>", true},
+		{"script は中身ごと落ちる", "<div>a</div><script>alert(1)</script>", "<p>a</p>", true},
+		{"画像だけの署名は空になる", `<div><img src="https://example.com/x.png"></div>`, "<p></p>", true},
+		{"ブロックを含む div は入れ物として外す", "<div><p>a</p><ul><li>b</li></ul></div>", "<p>a</p><ul><li>b</li></ul>", false},
+		{"リスト項目の中の div は p", "<ul><li><div>a</div></li></ul>", "<ul><li><p>a</p></li></ul>", false},
+		{"インライン内の div は改行になる", "<strong><div>a</div></strong>b", "<strong>a<br/></strong>b", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, dropped := FromGmail(tt.in)
+			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantDropped, dropped)
+		})
+	}
+}
+
+func TestFromGmailOutputIsSanitizeStable(t *testing.T) {
+	in := `<div dir="ltr"><div>a<img src="x"></div><div><a href="javascript:x">l</a></div><table><tr><td>t</td></tr></table></div>`
+	out, _ := FromGmail(in)
+	assert.Equal(t, out, Sanitize(out), "保存時の Sanitize で内容が変わらない")
+}
+
+func TestSanitizeIgnoresDivToP(t *testing.T) {
+	assert.Equal(t, "a<br/>b<br/>", Sanitize("<div>a</div><div>b</div>"), "SetSignature の整形は従来どおり")
+}

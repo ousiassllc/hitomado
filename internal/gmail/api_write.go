@@ -208,3 +208,17 @@ func (c *client) fillLabelColor(ctx context.Context, accountID string, label *La
 	}
 	return nil
 }
+
+// GetSignature は users.settings.sendAs.get で sendAsEmail の署名を返す。署名が未設定なら ""。
+func (c *client) GetSignature(ctx context.Context, accountID, sendAsEmail string) (string, error) {
+	var signature string
+	err := c.do(ctx, accountID, callSpec{name: "settings.sendAs.get", units: unitsSettings, retry5xx: true}, func(s *gmailapi.Service) error {
+		sa, err := s.Users.Settings.SendAs.Get(userID, sendAsEmail).Context(ctx).Do()
+		if err != nil {
+			return err
+		}
+		signature = sa.Signature
+		return nil
+	})
+	return signature, err
+}

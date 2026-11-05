@@ -247,6 +247,26 @@ export interface ExportLogsResult {
 }
 
 /**
+ * GmailSignature は Gmail の設定から取得した署名（F-07。#110）。保存はしない。
+ */
+export interface GmailSignature {
+    /**
+     * 許可タグへ整形済み。Found が偽なら ""
+     */
+    "signatureHtml": string;
+
+    /**
+     * Gmail に署名が設定されているか
+     */
+    "found": boolean;
+
+    /**
+     * 整形で内容（画像・装飾など）を落としたか
+     */
+    "sanitized": boolean;
+}
+
+/**
  * InboxFilter は保存する受信箱フィルタ。
  */
 export interface InboxFilter {

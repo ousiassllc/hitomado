@@ -16,6 +16,7 @@ export type {
     ComposeContent,
     ComposeSession,
     ExportLogsResult,
+    GmailSignature,
     InboxFilter,
     InboxQuery,
     Label,

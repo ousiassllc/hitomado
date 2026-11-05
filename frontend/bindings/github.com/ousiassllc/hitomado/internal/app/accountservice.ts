@@ -39,6 +39,16 @@ export function DeleteOAuthClient(id: string): $CancellablePromise<void> {
 }
 
 /**
+ * FetchGmailSignature は Gmail の設定（users.settings.sendAs.get。sendAsEmail はアカウント本人のアドレス）から
+ * 署名を取得し、許可タグへ整形して返す。保存はしない（保存は SetSignature）。
+ * 整形後に何も残らない署名（画像だけなど）は、Gmail に署名があっても未設定（found=false）として扱う。
+ * 署名の本文はログにもエラーにも出さない。
+ */
+export function FetchGmailSignature(accountID: string): $CancellablePromise<dto$0.GmailSignature> {
+    return $Call.ByID(2429326502, accountID);
+}
+
+/**
  * ListAccounts は sortOrder 昇順のアカウント一覧を返す。
  */
 export function ListAccounts(): $CancellablePromise<dto$0.Account[] | null> {
