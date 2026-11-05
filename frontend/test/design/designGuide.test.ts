@@ -41,6 +41,23 @@ describe('トースト（O3）: 同時に 1 つ・3 秒・短い結果だけ', (
     w.unmount()
   })
 
+  test('スナックバー（元に戻す）はトーストと別の見た目で、アクション付きの 5 秒で消える', async () => {
+    jest.useFakeTimers()
+    setActivePinia(createPinia())
+    const ui = useUiStore()
+    const w = mount(ToastHost, { attachTo: document.body })
+    ui.pushSnackbar('アーカイブしました。', { label: '元に戻す', run: () => {} })
+    await nextTick()
+    expect(w.find('.snackbar').exists()).toBe(true)
+    expect(w.find('.toast').exists()).toBe(false)
+    expect(w.find('[data-testid="snackbar-action"]').text()).toBe('元に戻す')
+    jest.advanceTimersByTime(4999)
+    expect(ui.toast).toBeDefined()
+    jest.advanceTimersByTime(1)
+    expect(ui.toast).toBeUndefined()
+    w.unmount()
+  })
+
   test('失敗はトーストではなくアラートに出る（再試行つきでもトーストに載らない）', () => {
     setActivePinia(createPinia())
     const ui = useUiStore()
