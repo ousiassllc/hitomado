@@ -159,7 +159,7 @@ function openGuide(): void {
   align-items: center;
   justify-content: space-between;
   gap: var(--s-3);
-  padding: var(--s-3);
+  padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   list-style: none;
