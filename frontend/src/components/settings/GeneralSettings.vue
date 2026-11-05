@@ -123,7 +123,7 @@ function openUpdate(): void {
         />
         <strong>{{ msg.general.autoUpdate }}</strong>
       </div>
-      <p class="hint">{{ msg.general.autoUpdateHint }}</p>
+      <p class="body">{{ msg.general.autoUpdateHint }}</p>
       <p v-if="info.autoUpdateEnabled && !info.updateCheckEnabled" class="hint">
         {{ msg.general.autoUpdateRequiresCheck }}
       </p>
@@ -197,6 +197,12 @@ function openUpdate(): void {
 .hint {
   margin: 0;
   color: var(--mute);
+  font-size: var(--font-size-sm);
+}
+
+.body {
+  margin: 0;
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 

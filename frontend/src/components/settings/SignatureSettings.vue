@@ -183,7 +183,7 @@ async function save(): Promise<void> {
 <style scoped>
 .intro {
   margin: var(--s-2) 0 var(--s-3);
-  color: var(--mute);
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 

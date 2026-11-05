@@ -129,7 +129,7 @@ function openGuide(): void {
 
 .intro {
   margin: var(--s-2) 0;
-  color: var(--mute);
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 
