@@ -195,7 +195,7 @@ describe('入力途中の宛先の確定', () => {
     const { w, store } = await mountPane(newSession('a1'))
     for (const label of ['Cc', 'Bcc']) {
       await w
-        .findAll('button.toggle')
+        .findAll('.toggles button')
         .find((b) => b.text() === label)
         ?.trigger('click')
     }

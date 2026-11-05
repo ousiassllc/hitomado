@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { compose as msg } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'
 import { useComposeStore } from '../../stores/compose'
+import BaseButton from '../ui/BaseButton.vue'
 import RecipientField from './RecipientField.vue'
 import SenderField from './SenderField.vue'
 
@@ -51,8 +52,8 @@ defineExpose({ commitPending })
         :disabled="frozen"
       />
       <div class="toggles">
-        <button v-if="!showCc" type="button" class="toggle" @click="ccOpen = true">{{ msg.fields.showCc }}</button>
-        <button v-if="!showBcc" type="button" class="toggle" @click="bccOpen = true">{{ msg.fields.showBcc }}</button>
+        <BaseButton v-if="!showCc" size="sm" variant="ghost" @click="ccOpen = true">{{ msg.fields.showCc }}</BaseButton>
+        <BaseButton v-if="!showBcc" size="sm" variant="ghost" @click="bccOpen = true">{{ msg.fields.showBcc }}</BaseButton>
       </div>
     </div>
     <RecipientField
@@ -106,20 +107,6 @@ defineExpose({ commitPending })
   display: flex;
   gap: var(--s-1);
   padding-top: var(--s-1);
-}
-
-.toggle {
-  padding: var(--s-1) var(--s-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: transparent;
-  color: var(--mute);
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-}
-
-.toggle:hover {
-  background: var(--accent-soft);
 }
 
 .subject-row {

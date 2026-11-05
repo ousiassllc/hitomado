@@ -2,6 +2,7 @@
 import { nextTick, onMounted, ref } from 'vue'
 import { compose as msg } from '../../lib/messages'
 import { normalizeLinkUrl } from '../../lib/richtext'
+import BaseButton from '../ui/BaseButton.vue'
 
 const props = defineProps<{ initial: string }>()
 const emit = defineEmits<{ apply: [href: string]; remove: []; cancel: [] }>()
@@ -39,9 +40,9 @@ function submit(): void {
       :placeholder="msg.editor.linkUrl"
       @input="invalid = false"
     />
-    <button type="submit" class="rte-link-btn">{{ msg.editor.linkApply }}</button>
-    <button type="button" class="rte-link-btn" @click="emit('remove')">{{ msg.editor.linkRemove }}</button>
-    <button type="button" class="rte-link-btn" @click="emit('cancel')">{{ msg.editor.linkCancel }}</button>
+    <BaseButton size="sm" variant="primary" type="submit">{{ msg.editor.linkApply }}</BaseButton>
+    <BaseButton size="sm" @click="emit('remove')">{{ msg.editor.linkRemove }}</BaseButton>
+    <BaseButton size="sm" variant="ghost" @click="emit('cancel')">{{ msg.editor.linkCancel }}</BaseButton>
     <span v-if="invalid" class="rte-link-error" role="alert">{{ msg.editor.linkInvalid }}</span>
   </form>
 </template>
@@ -60,8 +61,8 @@ function submit(): void {
 .rte-link-input {
   flex: 1 1 240px;
   min-width: 0;
-  height: 28px;
-  padding: 0 var(--s-2);
+  height: var(--control-h);
+  padding: 0 var(--s-3);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
@@ -69,19 +70,14 @@ function submit(): void {
   font-size: var(--font-size-sm);
 }
 
-.rte-link-input[aria-invalid="true"] {
-  border-color: var(--danger);
+.rte-link-input:focus {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
+  outline: none;
 }
 
-.rte-link-btn {
-  height: 28px;
-  padding: 0 var(--s-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-md);
-  background: var(--surface);
-  color: var(--ink);
-  font-size: var(--font-size-xs);
-  cursor: pointer;
+.rte-link-input[aria-invalid="true"] {
+  border-color: var(--danger);
 }
 
 .rte-link-error {

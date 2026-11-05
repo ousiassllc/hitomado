@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WarningCircle } from '@iconoir/vue'
 import { computed, ref } from 'vue'
 import { common, compose as msg } from '../../lib/messages'
 import { SEND_SHORTCUT_KEY } from '../../lib/shortcuts'
@@ -35,6 +36,12 @@ const title = computed(() => {
   }
 })
 const canAi = computed(() => session.value?.mode === 'reply' || session.value?.mode === 'reply_all')
+/** 作成画面に出すエラー（送信などの失敗と、下書き保存の失敗）。 */
+const errors = computed(() =>
+  [compose.error, compose.saveError === undefined ? undefined : `${msg.saveFailed}（${compose.saveError}）`].filter(
+    (e): e is string => e !== undefined,
+  ),
+)
 /** 送信確認の表示中・送信中はエディタを操作できない。 */
 const frozen = computed(() => compose.sending || compose.preview !== undefined)
 /** 本文エディタ: 送信確認中・送信中に加え、AI 生成中も読み取り専用（生成のキャンセルは可能）。 */
@@ -104,10 +111,13 @@ function send(archive: boolean): void {
 
     <AttachmentBar />
 
-    <p v-if="compose.error" class="compose-error" role="alert">{{ compose.error }}</p>
-    <p v-if="compose.saveError" class="compose-error" role="alert">
-      {{ msg.saveFailed }}（{{ compose.saveError }}）
-    </p>
+    <div v-for="e in errors" :key="e" class="compose-error" role="alert">
+      <WarningCircle class="icon compose-error-icon" aria-hidden="true" />
+      <div class="compose-error-main">
+        <strong class="compose-error-title">{{ common.alertTitle }}</strong>
+        <p class="compose-error-body">{{ e }}</p>
+      </div>
+    </div>
 
     <footer class="compose-foot">
       <span v-if="session.accountId === undefined" class="foot-hint" role="note">{{ msg.senderRequiredHint }}</span>
@@ -211,12 +221,39 @@ function send(archive: boolean): void {
   min-height: 240px;
 }
 
+/* インラインアラート（AlertStack）と同じ見た目: アイコン＋見出し＋本文・--danger の細枠と薄い地・--r-md。 */
 .compose-error {
-  margin: 0;
-  padding: var(--s-2) var(--s-3);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
   border: 1px solid var(--danger);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+  color: var(--ink);
+}
+
+.compose-error-icon {
+  flex: none;
+  margin-top: var(--s-1);
   color: var(--danger);
+}
+
+.compose-error-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.compose-error-title {
+  display: block;
   font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.compose-error-body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  overflow-wrap: anywhere;
 }
 </style>

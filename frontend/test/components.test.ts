@@ -66,11 +66,11 @@ describe('ThreadRow', () => {
     expect(w.find('[aria-label="添付ファイルあり"]').exists()).toBe(false)
   })
 
-  test('needs_reauth のアカウントの行は淡色', () => {
+  test('needs_reauth のアカウントの行は要再接続の表示を持つ', () => {
     const w = mount(ThreadRow, {
       props: { thread, selected: false, account: { ...account, status: 'needs_reauth' } },
     })
-    expect(w.classes()).toContain('faded')
+    expect(w.classes()).toContain('needs-reauth')
   })
 })
 

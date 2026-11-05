@@ -6,6 +6,7 @@ import { droppedPaths, FILES_DROPPED_EVENT } from '../../lib/dropFiles'
 import { onEvent } from '../../lib/events'
 import { formatSize } from '../../lib/format'
 import { compose as msg } from '../../lib/messages'
+import { vRipple } from '../../lib/ripple'
 import { useComposeStore } from '../../stores/compose'
 import { usePlatformStore } from '../../stores/platform'
 import { useUiStore } from '../../stores/ui'
@@ -65,6 +66,7 @@ onBeforeUnmount(() => stopDrop?.())
         <span class="attach-size">{{ formatSize(a.size) }}</span>
         <span v-if="a.source === 'forwarded'" class="attach-tag">{{ msg.attachments.forwarded }}</span>
         <button
+          v-ripple
           type="button"
           class="attach-remove"
           :aria-label="msg.attachments.remove(a.filename)"

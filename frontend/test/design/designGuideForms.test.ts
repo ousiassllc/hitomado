@@ -21,6 +21,7 @@ describe('フォームの focus（C3・#125）', () => {
     ['compose/RichTextEditor.vue', '.rte:focus-within'],
     ['settings/SettingsInput.vue', '.field-input:focus'],
     ['inbox/SearchBar.vue', '.input:focus'],
+    ['compose/EditorLinkForm.vue', '.rte-link-input:focus'],
   ])('%s の %s は --focus の枠線と --ring の 2px を使う', (rel, selector) => {
     const body = focusRule(rel, selector)
     expect(body).toContain('border-color: var(--focus)')
@@ -70,8 +71,32 @@ describe('入力欄の padding（S2・#127）', () => {
     ['compose/ComposeFields.vue', '\\.subject-input', '0 var(--s-3)'],
     ['compose/ai/AiDraftInstruction.vue', '\\.instruction-input', 'var(--s-3)'],
     ['compose/RecipientField.vue', '\\.recipient-box', 'var(--s-1) var(--s-3)'],
+    ['compose/EditorLinkForm.vue', '\\.rte-link-input', '0 var(--s-3)'],
   ])('%s の %s は左右 12px（--s-3）で揃える', (rel, selector, expected) => {
     expect(padding(rel, selector)).toBe(expected)
+  })
+
+  test('リンク入力欄の高さは --control-h', () => {
+    const style =
+      /<style[\s\S]*<\/style>/.exec(read('../../src/components/compose/EditorLinkForm.vue'))?.[0] ??
+      ''
+    expect(/\.rte-link-input\s*\{[^}]*?height:\s*([^;]+);/.exec(style)?.[1]).toBe(
+      'var(--control-h)',
+    )
+  })
+})
+
+describe('ステータスピルの形（S1・#131）', () => {
+  // 状態色の細枠＋薄い地の札は、タグ（--r-sm）ではなくピル（--r-full）。
+  test.each([
+    ['settings/accounts/AccountRow.vue', '\\.status'],
+    ['settings/oauth/OAuthClientsSettings.vue', '\\.inuse'],
+    ['settings/SignatureSettings.vue', '\\.dirty'],
+  ])('%s の %s は --r-full', (rel, selector) => {
+    const style = /<style[\s\S]*<\/style>/.exec(read(`../../src/components/${rel}`))?.[0] ?? ''
+    expect(
+      new RegExp(`${selector}\\s*\\{[^}]*?border-radius:\\s*var\\(--r-full\\);`).test(style),
+    ).toBe(true)
   })
 })
 
@@ -106,5 +131,12 @@ describe('部品・オーバーレイ（P・#128）', () => {
     expect(rule(style('ui/BaseTooltip.vue'), ':global\\(\\.tip-pop\\)')).toContain(
       'padding: 6px 10px;',
     )
+  })
+
+  test('宛先チップの地は --accent-soft の細枠・ピル（タグ入力）', () => {
+    const body = rule(style('compose/RecipientField.vue'), '\\.chip')
+    expect(body).toContain('background: var(--accent-soft);')
+    expect(body).toContain('border: 1px solid var(--border);')
+    expect(body).toContain('border-radius: var(--r-full);')
   })
 })

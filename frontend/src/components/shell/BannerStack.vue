@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WarningTriangle } from '@iconoir/vue'
 import { computed } from 'vue'
 import { parseBindingError } from '../../lib/api'
 import { deriveBanners, selectBanners } from '../../lib/banners'
@@ -36,6 +37,7 @@ const banners = computed(() =>
 <template>
   <div v-if="banners.length > 0" class="banners">
     <div v-for="b in banners" :key="b.key" class="banner" :class="`banner-${b.kind}`" role="status">
+      <WarningTriangle class="icon icon-sm banner-icon" aria-hidden="true" />
       <span class="msg">{{ b.message }}</span>
       <BaseButton size="sm" v-if="b.action" @click="b.action.run()">{{ b.action.label }}</BaseButton>
     </div>
@@ -57,6 +59,11 @@ const banners = computed(() =>
   color: var(--ink);
   border-bottom: 1px solid var(--warning);
   font-size: var(--font-size-sm);
+}
+
+.banner-icon {
+  flex: none;
+  color: var(--warning);
 }
 
 .msg {
