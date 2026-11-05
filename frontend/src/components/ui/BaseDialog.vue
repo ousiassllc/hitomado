@@ -179,8 +179,11 @@ function guard(e: Event): void {
   margin-top: var(--s-3);
 }
 
+/* 本文は縦にスクロールする（overflow: auto）ので、子のフォーカスリング（外側 offset 2 + 2px = 4px）が縁で切れる。
+   --s-1 の余白を四辺に足し、同じ分だけ margin で打ち消して見た目の位置は変えない。 */
 .dlg-body {
-  margin-top: var(--s-3);
+  margin: calc(var(--s-3) - var(--s-1)) calc(var(--s-1) * -1) calc(var(--s-1) * -1);
+  padding: var(--s-1);
   overflow: auto;
   min-height: 0;
 }
