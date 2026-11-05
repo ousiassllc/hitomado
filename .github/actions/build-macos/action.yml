@@ -52,11 +52,11 @@ runs:
         [ "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$plist")" = "jp.ousias.hitomado" ]
         [ -f "${app}/Contents/Resources/icons.icns" ]
 
-        # 実行ファイルの CPU と、-X main.version が入っていること。
+        # 実行ファイルの CPU と、-X main.version の値が入っていること。
         case "$ARCH" in arm64) want_arch=arm64 ;; amd64) want_arch=x86_64 ;; *) echo "::error::unknown arch ${ARCH}" >&2; exit 1 ;; esac
         [ "$(lipo -archs "$exe")" = "$want_arch" ] || { echo "::error::lipo says '$(lipo -archs "$exe")', want ${want_arch}" >&2; exit 1; }
-        go version -m "$exe" | tee "${RUNNER_TEMP}/buildinfo.txt"
-        grep -F -- "main.version=${version}" "${RUNNER_TEMP}/buildinfo.txt"
+        # -trimpath のビルドでは go version -m に -ldflags が載らないので、実行ファイルの中の文字列で確かめる。
+        grep -a -q -F -- "${version}" "$exe" || { echo "::error::version ${version} is not embedded in the executable" >&2; exit 1; }
 
         # zip を展開し直しても署名が通る（ditto で作った zip の往復）。
         rm -rf "${RUNNER_TEMP}/unzipped" && mkdir -p "${RUNNER_TEMP}/unzipped"
