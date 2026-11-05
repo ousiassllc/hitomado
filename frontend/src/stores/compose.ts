@@ -50,6 +50,8 @@ export const useComposeStore = defineStore('compose', () => {
   const sending = ref(false)
   /** AI 下書きの生成中。本文エディタを読み取り専用にする（生成中の入力が確認なしで置換されるのを防ぐ）。 */
   const aiGenerating = ref(false)
+  /** 「AI への指示」（#109）。作成セッションのメモリにだけ持ち、下書き・設定へは保存しない。セッションを閉じると消える。 */
+  const aiInstruction = ref('')
   /** 送信・確認・セッション操作のエラー（エディタ上部に表示）。 */
   const error = ref<string>()
   const saveError = ref<string>()
@@ -150,6 +152,7 @@ export const useComposeStore = defineStore('compose', () => {
     saveError.value = undefined
     attachmentError.value = undefined
     aiGenerating.value = false
+    aiInstruction.value = ''
     sigSwap.reset()
   }
 
@@ -270,6 +273,7 @@ export const useComposeStore = defineStore('compose', () => {
     preparing,
     sending,
     aiGenerating,
+    aiInstruction,
     error,
     saveError,
     attachmentError,

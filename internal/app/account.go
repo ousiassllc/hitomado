@@ -99,6 +99,26 @@ func (s *AccountService) SetSignature(ctx context.Context, accountID, signatureH
 	return accountDTO(acc), nil
 }
 
+// FetchGmailSignature は Gmail の設定（users.settings.sendAs.get。sendAsEmail はアカウント本人のアドレス）から
+// 署名を取得し、許可タグへ整形して返す。保存はしない（保存は SetSignature）。
+// 整形後に何も残らない署名（画像だけなど）は、Gmail に署名があっても未設定（found=false）として扱う。
+// 署名の本文はログにもエラーにも出さない。
+func (s *AccountService) FetchGmailSignature(ctx context.Context, accountID string) (dto.GmailSignature, error) {
+	acc, err := s.d.Store.GetAccount(ctx, accountID)
+	if err != nil {
+		return dto.GmailSignature{}, apperr.FromInfra(err, accountID)
+	}
+	raw, err := s.d.Gmail.GetSignature(ctx, accountID, acc.Email)
+	if err != nil {
+		return dto.GmailSignature{}, gmailErr(s.d, ctx, accountID, err)
+	}
+	cleaned, dropped := signature.FromGmail(raw)
+	if cleaned == "" {
+		return dto.GmailSignature{Sanitized: dropped}, nil
+	}
+	return dto.GmailSignature{SignatureHTML: cleaned, Found: true, Sanitized: dropped}, nil
+}
+
 // ReorderAccounts は全アカウント ID を過不足なく受け取って並び順を更新する。
 func (s *AccountService) ReorderAccounts(ctx context.Context, accountIDs []string) ([]dto.Account, error) {
 	list, err := s.d.Store.ListAccounts(ctx)

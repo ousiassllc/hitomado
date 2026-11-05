@@ -50,12 +50,15 @@ type FakeGmail struct {
 	DraftRaw    map[string][]byte             // CreateDraft／UpdateDraft に渡された MIME。key は Drafts と同じ
 	Labels      map[string][]gmail.Label      // key: accountID
 	History     map[string]gmail.HistoryPage  // key: accountID
+	Signatures  map[string]string             // GetSignature の結果（HTML）。key: accountID
 
 	Sent      []SentRecord
 	Modified  []ModifyRecord
 	Trashed   []string // Key(accountID, threadID)
 	Forgotten []string // Forget(accountID) の呼び出し
-	Calls     []string // "Method:accountID" の呼び出し順
+	// SignatureRequests は GetSignature に渡された sendAsEmail の呼び出し順。
+	SignatureRequests []string
+	Calls             []string // "Method:accountID" の呼び出し順
 
 	Err map[string]error
 
@@ -75,6 +78,7 @@ func NewFakeGmail() *FakeGmail {
 		DraftRaw:    map[string][]byte{},
 		Labels:      map[string][]gmail.Label{},
 		History:     map[string]gmail.HistoryPage{},
+		Signatures:  map[string]string{},
 		Err:         map[string]error{},
 	}
 }

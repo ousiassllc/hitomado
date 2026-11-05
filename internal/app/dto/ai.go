@@ -5,6 +5,9 @@ type AIConfig struct {
 	Provider string `json:"provider"` // anthropic / openai / chatgpt
 	Model    string `json:"model"`
 	BaseURL  string `json:"baseUrl,omitempty"`
+	// Effort は下書きの生成に渡すモデルのエフォート（reasoning effort。#111）。空は「モデルの既定」（プロバイダへ送らない）。
+	// anthropic は low／medium／high／xhigh／max、openai／chatgpt は low／medium／high。範囲外の保存値は空として返す。
+	Effort string `json:"effort,omitempty"`
 	// Configured は AI の設定（プロバイダ・モデル）を一度でも保存したか。false の間、provider は既定（chatgpt）で、画面は初めて使うときの案内を出す。
 	Configured bool `json:"configured"`
 	// HasAPIKey は現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。
@@ -42,6 +45,10 @@ type ChatGPTSignOutResult struct {
 type AIModel struct {
 	ID          string `json:"id"`
 	DisplayName string `json:"displayName,omitempty"`
+	// Efforts はそのモデルが受け付けるエフォートの段階（弱い順。#111）。anthropic は Models API の capabilities.effort から作る
+	// （対応しない・取れないモデルは省略＝画面はエフォートの選択を出さない）。openai・chatgpt は一覧が段階を返さないので常に省略する
+	// （画面は共通の low／medium／high を出す）。
+	Efforts []string `json:"efforts,omitempty"`
 }
 
 // 一覧を取得できなかった理由（AIModelList.Reason）。

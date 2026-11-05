@@ -65,6 +65,7 @@ func drain(r io.Reader) { _, _ = io.Copy(io.Discard, io.LimitReader(r, maxRespon
 // statusError は非 2xx の HTTP ステータスを分類したエラーにする。メッセージにはステータスだけを含める。
 //   - 401／403 → ErrUnauthorized
 //   - 429 → ErrRateLimited
+//   - 400／422 → ErrRejected（ErrFailed でもある。エフォートなど、要求の内容をプロバイダが受け付けなかった）
 //   - それ以外 → ErrFailed
 func statusError(status int) error {
 	switch status {
@@ -72,6 +73,8 @@ func statusError(status int) error {
 		return fmt.Errorf("%w: HTTP %d", ErrUnauthorized, status)
 	case http.StatusTooManyRequests:
 		return fmt.Errorf("%w: HTTP %d", ErrRateLimited, status)
+	case http.StatusBadRequest, http.StatusUnprocessableEntity:
+		return fmt.Errorf("%w: HTTP %d", ErrRejected, status)
 	default:
 		return fmt.Errorf("%w: HTTP %d", ErrFailed, status)
 	}

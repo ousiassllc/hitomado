@@ -1,3 +1,5 @@
+import { settingsChatgpt } from './settingsChatgpt'
+
 // 設定画面の文言（H4 の領域）。UI は日本語のみ。
 export const settings = {
   title: '設定',
@@ -100,6 +102,17 @@ export const settings = {
     dirty: '未保存の変更があります。',
     revert: '元に戻す',
     saved: (name: string) => `${name} の署名を保存しました。`,
+    fetchGmail: 'Gmail から取得',
+    fetchingGmail: 'Gmail から取得しています…',
+    fetchHint: 'Gmail に設定した署名をエディタに入れます。保存するまで反映されません。',
+    fetchedGmail: (name: string) =>
+      `Gmail の署名を ${name} のエディタに入れました。保存すると反映されます。`,
+    fetchSanitized: '画像・装飾など、取り込めない部分は除きました。',
+    fetchEmpty: 'Gmail に署名が設定されていません。',
+    replaceTitle: 'Gmail の署名で置き換えますか？',
+    replaceBody: 'エディタの内容は、取得した Gmail の署名に置き換わります。',
+    replaceCancel: 'キャンセル',
+    replaceConfirm: '置き換える',
   },
 
   ai: {
@@ -125,6 +138,18 @@ export const settings = {
     modelPlaceholder: '例: claude-sonnet-4-5',
     modelRequired: 'モデルを入力してください。',
     modelSelectPlaceholder: 'モデルを選択',
+    // モデルのエフォート（#111）。先頭は常に「モデルの既定」（何も送らない）。
+    effort: 'エフォート',
+    effortDefault: 'モデルの既定',
+    effortHint:
+      '考える深さ（使うトークン量）です。「モデルの既定」では何も指定せず、従来と同じ要求になります。',
+    effortLabels: {
+      low: 'low（控えめ）',
+      medium: 'medium（標準）',
+      high: 'high（深く）',
+      xhigh: 'xhigh（より深く）',
+      max: 'max（最大）',
+    } as Record<string, string>,
     modelNotListed: (id: string) => `${id}（一覧にありません）`,
     modelsRefresh: '一覧を更新',
     modelsRefreshing: '取得中…',
@@ -150,59 +175,7 @@ export const settings = {
     apiKeyNeedsSavedProvider:
       'プロバイダを変更した場合は、先に「設定を保存」してから API キーを設定してください。',
     apiKeyStored: 'API キーは資格情報ストアに保存され、画面には再表示されません。',
-    chatgpt: {
-      heading: 'ChatGPT プラン',
-      intro:
-        'ChatGPT Plus／Pro のプランの範囲で下書きを作ります。API キーは要りません。ログインは OpenAI の公式画面（ブラウザ）で行い、Hitomado はパスワードも Cookie も受け取りません。',
-      notOfficial:
-        'Hitomado は OpenAI の公式アプリではありません。ログインの許可は ChatGPT の設定からいつでも取り消せます。',
-      login: 'Continue with ChatGPT',
-      loginWaiting: 'ブラウザで ChatGPT のログインを完了してください…',
-      loginCancel: 'ログインを中止',
-      addAccount: 'アカウントを追加',
-      accountsHeading: 'ChatGPT アカウント',
-      accountsLabel: '下書きに使う ChatGPT アカウント',
-      accountHint:
-        'アカウントを追加しても、いま使っているアカウントは、追加のログインが終わるまで変わりません。同じメールアドレスでも別の登録として扱います。',
-      noEmail: '（メールアドレスなし）',
-      accountDuplicate: (label: string, id: string) => `${label}（登録 …${id.slice(-4)}）`,
-      accountActive: '使用中',
-      accountSignedOut: 'ログアウト済み',
-      select: (label: string) => `${label} を使う`,
-      relogin: '再ログイン',
-      logout: 'ログアウト',
-      logoutAccount: (label: string) => `${label} をログアウト`,
-      reloginAccount: (label: string) => `${label} に再ログイン`,
-      remove: '削除',
-      removeAccount: (label: string) => `${label} の登録を削除`,
-      removed: 'ChatGPT アカウントの登録を削除しました。',
-      switched: (label: string) => `${label} に切り替えました。`,
-      // ログアウト済みのアカウントを選んだとき（一覧が古いなど）。ボタン名は一覧の「再ログイン」と同じ。
-      selectSignedOut:
-        'このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。',
-      statusSignedIn: (email: string) => (email ? `ログイン済み（${email}）` : 'ログイン済み'),
-      statusSignedOut: '未ログインです。',
-      statusChoose: '使うアカウントを選んでください。',
-      usingPlan: 'Using ChatGPT plan',
-      manageUsage: 'Manage usage',
-      usageUrl: 'https://chatgpt.com/settings/usage',
-      // 初めて ChatGPT プランの利用が有効になったときの確認。文言（英語）は OpenAI の UI/UX ガイドラインに合わせる。
-      planNotice: {
-        title: "You're using your ChatGPT plan",
-        body: 'Eligible AI requests in Hitomado will use your ChatGPT plan. You can manage usage in ChatGPT settings.',
-        account: (email: string) => `ChatGPT account: ${email}`,
-        note: 'Hitomado の「AI で下書き」は、あなたの ChatGPT プランの範囲で使われます。使用状況は ChatGPT の設定で確認・管理できます。',
-        manage: 'Manage usage',
-        gotIt: 'Got it',
-        ackFailed: '確認の記録に失敗しました。次回もう一度表示されます。',
-      },
-      signedIn: 'ChatGPT にログインしました。',
-      signedOut: 'ChatGPT からログアウトしました。',
-      revokeUnconfirmed:
-        'ログアウトしました（OpenAI 側の連携の解除は確認できませんでした）。ChatGPT の設定の連携アプリから解除できます。',
-      saveBeforeUse:
-        '「設定を保存」でプロバイダを ChatGPT プランに切り替えてから、モデルを選んで保存してください。',
-    },
+    chatgpt: settingsChatgpt,
     // プロバイダを選んだときの同意（F-08）と、同意のあとの取得。同意の画面の文言は compose.ai の consentTitle／consentBody と共通。
     consentDialogAgree: '同意して一覧を取得する',
     consentAsk: '同意の画面を開く',

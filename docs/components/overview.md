@@ -222,8 +222,9 @@ graph TD
   ThreadPane --> MessageCard --> MessageBody
   MessageCard --> AttachmentList
   ThreadPane --> ReplyBar
-  ComposePane --> SenderField
-  ComposePane --> RecipientField
+  ComposePane --> ComposeFields
+  ComposeFields --> SenderField
+  ComposeFields --> RecipientField
   ComposePane --> RichTextEditor
   ComposePane --> AttachmentBar
   ComposePane --> AiDraftButton
@@ -281,7 +282,7 @@ graph TD
 
 | コンポーネント | 責務 | Props／Emits | バインディング／ストア |
 |----------------|------|--------------|------------------------|
-| `ThreadPane` | 選択スレッドの詳細表示。表示後に未読なら `MarkRead`。未選択時は空状態 | — | `threadStore`（`ThreadService.GetThread`、`InboxService.MarkRead`） |
+| `ThreadPane` | 選択スレッドの詳細表示。表示後に未読なら `MarkRead`。未選択時は空状態。返信・転送の `ComposePane` を下部に埋め込み、占める高さは右ペインの 60% までだが本文エディタの最低高さ（240px）を優先する。「広げる」中（`expanded`。コンポーネント内のメモリだけ）は作成画面が右ペイン全体を使い、スレッド本文は隠す。スレッドの切り替え・作成画面を閉じる／送信／破棄で元に戻す（#112） | — | `threadStore`（`ThreadService.GetThread`、`InboxService.MarkRead`） |
 | `ThreadHeader` | 件名、**受信アカウント（色・名前・アドレス）を常時表示**、操作ボタン（アーカイブ・ゴミ箱・ラベル・未読にする） | | `threadStore`、`inboxStore` |
 | `MessageCard` | 1 メッセージ。最新と未読は展開、他は折りたたみ。ヘッダ（差出人・宛先・Cc・日時） | props: `message`, `expanded` | — |
 | `MessageBody` | 本文表示。§3.8 の方針でサニタイズ・iframe 表示・リモート画像ブロック・リンク捕捉 | props: `html?`, `text?`, `hasRemoteImages` | `lib/sanitize` |
@@ -292,12 +293,14 @@ graph TD
 
 | コンポーネント | 責務 | Props／Emits | バインディング／ストア |
 |----------------|------|--------------|------------------------|
-| `ComposePane` | 返信・転送・新規のエディタ全体。メインウィンドウ内のペイン。破棄・閉じる（閉じる時は自動保存してから閉じる）、「送信」「送信してアーカイブ」（返信・転送のみ） | | `composeStore` |
+| `ComposePane` | 返信・転送・新規のエディタ全体。メインウィンドウ内のペイン。破棄・閉じる（閉じる時は自動保存してから閉じる）、「送信」「送信してアーカイブ」（返信・転送のみ）。**本文エディタ（`RichTextEditor`）の高さは 240px 以上を保証する**（#112）: 全体は縦スクロール可能にし、ヘッダ・宛先・AI・添付が増えてもエディタを縮めない。返信・転送（`ThreadPane` の中に埋め込むとき）は「広げる／元に戻す」ボタンを出す | props: `embedded`（スレッド内に埋め込むか）, `expanded`。emits: `toggle-expand` | `composeStore` |
 | `SenderField` | 送信元表示。`senderLocked` なら**表示のみ**（変更 UI なし）。`new` は選択式（未選択状態あり）。未選択時は送信ボタンを無効化 | props: `from`, `locked`, `accounts` | `ComposeService.SetComposeSender` |
+| `ComposeFields` | `ComposePane` の宛先・件名の入力部（送信元・To・Cc・Bcc・件名。`SenderField`／`RecipientField` を持つ）。入力途中の宛先の確定（`commitPending`）を `ComposePane` へ公開する | props: `frozen` | `composeStore` |
 | `RecipientField` | To／Cc／Bcc の入力（Cc／Bcc は開閉式）。チップ化、貼り付けの複数アドレス分割、オートコンプリート | props: `modelValue`, `accountId` | `ComposeService.SuggestContacts`（デバウンス 150ms） |
 | `RichTextEditor` | Tiptap。太字・リンク・箇条書き。署名ブロックを `data-hitomado-signature` として保持。貼り付けは書式をクリーニング | props/emits: `v-model:html` | — |
 | `AttachmentBar` | 添付の一覧・削除・追加ボタン・ドラッグ＆ドロップ。合計サイズ表示と上限エラー | | `ComposeService.AddAttachments／RemoveAttachment` |
 | `AiDraftButton` | 「AI で下書き」。AI の設定が未保存（`aiConfig.configured` が偽）→初回の案内（ChatGPT でログインする「Continue with ChatGPT」・「別のプロバイダを選ぶ」・「あとで」。[§3.9.1](#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）。保存済みでキー未設定（ChatGPT プランは未ログイン）→設定へ誘導。ChatGPT プラン使用中は「Using ChatGPT plan」と「Manage usage」を表示、利用枠の超過（`AI_FAILED` の `details.reason`）は「Manage usage」を主なアクションにしたコンパクトな案内 `UsageLimitNotice`（ChatGPT の見出しを残す。失敗メッセージだけにしない）、未同意→同意ダイアログ（`AIConsentDialog`。設定画面と共通）、生成中→キャンセル可、本文入力済み→置換確認 | emits: `generated(bodyHtml)` | `AIService.GenerateReplyDraft／CancelGenerate／RecordAIConsent`（`settingsStore` 経由） |
+| `AiDraftInstruction` | 「AI への指示」（F-08。#109）。`AiDraftButton` の隣の「指示を追加」で開閉する複数行の入力欄（初期は閉じる。2,000 文字の残り表示。空・空白だけなら指示なしの従来の下書き）。値は `composeStore` の作成セッションにだけ持つ（`localStorage` などには保存しない）。入力欄は内容に応じて 2〜6 行まで伸びる（超えたら内部スクロール） | props/emits: `v-model` | `composeStore.aiInstruction`（`AIService.GenerateReplyDraft` の `instruction`） |
 | `SendConfirmDialog` | `PrepareSend` の結果を表示。**送信元を最大文字で表示（`SenderBadge`）**、宛先・件名・添付数・本文冒頭、`warnings`（他の自アカウント宛・件名なし・本文なし）。確定ボタン「<アドレス> から送信」。ダイアログ表示中はエディタ操作不可 | props: `preview`, `busy` | `composeStore.confirmSend`（`ComposeService.Send`） |
 | `SignatureConflictDialog` | 新規作成で送信元を切り替えたとき、署名部分が編集済みなら差し替える前に確認する（F-07）。「編集した署名を残す」「差し替える」。`ComposePane` が配置する | — | `composeStore.signatureConflict`／`resolveSignatureConflict` |
 
@@ -331,8 +334,9 @@ graph TD
 | `SettingsDialog` | タブ（アカウント／OAuth クライアント／署名／AI／MCP／ログ／一般）。`platformStore.supportsMcp` が偽（Android）のときは MCP のタブを出さない。開くタブは `uiStore.settingsTab`（`openSettings(tab?)` で指定）に従う | `uiStore` |
 | `AccountsSettings` | アカウント一覧、表示名・色・通知オン／オフ、並べ替え、再接続、削除（確認つき）。OAuth クライアントの拒否で要再接続のアカウントの行には、`statusMessage` と「OAuth クライアントを確認」ボタン（OAuth クライアントタブへ切り替える）を再接続ボタンと並べて出す | `AccountService.UpdateAccount／ReorderAccounts／Reconnect／RemoveAccount` |
 | `OAuthClientsSettings` | クライアントの追加・編集・削除（使用中は削除不可を表示）、README（OAuth クライアント作成手順）へのリンク | `AccountService.*OAuthClient` |
-| `SignatureSettings` | アカウント選択＋リッチテキスト署名編集（`RichTextEditor` 共用） | `AccountService.SetSignature` |
+| `SignatureSettings` | アカウント選択＋リッチテキスト署名編集（`RichTextEditor` 共用）。**「Gmail から取得」ボタン**（#110）: `FetchGmailSignature` を呼び、結果を署名エディタに入れる（保存はしない。エディタに入力済みなら置換前に確認。`found` が偽なら「Gmail に署名が設定されていません」を出してエディタを変えない。`sanitized` が真なら「画像・装飾など、取り込めない部分は除きました」を出す。取得中はボタンを無効にし、失敗は理由を表示する） | `AccountService.SetSignature`／`FetchGmailSignature` |
 | `AISettings` | プロバイダ（Anthropic／OpenAI 互換／ChatGPT プラン。**未保存のときの既定は ChatGPT プラン**。選ぶと、保存前でも同意の確認→モデル一覧の取得へ進む。[§3.9.1](#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）・モデル（取得した一覧から選択。取得できない・まだのときは手入力。「一覧を更新」ボタンと取得できない理由の表示。保存済みのモデルが一覧に無くても選択肢に残す。子コンポーネント `AIModelField`）・Base URL（`https://`、または `localhost`／`127.0.0.1`／`::1` の `http://` のみ。それ以外は `VALIDATION` を表示）・API キー（入力後は伏字、削除可。子コンポーネント `AIApiKey`）・ChatGPT プランでは API キー・Base URL の代わりに `AIChatGPTLogin`（「Continue with ChatGPT」・ログイン中の中止・保存済みの ChatGPT アカウントの一覧（使用中の表示・選んで切り替え・アカウントごとのログアウト・ログアウト済みの登録の再ログインと削除。同じメールアドレスの登録は ID の末尾で見分ける。画面が古くログアウト済みのアカウントを選んでしまったときは、エラー欄に「このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。」を出し、一覧を読み込み直す）・「アカウントを追加」・「Using ChatGPT plan」「Manage usage」・初めてログインして ChatGPT プランの利用が有効になったときだけ出す確認モーダル `ChatGPTPlanNotice`（「You're using your ChatGPT plan」・説明・使用状況へのリンク・「Got it」で確認済みにする。ロゴは使わない））・設定画面からの送信への同意（同意すると一覧を取得）、同意状況（送信先が変わると再同意）、送信先の表示 | `AIService.*` |
+| `AIEffortField` | 「エフォート」の選択（F-08。#111。`AISettings` の子）。先頭は常に「モデルの既定」。`anthropic` は選んだモデルの `AIModel.efforts` の段階だけを出し、`efforts` が省略のモデル・一覧が取れず手入力のモデルでは、エフォートの選択自体を出さない。`openai`／`chatgpt` は共通の `low`／`medium`／`high` を出す。モデル・プロバイダを変えて選択中の値が選択肢に無くなったら「モデルの既定」へ戻す。選んだ値は `SetAIConfig` の `effort` で保存する | props: `efforts`（出す段階。空なら選択自体を出さない）, `modelValue`。emits: `update:modelValue` | `settingsStore.setAIConfig` |
 | `AIConsentDialog`／`AIConsentSection` | 同意の画面（F-08。送信先のプロバイダ名と URL を表示。作成画面の `AiDraftButton` と設定画面の `AISettings` が共用）／設定画面の「送信への同意」（選んだ送信先の同意の状態と、同意の画面を開くボタン） | props: 送信先・開閉・保存中。emits: `agree`／`cancel` | — |
 | `AISetupDialog` | 作成画面の「AI で下書き」の初回の案内（AI の設定が未保存のとき。`AiDraftButton` が出し、選んだ道を設定画面の AI の流れへつなぐ） | props: `open`。emits: `choose(choice?: 'chatgpt' \| 'other')` | — |
 | `McpSettings` | MCP のオン／オフ（既定オフ）、待ち受けアドレス・ポート、loopback 以外の許可、トークンの発行・再発行・無効化（値は発行直後だけ表示してコピー）、接続先 URL・状態 | `MCPService.*` |
@@ -402,6 +406,7 @@ AI の設定の入口は 2 つ（作成画面の「AI で下書き」と設定�
 | `composables/useAutosave` | §3.7 の自動保存 |
 | `composables/useQuitFlush` | `app:before-quit`（トレイの「終了」）で未保存の下書きを保存（`SaveDraft`）してから `AppService.AckBeforeQuit` を呼ぶ。保存に失敗しても必ず Ack する（F-12） |
 | `composables/useAiDraft` | 「AI で下書き」の状態遷移（AI の設定が未保存→初回の案内、キー未設定→設定へ誘導、未同意→同意、本文入力済み→置換確認、生成中→キャンセル可。F-08） |
+| `components/settings/ai/useAiSetupFlow` | 設定画面の AI の「プロバイダを選ぶ→同意→モデル一覧の取得」の流れ（`AISettings` の一部。§3.9.1） |
 | `composables/useContactSuggest` | 宛先オートコンプリート。入力が止まって 150ms で `SuggestContacts` を呼ぶ（F-13） |
 | `composables/useComposeLifecycle` | 作成セッションの保存・終了（`composeStore` の一部） |
 | `composables/useComposeSend` | 作成セッションの送信フローと添付の追加・削除（`composeStore` の一部）。`prepareSend`（`PrepareSend`）→ 確認ダイアログ → `confirmSend`（`Send`）の順で、確認のキャンセル（`cancelPreview`）でトークンを破棄する。送信が失敗してもセッション・本文・添付は保持し、再度 `prepareSend` から送れる |
@@ -469,7 +474,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | F-04／F-04b 基本操作・ラベル | `ListToolbar`、`ThreadHeader`、`inboxStore` | `InboxService`、`gmail.Client` |
 | F-05 返信・転送 | `ReplyBar`、`ComposePane`、`SenderField` | `ComposeService`、`domain/reply`、`domain/quote`、`domain/senderpolicy` |
 | F-06 送信前確認 | `SendConfirmDialog`、`SenderBadge` | `ComposeService`（`PrepareSend`／`Send`）、`domain/confirm` |
-| F-07 署名 | `SignatureSettings`、`lib/signature` | `AccountService.SetSignature`、`domain/signature` |
+| F-07 署名 | `SignatureSettings`、`lib/signature` | `AccountService.SetSignature`／`FetchGmailSignature`、`domain/signature` |
 | F-08 AI 下書き | `AiDraftButton`、`AISettings` | `AIService`、`ai.Provider` |
 | F-09 検索 | `SearchBar`、`inboxStore.runSearch` | `InboxService.Search` |
 | F-10 通知・トレイ | `uiStore`（`notify:open-thread`）、`AccountsSettings`（通知切替） | `sync.detector`、`notify.Notifier`、`platform.Notifier`／`platform.Tray`、`run.go`（トレイ生成・単一インスタンス） |
@@ -507,3 +512,8 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 1.22 | 2026-11-04 | `AIChatGPTLogin` が、ログアウト済みのアカウントを選んだとき（`details.reason = "account_signed_out"`）に再ログインを案内する日本語の文面を出し、一覧を読み込み直す旨を追記 | 何をすればよいか分からない文面だったため（#102） |
 | 1.23 | 2026-11-04 | `AppService` に自動アップデート（`internal/app/updatecore`・`update.Manager`）を、`GeneralSettings`・`settingsStore`・`lib/updateBanner` に自動アップデートの設定・進み・「再起動して更新」を追記 | #103 |
 | 1.24 | 2026-11-04 | §3.9 に §3.9.1（AI 設定と初回の案内の流れ。入口 A: 設定画面でプロバイダを選ぶ→同意→モデル一覧、入口 B: 作成画面の「AI で下書き」の初回の案内。同意の画面・ChatGPT ログイン・モデル取得を共有する）を追加。`AISettings`（未保存の既定は ChatGPT・保存前でも同意とモデル取得）・`AiDraftButton`・`settingsStore`・`useAiDraft` を更新し、`AIConsentDialog`／`AIConsentSection`／`AISetupDialog` を追加。Android の扱いを追記 | #104・#105 |
+| 1.25 | 2026-11-05 | §3.7 に `AiDraftInstruction`（AI への指示の入力欄）を追加 | #109 |
+| 1.26 | 2026-11-05 | §3.9 の `SignatureSettings` に「Gmail から取得」（`AccountService.FetchGmailSignature`）を追加し、§6 の F-07 の対応を更新 | #110 |
+| 1.27 | 2026-11-05 | §3.9 に `AIEffortField`（モデルのエフォートの選択）を追加し、`settingsStore.setAIConfig` が `effort` を渡す旨を追記 | #111 |
+| 1.28 | 2026-11-05 | §3.7 の `ComposePane` に本文エディタの最低高さ（240px）・縦スクロール・「広げる／元に戻す」を、`ThreadPane` に作成画面の高さの上限と「広げる」中の表示を追記 | #112 |
+| 1.29 | 2026-11-05 | §3.7 に `ComposeFields`（`ComposePane` の宛先・件名の入力部）を、§5 に `useAiSetupFlow`（設定画面の AI の流れの部分）を実装の分割に合わせて追記 | #111・#112 |

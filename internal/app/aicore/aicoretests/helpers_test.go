@@ -1,4 +1,4 @@
-package aicore_test
+package aicoretests
 
 import (
 	"errors"

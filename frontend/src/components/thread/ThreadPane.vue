@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { thread as msg } from '../../lib/messages'
 import { useComposeStore } from '../../stores/compose'
 import { useLayoutStore } from '../../stores/layout'
@@ -28,6 +28,33 @@ const expanded = ref<Set<string>>(new Set())
 watch(detail, (cur, prev) => {
   expanded.value = nextExpanded(prev, cur, expanded.value)
 }, { immediate: true })
+
+/**
+ * 作成画面を右ペイン全体へ広げているか（#112）。コンポーネント内のメモリだけで持ち、保存しない。
+ * スレッドの切り替え・送信・閉じる・破棄（= 埋め込みの作成画面が無くなる）で元に戻す。
+ */
+const composeExpanded = ref(false)
+const scrollEl = ref<HTMLElement>()
+let savedScroll = 0
+
+async function setComposeExpanded(on: boolean): Promise<void> {
+  if (composeExpanded.value === on) return
+  if (on) savedScroll = scrollEl.value?.scrollTop ?? 0
+  composeExpanded.value = on
+  if (on) return
+  // 隠していたスレッド本文を、広げる前と同じ読んでいた位置で出す。
+  await nextTick()
+  if (scrollEl.value) scrollEl.value.scrollTop = savedScroll
+}
+watch(editing, (v) => {
+  if (!v) void setComposeExpanded(false)
+})
+watch(
+  () => store.currentRef,
+  (cur, prev) => {
+    if (cur?.accountId !== prev?.accountId || cur?.threadId !== prev?.threadId) void setComposeExpanded(false)
+  },
+)
 
 function openReply(mode: ReplyMode): void {
   const ref = store.currentRef
@@ -59,8 +86,8 @@ function openDraft(): void {
     </div>
 
     <template v-else>
-      <ThreadHeader :detail="detail" />
-      <div class="scroll" data-testid="thread-scroll">
+      <ThreadHeader v-show="!composeExpanded" :detail="detail" />
+      <div v-show="!composeExpanded" ref="scrollEl" class="scroll" data-testid="thread-scroll">
         <MessageCard
           v-for="m in messages"
           :key="m.id"
@@ -70,7 +97,12 @@ function openDraft(): void {
           @save-attachment="store.saveAttachment(m.id, $event)"
         />
       </div>
-      <ComposePane v-if="editing" class="embedded-compose" />
+      <ComposePane
+        v-if="editing"
+        embedded
+        :expanded="composeExpanded"
+        @toggle-expand="setComposeExpanded(!composeExpanded)"
+      />
       <ReplyBar v-else :draft-id="detail.draftId" @open="openReply" @open-draft="openDraft" />
     </template>
   </section>
@@ -114,11 +146,5 @@ function openDraft(): void {
   min-height: 0;
   overflow-y: auto;
   padding: var(--space-4);
-}
-
-.embedded-compose {
-  flex: none;
-  max-height: 60%;
-  border-top: 1px solid var(--color-border);
 }
 </style>

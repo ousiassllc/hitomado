@@ -1,12 +1,17 @@
 // 設定画面の AI 設定の、編集中（保存前）の選択から導く状態。保存済みの設定（store.aiConfig）とは独立に、選んだプロバイダ・
 // Base URL の資格情報・一覧・同意を扱う（保存前でも取得・同意できる。#105）。
 import { computed, type Ref, watch } from 'vue'
-import { aiModelsKey } from '../../../lib/aiConfig'
+import { aiModelsKey, effortChoices } from '../../../lib/aiConfig'
 import { settings as msg } from '../../../lib/messages'
 import { useSettingsStore } from '../../../stores/settings'
 import { aiDestination, DEFAULT_AI_PROVIDER, providerLabel } from './aiDestination'
 
-export function useAiDraftState(provider: Ref<string>, model: Ref<string>, baseUrl: Ref<string>) {
+export function useAiDraftState(
+  provider: Ref<string>,
+  model: Ref<string>,
+  baseUrl: Ref<string>,
+  effort: Ref<string>,
+) {
   const store = useSettingsStore()
   const saved = computed(() => store.aiConfig)
 
@@ -14,6 +19,7 @@ export function useAiDraftState(provider: Ref<string>, model: Ref<string>, baseU
     provider.value = saved.value?.provider ?? DEFAULT_AI_PROVIDER
     model.value = saved.value?.model ?? ''
     baseUrl.value = saved.value?.baseUrl ?? ''
+    effort.value = saved.value?.effort ?? ''
   }
   // 下書きは、保存済みの設定そのものが変わったときだけ戻す。同意・キー・ログインで aiConfig が更新されても、選びかけのプロバイダは変えない。
   const savedDraftKey = computed(() =>
@@ -22,6 +28,7 @@ export function useAiDraftState(provider: Ref<string>, model: Ref<string>, baseU
       saved.value?.provider,
       saved.value?.model,
       saved.value?.baseUrl,
+      saved.value?.effort,
     ]),
   )
   watch(savedDraftKey, resetDraft, { immediate: true })
@@ -35,7 +42,8 @@ export function useAiDraftState(provider: Ref<string>, model: Ref<string>, baseU
       saved.value?.configured !== true ||
       providerChanged.value ||
       model.value.trim() !== (saved.value?.model ?? '') ||
-      baseUrlChanged.value,
+      baseUrlChanged.value ||
+      effort.value !== (saved.value?.effort ?? ''),
   )
   const draftInSync = computed(
     () => saved.value !== undefined && !providerChanged.value && !baseUrlChanged.value,
@@ -48,6 +56,12 @@ export function useAiDraftState(provider: Ref<string>, model: Ref<string>, baseU
       : (saved.value?.apiKeyProviders?.includes(provider.value) ?? false),
   )
   const models = computed(() => store.aiModels[aiModelsKey(provider.value, draftBaseUrl.value)])
+  // 選んだモデルで選べるエフォートの段階（#111。空ならエフォートの選択は出さない）。
+  const efforts = computed(() => effortChoices(provider.value, model.value, models.value))
+  /** プロバイダ・モデルを選び直したとき、選択中のエフォートが新しい選択肢に無ければ「モデルの既定」へ戻す（黙って引き継がない）。 */
+  function fitEffort(): void {
+    if (effort.value !== '' && !efforts.value.includes(effort.value)) effort.value = ''
+  }
   // 選んだ送信先への同意。保存済みの設定と同じ送信先なら保存済みの状態、そうでなければ最後の取得の結果（未取得・Base URL が使えないときは不明）。
   const draftConsent = computed<boolean | undefined>(() => {
     if (draftInSync.value) return saved.value?.consentedProviders?.includes(provider.value) ?? false
@@ -77,6 +91,8 @@ export function useAiDraftState(provider: Ref<string>, model: Ref<string>, baseU
     configDirty,
     hasCredential,
     models,
+    efforts,
+    fitEffort,
     draftConsent,
     draftDestination,
     consentText,

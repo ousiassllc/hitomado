@@ -80,7 +80,14 @@ describe('settingsStore', () => {
   test('setAIConfig・setAIApiKey・clearAIApiKey・recordAIConsent は戻り値で aiConfig を更新する', async () => {
     const s = useSettingsStore()
     await s.setAIConfig('openai', 'x', 'https://llm.example/v1')
-    expect(callsOf('SetAIConfig')[0]?.args).toEqual(['openai', 'x', 'https://llm.example/v1'])
+    expect(callsOf('SetAIConfig')[0]?.args).toEqual(['openai', 'x', 'https://llm.example/v1', ''])
+    await s.setAIConfig('openai', 'x', 'https://llm.example/v1', 'high')
+    expect(callsOf('SetAIConfig')[1]?.args).toEqual([
+      'openai',
+      'x',
+      'https://llm.example/v1',
+      'high',
+    ])
     expect(s.aiConfig?.baseUrl).toBe('https://llm.example/v1')
 
     await s.setAIApiKey('anthropic', 'secret')

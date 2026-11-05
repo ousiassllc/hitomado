@@ -26,6 +26,8 @@ export interface AiDraftDeps {
   recordConsent: (provider: string) => Promise<void>
   /** 生成。cancel() で Go 側の ctx をキャンセルする（requestId は呼び出しごとに一意）。 */
   generate: (requestId: string) => Promise<{ bodyHtml: string }>
+  /** 「AI への指示」が使えないときの理由（上限超過など）。あれば生成を始めずにエラー表示する（本文は変えない）。 */
+  instructionError?: () => string | undefined
   cancel: (requestId: string) => Promise<void>
   onGenerated: (bodyHtml: string) => void
   newRequestId: () => string
@@ -102,6 +104,11 @@ export function useAiDraft(deps: AiDraftDeps) {
     if (step.value !== 'idle') return
     error.value = undefined
     usageLimit.value = false
+    const invalid = deps.instructionError?.()
+    if (invalid !== undefined) {
+      error.value = invalid
+      return
+    }
     await proceed()
   }
 

@@ -287,11 +287,12 @@ sequenceDiagram
   participant CS as ComposeService
   participant GM as gmail.Client
   participant PV as ai.Provider
-  FE->>AI: GenerateReplyDraft(sessionId, requestId)
+  FE->>AI: GenerateReplyDraft(sessionId, requestId, instruction?)
   AI->>CS: 作成セッションから送信元アカウントとスレッドを取得（返信・全員に返信のみ。new／forward は VALIDATION）
   AI->>AI: 同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
-  AI->>PV: 生成要求（直近 5 メッセージ・20,000 文字以内）
+  AI->>PV: 生成要求（直近 5 メッセージ・20,000 文字以内＋あれば利用者の指示。指示は別枠で 2,000 文字まで）
+  Note over AI,PV: 設定にエフォートがあれば要求に載せる（Anthropic: output_config.effort／OpenAI 互換: reasoning_effort／ChatGPT: reasoning.effort）。無ければ載せない
   PV-->>AI: 本文テキスト
   AI-->>FE: 下書き本文（フロントがエディタに挿入。送信は行わない）
 ```
@@ -344,3 +345,5 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 | 1.17 | 2026-11-03 | §7.2 に Android のバックグラウンド同期（WorkManager・`internal/headless`・Java の通知・二重同期の排他）を追記 | #88 |
 | 1.18 | 2026-11-04 | §5 の ChatGPT プランに、アカウントごとにトークンと登録を分けて保存し、使用中のアカウントで生成する旨を追記 | 複数の ChatGPT アカウント（#79） |
 | 1.19 | 2026-11-04 | `internal/update` に Windows 版の自動アップデート（ダウンロード・`SHA256SUMS.txt` との照合・入れ替えの指示）を追加し、§5.1 に通信先（`github.com` とリダイレクト先）・安全条件・NSIS のサイレント実行（`/S /WAIT=60 /RELAUNCH`）・インストーラーの失敗の扱いを追記。通信先の図と発行イベント（`update:status`）を更新 | #103 |
+| 1.20 | 2026-11-05 | §7.4 の `GenerateReplyDraft` に任意の `instruction` を追加（プロバイダへはスレッド本文とは別枠の「利用者の指示」として渡す） | #109 |
+| 1.21 | 2026-11-05 | §7.4 に、`ai.Provider` が設定されたエフォートをプロバイダごとの項目（`output_config.effort`／`reasoning_effort`／`reasoning.effort`）で要求に載せることを追記（設定が無ければ従来の要求） | #111 |

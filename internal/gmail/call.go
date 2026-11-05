@@ -16,6 +16,7 @@ const maxRetries = 6
 // クォータユニット（Gmail API のクォータ計算。ユーザーあたり 250 units/秒）。
 const (
 	unitsLabels      = 1
+	unitsSettings    = 1
 	unitsHistory     = 2
 	unitsAttachment  = 5
 	unitsMessageList = 5

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { compose as msg, settings as settingsMsg } from '../../lib/messages'
-import BaseButton from '../ui/BaseButton.vue'
+import { compose as msg, settings as settingsMsg } from '../../../lib/messages'
+import BaseButton from '../../ui/BaseButton.vue'
 
 // ChatGPT プランの利用枠を超えたときのコンパクトな案内（OpenAI の UI/UX ガイドライン: 利用枠の超過では
 // Manage usage を主なアクションにする。ChatGPT であることが分かる見出しを残す）。ロゴは使わない（docs/requirements/functional.md F-08）。

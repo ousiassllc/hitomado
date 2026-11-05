@@ -74,7 +74,7 @@ func (s *Service) ListAIModels(ctx context.Context, provider, baseURL string) (d
 	}
 	out := make([]dto.AIModel, len(list))
 	for i, m := range list {
-		out[i] = dto.AIModel{ID: m.ID, DisplayName: m.DisplayName}
+		out[i] = dto.AIModel{ID: m.ID, DisplayName: m.DisplayName, Efforts: m.Efforts}
 	}
 	s.d.Logger.Info("ai models listed", "provider", provider, "count", len(out))
 	return dto.AIModelList{Provider: provider, Models: out}, nil

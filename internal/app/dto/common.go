@@ -31,6 +31,13 @@ type Account struct {
 	SortOrder     int    `json:"sortOrder"`
 }
 
+// GmailSignature は Gmail の設定から取得した署名（F-07。#110）。保存はしない。
+type GmailSignature struct {
+	SignatureHTML string `json:"signatureHtml"` // 許可タグへ整形済み。Found が偽なら ""
+	Found         bool   `json:"found"`         // Gmail に署名が設定されているか
+	Sanitized     bool   `json:"sanitized"`     // 整形で内容（画像・装飾など）を落としたか
+}
+
 // OAuthClient は登録済み OAuth クライアント（Secret は返さない）。
 type OAuthClient struct {
 	ID           string `json:"id"`

@@ -247,3 +247,28 @@ func TestListLabelsFetchesColorForUserLabels(t *testing.T) {
 		{ID: "Label_2", Name: "削除済み", Type: "user"},
 	}, got)
 }
+
+func TestGetSignature(t *testing.T) {
+	e := newTestEnv(t)
+	e.f.HandleJSON("GET "+apiBase+"/settings/sendAs/me@example.com", 200, map[string]any{
+		"sendAsEmail": "me@example.com", "signature": `<div dir="ltr">山田</div>`,
+	})
+	got, err := e.c.GetSignature(context.Background(), testAccount, "me@example.com")
+	require.NoError(t, err)
+	assert.Equal(t, `<div dir="ltr">山田</div>`, got)
+}
+
+func TestGetSignatureEmpty(t *testing.T) {
+	e := newTestEnv(t)
+	e.f.HandleJSON("GET "+apiBase+"/settings/sendAs/me@example.com", 200, map[string]any{"sendAsEmail": "me@example.com"})
+	got, err := e.c.GetSignature(context.Background(), testAccount, "me@example.com")
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
+func TestGetSignatureNotFound(t *testing.T) {
+	e := newTestEnv(t)
+	e.f.HandleJSON("GET "+apiBase+"/settings/sendAs/me@example.com", 404, apiError(404, "notFound", "nf"))
+	_, err := e.c.GetSignature(context.Background(), testAccount, "me@example.com")
+	require.ErrorIs(t, err, ErrNotFound)
+}

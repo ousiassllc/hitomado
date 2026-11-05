@@ -17,6 +17,12 @@ export interface AIConfig {
     "baseUrl"?: string;
 
     /**
+     * Effort は下書きの生成に渡すモデルのエフォート（reasoning effort。#111）。空は「モデルの既定」（プロバイダへ送らない）。
+     * anthropic は low／medium／high／xhigh／max、openai／chatgpt は low／medium／high。範囲外の保存値は空として返す。
+     */
+    "effort"?: string;
+
+    /**
      * Configured は AI の設定（プロバイダ・モデル）を一度でも保存したか。false の間、provider は既定（chatgpt）で、画面は初めて使うときの案内を出す。
      */
     "configured": boolean;
@@ -50,6 +56,13 @@ export interface AIConfig {
 export interface AIModel {
     "id": string;
     "displayName"?: string;
+
+    /**
+     * Efforts はそのモデルが受け付けるエフォートの段階（弱い順。#111）。anthropic は Models API の capabilities.effort から作る
+     * （対応しない・取れないモデルは省略＝画面はエフォートの選択を出さない）。openai・chatgpt は一覧が段階を返さないので常に省略する
+     * （画面は共通の low／medium／high を出す）。
+     */
+    "efforts"?: string[] | null;
 }
 
 /**
@@ -244,6 +257,26 @@ export interface ComposeSession {
 export interface ExportLogsResult {
     "saved": boolean;
     "path"?: string;
+}
+
+/**
+ * GmailSignature は Gmail の設定から取得した署名（F-07。#110）。保存はしない。
+ */
+export interface GmailSignature {
+    /**
+     * 許可タグへ整形済み。Found が偽なら ""
+     */
+    "signatureHtml": string;
+
+    /**
+     * Gmail に署名が設定されているか
+     */
+    "found": boolean;
+
+    /**
+     * 整形で内容（画像・装飾など）を落としたか
+     */
+    "sanitized": boolean;
 }
 
 /**
