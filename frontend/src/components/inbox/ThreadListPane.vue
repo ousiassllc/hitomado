@@ -138,6 +138,5 @@ async function toggleLabel(labelId: string): Promise<void> {
 .app-name {
   flex: 1;
   font-size: var(--font-size-base);
-  font-weight: 600;
 }
 </style>
