@@ -342,3 +342,20 @@ describe('タイポグラフィ（T・#126）', () => {
     )
   })
 })
+
+describe('入力欄の padding（S2・#127）', () => {
+  const padding = (rel: string, selector: string) => {
+    const style = /<style[\s\S]*<\/style>/.exec(read(`../../src/components/${rel}`))?.[0] ?? ''
+    return new RegExp(`${selector}\\s*\\{[^}]*?padding:\\s*([^;]+);`).exec(style)?.[1]
+  }
+
+  test.each([
+    ['inbox/SearchBar.vue', '\\.input', '0 var(--s-3)'],
+    ['settings/SettingsInput.vue', '\\.field-input', '0 var(--s-3)'],
+    ['compose/ComposeFields.vue', '\\.subject-input', '0 var(--s-3)'],
+    ['compose/ai/AiDraftInstruction.vue', '\\.instruction-input', 'var(--s-3)'],
+    ['compose/RecipientField.vue', '\\.recipient-box', 'var(--s-1) var(--s-3)'],
+  ])('%s の %s は左右 12px（--s-3）で揃える', (rel, selector, expected) => {
+    expect(padding(rel, selector)).toBe(expected)
+  })
+})

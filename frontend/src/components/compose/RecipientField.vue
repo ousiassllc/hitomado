@@ -202,7 +202,7 @@ function onKeydown(e: KeyboardEvent): void {
   align-items: center;
   gap: var(--s-1);
   min-height: var(--control-h);
-  padding: var(--s-1) var(--s-2);
+  padding: var(--s-1) var(--s-3);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);

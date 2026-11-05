@@ -63,7 +63,7 @@ const id = useId()
 
 .field-input {
   min-height: var(--control-h);
-  padding: 0 var(--s-2);
+  padding: 0 var(--s-3);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
