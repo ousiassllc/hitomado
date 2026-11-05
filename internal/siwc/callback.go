@@ -25,6 +25,8 @@ type callbackResult struct {
 	clientID string // 新規登録のときに発行された client_id
 	scope    string
 	err      error
+	// oauthError はコールバックの error（形式を検査した OAuth の error コードだけ。ログ用）。
+	oauthError string
 }
 
 // callbackServer は 127.0.0.1 の一時ポートで 1 回だけ /auth/callback を受け取る待受。
@@ -40,7 +42,7 @@ type callbackServer struct {
 func startCallbackServer(state string) (*callbackServer, error) {
 	ln, err := net.Listen("tcp4", "127.0.0.1:0")
 	if err != nil {
-		return nil, fmt.Errorf("%w: 待受を開始できません", ErrFailed)
+		return nil, fmt.Errorf("%w: 待受を開始できません（%w）", ErrFailed, err)
 	}
 	c := &callbackServer{ln: ln, state: state, result: make(chan callbackResult, 1)}
 	mux := http.NewServeMux()
@@ -79,8 +81,11 @@ func (c *callbackServer) handle(w http.ResponseWriter, r *http.Request) {
 	msg := pageDone
 	switch errCode := q.Get("error"); {
 	case errCode == "access_denied":
-		res.err, msg = ErrDenied, pageDenied
+		res.oauthError, res.err, msg = errCode, ErrDenied, pageDenied
 	case errCode != "":
+		if oauthCodeRE.MatchString(errCode) {
+			res.oauthError = errCode
+		}
 		res.err, msg = fmt.Errorf("%w: 認可エラー", ErrFailed), pageDenied
 	case q.Get("code") == "":
 		http.Error(w, "bad request", http.StatusBadRequest)
