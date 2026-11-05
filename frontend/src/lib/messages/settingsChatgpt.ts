@@ -47,6 +47,4 @@ export const settingsChatgpt = {
   signedOut: 'ChatGPT からログアウトしました。',
   revokeUnconfirmed:
     'ログアウトしました（OpenAI 側の連携の解除は確認できませんでした）。ChatGPT の設定の連携アプリから解除できます。',
-  saveBeforeUse:
-    '「設定を保存」でプロバイダを ChatGPT プランに切り替えてから、モデルを選んで保存してください。',
 } as const

@@ -103,7 +103,6 @@ export const settings = {
     revert: '元に戻す',
     saved: (name: string) => `${name} の署名を保存しました。`,
     fetchGmail: 'Gmail から取得',
-    fetchingGmail: 'Gmail から取得しています…',
     fetchHint: 'Gmail に設定した署名をエディタに入れます。保存するまで反映されません。',
     fetchedGmail: (name: string) =>
       `Gmail の署名を ${name} のエディタに入れました。保存すると反映されます。`,
@@ -153,8 +152,6 @@ export const settings = {
     modelsRefresh: '一覧を更新',
     modelsRefreshing: '取得中…',
     modelsLoaded: (n: number) => `使えるモデルを ${n} 件取得しました。`,
-    modelsNeedSave:
-      'プロバイダや Base URL を変更した場合は、先に「設定を保存」すると一覧を取得できます。',
     modelsManualHint: '一覧から選べないときは、モデル名を直接入力できます。',
     baseUrl: 'Base URL（OpenAI 互換のみ）',
     baseUrlPlaceholder: '空欄で OpenAI の既定（https://api.openai.com）',
@@ -171,13 +168,10 @@ export const settings = {
     apiKeySaved: 'API キーを保存しました。',
     apiKeyCleared: 'API キーを削除しました。',
     apiKeyRequired: 'API キーを入力してください。',
-    apiKeyNeedsSavedProvider:
-      'プロバイダを変更した場合は、先に「設定を保存」してから API キーを設定してください。',
     apiKeyStored: 'API キーは資格情報ストアに保存され、画面には再表示されません。',
     chatgpt: settingsChatgpt,
     // プロバイダを選んだときの同意（F-08）と、同意のあとの取得。同意の画面の文言は compose.ai の consentTitle／consentBody と共通。
     consentDialogAgree: '同意して一覧を取得する',
-    consentAsk: '同意の画面を開く',
     consentUnknown: (provider: string) =>
       `${provider} への送信は、選んだ送信先で未確認です。一覧を取得するときに確認します。`,
     consentNeeded: (provider: string) =>
@@ -187,8 +181,6 @@ export const settings = {
     consentAgreeNow: (dest: string) => `${dest} への送信に同意する`,
     consentHeading: '送信への同意',
     consentGiven: (provider: string) => `${provider} への送信に同意済みです。`,
-    consentNone: (provider: string) =>
-      `${provider} への送信は未同意です。初めて「AI で下書き」を使うときに確認します。`,
   },
 
   general: {
