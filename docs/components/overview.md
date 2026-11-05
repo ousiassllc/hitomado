@@ -478,7 +478,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 区分 | 使うトークン・部品 | 使いどころ |
 |------|------------------|------------|
 | 色 | `--ink` `--bone` `--mute` `--surface` `--border` `--accent` `--accent-soft` | 文字は `--ink`、補助は `--mute`、ページは `--bone`、カード・ダイアログ・入力は `--surface`、ホバー・選択は `--accent-soft`、主ボタン・未読ドット・件数バッジは `--accent` 地＋`--bone` 字 |
-| フォーカス | `--focus` `--ring` | フォーカスリング・フォームの focus のみ（青はここだけ） |
+| フォーカス | `--focus` `--ring` | フォーカスリング・フォームの focus のみ（青はここだけ）。テキスト入力（宛先・本文エディタは外枠の `:focus-within`）は focus で `border-color: var(--focus)` と `box-shadow: 0 0 0 2px var(--ring)` に揃える |
 | 状態色 | `--success` `--warning` `--danger` `--info` | アイコン＋文言＋状態色の細枠と薄い地（`--*-soft`。バナー・送信確認の警告・インラインアラート・ステータスの小さな札） |
 | タイポ | サイズ `xs`〜`3xl`（`--font-size-*`）・行間 `--line-height-*`・Sora + Noto Sans JP（`@fontsource-variable/*`。SIL OFL。アプリに同梱）・JetBrains Mono | 本文 `base`（16px・行間 1.8）。SemiBold は見出しとボタンのみ。未読の強調は太字にしない（`--ink`／`--mute` の対比と未読ドット） |
 | 角丸・余白 | `--r-*` `--s-*` | ボタン・入力 `--r-md`、カード `--r-lg`、モーダル `--r-xl`、ピル・バッジ `--r-full` |

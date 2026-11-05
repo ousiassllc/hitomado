@@ -90,6 +90,7 @@ watch(model, () => void nextTick(fit))
 
 .instruction-input:focus {
   border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
   outline: none;
 }
 

@@ -164,6 +164,7 @@ onBeforeUnmount(() => editor.value?.destroy())
 
 .rte:focus-within {
   border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .rte-disabled {

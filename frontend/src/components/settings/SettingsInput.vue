@@ -71,6 +71,12 @@ const id = useId()
   font-size: var(--font-size-sm);
 }
 
+.field-input:focus {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
+  outline: none;
+}
+
 .field-input:disabled {
   opacity: 0.5;
 }

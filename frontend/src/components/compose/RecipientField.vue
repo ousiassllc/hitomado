@@ -210,6 +210,7 @@ function onKeydown(e: KeyboardEvent): void {
 
 .recipient-box:focus-within {
   border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .recipient-disabled {

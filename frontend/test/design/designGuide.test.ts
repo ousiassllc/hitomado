@@ -292,3 +292,25 @@ describe('トークン（C・T・S・O）', () => {
     expect(token('--control-h-sm')).toBe('32px')
   })
 })
+
+describe('フォームの focus（C3・#125）', () => {
+  // 入力欄の focus は --focus の枠線 + --ring の 2px。外枠を持つもの（宛先・本文）は :focus-within で同じ指定にする。
+  const focusRule = (rel: string, selector: string) => {
+    const style = /<style[\s\S]*<\/style>/.exec(read(`../../src/components/${rel}`))?.[0] ?? ''
+    const escaped = selector.replace(/[.:]/g, '\\$&')
+    return new RegExp(`${escaped}\\s*\\{([^}]*)\\}`).exec(style)?.[1] ?? ''
+  }
+
+  test.each([
+    ['compose/ComposeFields.vue', '.subject-input:focus'],
+    ['compose/ai/AiDraftInstruction.vue', '.instruction-input:focus'],
+    ['compose/RecipientField.vue', '.recipient-box:focus-within'],
+    ['compose/RichTextEditor.vue', '.rte:focus-within'],
+    ['settings/SettingsInput.vue', '.field-input:focus'],
+    ['inbox/SearchBar.vue', '.input:focus'],
+  ])('%s の %s は --focus の枠線と --ring の 2px を使う', (rel, selector) => {
+    const body = focusRule(rel, selector)
+    expect(body).toContain('border-color: var(--focus)')
+    expect(body).toContain('box-shadow: 0 0 0 2px var(--ring)')
+  })
+})

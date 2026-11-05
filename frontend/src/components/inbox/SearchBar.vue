@@ -79,4 +79,10 @@ function onEscape(): void {
   color: var(--ink);
   font-size: var(--font-size-sm);
 }
+
+.input:focus {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
+  outline: none;
+}
 </style>
