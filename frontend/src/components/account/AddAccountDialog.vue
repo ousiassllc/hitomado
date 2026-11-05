@@ -178,6 +178,17 @@ async function save(): Promise<void> {
   border-radius: var(--r-md);
   background: var(--surface);
   color: var(--ink);
+  font-size: var(--font-size-sm);
+}
+
+.text:focus {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
+  outline: none;
+}
+
+.text:disabled {
+  opacity: 0.5;
 }
 
 .error {
