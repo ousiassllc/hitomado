@@ -5,7 +5,7 @@
 Issue #81 は、Wails v3 の Android 対応（試験的）で Hitomado の Android 版がどこまで動くかを、試作で確かめる調査だった。本書は、その結果表・バックグラウンド同期の案・本実装の Issue 案を 1 か所にまとめる。**各項目の細かい設計・手順・確認の範囲は [Android ビルド](android.md) の節に書いてあり、本書は要約と案内**である。
 
 - 試作のブランチは `proto/android-81`（参考として残す。直接は使わない）。本実装は試作から土台を取り込み（#82）、以降の Issue（#83〜#90）で作り込んだ。
-- **Android 版は Releases の検証用 APK として配る。Google Play には出さない**（[Android ビルド §8](android.md#8-ciリリースciymlreleaseyml)・#91）。
+- **Android 版は Releases の検証用 APK として配る。Google Play には出さない**（[Android ビルド §8](android.md#8-ciリリースciymlreleaseyml)・#91）。Play で配るために要る手続きと審査は [Google Play での配布の準備](android-play-distribution.md)（#91。調査のみで、申込み・登録はしていない）にまとめた。
 - **実機（arm64）での確認はまだ行っていない**。エミュレーター（x86_64・API 35・KVM なしのソフトウェア実行）と、ホストでのテストの範囲だけである。表の「実機」の欄はその区別を示す。
 
 ## 1. ビルドと起動（やること 1）
@@ -65,7 +65,7 @@ Issue #81 は、Wails v3 の Android 対応（試験的）で Hitomado の Andro
 | #88 | バックグラウンド同期と新着通知 | L | 完了（実機の確認は [§15.9](android.md#159-確認の状況)） |
 | #89 | Android で使わない機能の無効化と設定画面 | S | 完了 |
 | #90 | 実機・エミュレーターでの E2E、WebView のクラッシュ対策、性能 | M | **未クローズ**（実機・KVM つき環境で最後まで通すことが残る。[§17.7](android.md#177-残課題)） |
-| #91 | Google Play での配布の準備（Play Console・データセーフティ・Gmail スコープの審査） | L（審査は外部要因） | 未着手。出すと決めたときに着手する |
+| #91 | Google Play での配布の準備（Play Console・データセーフティ・Gmail スコープの審査） | L（審査は外部要因） | **調査は完了**（手続きと審査の一覧は [android-play-distribution.md](android-play-distribution.md)）。申込み・登録は、出すと決めたときに行う |
 | #184 | Google アカウント追加の失敗理由と二重起動をログに残す | S | 未クローズ |
 | #185 | ChatGPT ログインが「予期しないエラー」で失敗する | S | 未クローズ |
 
