@@ -57,7 +57,7 @@ describe('楽観的更新の失敗・既読化・除去', () => {
     expect(ids(s)).toEqual(['t2', 't3', 't4'])
   })
 
-  test('NOT_FOUND は failedRefs の行を復元せず一覧から除去し、「見つかりません」トーストを出す', async () => {
+  test('NOT_FOUND は failedRefs の行を復元せず一覧から除去し、「見つかりません」アラートを出す', async () => {
     failures.Archive = appError('NOT_FOUND', { details: { failedRefs: [ref('a2', 't3')] } })
     const s = useInboxStore()
     const ui = useUiStore()
@@ -69,7 +69,6 @@ describe('楽観的更新の失敗・既読化・除去', () => {
     expect(await s.archive([ref('a1', 't1'), ref('a2', 't3')])).toBe(false)
     // 再読込の前でも、成功した t1 は一覧へ戻らない（復元しない）
     expect(ids(s)).toEqual(['t2', 't4'])
-    expect(ids(s)).toContain('t2')
     expect(ui.alerts).toHaveLength(1)
     expect(ui.alerts[0].message).toContain('見つかりません')
     expect(ui.alerts[0].retry).toBeUndefined()

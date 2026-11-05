@@ -173,16 +173,24 @@ describe('アーカイブ・ゴミ箱のスナックバー（元に戻す）', (
 
   test('検索結果で受信箱にないスレッドをゴミ箱から戻すときは INBOX に入れない', async () => {
     const archived = summary('t1', { inInbox: false })
-    ctl.responses.Search = { items: [archived], failures: [] }
     ctl.responses.Untrash = [archived]
+    // サーバーの状態: ゴミ箱にある間は、アーカイブ済みの検索結果に出ない
+    ctl.responses.Search = () => ({
+      items: callsOf('Trash').length > callsOf('Untrash').length ? [] : [archived],
+      failures: [],
+    })
     const inbox = useInboxStore()
     await inbox.runSearch('is:archived')
     const ui = useUiStore()
     expect(await inbox.trash([REF])).toBe(true)
+    expect(inbox.items).toHaveLength(0)
     ui.toast?.action?.run()
     await until(() => callsOf('Untrash').length === 1)
     expect(callsOf('Untrash')[0].args).toEqual([[REF], false])
+    // 検索結果は再取得されない（Search は最初の 1 回だけ）ので、戻った行は差し戻しの効果。受信箱には入れていない
     await until(() => inbox.items.length === 1)
+    expect(callsOf('Search')).toHaveLength(1)
+    expect(inbox.items[0].inInbox).toBe(false)
   })
 
   test('複数件は件数で知らせる', async () => {

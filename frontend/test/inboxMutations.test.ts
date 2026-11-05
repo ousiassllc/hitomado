@@ -53,13 +53,15 @@ describe('楽観的更新', () => {
     expect(s.selectedKey).toBe('a1:t2') // 開いていた t1 の位置にきた次の行
   })
 
-  test('除去した行の次の行へカーソルが移る', async () => {
+  test('開いていない行を除去したときは、カーソルだけ次の行へ移り、開いているスレッドは変わらない', async () => {
     const s = useInboxStore()
     await s.load()
-    s.select(ref('a1', 't2'))
+    s.select(ref('a1', 't1'))
+    s.moveCursor(1)
+    expect(s.cursorKey).toBe('a1:t2')
     await s.archive([ref('a1', 't2')])
     expect(s.cursorKey).toBe('a2:t3')
-    expect(s.selectedKey).toBe('a2:t3')
+    expect(s.selectedKey).toBe('a1:t1')
   })
 })
 
@@ -209,6 +211,7 @@ describe('アーカイブ・ゴミ箱後の次のスレッド', () => {
     const s = useInboxStore()
     await s.load()
     s.select(ref('a1', 't2'))
+    gone.add('t2') // t2 はサーバー側で成功済み
     await s.archive([ref('a1', 't2'), ref('a2', 't4')])
     expect(s.selectedKey).toBe('a2:t3')
   })
