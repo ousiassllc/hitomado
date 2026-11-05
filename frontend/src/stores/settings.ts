@@ -47,7 +47,7 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       await call(ThreadService.OpenExternal(url))
     } catch (e) {
-      ui.pushToast('error', parseBindingError(e).message || msg.update.openFailed)
+      ui.pushAlert(parseBindingError(e).message || msg.update.openFailed)
     }
   }
 
@@ -56,7 +56,7 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       await call(AppService.RestartToUpdate())
     } catch (e) {
-      ui.pushToast('error', parseBindingError(e).message || msg.update.restartFailed)
+      ui.pushAlert(parseBindingError(e).message || msg.update.restartFailed)
     }
   }
 
@@ -92,7 +92,7 @@ export const useSettingsStore = defineStore('settings', () => {
       aiConfig.value = normalizeAIConfig(cfg)
       appInfo.value = info
     } catch (e) {
-      ui.pushToast('error', parseBindingError(e).message || msg.loadFailed)
+      ui.pushAlert(parseBindingError(e).message || msg.loadFailed)
     }
   }
 
@@ -101,7 +101,7 @@ export const useSettingsStore = defineStore('settings', () => {
     try {
       mcp.value = await call(MCPService.GetMCPStatus())
     } catch (e) {
-      ui.pushToast('error', parseBindingError(e).message || msg.loadFailed)
+      ui.pushAlert(parseBindingError(e).message || msg.loadFailed)
     }
   }
 

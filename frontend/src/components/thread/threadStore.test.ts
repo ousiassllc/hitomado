@@ -81,7 +81,7 @@ describe('threadStore', () => {
     ctl.failures.GetThread = appError('NOT_FOUND')
     const s = useThreadStore()
     await s.open(REF)
-    expect(useUiStore().toasts.map((t) => t.message)).toContain('スレッドが見つかりません')
+    expect(useUiStore().toast?.message).toBe('スレッドが見つかりません')
     expect(inbox.items).toHaveLength(0)
     expect(inbox.selectedRef).toBeUndefined()
     expect(s.current).toBeUndefined()

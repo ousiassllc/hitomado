@@ -46,7 +46,14 @@ async function withScopedStyles(
 
 const restorers: Array<() => void> = []
 beforeAll(async () => {
+  // z-index は --z-* トークン（styles/tokens.css）で決まるので、トークンも当てる。
+  const tokens = document.createElement('style')
+  tokens.textContent = await Bun.file(
+    new URL('../src/styles/tokens.css', import.meta.url).pathname,
+  ).text()
+  document.head.append(tokens)
   restorers.push(
+    () => tokens.remove(),
     await withScopedStyles(BaseSelect, 'BaseSelect.vue', 'data-v-select'),
     await withScopedStyles(BaseMenu, 'BaseMenu.vue', 'data-v-menu'),
     await withScopedStyles(BaseTooltip, 'BaseTooltip.vue', 'data-v-tooltip'),
@@ -70,7 +77,7 @@ afterEach(() => {
   document.body.removeAttribute('style')
 })
 
-/** ダイアログ（z-index 101）の中に popup を出す部品を置く。 */
+/** ダイアログ（z-index 400）の中に popup を出す部品を置く。 */
 function mountInDialog(inner: () => ReturnType<typeof h>): VueWrapper {
   return mount(
     { render: () => h(BaseDialog, { open: true, title: 'T' }, { default: inner }) },
@@ -82,15 +89,15 @@ function zIndexOf(el: Element): number {
   return Number(getComputedStyle(el).zIndex)
 }
 
-/** ダイアログ本体の z-index。0 のまま比較が素通りしないよう 101 であることも確かめる。 */
+/** ダイアログ本体の z-index。0 のまま比較が素通りしないよう 400（--z-modal）であることも確かめる。 */
 function dialogZIndex(): number {
   const z = zIndexOf(document.querySelector('.dlg') as Element)
-  expect(z).toBe(101)
+  expect(z).toBe(400)
   return z
 }
 
 describe('ダイアログ内のポップアップ（#98）', () => {
-  test('BaseSelect: 開いた一覧がダイアログ（z-index 101）より前面', async () => {
+  test('BaseSelect: 開いた一覧がダイアログ（z-index 400）より前面', async () => {
     wrapper = mountInDialog(() =>
       h(BaseSelect, { modelValue: 'a', options, ariaLabel: 'provider' }),
     )

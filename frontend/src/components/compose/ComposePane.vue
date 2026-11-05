@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WarningCircle } from '@iconoir/vue'
 import { computed, ref } from 'vue'
 import { common, compose as msg } from '../../lib/messages'
 import { SEND_SHORTCUT_KEY } from '../../lib/shortcuts'
@@ -35,6 +36,12 @@ const title = computed(() => {
   }
 })
 const canAi = computed(() => session.value?.mode === 'reply' || session.value?.mode === 'reply_all')
+/** 作成画面に出すエラー（送信などの失敗と、下書き保存の失敗）。 */
+const errors = computed(() =>
+  [compose.error, compose.saveError === undefined ? undefined : `${msg.saveFailed}（${compose.saveError}）`].filter(
+    (e): e is string => e !== undefined,
+  ),
+)
 /** 送信確認の表示中・送信中はエディタを操作できない。 */
 const frozen = computed(() => compose.sending || compose.preview !== undefined)
 /** 本文エディタ: 送信確認中・送信中に加え、AI 生成中も読み取り専用（生成のキャンセルは可能）。 */
@@ -70,10 +77,11 @@ function send(archive: boolean): void {
     <header class="compose-head">
       <h2 class="compose-title">{{ title }}</h2>
       <span v-if="compose.saving" class="compose-status" role="status">{{ msg.saving }}</span>
-      <span v-else-if="compose.dirty" class="compose-status">●</span>
+      <span v-else-if="compose.dirty" class="compose-dirty" aria-hidden="true" />
       <span class="spacer" />
       <BaseButton
         v-if="props.embedded"
+        size="sm"
         variant="ghost"
         :aria-pressed="props.expanded === true"
         data-testid="compose-expand"
@@ -81,8 +89,8 @@ function send(archive: boolean): void {
       >
         {{ props.expanded ? msg.collapse : msg.expand }}
       </BaseButton>
-      <BaseButton variant="ghost" :disabled="compose.sending" @click="compose.close()">{{ msg.close }}</BaseButton>
-      <BaseButton variant="ghost" :disabled="compose.sending" @click="compose.discard()">{{ msg.discard }}</BaseButton>
+      <BaseButton size="sm" variant="ghost" :disabled="compose.sending" @click="compose.close()">{{ msg.close }}</BaseButton>
+      <BaseButton size="sm" variant="ghost" :disabled="compose.sending" @click="compose.discard()">{{ msg.discard }}</BaseButton>
     </header>
 
     <ComposeFields ref="fields" :frozen="frozen" />
@@ -103,10 +111,13 @@ function send(archive: boolean): void {
 
     <AttachmentBar />
 
-    <p v-if="compose.error" class="compose-error" role="alert">{{ compose.error }}</p>
-    <p v-if="compose.saveError" class="compose-error" role="alert">
-      {{ msg.saveFailed }}（{{ compose.saveError }}）
-    </p>
+    <div v-for="e in errors" :key="e" class="compose-error" role="alert">
+      <WarningCircle class="icon compose-error-icon" aria-hidden="true" />
+      <div class="compose-error-main">
+        <strong class="compose-error-title">{{ common.alertTitle }}</strong>
+        <p class="compose-error-body">{{ e }}</p>
+      </div>
+    </div>
 
     <footer class="compose-foot">
       <span v-if="session.accountId === undefined" class="foot-hint" role="note">{{ msg.senderRequiredHint }}</span>
@@ -142,12 +153,12 @@ function send(archive: boolean): void {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--s-3);
   min-height: 0;
-  padding: var(--space-4);
+  padding: var(--s-4);
   overflow-y: auto;
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .compose-pane > * {
@@ -158,7 +169,7 @@ function send(archive: boolean): void {
 .compose-pane.embedded {
   flex: none;
   max-height: 60%;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--border);
 }
 
 /* 広げる: 右ペイン全体を使う（スレッドの本文は ThreadPane が隠す）。 */
@@ -167,8 +178,10 @@ function send(archive: boolean): void {
   max-height: none;
 }
 
+/* ドロップ領域: ドラッグ中は --accent-soft の地に --accent の破線（1px）。 */
 .compose-pane.file-drop-target-active {
-  outline: 2px dashed var(--color-accent);
+  background: var(--accent-soft);
+  outline: 1px dashed var(--accent);
   outline-offset: -4px;
 }
 
@@ -176,18 +189,26 @@ function send(archive: boolean): void {
 .compose-foot {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .compose-title {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-base);
 }
 
 .compose-status,
 .foot-hint {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
+}
+
+/* 未保存の印（小さな点） */
+.compose-dirty {
+  width: var(--s-2);
+  height: var(--s-2);
+  border-radius: var(--r-full);
+  background: var(--mute);
 }
 
 .spacer {
@@ -200,12 +221,39 @@ function send(archive: boolean): void {
   min-height: 240px;
 }
 
+/* インラインアラート（AlertStack）と同じ見た目: アイコン＋見出し＋本文・--danger の細枠と薄い地・--r-md。 */
 .compose-error {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-danger);
-  border-radius: var(--radius-sm);
-  color: var(--color-danger);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--danger);
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+  color: var(--ink);
+}
+
+.compose-error-icon {
+  flex: none;
+  margin-top: var(--s-1);
+  color: var(--danger);
+}
+
+.compose-error-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.compose-error-title {
+  display: block;
   font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.compose-error-body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  overflow-wrap: anywhere;
 }
 </style>

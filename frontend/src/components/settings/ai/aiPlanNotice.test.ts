@@ -68,6 +68,19 @@ describe('ChatGPT プランの確認モーダル（#80）', () => {
     w.unmount()
   })
 
+  test('Esc では閉じず、確認も記録しない（Got it だけが確認になる）', async () => {
+    const { w, acked } = mountNotice([pending(acctA)])
+    await flushPromises()
+    document
+      .querySelector('[role="dialog"]')
+      ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await flushPromises()
+    expect(acked).toEqual([])
+    expect(dialogText()).toContain("You're using your ChatGPT plan")
+    expect(document.body.querySelector('button[aria-label="閉じる"]')).toBeNull()
+    w.unmount()
+  })
+
   test('確認の記録に失敗しても、押したあとに出し続けない（記録できなかったことと次回また出ることをトーストで知らせる）', async () => {
     const { store } = mountNotice([pending(acctA)])
     store.ackChatGPTPlanNotice = async () => {
@@ -80,7 +93,7 @@ describe('ChatGPT プランの確認モーダル（#80）', () => {
       ?.click()
     await flushPromises()
     expect(dialogText()).not.toContain("You're using your ChatGPT plan")
-    expect(ui.toasts.map((t) => [t.kind, t.message])).toEqual([
+    expect(ui.alerts.map((a) => [a.kind, a.message])).toEqual([
       ['error', '確認の記録に失敗しました。次回もう一度表示されます。'],
     ])
   })

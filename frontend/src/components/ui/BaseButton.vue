@@ -1,26 +1,30 @@
 <script setup lang="ts">
+import { vRipple } from '../../lib/ripple'
 import Spinner from './Spinner.vue'
 
 withDefaults(
   defineProps<{
     variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+    /** md = 高さ 40・16px。sm = 高さ 32・14px（ツールバーや行の中の小さい操作） */
+    size?: 'md' | 'sm'
     loading?: boolean
     disabled?: boolean
     type?: 'button' | 'submit' | 'reset'
   }>(),
-  { variant: 'secondary', loading: false, disabled: false, type: 'button' },
+  { variant: 'secondary', size: 'md', loading: false, disabled: false, type: 'button' },
 )
 </script>
 
 <template>
   <button
+    v-ripple
     class="btn"
-    :class="`btn-${variant}`"
+    :class="[`btn-${variant}`, `btn-${size}`]"
     :type="type"
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
   >
-    <Spinner v-if="loading" :size="14" />
+    <Spinner v-if="loading" size="sm" />
     <slot />
   </button>
 </template>
@@ -30,26 +34,36 @@ withDefaults(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  min-height: 32px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-elevated);
-  color: var(--color-text);
-  font-size: var(--font-size-sm);
+  gap: var(--s-2);
+  min-height: var(--control-h);
+  padding: 0 var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--ink);
+  font-size: var(--font-size-base);
+  font-weight: 600;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  /* ホバーは色・背景だけ（180ms） */
+  transition:
+    background-color var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
   white-space: nowrap;
 }
 
-.btn:hover:not(:disabled) {
-  background: var(--color-selected);
+.btn-sm {
+  min-height: var(--control-h-sm);
+  padding: 0 var(--s-3);
+  font-size: var(--font-size-sm);
 }
 
-/* 無効（押せない）ボタンだけを薄くする。送信中など loading のボタンは文字を読ませたいので、色はそのままにする。 */
+.btn:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+/* 無効（押せない）ボタンだけを薄くする（opacity .4）。送信中など loading のボタンは文字を読ませたいので、色はそのままにする。 */
 .btn:disabled:not([aria-busy='true']) {
-  opacity: 0.55;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -58,25 +72,23 @@ withDefaults(
 }
 
 .btn-primary {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
-  color: var(--color-accent-text);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bone);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--color-accent);
-  filter: brightness(1.1);
+  background: color-mix(in srgb, var(--accent) 85%, var(--bone));
 }
 
 .btn-danger {
-  background: var(--color-danger);
-  border-color: var(--color-danger);
-  color: var(--color-danger-text);
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--bone);
 }
 
 .btn-danger:hover:not(:disabled) {
-  background: var(--color-danger);
-  filter: brightness(1.1);
+  background: color-mix(in srgb, var(--danger) 85%, var(--bone));
 }
 
 .btn-ghost {

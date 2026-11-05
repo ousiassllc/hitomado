@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { WarningTriangle } from '@iconoir/vue'
 import { common } from '../../lib/messages'
 import { accountColorVar } from '../../lib/palette'
+import BaseIconButton from '../ui/BaseIconButton.vue'
 
 defineProps<{
   account: { id: string; displayName: string; email: string; color: string }
@@ -28,16 +30,15 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
       </span>
       <span v-if="unread > 0" class="badge" :aria-label="common.sidebar.unread(unread)">{{ unread > 999 ? '999+' : unread }}</span>
     </button>
-    <button
+    <BaseIconButton
       v-if="needsReauth"
-      type="button"
       class="warn"
-      :aria-label="`${account.displayName}: ${common.sidebar.needsReauth}（${common.reconnect}）`"
-      :title="common.sidebar.needsReauth"
+      variant="danger"
+      :label="`${account.displayName}: ${common.sidebar.needsReauth}（${common.reconnect}）`"
       @click="emit('reconnect')"
     >
-      ⚠
-    </button>
+      <WarningTriangle class="icon icon-sm" aria-hidden="true" />
+    </BaseIconButton>
   </li>
 </template>
 
@@ -45,12 +46,12 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
 .item {
   display: flex;
   align-items: stretch;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
   list-style: none;
 }
 
 .item.selected {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
 .main {
@@ -58,26 +59,26 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   align-items: center;
   flex: 1;
   min-width: 0;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-2) var(--space-2) 0;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-2) var(--s-2) 0;
   border: none;
   background: transparent;
-  color: var(--color-text);
+  color: var(--ink);
   text-align: left;
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
 }
 
 .main:hover {
-  background: var(--color-bg-subtle);
+  background: var(--accent-soft);
 }
 
 .band {
   flex: none;
   align-self: stretch;
   width: 6px;
-  border-radius: var(--radius-sm);
-  margin-right: var(--space-1);
+  border-radius: var(--r-sm);
+  margin-right: var(--s-1);
 }
 
 .text {
@@ -92,36 +93,32 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--font-size-sm);
-  font-weight: 600;
 }
 
 .email {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
 .badge {
   flex: none;
   min-width: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
-  background: var(--color-accent);
-  color: var(--color-accent-text);
+  padding: 0 var(--s-2);
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--bone);
   font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
   line-height: 20px;
   text-align: center;
 }
 
-.warn {
+/* BaseIconButton の属性はボタンへ渡るので、scoped の属性が付かない。:deep で当てる。 */
+.item :deep(.warn) {
   flex: none;
-  width: 32px;
-  border: none;
-  background: transparent;
-  color: var(--color-danger);
-  font-size: var(--font-size-lg);
-  cursor: pointer;
+  align-self: center;
 }
 </style>

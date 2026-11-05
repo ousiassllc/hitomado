@@ -14,7 +14,7 @@ const emit = defineEmits<{ save: [attachment: AttachmentInfo] }>()
       <li v-for="a in attachments" :key="a.id" class="attachment" data-testid="attachment">
         <span class="attachment-name" :title="a.filename">{{ a.filename }}</span>
         <span class="attachment-size">{{ formatSize(a.size) }}</span>
-        <BaseButton :aria-label="msg.saveAttachmentLabel(a.filename)" @click="emit('save', a)">
+        <BaseButton size="sm" :aria-label="msg.saveAttachmentLabel(a.filename)" @click="emit('save', a)">
           {{ msg.saveAttachment }}
         </BaseButton>
       </li>
@@ -26,7 +26,7 @@ const emit = defineEmits<{ save: [attachment: AttachmentInfo] }>()
 ul {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--s-2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -35,11 +35,11 @@ ul {
 .attachment {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
+  gap: var(--s-2);
+  padding: var(--s-1) var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bone);
   font-size: var(--font-size-sm);
   max-width: 100%;
 }
@@ -49,11 +49,11 @@ ul {
   text-overflow: ellipsis;
   white-space: nowrap;
   max-width: 28ch;
-  color: var(--color-text);
+  color: var(--ink);
 }
 
 .attachment-size {
-  color: var(--color-text-muted);
+  color: var(--mute);
   white-space: nowrap;
 }
 </style>

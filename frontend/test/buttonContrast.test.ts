@@ -21,30 +21,19 @@ function vars(block: string): Record<string, string> {
 const light = vars(css.slice(0, darkStart))
 const dark = { ...light, ...vars(css.slice(darkStart, darkEnd)) }
 
-/** `filter: brightness(k)` を #rrggbb にかけた色（hover で使う）。 */
-function brighten(hex: string, k: number): string {
-  const n = Number.parseInt(hex.slice(1), 16)
-  const ch = [n >> 16, (n >> 8) & 255, n & 255].map((v) => Math.min(255, Math.round(v * k)))
-  return `#${ch.map((v) => v.toString(16).padStart(2, '0')).join('')}`
-}
-
 describe('primary / danger ボタンの文字色コントラスト（WCAG AA 4.5:1）', () => {
   const themes: [string, Record<string, string>][] = [
     ['ライト', light],
     ['ダーク', dark],
   ]
   const variants = [
-    ['primary', '--color-accent', '--color-accent-text'],
-    ['danger', '--color-danger', '--color-danger-text'],
+    ['primary', '--accent', '--bone'],
+    ['danger', '--danger', '--bone'],
   ] as const
   for (const [theme, v] of themes) {
     for (const [name, bg, fg] of variants) {
-      test(`${theme}: ${name} は通常・hover（brightness 1.1）とも 4.5:1 以上`, () => {
+      test(`${theme}: ${name} は 4.5:1 以上`, () => {
         expect(contrastRatio(v[bg], v[fg])).toBeGreaterThanOrEqual(4.5)
-        // filter: brightness は背景にも文字にも掛かる
-        expect(contrastRatio(brighten(v[bg], 1.1), brighten(v[fg], 1.1))).toBeGreaterThanOrEqual(
-          4.5,
-        )
       })
     }
   }
@@ -69,12 +58,12 @@ describe('BaseButton の状態別の見た目', () => {
   }
 
   test('loading（送信中）の primary は薄くしない', () => {
-    // happy-dom は宣言がなければ opacity を空文字で返す。薄める宣言（0.55）が当たっていないことを確かめる（disabled 側のテストが宣言の解釈を担保する）
+    // happy-dom は宣言がなければ opacity を空文字で返す。薄める宣言（0.4）が当たっていないことを確かめる（disabled 側のテストが宣言の解釈を担保する）
     expect(['', '1']).toContain(opacityOf({ variant: 'primary', loading: true }))
   })
 
   test('disabled の primary は薄くする（押せないことを示す）', () => {
-    expect(opacityOf({ variant: 'primary', disabled: true })).toBe('0.55')
+    expect(opacityOf({ variant: 'primary', disabled: true })).toBe('0.4')
   })
 })
 

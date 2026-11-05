@@ -43,7 +43,6 @@ withDefaults(
 .account-chip-name {
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 600;
 }
 
 .account-chip-email {

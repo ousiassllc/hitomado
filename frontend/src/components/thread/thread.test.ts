@@ -1,4 +1,3 @@
-import '../../../test/domPurifyShim'
 import { describe, expect, test } from 'bun:test'
 import { mount } from '@vue/test-utils'
 import type {

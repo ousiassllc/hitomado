@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Menu } from '@iconoir/vue'
 import { computed, ref } from 'vue'
 import type { Label } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import * as InboxService from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
@@ -54,7 +55,7 @@ async function loadLabels(): Promise<void> {
     labels.value = list(await call(InboxService.ListLabels(accountId)))
   } catch (e) {
     labels.value = []
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   } finally {
     labelsLoading.value = false
   }
@@ -74,10 +75,10 @@ async function toggleLabel(labelId: string): Promise<void> {
     <!-- サイドバーをドロワーにするレイアウト（2 ペイン・1 画面ずつ）の上部バー -->
     <header v-if="layout.hasDrawer" class="head">
       <BaseIconButton :label="common.shell.menu" data-testid="open-menu" @click="ui.openMenu()">
-        <span aria-hidden="true">☰</span>
+        <Menu class="icon" aria-hidden="true" />
       </BaseIconButton>
       <span class="app-name">{{ common.appName }}</span>
-      <BaseButton variant="primary" data-testid="head-compose" @click="compose.open({ mode: 'new' })">{{ common.sidebar.compose }}</BaseButton>
+      <BaseButton size="sm" variant="primary" data-testid="head-compose" @click="compose.open({ mode: 'new' })">{{ common.sidebar.compose }}</BaseButton>
     </header>
     <SearchBar :active="inbox.mode === 'search'" :query="inbox.searchQuery" @search="inbox.runSearch" @clear="inbox.clearSearch" />
     <InboxTabs v-if="inbox.mode === 'inbox'" :model-value="inbox.tab" @update:model-value="inbox.setTab" />
@@ -122,21 +123,21 @@ async function toggleLabel(labelId: string): Promise<void> {
   height: 100%;
   min-width: 0;
   min-height: 0;
-  background: var(--color-bg);
-  border-right: 1px solid var(--color-border);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
 }
 
 .head {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border-bottom: 1px solid var(--border);
 }
 
 .app-name {
   flex: 1;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-base);
   font-weight: 600;
 }
 </style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NavArrowDown } from '@iconoir/vue'
 import { common, thread as msg } from '../../lib/messages'
 import { SHORTCUT_KEYS } from '../../lib/shortcuts'
 import BaseButton from '../ui/BaseButton.vue'
@@ -24,15 +25,15 @@ function onSelect(key: string): void {
   <div class="reply-bar" data-testid="reply-bar">
     <div class="split">
       <BaseTooltip :text="common.shortcutHint(msg.replyAll, SHORTCUT_KEYS.replyAll)">
-        <BaseButton variant="primary" data-testid="reply-all" @click="emit('open', 'reply_all')">{{ msg.replyAll }}</BaseButton>
+        <BaseButton size="sm" variant="primary" data-testid="reply-all" @click="emit('open', 'reply_all')">{{ msg.replyAll }}</BaseButton>
       </BaseTooltip>
       <BaseMenu :items="items" @select="onSelect">
         <template #trigger>
-          <BaseButton variant="primary" class="split-menu" data-testid="reply-menu" :aria-label="msg.replyMenu">▾</BaseButton>
+          <BaseButton size="sm" variant="primary" class="split-menu" data-testid="reply-menu" :aria-label="msg.replyMenu"><NavArrowDown class="icon icon-sm" aria-hidden="true" /></BaseButton>
         </template>
       </BaseMenu>
     </div>
-    <BaseButton v-if="props.draftId" data-testid="open-draft" @click="emit('openDraft')">{{ msg.openDraft }}</BaseButton>
+    <BaseButton size="sm" v-if="props.draftId" data-testid="open-draft" @click="emit('openDraft')">{{ msg.openDraft }}</BaseButton>
   </div>
 </template>
 
@@ -40,15 +41,15 @@ function onSelect(key: string): void {
 .reply-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-top: 1px solid var(--color-border);
-  background: var(--color-bg);
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .split {
   display: flex;
-  gap: 1px;
+  gap: 0;
 }
 
 .split > :first-child {

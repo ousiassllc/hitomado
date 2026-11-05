@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import { MagicWand, WarningCircle } from '@iconoir/vue'
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useAiDraft } from '../../../composables/useAiDraft'
 import { instructionLength, MAX_INSTRUCTION_CHARS } from '../../../lib/aiInstruction'
-import { compose as msg, settings as settingsMsg } from '../../../lib/messages'
+import { common, compose as msg, settings as settingsMsg } from '../../../lib/messages'
 import { hasUserBody } from '../../../lib/signature'
 import { useComposeStore } from '../../../stores/compose'
 import { useSettingsStore } from '../../../stores/settings'
@@ -64,22 +65,22 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
 <template>
   <div class="ai-draft">
     <div class="ai-row">
-      <BaseButton
+      <BaseButton size="sm"
         v-if="!generating"
         variant="secondary"
         :disabled="ai.needsKey.value || busy"
         :title="ai.needsKey.value ? needText : undefined"
         @click="ai.start()"
       >
-        ✨ {{ msg.ai.button }}
+        <MagicWand class="icon icon-sm" aria-hidden="true" /> {{ msg.ai.button }}
       </BaseButton>
       <template v-else>
-        <span class="ai-progress" role="status"><Spinner :size="14" /> {{ msg.ai.generating }}</span>
-        <BaseButton variant="secondary" @click="ai.cancel()">{{ msg.ai.cancel }}</BaseButton>
+        <span class="ai-progress" role="status"><Spinner size="sm" /> {{ msg.ai.generating }}</span>
+        <BaseButton size="sm" variant="secondary" @click="ai.cancel()">{{ msg.ai.cancel }}</BaseButton>
       </template>
       <template v-if="ai.needsKey.value">
         <span class="ai-note">{{ needText }}</span>
-        <BaseButton variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
+        <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
       </template>
     </div>
     <AiDraftInstruction v-model="compose.aiInstruction" :disabled="generating" />
@@ -88,7 +89,13 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
       @manage="settings.openExternal(settingsMsg.ai.chatgpt.usageUrl)"
       @dismiss="ai.usageLimit.value = false"
     />
-    <p v-else-if="ai.error.value" class="ai-error" role="alert">{{ msg.ai.failed }}（{{ ai.error.value }}）</p>
+    <div v-else-if="ai.error.value" class="ai-error" role="alert">
+      <WarningCircle class="icon ai-error-icon" aria-hidden="true" />
+      <div class="ai-error-main">
+        <strong class="ai-error-title">{{ common.alertTitle }}</strong>
+        <p class="ai-error-body">{{ msg.ai.failed }}（{{ ai.error.value }}）</p>
+      </div>
+    </div>
 
     <AISetupDialog :open="setupOpen" @choose="ai.answerSetup($event)" />
 
@@ -102,7 +109,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
       @cancel="ai.answerConsent(false)"
     />
 
-    <BaseDialog :open="replaceOpen" :title="msg.ai.replaceTitle" size="sm" :closable="false">
+    <BaseDialog :open="replaceOpen" :title="msg.ai.replaceTitle" size="sm" @update:open="(v) => !v && ai.answerReplace(false)">
       <p class="dlg-text">{{ msg.ai.replaceBody }}</p>
       <template #footer>
         <BaseButton variant="secondary" @click="ai.answerReplace(false)">{{ msg.ai.replaceCancel }}</BaseButton>
@@ -116,41 +123,67 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
 .ai-draft {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .ai-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .ai-progress {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
+  gap: var(--s-2);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .ai-note {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
 .ai-error {
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-danger);
-  border-radius: var(--radius-sm);
-  color: var(--color-danger);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--danger);
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+  color: var(--ink);
+}
+
+.ai-error-icon {
+  flex: none;
+  margin-top: var(--s-1);
+  color: var(--danger);
+}
+
+.ai-error-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-error-title {
+  display: block;
   font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.ai-error-body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  overflow-wrap: anywhere;
 }
 
 .dlg-text {
   margin: 0;
-  font-size: var(--font-size-md);
-  line-height: 1.6;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 </style>

@@ -29,7 +29,7 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
       <span class="badge">{{ msg.ai.chatgpt.accountSignedOut }}</span>
     </span>
     <span class="row-actions">
-      <BaseButton
+      <BaseButton size="sm"
         v-if="account.signedIn"
         variant="danger"
         :loading="loggingOut"
@@ -41,7 +41,7 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
         {{ msg.ai.chatgpt.logout }}
       </BaseButton>
       <template v-else>
-        <BaseButton
+        <BaseButton size="sm"
           variant="secondary"
           :disabled="busy"
           :aria-label="msg.ai.chatgpt.reloginAccount(label)"
@@ -50,7 +50,7 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
         >
           {{ msg.ai.chatgpt.relogin }}
         </BaseButton>
-        <BaseButton
+        <BaseButton size="sm"
           variant="ghost"
           :disabled="busy"
           :aria-label="msg.ai.chatgpt.removeAccount(label)"
@@ -69,15 +69,25 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .pick {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
   min-width: 0;
   font-size: var(--font-size-sm);
+}
+
+/* ネイティブのラジオのチェック色をトークンに揃える（既定のままだと OS／ブラウザのアクセント＝青になる）。無効は opacity .5。 */
+.pick input[type='radio'] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.pick input[type='radio']:disabled {
+  opacity: 0.5;
 }
 
 .who {
@@ -85,19 +95,19 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
 }
 
 .muted {
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .badge {
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  padding: 0 var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
   font-size: var(--font-size-xs);
 }
 
 .row-actions {
   display: inline-flex;
-  gap: var(--space-2);
+  gap: var(--s-2);
   flex-shrink: 0;
 }
 </style>

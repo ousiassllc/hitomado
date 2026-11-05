@@ -8,7 +8,7 @@ import BaseButton from '../../ui/BaseButton.vue'
 import BaseDialog from '../../ui/BaseDialog.vue'
 
 // 初めてログインして ChatGPT プランの利用が有効になったときだけ出す確認（OpenAI の UI/UX ガイドライン）。
-// 出すかどうかは Go が決める（アカウント＝クライアント登録ごとに永続。再ログインでは立たない）。「Got it」で確認済みにする。
+// 出すかどうかは Go が決める（アカウント＝クライアント登録ごとに永続。再ログインでは立たない）。「Got it」を押したときだけ確認済みにする（Esc・外側クリックでは閉じない）。
 const props = defineProps<{ accounts: ChatGPTAccount[] }>()
 
 const store = useSettingsStore()
@@ -25,7 +25,7 @@ async function gotIt(): Promise<void> {
   try {
     await store.ackChatGPTPlanNotice(a.id)
   } catch {
-    ui.pushToast('error', msg.ai.chatgpt.planNotice.ackFailed)
+    ui.pushAlert(msg.ai.chatgpt.planNotice.ackFailed)
   }
 }
 </script>
@@ -50,18 +50,18 @@ async function gotIt(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .text {
   margin: 0;
-  font-size: var(--font-size-md);
-  line-height: 1.6;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
 }
 
 .note {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 </style>

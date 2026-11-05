@@ -19,7 +19,7 @@ afterAll(restoreMocks)
 beforeEach(reset)
 
 describe('open', () => {
-  test('下書きの添付が上限超過で復元できなかったら警告トーストを出し、本文・宛先は復元する', async () => {
+  test('下書きの添付が上限超過で復元できなかったら警告アラートを出し、本文・宛先は復元する', async () => {
     const { compose, ui } = setup()
     await openReply(compose, {
       attachmentError: appError('ATTACHMENT_TOO_LARGE', { details: { limitBytes: 26214400 } }),
@@ -27,9 +27,9 @@ describe('open', () => {
     expect(compose.session).toBeDefined()
     expect(compose.content.to).toEqual([{ email: 'to@example.com' }])
     expect(compose.attachments).toEqual([])
-    const toast = ui.toasts.at(-1)
-    expect(toast?.message).toContain('下書きの添付')
-    expect(toast?.message).toContain('25')
+    const alert = ui.alerts.at(-1)
+    expect(alert?.message).toContain('下書きの添付')
+    expect(alert?.message).toContain('25')
     expect(compose.dirty).toBe(false)
   })
 
@@ -39,7 +39,7 @@ describe('open', () => {
       attachments: [{ id: 'f1', filename: 'a.txt', size: 3, source: 'local' }],
     })
     expect(compose.attachments).toHaveLength(1)
-    expect(ui.toasts).toHaveLength(0)
+    expect(ui.alerts).toHaveLength(0)
     expect(compose.dirty).toBe(false)
     h.responses.RemoveAttachment = []
     await compose.removeAttachment('f1')
@@ -64,12 +64,12 @@ describe('open', () => {
     expect(count('OpenCompose')).toBe(1)
   })
 
-  test('開けなければエラートーストを出して false', async () => {
+  test('開けなければエラーアラートを出して false', async () => {
     const { compose, ui } = setup()
     h.failures.OpenCompose = appError('NOT_FOUND')
     expect(await compose.open({ mode: 'new' })).toBe(false)
     expect(compose.session).toBeUndefined()
-    expect(ui.toasts.at(-1)?.kind).toBe('error')
+    expect(ui.alerts.at(-1)?.kind).toBe('error')
   })
 
   test('別のセッションが開いていれば保存して閉じてから開く', async () => {

@@ -1,9 +1,11 @@
 <script setup lang="ts">
+import { Bold, Link, List } from '@iconoir/vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { compose as msg } from '../../lib/messages'
 import { cleanRichHtml } from '../../lib/richtext'
 import { ensureLeadingParagraph } from '../../lib/signature'
+import BaseIconButton from '../ui/BaseIconButton.vue'
 import EditorLinkForm from './EditorLinkForm.vue'
 import { editorExtensions } from './editorExtensions'
 
@@ -105,40 +107,31 @@ onBeforeUnmount(() => editor.value?.destroy())
 <template>
   <div class="rte" :class="{ 'rte-disabled': !editable }">
     <div v-if="editable" class="rte-toolbar" role="toolbar" :aria-label="msg.editor.toolbar">
-      <button
-        type="button"
-        class="rte-btn rte-bold"
+      <BaseIconButton
         :class="{ 'rte-btn-on': editor?.isActive('bold') }"
         :aria-pressed="editor?.isActive('bold') ?? false"
-        :aria-label="msg.editor.bold"
-        :title="msg.editor.bold"
+        :label="msg.editor.bold"
         @click="editor?.chain().focus().toggleBold().run()"
       >
-        B
-      </button>
-      <button
-        type="button"
-        class="rte-btn"
+        <Bold class="icon icon-sm" aria-hidden="true" />
+      </BaseIconButton>
+      <BaseIconButton
         :class="{ 'rte-btn-on': editor?.isActive('link') }"
         :aria-pressed="editor?.isActive('link') ?? false"
         :aria-expanded="linkOpen"
-        :aria-label="msg.editor.link"
-        :title="msg.editor.link"
+        :label="msg.editor.link"
         @click="toggleLink"
       >
-        🔗
-      </button>
-      <button
-        type="button"
-        class="rte-btn"
+        <Link class="icon icon-sm" aria-hidden="true" />
+      </BaseIconButton>
+      <BaseIconButton
         :class="{ 'rte-btn-on': editor?.isActive('bulletList') }"
         :aria-pressed="editor?.isActive('bulletList') ?? false"
-        :aria-label="msg.editor.bulletList"
-        :title="msg.editor.bulletList"
+        :label="msg.editor.bulletList"
         @click="editor?.chain().focus().toggleBulletList().run()"
       >
-        •≡
-      </button>
+        <List class="icon icon-sm" aria-hidden="true" />
+      </BaseIconButton>
     </div>
     <EditorLinkForm
       v-if="linkOpen"
@@ -155,51 +148,33 @@ onBeforeUnmount(() => editor.value?.destroy())
 .rte {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  color: var(--color-text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .rte:focus-within {
-  border-color: var(--color-focus);
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .rte-disabled {
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 .rte-toolbar {
   display: flex;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-subtle);
+  gap: var(--s-1);
+  padding: var(--s-1) var(--s-2);
+  border-bottom: 1px solid var(--border);
+  background: var(--bone);
 }
 
-.rte-btn {
-  min-width: 32px;
-  height: 28px;
-  padding: 0 var(--space-2);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text);
-  font-size: var(--font-size-md);
-  cursor: pointer;
-}
-
-.rte-bold {
-  font-weight: 700;
-}
-
-.rte-btn:hover {
-  background: var(--color-selected);
-}
-
-.rte-btn-on {
-  border-color: var(--color-accent);
-  background: var(--color-selected);
+/* 押されている（太字・リンク・箇条書きが今の位置で有効な）ボタン。BaseIconButton の hover 等より優先させる。 */
+.rte-toolbar :deep(.rte-btn-on) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .rte-body {
@@ -210,20 +185,20 @@ onBeforeUnmount(() => editor.value?.destroy())
 
 .rte-body :deep(.editor-content) {
   min-height: 120px;
-  padding: var(--space-3);
+  padding: var(--s-3);
   outline: none;
-  font-size: var(--font-size-md);
-  line-height: 1.6;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
   overflow-wrap: anywhere;
 }
 
 .rte-body :deep(.editor-content p) {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--s-2);
 }
 
 .rte-body :deep(.editor-content ul) {
-  margin: 0 0 var(--space-2);
-  padding-left: var(--space-6);
+  margin: 0 0 var(--s-2);
+  padding-left: var(--s-6);
 }
 
 .rte-body :deep(.editor-content li > p) {
@@ -231,19 +206,26 @@ onBeforeUnmount(() => editor.value?.destroy())
 }
 
 .rte-body :deep(.editor-content a) {
-  color: var(--color-accent);
+  color: var(--ink);
   text-decoration: underline;
+  text-decoration-color: var(--mute);
+  text-underline-offset: 2px;
+}
+
+/* 利用者が付けた太字（<strong>）は reset.css の既定（400）に負けず、そのまま太字で見せる。 */
+.rte-body :deep(.editor-content strong) {
+  font-weight: 700;
 }
 
 .rte-body :deep([data-hitomado-signature]) {
-  margin-top: var(--space-3);
-  color: var(--color-text-muted);
+  margin-top: var(--s-3);
+  color: var(--mute);
 }
 
 .rte-body :deep([data-hitomado-quote]) {
-  margin: var(--space-3) 0 0;
-  padding-left: var(--space-3);
-  border-left: 3px solid var(--color-border);
-  color: var(--color-text-muted);
+  margin: var(--s-3) 0 0;
+  padding-left: var(--s-3);
+  border-left: 3px solid var(--border);
+  color: var(--mute);
 }
 </style>

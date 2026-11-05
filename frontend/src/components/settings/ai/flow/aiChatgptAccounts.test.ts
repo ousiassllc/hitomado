@@ -131,6 +131,13 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     await flushPromises()
     await w.get('[data-testid="ai-chatgpt-remove"]').trigger('click')
     await flushPromises()
+    expect(removed).toEqual([]) // 確認モーダルを経由する（押しただけでは消さない）
+    const confirm = [
+      ...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
+    ].find((b) => b.textContent?.trim() === '削除する')
+    expect(confirm).toBeDefined()
+    confirm?.click()
+    await flushPromises()
     expect(removed).toEqual(['oaiapp_BBBB'])
     expect(w.findAll('[data-testid^="ai-chatgpt-account-"]')).toHaveLength(1)
   })

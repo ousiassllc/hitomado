@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Key } from '@iconoir/vue'
 import { computed, ref } from 'vue'
 import type { OAuthClient } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { parseBindingError } from '../../../lib/api'
@@ -7,6 +8,8 @@ import { useAccountsStore } from '../../../stores/accounts'
 import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'
 import BaseButton from '../../ui/BaseButton.vue'
+import ConfirmDialog from '../../ui/ConfirmDialog.vue'
+import EmptyState from '../../ui/EmptyState.vue'
 import OAuthClientForm from './OAuthClientForm.vue'
 
 const accountsStore = useAccountsStore()
@@ -20,16 +23,26 @@ const editingClient = computed<OAuthClient | undefined>(() =>
   clients.value.find((c) => c.id === editing.value),
 )
 const deletingId = ref<string>()
+/** 削除の確認を出しているクライアント。閉じたあとも、フェードアウトの間に見出しが空にならないよう持ち続ける。 */
+const removeTarget = ref<OAuthClient>()
+const removeOpen = ref(false)
 
-async function remove(c: OAuthClient): Promise<void> {
-  if (c.accountCount > 0) return
+function askRemove(c: OAuthClient): void {
+  removeTarget.value = c
+  removeOpen.value = true
+}
+
+async function remove(): Promise<void> {
+  const c = removeTarget.value
+  if (!c || c.accountCount > 0) return
   deletingId.value = c.id
   try {
     await accountsStore.deleteOAuthClient(c.id)
     ui.pushToast('success', msg.oauth.removed(c.name))
+    removeOpen.value = false
   } catch (e) {
     // OAUTH_CLIENT_IN_USE（他経路で使用中になった場合）を含め、Go 側のメッセージを表示する。
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   } finally {
     deletingId.value = undefined
   }
@@ -65,12 +78,15 @@ function openGuide(): void {
       @cancel="editing = undefined"
     />
 
-    <p v-if="clients.length === 0 && editing === undefined" class="empty">{{ msg.oauth.empty }}</p>
+    <EmptyState v-if="clients.length === 0 && editing === undefined">
+      <template #icon><Key class="icon icon-lg" /></template>
+      {{ msg.oauth.empty }}
+    </EmptyState>
     <ul v-else class="list" :aria-label="msg.oauth.listLabel">
       <li v-for="c in clients" :key="c.id" class="item" :data-client-id="c.id">
         <div class="info">
           <strong class="name">{{ c.name }}</strong>
-          <span class="meta">{{ c.clientId }}</span>
+          <span class="meta client-id">{{ c.clientId }}</span>
           <span class="meta">
             {{ c.hasSecret ? msg.oauth.secretSaved : msg.oauth.secretMissing }}
             ／ {{ msg.oauth.accountCount(c.accountCount) }}
@@ -80,22 +96,32 @@ function openGuide(): void {
           </span>
         </div>
         <div class="ops">
-          <BaseButton :disabled="editing !== undefined" @click="editing = c.id">
+          <BaseButton size="sm" :disabled="editing !== undefined" @click="editing = c.id">
             {{ msg.oauth.editFor(c.name) }}
           </BaseButton>
           <BaseButton
+            size="sm"
             variant="danger"
             class="remove"
             :disabled="c.accountCount > 0 || deletingId === c.id"
             :loading="deletingId === c.id"
             :aria-describedby="c.accountCount > 0 ? `inuse-${c.id}` : undefined"
-            @click="remove(c)"
+            @click="askRemove(c)"
           >
             {{ msg.oauth.removeFor(c.name) }}
           </BaseButton>
         </div>
       </li>
     </ul>
+
+    <ConfirmDialog
+      v-model:open="removeOpen"
+      :title="msg.oauth.removeTitle(removeTarget?.name ?? '')"
+      :detail="msg.oauth.removeDetail"
+      :confirm-label="msg.oauth.removeConfirm"
+      :busy="deletingId !== undefined && deletingId === removeTarget?.id"
+      @confirm="remove"
+    />
   </section>
 </template>
 
@@ -107,24 +133,23 @@ function openGuide(): void {
 }
 
 .intro {
-  margin: var(--space-2) 0;
-  color: var(--color-text-muted);
+  margin: var(--s-2) 0;
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 
 .link {
-  color: var(--color-accent);
-}
-
-.empty {
-  color: var(--color-text-muted);
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--mute);
+  text-underline-offset: 2px;
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-3) 0 0;
+  gap: var(--s-2);
+  margin: var(--s-3) 0 0;
   padding: 0;
 }
 
@@ -132,10 +157,10 @@ function openGuide(): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   list-style: none;
 }
 
@@ -146,23 +171,28 @@ function openGuide(): void {
 }
 
 .meta {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
   overflow-wrap: anywhere;
 }
 
+.client-id {
+  font-family: var(--font-mono);
+}
+
 .inuse {
-  color: var(--color-warning-text);
-  background: var(--color-warning-bg);
+  border: 1px solid var(--warning);
+  background: var(--warning-soft);
+  color: var(--warning);
   align-self: flex-start;
-  margin-top: var(--space-1);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
+  margin-top: var(--s-1);
+  padding: 0 var(--s-2);
+  border-radius: var(--r-full);
   font-size: var(--font-size-xs);
 }
 
 .ops {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 </style>

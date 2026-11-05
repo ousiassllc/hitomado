@@ -4,11 +4,12 @@ import (
 	"context"
 	"crypto/subtle"
 	"fmt"
-	"html"
 	"net"
 	"net/http"
 	"sync"
 	"time"
+
+	"github.com/ousiassllc/hitomado/internal/callbackpage"
 )
 
 const (
@@ -100,25 +101,9 @@ func (c *callbackServer) handle(w http.ResponseWriter, r *http.Request) {
 		res.code = q.Get("code")
 	}
 
-	writePage(w, msg)
+	callbackpage.Write(w, msg)
 	select {
 	case c.result <- res:
 	default: // 2 回目以降のコールバックは無視する
 	}
-}
-
-// writePage は外部リソースを使わない簡素な完了ページを返す。
-func writePage(w http.ResponseWriter, msg string) {
-	h := w.Header()
-	h.Set("Content-Type", "text/html; charset=utf-8")
-	h.Set("Cache-Control", "no-store")
-	h.Set("Referrer-Policy", "no-referrer")
-	h.Set("Connection", "close")
-	h.Set("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'")
-	_, _ = fmt.Fprintf(w, `<!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><title>Hitomado</title>
-<style>body{font-family:sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:#f5f5f5;color:#222}main{background:#fff;padding:2rem 2.5rem;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.2);max-width:28rem}h1{font-size:1.2rem;margin:0 0 .75rem}p{margin:0;line-height:1.6}</style>
-</head><body><main><h1>Hitomado</h1><p>%s</p></main></body></html>
-`, html.EscapeString(msg))
-	// 書き込み失敗（クライアントの切断）は認可結果の受け取りに影響しない。
 }

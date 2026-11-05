@@ -109,7 +109,7 @@ export function useComposeSend(ctx: ComposeSendContext) {
       const ref = ctx.openRef.value
       ctx.clearSession()
       ui.pushToast('success', archive && result.archived ? msg.toast.sentArchived : msg.toast.sent)
-      if (archive && !result.archived) ui.pushToast('error', msg.toast.archiveFailed)
+      if (archive && !result.archived) ui.pushAlert(msg.toast.archiveFailed)
       reflectInInbox(ref, archive && result.archived)
       return true
     } catch (e) {

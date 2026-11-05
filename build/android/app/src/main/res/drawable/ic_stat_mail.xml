@@ -1,11 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 通知の小さなアイコン（単色。封筒）。#88 -->
+<!-- 通知の小さなアイコン（単色。封筒）。Iconoir の Mail（ストローク 1.5）。通知では alpha だけが使われる。#88 #145 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
     android:viewportWidth="24"
     android:viewportHeight="24">
     <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M20,4L4,4c-1.1,0 -1.99,0.9 -1.99,2L2,18c0,1.1 0.9,2 2,2h16c1.1,0 2,-0.9 2,-2L22,6c0,-1.1 -0.9,-2 -2,-2zM20,8l-8,5 -8,-5L4,6l8,5 8,-5v2z" />
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M7,9L12,12.5L17,9" />
+    <path
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.5"
+        android:pathData="M2,17V7C2,5.89543 2.89543,5 4,5H20C21.1046,5 22,5.89543 22,7V17C22,18.1046 21.1046,19 20,19H4C2.89543,19 2,18.1046 2,17Z" />
 </vector>

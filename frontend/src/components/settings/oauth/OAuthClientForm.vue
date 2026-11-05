@@ -86,27 +86,27 @@ async function submit(): Promise<void> {
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
+  gap: var(--gap-field);
+  padding: var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bone);
 }
 
 .title {
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
 }
 
 .form-error {
   margin: 0;
-  color: var(--color-danger);
+  color: var(--danger);
   font-size: var(--font-size-sm);
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 </style>

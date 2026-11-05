@@ -34,7 +34,7 @@ async function toggleUpdateCheck(enabled: boolean): Promise<void> {
   try {
     await store.setUpdateCheckEnabled(enabled)
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   }
 }
 
@@ -45,7 +45,7 @@ async function checkNow(): Promise<void> {
     await store.checkUpdate()
     checked.value = true
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   } finally {
     checking.value = false
   }
@@ -55,7 +55,7 @@ async function toggleAutoUpdate(enabled: boolean): Promise<void> {
   try {
     await store.setAutoUpdateEnabled(enabled)
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   }
 }
 
@@ -123,7 +123,7 @@ function openUpdate(): void {
         />
         <strong>{{ msg.general.autoUpdate }}</strong>
       </div>
-      <p class="hint">{{ msg.general.autoUpdateHint }}</p>
+      <p class="body">{{ msg.general.autoUpdateHint }}</p>
       <p v-if="info.autoUpdateEnabled && !info.updateCheckEnabled" class="hint">
         {{ msg.general.autoUpdateRequiresCheck }}
       </p>
@@ -144,7 +144,7 @@ function openUpdate(): void {
       data-testid="notification-permission"
       :data-state="notifications.permission"
     >
-      <strong>{{ msg.notifications.heading }}</strong>
+      <h3 class="block-title">{{ msg.notifications.heading }}</h3>
       <p v-if="notifications.permission === 'granted'" class="hint" role="status">
         {{ msg.notifications.granted }}
       </p>
@@ -162,7 +162,7 @@ function openUpdate(): void {
 
     <dl class="info">
       <dt>{{ msg.general.version }}</dt>
-      <dd data-testid="app-version">{{ info?.version ?? msg.general.unknown }}</dd>
+      <dd class="path" data-testid="app-version">{{ info?.version ?? msg.general.unknown }}</dd>
       <dt>{{ msg.general.dataDir }}</dt>
       <dd class="path" data-testid="app-datadir">{{ info?.dataDir ?? msg.general.unknown }}</dd>
     </dl>
@@ -174,25 +174,36 @@ function openUpdate(): void {
 .general {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--s-4);
 }
 
 .block {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-2);
+}
+
+.block-title {
+  margin: 0;
+  font-size: var(--font-size-base);
 }
 
 .toggle,
 .check {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .hint {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
+  font-size: var(--font-size-sm);
+}
+
+.body {
+  margin: 0;
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 
@@ -202,18 +213,21 @@ function openUpdate(): void {
 }
 
 .link {
-  color: var(--color-accent);
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--mute);
+  text-underline-offset: 2px;
 }
 
 .info {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: var(--space-1) var(--space-3);
+  gap: var(--s-1) var(--s-3);
   margin: 0;
 }
 
 .info dt {
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .info dd {
@@ -221,6 +235,7 @@ function openUpdate(): void {
 }
 
 .path {
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 </style>

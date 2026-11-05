@@ -1,105 +1,88 @@
 <script setup lang="ts">
+import { CheckCircle, InfoCircle } from '@iconoir/vue'
 import { onBeforeUnmount, watch } from 'vue'
-import { common } from '../../lib/messages'
-import { type Toast, useUiStore } from '../../stores/ui'
-import BaseButton from '../ui/BaseButton.vue'
-import BaseIconButton from '../ui/BaseIconButton.vue'
+import { useUiStore } from '../../stores/ui'
 
-const AUTO_DISMISS_MS = { success: 5000, info: 6000, error: 10000 } as const
-
+// トースト: 画面下中央・ピル・1 行の短い結果。同時に 1 つ（新しいものが前を置き換える）、3 秒で消える（ガイド O3）。
+// 失敗の理由・再試行は AlertStack（インラインアラート）に出す。
 const ui = useUiStore()
-const timers = new Map<number, ReturnType<typeof setTimeout>>()
+let timer: ReturnType<typeof setTimeout> | undefined
 
-// 再試行できるエラーは利用者が閉じるまで残す。それ以外は一定時間で消す。
+function stop(): void {
+  if (timer) clearTimeout(timer)
+  timer = undefined
+}
+
 watch(
-  () => ui.toasts.map((t) => t.id),
-  () => {
-    const live = new Set(ui.toasts.map((t) => t.id))
-    for (const [id, timer] of timers) {
-      if (!live.has(id)) {
-        clearTimeout(timer)
-        timers.delete(id)
-      }
-    }
-    for (const t of ui.toasts) {
-      if (timers.has(t.id) || (t.kind === 'error' && t.retry)) continue
-      timers.set(
-        t.id,
-        setTimeout(() => ui.dismissToast(t.id), AUTO_DISMISS_MS[t.kind]),
-      )
-    }
+  () => ui.toast?.id,
+  (id) => {
+    stop()
+    if (id === undefined) return
+    timer = setTimeout(() => ui.dismissToast(id), 3000)
   },
   { immediate: true },
 )
 
-onBeforeUnmount(() => {
-  for (const timer of timers.values()) clearTimeout(timer)
-  timers.clear()
-})
-
-function retry(t: Toast): void {
-  ui.dismissToast(t.id)
-  t.retry?.()
-}
+onBeforeUnmount(stop)
 </script>
 
 <template>
-  <div class="toasts" aria-live="polite">
-    <div
-      v-for="t in ui.toasts"
-      :key="t.id"
-      class="toast"
-      :class="`toast-${t.kind}`"
-      :role="t.kind === 'error' ? 'alert' : 'status'"
-    >
-      <span class="msg">{{ t.message }}</span>
-      <BaseButton v-if="t.retry" variant="secondary" @click="retry(t)">{{ common.retry }}</BaseButton>
-      <BaseIconButton :label="common.dismiss" @click="ui.dismissToast(t.id)">×</BaseIconButton>
-    </div>
+  <div class="toasts">
+    <Transition name="toast">
+      <div
+        v-if="ui.toast"
+        :key="ui.toast.id"
+        class="toast"
+        role="status"
+        aria-live="polite"
+        :title="ui.toast.message"
+      >
+        <CheckCircle v-if="ui.toast.kind === 'success'" class="icon icon-sm" aria-hidden="true" />
+        <InfoCircle v-else class="icon icon-sm" aria-hidden="true" />
+        <span class="msg">{{ ui.toast.message }}</span>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <style scoped>
 .toasts {
   position: fixed;
-  right: var(--space-4);
-  bottom: var(--space-4);
+  left: 50%;
+  bottom: var(--toast-offset);
+  transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  max-width: min(420px, calc(100vw - 32px));
-  z-index: 200;
+  justify-content: center;
+  max-width: calc(100vw - var(--s-8));
+  pointer-events: none;
+  z-index: var(--z-toast);
 }
 
 .toast {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-left-width: 4px;
-  border-radius: var(--radius-md);
-  background: var(--color-bg-elevated);
-  color: var(--color-text);
-  box-shadow: var(--shadow-popup);
+  gap: var(--s-2);
+  height: var(--toast-h);
+  padding: 0 var(--s-4);
+  border-radius: var(--r-full);
+  background: var(--ink);
+  color: var(--bone);
   font-size: var(--font-size-sm);
-}
-
-.toast-success {
-  border-left-color: var(--color-success);
-}
-
-.toast-error {
-  border-left-color: var(--color-danger);
-}
-
-.toast-info {
-  border-left-color: var(--color-accent);
+  line-height: 1;
 }
 
 .msg {
-  flex: 1;
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.toast-enter-active {
+  animation: ui-rise-in var(--motion-fade-in) var(--ease-out);
+}
+
+.toast-leave-active {
+  animation: ui-sink-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 </style>

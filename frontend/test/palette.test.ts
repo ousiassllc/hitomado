@@ -21,14 +21,10 @@ function vars(block: string): Record<string, string> {
 const light = vars(css.slice(0, darkStart))
 const dark = { ...light, ...vars(css.slice(darkStart, darkEnd)) }
 
-// 帯・チップが載り得る背景。--color-bg は必須、それ以外は余裕の確認。
-const BACKGROUNDS = [
-  '--color-bg',
-  '--color-bg-subtle',
-  '--color-bg-elevated',
-  '--color-selected',
-  '--color-unread-bg',
-]
+// 帯・チップが載り得る背景。ページ（--bone）とカード（--surface）では 4.5:1、ホバー/選択（--accent-soft）では
+// 非テキストの UI（帯）の基準 3:1 を満たす。
+const BACKGROUNDS = ['--bone', '--surface']
+const HOVER_BACKGROUND = '--accent-soft'
 
 describe('contrast', () => {
   test('白と黒は 21:1', () => {
@@ -51,20 +47,30 @@ describe('contrast', () => {
   })
 })
 
-describe('淡色トークン', () => {
-  test('--color-text-faded は行が載り得るすべての背景で 4.5:1 以上（ライト・ダーク）', () => {
+describe('ガイドの色トークン', () => {
+  test('文字（--ink）は背景（--bone・--surface）で 4.5:1 以上（ライト・ダーク）', () => {
     for (const v of [light, dark]) {
-      for (const name of BACKGROUNDS) {
-        expect(contrastRatio(v['--color-text-faded'], v[name])).toBeGreaterThanOrEqual(4.5)
+      for (const name of ['--bone', '--surface']) {
+        expect(contrastRatio(v['--ink'], v[name])).toBeGreaterThanOrEqual(4.5)
       }
     }
   })
 
-  test('淡色は通常の文字色より薄い（区別できる）', () => {
+  test('補助テキスト（--mute）は通常の文字色より薄い（区別できる）', () => {
     for (const v of [light, dark]) {
-      expect(contrastRatio(v['--color-text-faded'], v['--color-bg'])).toBeLessThan(
-        contrastRatio(v['--color-text'], v['--color-bg']),
+      expect(contrastRatio(v['--mute'], v['--bone'])).toBeLessThan(
+        contrastRatio(v['--ink'], v['--bone']),
       )
+    }
+  })
+
+  test('状態色（--success・--warning・--danger・--info）は背景（--bone・--surface）で 4.5:1 以上', () => {
+    for (const v of [light, dark]) {
+      for (const state of ['--success', '--warning', '--danger', '--info']) {
+        for (const name of ['--bone', '--surface']) {
+          expect(contrastRatio(v[state], v[name])).toBeGreaterThanOrEqual(4.5)
+        }
+      }
     }
   })
 })
@@ -95,7 +101,7 @@ describe('palette', () => {
   ]
   for (const [theme, v] of themes) {
     for (const key of ACCOUNT_COLOR_KEYS) {
-      test(`${theme}: ${key} は帯・チップ文字とも 4.5:1 以上`, () => {
+      test(`${theme}: ${key} は帯はページ・カードの背景で 4.5:1 以上（ホバーでは 3:1 以上）、チップ文字は 4.5:1 以上`, () => {
         const bg = v[`--account-${key}`]
         const fg = v[`--account-${key}-text`]
         expect(bg).toBeDefined()
@@ -103,6 +109,7 @@ describe('palette', () => {
         for (const name of BACKGROUNDS) {
           expect(contrastRatio(bg, v[name])).toBeGreaterThanOrEqual(4.5)
         }
+        expect(contrastRatio(bg, v[HOVER_BACKGROUND])).toBeGreaterThanOrEqual(3)
         expect(contrastRatio(bg, fg)).toBeGreaterThanOrEqual(4.5)
       })
     }

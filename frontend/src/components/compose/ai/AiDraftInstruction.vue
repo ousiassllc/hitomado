@@ -65,43 +65,44 @@ watch(model, () => void nextTick(fit))
 .instruction {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--s-1);
 }
 
 .instruction-label {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .instruction-input {
   box-sizing: border-box;
   width: 100%;
-  padding: var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
+  padding: var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
   font: inherit;
-  font-size: var(--font-size-md);
-  line-height: 1.5;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
   resize: none;
   overflow-y: auto;
 }
 
 .instruction-input:focus {
-  border-color: var(--color-focus);
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
   outline: none;
 }
 
 .instruction-foot {
   display: flex;
   justify-content: space-between;
-  gap: var(--space-2);
-  color: var(--color-text-muted);
+  gap: var(--s-2);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
 .instruction-count.over {
-  color: var(--color-danger);
+  color: var(--danger);
 }
 </style>

@@ -6,6 +6,7 @@ import { settings as msg } from '../../../lib/messages'
 import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'
 import BaseButton from '../../ui/BaseButton.vue'
+import ConfirmDialog from '../../ui/ConfirmDialog.vue'
 import ChatGPTAccountRow from './ChatGPTAccountRow.vue'
 import ChatGPTPlanNotice from './ChatGPTPlanNotice.vue'
 
@@ -108,7 +109,8 @@ async function logout(a: ChatGPTAccount): Promise<void> {
   busyId.value = a.id
   try {
     const revoked = await store.signOutChatGPT(a.id)
-    ui.pushToast(revoked ? 'success' : 'info', revoked ? msg.ai.chatgpt.signedOut : msg.ai.chatgpt.revokeUnconfirmed)
+    if (revoked) ui.pushToast('success', msg.ai.chatgpt.signedOut)
+    else ui.pushNotice(msg.ai.chatgpt.revokeUnconfirmed)
   } catch (e) {
     error.value = parseBindingError(e).message
   } finally {
@@ -117,8 +119,18 @@ async function logout(a: ChatGPTAccount): Promise<void> {
   }
 }
 
-async function remove(a: ChatGPTAccount): Promise<void> {
-  if (busy.value) return
+/** 登録の削除の確認を出しているアカウント。閉じたあとも、フェードアウトの間に見出しが空にならないよう持ち続ける。 */
+const removeTarget = ref<ChatGPTAccount>()
+const removeOpen = ref(false)
+
+function askRemove(a: ChatGPTAccount): void {
+  removeTarget.value = a
+  removeOpen.value = true
+}
+
+async function remove(): Promise<void> {
+  const a = removeTarget.value
+  if (!a || busy.value) return
   error.value = undefined
   busy.value = 'remove'
   try {
@@ -128,6 +140,8 @@ async function remove(a: ChatGPTAccount): Promise<void> {
     error.value = parseBindingError(e).message
   } finally {
     busy.value = undefined
+    // 失敗の理由はこの画面の中に出るので、確認は閉じて見えるようにする。
+    removeOpen.value = false
   }
 }
 </script>
@@ -156,7 +170,7 @@ async function remove(a: ChatGPTAccount): Promise<void> {
           @select="select(a)"
           @logout="logout(a)"
           @relogin="login(a.id)"
-          @remove="remove(a)"
+          @remove="askRemove(a)"
         />
       </ul>
       <p class="note">{{ msg.ai.chatgpt.accountHint }}</p>
@@ -187,6 +201,15 @@ async function remove(a: ChatGPTAccount): Promise<void> {
         {{ msg.ai.chatgpt.login }}
       </BaseButton>
     </div>
+
+    <ConfirmDialog
+      v-model:open="removeOpen"
+      :title="msg.ai.chatgpt.removeTitle(removeTarget ? label(removeTarget) : '')"
+      :detail="msg.ai.chatgpt.removeDetail"
+      :confirm-label="msg.ai.chatgpt.removeConfirm"
+      :busy="busy === 'remove'"
+      @confirm="remove"
+    />
   </div>
 </template>
 
@@ -194,18 +217,18 @@ async function remove(a: ChatGPTAccount): Promise<void> {
 .chatgpt {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 .sub {
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
 }
 
 .note,
 .waiting {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
@@ -217,23 +240,23 @@ async function remove(a: ChatGPTAccount): Promise<void> {
 .accounts {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-2);
   margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
 }
 
 .legend {
-  padding: 0 var(--space-1);
+  padding: 0 var(--s-1);
   font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -241,7 +264,7 @@ async function remove(a: ChatGPTAccount): Promise<void> {
 
 .error {
   margin: 0;
-  color: var(--color-danger);
+  color: var(--danger);
   font-size: var(--font-size-sm);
 }
 
@@ -249,6 +272,6 @@ async function remove(a: ChatGPTAccount): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 </style>

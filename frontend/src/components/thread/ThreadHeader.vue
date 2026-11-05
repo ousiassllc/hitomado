@@ -16,7 +16,7 @@ const store = useThreadStore()
 
 const labelItems = computed(() => {
   const owned = new Set((props.detail.labels ?? []).map((l) => l.id))
-  const items = store.accountLabels.map((l) => ({ key: l.id, label: `${owned.has(l.id) ? '✓ ' : ''}${l.name}` }))
+  const items = store.accountLabels.map((l) => ({ key: l.id, label: l.name, checked: owned.has(l.id) }))
   if (items.length > 0) return items
   return [{ key: '', label: store.labelsLoading ? msg.labelsLoading : msg.labelsEmpty, disabled: true }]
 })
@@ -36,14 +36,14 @@ const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail
       <h2 class="subject" data-testid="thread-subject">{{ subject }}</h2>
       <div class="actions">
         <BaseTooltip :text="common.shortcutHint(msg.archive, SHORTCUT_KEYS.archive)">
-          <BaseButton data-testid="act-archive" @click="store.archive()">{{ msg.archive }}</BaseButton>
+          <BaseButton size="sm" data-testid="act-archive" @click="store.archive()">{{ msg.archive }}</BaseButton>
         </BaseTooltip>
         <BaseTooltip :text="common.shortcutHint(msg.trash, SHORTCUT_KEYS.trash)">
-          <BaseButton data-testid="act-trash" @click="store.trash()">{{ msg.trash }}</BaseButton>
+          <BaseButton size="sm" data-testid="act-trash" @click="store.trash()">{{ msg.trash }}</BaseButton>
         </BaseTooltip>
         <BaseMenu :items="labelItems" @select="onLabel">
           <template #trigger>
-            <BaseButton
+            <BaseButton size="sm"
               data-testid="act-label"
               @pointerdown="store.loadLabels()"
               @keydown.enter="store.loadLabels()"
@@ -58,7 +58,7 @@ const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail
               : common.shortcutHint(msg.markUnread, SHORTCUT_KEYS.markUnread)
           "
         >
-          <BaseButton data-testid="act-toggle-read" @click="store.toggleRead()">
+          <BaseButton size="sm" data-testid="act-toggle-read" @click="store.toggleRead()">
             {{ store.unread ? msg.markRead : msg.markUnread }}
           </BaseButton>
         </BaseTooltip>
@@ -76,41 +76,41 @@ const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail
 .thread-header {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
+  gap: var(--s-2);
+  padding: var(--s-3) var(--s-4);
   border-top: 4px solid transparent;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .title-row {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 .subject {
   margin: 0;
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   overflow-wrap: anywhere;
-  color: var(--color-text);
+  color: var(--ink);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: var(--space-2);
+  gap: var(--s-2);
   flex: none;
 }
 
 .meta-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
   font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .count {

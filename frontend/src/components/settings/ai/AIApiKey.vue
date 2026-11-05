@@ -75,12 +75,12 @@ defineExpose({
 .key {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--gap-field);
 }
 
 .sub {
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
 }
 
 .status {
@@ -91,6 +91,6 @@ defineExpose({
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 </style>

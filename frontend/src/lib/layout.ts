@@ -1,15 +1,14 @@
-// 画面幅によるレイアウトの切り替え（ブレイクポイントはここだけ）。
+// 画面幅によるレイアウトの切り替え（ブレイクポイントはここだけ。値は Ousiass デザインガイドの --bp-*）。
 //   wide   : 3 ペイン（サイドバー・一覧・スレッド）。Windows 版は常にこれ（最小幅 960px のウィンドウ）
 //   medium : 2 ペイン（一覧・スレッド）。サイドバーはドロワー。Fold を開いたときなどの中くらいの幅
 //   stack  : 1 画面ずつ（一覧 → スレッド → 返信）。サイドバーはドロワー
-import { MIN_WINDOW_WIDTH } from './paneWidth'
 
 export type LayoutMode = 'wide' | 'medium' | 'stack'
 
-/** この幅以上は 3 ペイン（デスクトップの最小ウィンドウ幅と同じ）。 */
-export const BREAKPOINT_WIDE = MIN_WINDOW_WIDTH
-/** この幅以上は 2 ペイン、未満は 1 画面ずつ。 */
-export const BREAKPOINT_MEDIUM = 600
+/** この幅以上は 3 ペイン（ガイドの --bp-lg。3 ペインの最小幅 960px を満たす）。 */
+export const BREAKPOINT_WIDE = 1024
+/** この幅以上は 2 ペイン、未満は 1 画面ずつ（ガイドの --bp-sm）。 */
+export const BREAKPOINT_MEDIUM = 640
 
 /** matchMedia に渡すクエリ。各幅以上で true。 */
 export const WIDE_QUERY = `(min-width: ${BREAKPOINT_WIDE}px)`

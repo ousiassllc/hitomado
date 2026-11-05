@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import { compose as msg } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'
 import { useComposeStore } from '../../stores/compose'
+import BaseButton from '../ui/BaseButton.vue'
 import RecipientField from './RecipientField.vue'
 import SenderField from './SenderField.vue'
 
@@ -51,8 +52,8 @@ defineExpose({ commitPending })
         :disabled="frozen"
       />
       <div class="toggles">
-        <button v-if="!showCc" type="button" class="toggle" @click="ccOpen = true">{{ msg.fields.showCc }}</button>
-        <button v-if="!showBcc" type="button" class="toggle" @click="bccOpen = true">{{ msg.fields.showBcc }}</button>
+        <BaseButton v-if="!showCc" size="sm" variant="ghost" @click="ccOpen = true">{{ msg.fields.showCc }}</BaseButton>
+        <BaseButton v-if="!showBcc" size="sm" variant="ghost" @click="bccOpen = true">{{ msg.fields.showBcc }}</BaseButton>
       </div>
     </div>
     <RecipientField
@@ -88,13 +89,13 @@ defineExpose({ commitPending })
 .compose-fields {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--gap-field);
 }
 
 .to-row {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .to-field {
@@ -104,49 +105,40 @@ defineExpose({ commitPending })
 
 .toggles {
   display: flex;
-  gap: var(--space-1);
-  padding-top: 4px;
-}
-
-.toggle {
-  padding: 2px var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-}
-
-.toggle:hover {
-  background: var(--color-selected);
+  gap: var(--s-1);
+  padding-top: var(--s-1);
 }
 
 .subject-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .subject-label {
   flex: 0 0 56px;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .subject-input {
   flex: 1;
-  height: 34px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-size: var(--font-size-md);
+  height: var(--control-h);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--font-size-sm);
 }
 
 .subject-input:focus {
-  border-color: var(--color-focus);
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
   outline: none;
+}
+
+.subject-input:disabled {
+  opacity: 0.5;
 }
 </style>

@@ -34,7 +34,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     try {
       await call(NotifyService.RequestNotificationPermission())
     } catch (e) {
-      ui.pushToast('error', parseBindingError(e).message)
+      ui.pushAlert(parseBindingError(e).message)
     }
     await refresh()
   }
@@ -43,7 +43,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     try {
       await call(NotifyService.OpenNotificationSettings())
     } catch (e) {
-      ui.pushToast('error', parseBindingError(e).message || msg.notifications.openFailed)
+      ui.pushAlert(parseBindingError(e).message || msg.notifications.openFailed)
     }
   }
 

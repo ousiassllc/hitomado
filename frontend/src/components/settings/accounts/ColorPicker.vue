@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Check } from '@iconoir/vue'
 import { useId } from 'vue'
 import { settings as msg } from '../../../lib/messages'
 import { ACCOUNT_COLOR_KEYS, accountColorVar, accountTextVar } from '../../../lib/palette'
@@ -35,7 +36,8 @@ function colorName(key: string): string {
           :aria-label="msg.accounts.colorFor(colorName(key))"
           @change="$emit('update:modelValue', key)"
         />
-        <span v-if="key === modelValue" aria-hidden="true">✓</span>
+        <span class="legend">{{ colorName(key) }}</span>
+        <Check v-if="key === modelValue" class="icon icon-sm" aria-hidden="true" />
       </label>
     </div>
     <span class="current">{{ msg.accounts.colorCurrent(colorName(modelValue)) }}</span>
@@ -47,7 +49,7 @@ function colorName(key: string): string {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--s-2);
   margin: 0;
   padding: 0;
   border: none;
@@ -65,7 +67,7 @@ function colorName(key: string): string {
 .swatches {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-1);
+  gap: var(--s-1);
 }
 
 .swatch {
@@ -76,18 +78,17 @@ function colorName(key: string): string {
   width: 28px;
   height: 28px;
   border: 2px solid transparent;
-  border-radius: var(--radius-sm);
-  font-weight: 700;
+  border-radius: var(--r-sm);
   line-height: 1;
   cursor: pointer;
 }
 
 .swatch.selected {
-  border-color: var(--color-text);
+  border-color: var(--ink);
 }
 
 .swatch:has(.radio:focus-visible) {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
@@ -100,12 +101,12 @@ function colorName(key: string): string {
 }
 
 .picker:disabled .swatch {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
 .current {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 </style>

@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { User } from '@iconoir/vue'
 import { computed } from 'vue'
 import { common } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'
 import { useInboxStore } from '../../stores/inbox'
+import EmptyState from '../ui/EmptyState.vue'
 import AccountItem from './AccountItem.vue'
 
 const accounts = useAccountsStore()
@@ -50,7 +52,10 @@ function onSelect(id: string, multi: boolean): void {
         @reconnect="emit('reconnect', a.id)"
       />
     </ul>
-    <p v-if="accounts.accounts.length === 0" class="empty">{{ common.sidebar.noAccounts }}</p>
+    <EmptyState v-if="accounts.accounts.length === 0" compact class="empty">
+      <template #icon><User class="icon icon-lg" /></template>
+      {{ common.sidebar.noAccounts }}
+    </EmptyState>
   </nav>
 </template>
 
@@ -58,18 +63,18 @@ function onSelect(id: string, multi: boolean): void {
 .list {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--s-1);
   margin: 0;
   padding: 0;
 }
 
 .all {
   list-style: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
 }
 
 .all.selected {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
 .all-btn {
@@ -77,35 +82,33 @@ function onSelect(id: string, multi: boolean): void {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--s-2) var(--s-3);
   border: none;
   background: transparent;
-  color: var(--color-text);
+  color: var(--ink);
   font-size: var(--font-size-sm);
-  font-weight: 600;
   text-align: left;
   cursor: pointer;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
 }
 
 .all-btn:hover {
-  background: var(--color-bg-subtle);
+  background: var(--accent-soft);
 }
 
 .badge {
   min-width: 20px;
-  padding: 0 6px;
-  border-radius: 10px;
-  background: var(--color-accent);
-  color: var(--color-accent-text);
+  padding: 0 var(--s-2);
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--bone);
   font-size: var(--font-size-xs);
+  font-family: var(--font-mono);
   line-height: 20px;
   text-align: center;
 }
 
 .empty {
-  margin: var(--space-3);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
+  margin: var(--s-3);
 }
 </style>

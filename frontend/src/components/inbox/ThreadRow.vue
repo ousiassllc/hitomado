@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Attachment, WarningTriangle } from '@iconoir/vue'
 import { computed } from 'vue'
 import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { formatDate } from '../../lib/format'
@@ -21,13 +22,13 @@ const props = defineProps<{
 }>()
 
 const sender = computed(() => props.thread.lastFrom.name || props.thread.lastFrom.email || common.list.noSender)
-const faded = computed(() => props.account?.status === 'needs_reauth')
+const needsReauth = computed(() => props.account?.status === 'needs_reauth')
 const labels = computed(() => props.thread.labels ?? [])
 const label = computed(
   () =>
     `${props.thread.isUnread ? `${common.list.unreadMark}、` : ''}${props.account?.displayName ?? ''} ${sender.value}、${
       props.thread.subject || common.list.noSubject
-    }`,
+    }${needsReauth.value ? `、${common.list.needsReauthRow}` : ''}`,
 )
 </script>
 
@@ -40,15 +41,14 @@ const label = computed(
       selected,
       checked,
       active,
-      faded,
+      'needs-reauth': needsReauth,
     }"
     role="option"
     tabindex="-1"
     :aria-selected="selected || checked || false"
     :aria-label="label"
-    :title="faded ? common.list.needsReauthRow : undefined"
   >
-    <span class="band" :style="{ background: account ? accountColorVar(account.color) : 'var(--color-border)' }" aria-hidden="true" />
+    <span class="band" :style="{ background: account ? accountColorVar(account.color) : 'var(--border)' }" aria-hidden="true" />
     <div class="main">
       <div class="line1">
         <AccountChip v-if="account" :account="account" size="sm" />
@@ -56,11 +56,12 @@ const label = computed(
         <span v-if="thread.messageCount > 1" class="count" :title="common.list.messageCount(thread.messageCount)">{{
           thread.messageCount
         }}</span>
-        <span v-if="thread.hasAttachment" class="clip" role="img" :aria-label="common.list.attachment">📎</span>
+        <span v-if="thread.hasAttachment" class="clip" role="img" :aria-label="common.list.attachment"><Attachment class="icon icon-sm" aria-hidden="true" /></span>
         <time class="date">{{ formatDate(thread.lastMessageAt) }}</time>
       </div>
       <div class="line2">
         <span v-if="thread.isUnread" class="dot" aria-hidden="true" />
+        <span v-if="needsReauth" class="reauth"><WarningTriangle class="icon icon-sm" aria-hidden="true" />{{ common.list.needsReauthRow }}</span>
         <span class="subject">{{ thread.subject || common.list.noSubject }}</span>
         <span class="snippet">{{ thread.snippet }}</span>
       </div>
@@ -76,27 +77,23 @@ const label = computed(
   display: flex;
   align-items: stretch;
   height: 100%;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
   cursor: pointer;
   overflow: hidden;
 }
 
-.row.unread {
-  background: var(--color-unread-bg);
-}
-
 .row:hover {
-  background: var(--color-bg-subtle);
+  background: var(--accent-soft);
 }
 
 .row.selected,
 .row.checked {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
 .row.active {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 
@@ -108,11 +105,11 @@ const label = computed(
 .main {
   flex: 1;
   min-width: 0;
-  padding: var(--space-1) var(--space-3);
+  padding: var(--s-1) var(--s-3);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 2px;
+  gap: var(--s-1);
 }
 
 .line1,
@@ -120,7 +117,7 @@ const label = computed(
 .labels {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
   min-width: 0;
 }
 
@@ -139,7 +136,7 @@ const label = computed(
 
 .count {
   flex: none;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
@@ -150,7 +147,7 @@ const label = computed(
 
 .date {
   flex: none;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
@@ -158,8 +155,8 @@ const label = computed(
   flex: none;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  background: var(--color-accent);
+  border-radius: var(--r-full);
+  background: var(--accent);
 }
 
 .subject {
@@ -177,21 +174,37 @@ const label = computed(
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
+}
+
+/* 未読は太字にせず、未読ドットと文字色の対比（未読 = --ink、既読 = --mute）で区別する。 */
+.sender,
+.subject {
+  color: var(--mute);
 }
 
 .unread .sender,
 .unread .subject {
-  font-weight: 700;
+  color: var(--ink);
 }
 
-.row.faded .sender,
-.row.faded .subject,
-.row.faded .snippet,
-.row.faded .date,
-.row.faded .count {
-  color: var(--color-text-faded);
-  font-weight: 400;
+/* 要再接続のアカウントの行は、アイコンと文言で伝える（色や濃淡だけにしない）。文字は --mute にして、操作できる行と区別する。 */
+.reauth {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--s-1);
+  color: var(--ink);
+  font-size: var(--font-size-xs);
+}
+
+.reauth .icon {
+  color: var(--warning);
+}
+
+.row.needs-reauth .sender,
+.row.needs-reauth .subject {
+  color: var(--mute);
 }
 </style>

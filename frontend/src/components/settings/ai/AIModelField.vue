@@ -80,37 +80,36 @@ const note = computed(() => {
 .model {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--gap-label);
   max-width: 320px;
 }
 
 .label {
   font-size: var(--font-size-sm);
-  font-weight: 600;
 }
 
 .refresh {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .note {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .error {
-  margin: 0;
-  color: var(--color-danger);
+  margin: calc(var(--gap-help) - var(--gap-label)) 0 0;
+  color: var(--danger);
   font-size: var(--font-size-sm);
 }
 </style>

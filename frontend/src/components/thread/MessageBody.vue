@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WarningTriangle } from '@iconoir/vue'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { thread as msg } from '../../lib/messages'
 import { buildSrcdoc, sanitizeEmailHtml } from '../../lib/sanitize'
@@ -58,8 +59,8 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
 <template>
   <div class="message-body">
     <div v-if="html && hasRemoteImages && !showImages" class="image-bar" data-testid="image-bar">
-      <span>{{ msg.imagesBlocked }}</span>
-      <BaseButton data-testid="show-images" @click="showImages = true">{{ msg.showImages }}</BaseButton>
+      <WarningTriangle class="icon icon-sm icon-warning" aria-hidden="true" /><span>{{ msg.imagesBlocked }}</span>
+      <BaseButton size="sm" data-testid="show-images" @click="showImages = true">{{ msg.showImages }}</BaseButton>
     </div>
     <iframe
       v-if="html"
@@ -82,17 +83,18 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
 .message-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .image-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  background: var(--color-warning-bg);
-  color: var(--color-warning-text);
-  border-radius: var(--radius-sm);
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--warning);
+  background: var(--warning-soft);
+  color: var(--ink);
+  border-radius: var(--r-md);
   font-size: var(--font-size-sm);
 }
 
@@ -101,7 +103,7 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
   width: 100%;
   border: 0;
   /* 本文の背景は srcdoc 側（color-scheme: light の Canvas）で描く。色値は直書きしない。 */
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
 }
 
 .body-text {
@@ -109,13 +111,13 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: var(--font-sans);
-  font-size: var(--font-size-md);
-  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  color: var(--ink);
 }
 
 .body-empty {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 </style>

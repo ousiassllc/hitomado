@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WarningTriangle, Xmark } from '@iconoir/vue'
 import { computed, ref, useId } from 'vue'
 import { ComposeService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
 import type { Address } from '../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
@@ -6,6 +7,7 @@ import { useContactSuggest } from '../../composables/useContactSuggest'
 import { call } from '../../lib/api'
 import { compose as msg } from '../../lib/messages'
 import { addressLabel, isLikelyEmail, mergeAddresses, parseAddresses } from '../../lib/recipients'
+import { vRipple } from '../../lib/ripple'
 
 const props = defineProps<{
   modelValue: Address[]
@@ -21,6 +23,7 @@ const text = ref('')
 const input = ref<HTMLInputElement>()
 const active = ref(-1)
 const listId = useId()
+const invalidId = useId()
 
 const { suggestions, query, clear } = useContactSuggest({
   accountId: () => props.accountId,
@@ -32,6 +35,7 @@ const shown = computed(() => {
   return suggestions.value.filter((s) => !have.has(s.email.toLowerCase()))
 })
 const open = computed(() => shown.value.length > 0 && text.value.trim() !== '')
+const hasInvalid = computed(() => props.modelValue.some((a) => !isLikelyEmail(a.email)))
 
 function add(addrs: Address[]): void {
   if (addrs.length === 0) return
@@ -129,15 +133,17 @@ function onKeydown(e: KeyboardEvent): void {
         :class="{ 'chip-invalid': !isLikelyEmail(a.email) }"
         :title="isLikelyEmail(a.email) ? undefined : msg.fields.invalidAddress"
       >
+        <WarningTriangle v-if="!isLikelyEmail(a.email)" class="icon icon-sm chip-icon" aria-hidden="true" />
         <span class="chip-text">{{ addressLabel(a) }}</span>
         <button
+          v-ripple
           type="button"
           class="chip-remove"
           :aria-label="msg.fields.removeRecipient(a.email)"
           :disabled="disabled"
           @click.stop="remove(i)"
         >
-          ×
+          <Xmark class="icon icon-sm" aria-hidden="true" />
         </button>
       </span>
       <input
@@ -154,6 +160,7 @@ function onKeydown(e: KeyboardEvent): void {
         :aria-controls="listId"
         :aria-activedescendant="active >= 0 ? `${listId}-${active}` : undefined"
         aria-autocomplete="list"
+        :aria-describedby="hasInvalid ? invalidId : undefined"
         @input="onInput"
         @keydown="onKeydown"
         @paste="onPaste"
@@ -176,20 +183,24 @@ function onKeydown(e: KeyboardEvent): void {
         </div>
       </div>
     </label>
+    <p v-if="hasInvalid" :id="invalidId" class="recipient-invalid">
+      <WarningTriangle class="icon icon-sm" aria-hidden="true" />{{ msg.fields.invalidAddress }}
+    </p>
   </div>
 </template>
 
 <style scoped>
 .recipient-field {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .recipient-label {
   flex: 0 0 56px;
-  padding-top: 7px;
-  color: var(--color-text-muted);
+  padding-top: var(--s-2);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
@@ -199,41 +210,58 @@ function onKeydown(e: KeyboardEvent): void {
   flex: 1;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-1);
-  min-height: 34px;
-  padding: 2px var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
+  gap: var(--s-1);
+  min-height: var(--control-h);
+  padding: var(--s-1) var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
 }
 
 .recipient-box:focus-within {
-  border-color: var(--color-focus);
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .recipient-disabled {
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  background: var(--accent-soft);
   font-size: var(--font-size-sm);
   line-height: 22px;
 }
 
 .chip-invalid {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.chip-icon {
+  flex: none;
+  margin-left: var(--s-2);
+}
+
+.recipient-invalid {
+  display: flex;
+  flex: 0 0 100%;
+  align-items: center;
+  gap: var(--s-1);
+  margin: 0;
+  padding-left: calc(56px + var(--s-2));
+  color: var(--danger);
+  font-size: var(--font-size-xs);
 }
 
 .chip-text {
   overflow: hidden;
-  padding: 0 var(--space-1) 0 var(--space-2);
+  padding: 0 var(--s-1) 0 var(--s-2);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -243,14 +271,14 @@ function onKeydown(e: KeyboardEvent): void {
   height: 22px;
   padding: 0;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--r-full);
   background: transparent;
   color: inherit;
   cursor: pointer;
 }
 
 .chip-remove:hover {
-  background: var(--color-selected);
+  background: var(--surface);
 }
 
 .recipient-input {
@@ -259,8 +287,8 @@ function onKeydown(e: KeyboardEvent): void {
   height: 28px;
   border: none;
   background: transparent;
-  color: var(--color-text);
-  font-size: var(--font-size-md);
+  color: var(--ink);
+  font-size: var(--font-size-sm);
   outline: none;
 }
 
@@ -269,31 +297,33 @@ function onKeydown(e: KeyboardEvent): void {
   top: 100%;
   right: 0;
   left: 0;
-  z-index: 20;
-  margin: 2px 0 0;
-  padding: var(--space-1) 0;
+  z-index: var(--z-dropdown);
+  margin: var(--s-1) 0 0;
+  padding: var(--s-1);
   max-height: 240px;
   overflow-y: auto;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-elevated);
-  box-shadow: var(--shadow-popup);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
 }
 
 .suggest-item {
   display: flex;
-  gap: var(--space-2);
-  padding: var(--space-1) var(--space-3);
+  gap: var(--s-2);
+  align-items: center;
+  min-height: var(--menu-item-h);
+  padding: 0 var(--menu-pad-x);
+  border-radius: var(--r-sm);
   font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
 .suggest-active,
 .suggest-item:hover {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
 .suggest-name {
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 </style>

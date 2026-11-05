@@ -15,6 +15,7 @@ import SendConfirmDialog from '../compose/SendConfirmDialog.vue'
 import ThreadListPane from '../inbox/ThreadListPane.vue'
 import SettingsDialog from '../settings/SettingsDialog.vue'
 import ThreadPane from '../thread/ThreadPane.vue'
+import AlertStack from './AlertStack.vue'
 import BannerStack from './BannerStack.vue'
 import PaneSplitter from './PaneSplitter.vue'
 import Sidebar from './Sidebar.vue'
@@ -84,6 +85,8 @@ onBeforeUnmount(() => {
 <template>
   <div class="shell" :class="`layout-${layout.mode}`">
     <BannerStack />
+    <!-- ダイアログが開いている間は、アラートはダイアログの中に出る（BaseDialog） -->
+    <AlertStack v-if="ui.overlays.length === 0" class="shell-alerts" />
     <div class="panes" :style="{ gridTemplateColumns: columns }">
       <div v-if="layout.isWide" class="col">
         <Sidebar />
@@ -119,12 +122,14 @@ onBeforeUnmount(() => {
         </template>
       </main>
     </div>
-    <template v-if="layout.hasDrawer && ui.menuOpen">
-      <div class="scrim" aria-hidden="true" @click="ui.closeMenu()" />
-      <div class="drawer" data-testid="sidebar-drawer">
+    <Transition name="scrim">
+      <div v-if="layout.hasDrawer && ui.menuOpen" class="scrim" aria-hidden="true" @click="ui.closeMenu()" />
+    </Transition>
+    <Transition name="drawer">
+      <div v-if="layout.hasDrawer && ui.menuOpen" class="drawer" data-testid="sidebar-drawer">
         <Sidebar />
       </div>
-    </template>
+    </Transition>
     <SendConfirmDialog />
     <SettingsDialog />
     <AddAccountDialog />
@@ -138,8 +143,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: var(--bone);
+  color: var(--ink);
 }
 
 .layout-wide {
@@ -150,6 +155,11 @@ onBeforeUnmount(() => {
 .layout-medium,
 .layout-stack {
   height: 100dvh;
+}
+
+.shell-alerts {
+  padding: var(--s-2) var(--s-4);
+  border-bottom: 1px solid var(--border);
 }
 
 .panes {
@@ -197,8 +207,8 @@ onBeforeUnmount(() => {
 .scrim {
   position: fixed;
   inset: 0;
-  z-index: 50;
-  background: var(--color-overlay);
+  z-index: var(--z-drawer);
+  background: var(--scrim);
 }
 
 .drawer {
@@ -206,9 +216,42 @@ onBeforeUnmount(() => {
   top: 0;
   bottom: 0;
   left: 0;
-  z-index: 51;
+  z-index: var(--z-drawer);
   width: min(320px, 85vw);
-  box-shadow: var(--shadow-popup);
+}
+
+/* スクラムとドロワーの出入り: フェード＋小さな移動（ガイド M5。reduced-motion ではフェードだけ）。 */
+.scrim-enter-active,
+.drawer-enter-active {
+  transition:
+    opacity var(--motion-fade-in) var(--ease-out),
+    transform var(--motion-fade-in) var(--ease-out);
+}
+
+.scrim-leave-active,
+.drawer-leave-active {
+  transition:
+    opacity var(--motion-fade-out) var(--ease-in),
+    transform var(--motion-fade-out) var(--ease-in);
+}
+
+.scrim-enter-from,
+.scrim-leave-to,
+.drawer-enter-from,
+.drawer-leave-to {
+  opacity: 0;
+}
+
+.drawer-enter-from,
+.drawer-leave-to {
+  transform: translateX(-8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer-enter-from,
+  .drawer-leave-to {
+    transform: none;
+  }
 }
 
 /* 1 画面ずつ: 一覧・スレッド・作成は同じ場所に重ねる。出ていない画面は visibility で隠す（レイアウト・スクロール位置を保ち、フォーカスと読み上げからは外れる）。 */

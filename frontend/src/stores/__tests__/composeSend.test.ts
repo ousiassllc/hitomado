@@ -128,7 +128,7 @@ describe('confirmSend', () => {
     expect(send?.args[1]).toBe('t1')
     expect(compose.session).toBeUndefined()
     expect(compose.preview).toBeUndefined()
-    expect(ui.toasts.at(-1)).toMatchObject({ kind: 'success', message: '送信しました' })
+    expect(ui.toast).toMatchObject({ kind: 'success', message: '送信しました' })
     expect(count('ListInbox')).toBeGreaterThan(0)
   })
 
@@ -142,10 +142,10 @@ describe('confirmSend', () => {
     h.responses.Send = { messageId: 'm', threadId: 't', archived: true }
     expect(await compose.confirmSend()).toBe(true)
     expect(inbox.items.find((i) => i.threadId === 't')).toBeUndefined()
-    expect(ui.toasts.at(-1)?.message).toContain('アーカイブ')
+    expect(ui.toast?.message).toContain('アーカイブ')
   })
 
-  test('アーカイブ失敗は送信成功として扱い、警告トーストを出す', async () => {
+  test('アーカイブ失敗は送信成功として扱い、警告アラートを出す', async () => {
     const { compose, ui } = setup()
     await openReply(compose)
     await compose.prepareSend(true)
@@ -157,7 +157,7 @@ describe('confirmSend', () => {
     }
     expect(await compose.confirmSend()).toBe(true)
     expect(compose.session).toBeUndefined()
-    expect(ui.toasts.map((t) => t.message).join('|')).toContain('アーカイブできませんでした')
+    expect(ui.alerts.map((a) => a.message).join('|')).toContain('アーカイブできませんでした')
   })
 
   test('失敗時はエディタを閉じず本文・添付・宛先を保持し、再度の確認から再送できる', async () => {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WarningTriangle } from '@iconoir/vue'
 import { compose as msg, settings as settingsMsg } from '../../../lib/messages'
 import BaseButton from '../../ui/BaseButton.vue'
 
@@ -9,17 +10,20 @@ defineEmits<{ manage: []; dismiss: [] }>()
 
 <template>
   <section class="limit" role="alert" data-testid="ai-usage-limit">
-    <header class="identity">{{ msg.ai.usageLimit.identity }}</header>
-    <h4 class="title">{{ msg.ai.usageLimit.title }}</h4>
-    <p class="body">{{ msg.ai.usageLimit.body }}</p>
-    <p class="note">{{ msg.ai.usageLimit.note }}</p>
-    <div class="actions">
-      <BaseButton variant="primary" data-testid="ai-usage-limit-manage" @click="$emit('manage')">
-        {{ settingsMsg.ai.chatgpt.manageUsage }}
-      </BaseButton>
-      <BaseButton variant="ghost" data-testid="ai-usage-limit-dismiss" @click="$emit('dismiss')">
-        {{ msg.ai.usageLimit.dismiss }}
-      </BaseButton>
+    <WarningTriangle class="icon icon-sm icon-warning limit-icon" aria-hidden="true" />
+    <div class="limit-main">
+      <header class="identity">{{ msg.ai.usageLimit.identity }}</header>
+      <h4 class="title">{{ msg.ai.usageLimit.title }}</h4>
+      <p class="body">{{ msg.ai.usageLimit.body }}</p>
+      <p class="note">{{ msg.ai.usageLimit.note }}</p>
+      <div class="actions">
+        <BaseButton size="sm" variant="primary" data-testid="ai-usage-limit-manage" @click="$emit('manage')">
+          {{ settingsMsg.ai.chatgpt.manageUsage }}
+        </BaseButton>
+        <BaseButton size="sm" variant="ghost" data-testid="ai-usage-limit-dismiss" @click="$emit('dismiss')">
+          {{ msg.ai.usageLimit.dismiss }}
+        </BaseButton>
+      </div>
     </div>
   </section>
 </template>
@@ -27,23 +31,35 @@ defineEmits<{ manage: []; dismiss: [] }>()
 <style scoped>
 .limit {
   display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--warning);
+  border-radius: var(--r-md);
+  background: var(--warning-soft);
+  color: var(--ink);
+}
+
+.limit-icon {
+  margin-top: var(--s-1);
+}
+
+.limit-main {
+  display: flex;
+  flex: 1;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-elevated);
+  gap: var(--s-1);
+  min-width: 0;
 }
 
 .identity {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
-  font-weight: 600;
 }
 
 .title {
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
 }
 
 .body,
@@ -53,12 +69,12 @@ defineEmits<{ manage: []; dismiss: [] }>()
 }
 
 .note {
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .actions {
   display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
+  gap: var(--s-2);
+  margin-top: var(--s-1);
 }
 </style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WarningTriangle } from '@iconoir/vue'
 import { computed } from 'vue'
 import { settings as msg } from '../../../lib/messages'
 import { aiDestination } from './aiDestination'
@@ -28,42 +29,49 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
       {{ saved.note ?? (saved.custom ? msg.ai.destinationCustomNote : msg.ai.destinationDefaultNote) }}
     </p>
     <p v-if="differs" class="dest-pending" role="status">
-      {{ msg.ai.destinationPending(text(draft)) }}
+      <WarningTriangle class="icon icon-sm icon-warning dest-pending-icon" aria-hidden="true" />
+      <span>{{ msg.ai.destinationPending(text(draft)) }}</span>
     </p>
   </fieldset>
 </template>
 
 <style scoped>
 .dest {
-  padding: var(--space-3);
-  border: 2px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
+  padding: var(--s-3);
+  border: 1px solid var(--mute);
+  border-radius: var(--r-md);
+  background: var(--bone);
 }
 
 .dest-title {
-  padding: 0 var(--space-1);
+  padding: 0 var(--s-1);
   font-size: var(--font-size-sm);
-  font-weight: 600;
 }
 
 .dest-value {
-  margin: var(--space-1) 0;
-  font-weight: 600;
+  margin: var(--s-1) 0;
   overflow-wrap: anywhere;
 }
 
 .dest-pending {
-  margin: var(--space-2) 0 0;
-  color: var(--color-warning-text);
-  background: var(--color-warning-bg);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  margin: var(--s-2) 0 0;
+  border: 1px solid var(--warning);
+  background: var(--warning-soft);
+  color: var(--ink);
+  padding: var(--s-1) var(--s-2);
+  border-radius: var(--r-md);
   font-size: var(--font-size-sm);
+}
+
+.dest-pending-icon {
+  margin-top: var(--s-1);
 }
 .dest-note {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 </style>

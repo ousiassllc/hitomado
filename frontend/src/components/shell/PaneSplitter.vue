@@ -56,13 +56,12 @@ function onKeydown(ev: KeyboardEvent): void {
   border: 0;
   cursor: col-resize;
   background: transparent;
-  z-index: 5;
+  z-index: var(--z-sticky);
   touch-action: none;
 }
 
-.splitter:hover,
-.splitter:focus-visible {
-  background: var(--color-accent);
-  outline: none;
+/* キーボードフォーカスは reset.css のグローバルな :focus-visible（--focus の 2px・offset 2）に任せる。 */
+.splitter:hover {
+  background: var(--accent);
 }
 </style>

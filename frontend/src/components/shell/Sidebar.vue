@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Plus, Settings } from '@iconoir/vue'
 import { parseBindingError } from '../../lib/api'
 import { common } from '../../lib/messages'
 import { SHORTCUT_KEYS } from '../../lib/shortcuts'
@@ -43,7 +44,7 @@ async function reconnect(id: string): Promise<void> {
     await accounts.reconnect(id)
   } catch (e) {
     const err = parseBindingError(e)
-    if (err.code !== 'OAUTH_CANCELLED') ui.pushToast('error', err.message, () => void reconnect(id))
+    if (err.code !== 'OAUTH_CANCELLED') ui.pushAlert(err.message, () => void reconnect(id))
   }
 }
 </script>
@@ -52,7 +53,7 @@ async function reconnect(id: string): Promise<void> {
   <aside class="sidebar" :aria-label="common.sidebar.label">
     <div class="top">
       <BaseTooltip :text="common.shortcutHint(common.sidebar.compose, SHORTCUT_KEYS.compose)">
-        <BaseButton variant="primary" class="compose" @click="composeNew">
+        <BaseButton size="sm" variant="primary" class="compose" @click="composeNew">
           {{ common.sidebar.compose }}
         </BaseButton>
       </BaseTooltip>
@@ -62,8 +63,8 @@ async function reconnect(id: string): Promise<void> {
     </div>
     <FilterBar />
     <div class="bottom">
-      <BaseButton variant="ghost" @click="addAccount">＋ {{ common.sidebar.addAccount }}</BaseButton>
-      <BaseIconButton :label="common.sidebar.settings" @click="openSettings">⚙</BaseIconButton>
+      <BaseButton size="sm" variant="ghost" @click="addAccount"><Plus class="icon icon-sm" aria-hidden="true" /> {{ common.sidebar.addAccount }}</BaseButton>
+      <BaseIconButton :label="common.sidebar.settings" @click="openSettings"><Settings class="icon" aria-hidden="true" /></BaseIconButton>
     </div>
   </aside>
 </template>
@@ -74,12 +75,12 @@ async function reconnect(id: string): Promise<void> {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: var(--color-bg-subtle);
-  border-right: 1px solid var(--color-border);
+  background: var(--bone);
+  border-right: 1px solid var(--border);
 }
 
 .top {
-  padding: var(--space-3);
+  padding: var(--s-3);
 }
 
 .compose {
@@ -90,14 +91,14 @@ async function reconnect(id: string): Promise<void> {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 var(--space-2) var(--space-2);
+  padding: 0 var(--s-2) var(--s-2);
 }
 
 .bottom {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-2) var(--space-3);
-  border-top: 1px solid var(--color-border);
+  padding: var(--s-2) var(--s-3);
+  border-top: 1px solid var(--border);
 }
 </style>
