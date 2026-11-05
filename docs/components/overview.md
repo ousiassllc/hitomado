@@ -278,7 +278,7 @@ graph TD
 | `SearchBar` | 検索入力（Gmail クエリ）。Enter で実行、Esc でクリア。検索中はモード表示 | emits: `search(q)`、`clear` | `inboxStore.runSearch` |
 | `InboxTabs` | 受信箱のタブ（すべて／メイン／ソーシャル／プロモーション／新着）。`reka-ui` の `TabsRoot`／`TabsList`／`TabsTrigger`（`tablist`／`tab`／`aria-selected`・矢印キー）。狭い画面では横スクロール。検索中は出さない | v-model: `InboxTab`（`all`／`primary`／`social`／`promotions`／`new`） | `inboxStore` |
 | `ListToolbar` | 更新ボタン（手動更新）、複数選択（2 件以上）のときだけの一括操作（既読／未読・アーカイブ・ゴミ箱・ラベル。1 件はスレッドのヘッダーの操作で足りるので出さない。1 画面ずつのレイアウトでは出さない）、「受信箱に戻る」（検索結果モード中のみ） | emits: `refresh`、`archive`、`trash`、`toggleRead`、`label` | `inboxStore` |
-| `ThreadList` | 仮想スクロール（`@tanstack/vue-virtual`）。末尾到達で `loadMore`。続きがある間（`hasMore`）は末尾に「さらに読み込む」ボタンを出し、一覧が 0 件（未読のみで該当なし等）でも利用者が続きを読める。行選択・キーボード移動 | props: `items`, `selectedKey`, `loading`, `loadingMore`, `hasMore` | `inboxStore` |
+| `ThreadList` | 仮想スクロール（`@tanstack/vue-virtual`）。続きがある間（`hasMore`）は末尾に「さらに読み込む」ボタン（`secondary`・`sm`）を出し、押すと `loadMore` を通知する（無限スクロールにしない。ガイド O7）。一覧が 0 件（未読のみで該当なし等）でも利用者が続きを読める。行選択・キーボード移動 | props: `items`, `selectedKey`, `loading`, `loadingMore`, `hasMore` | `inboxStore` |
 | `ThreadRow` | 1 行表示（色の帯、アカウントチップ、差出人、件名、スニペット、日時、未読、添付アイコン、ユーザーラベル）。`needs_reauth` アカウントの行は、警告アイコン＋「再接続が必要なアカウントです」を件名の前に出し（`aria-label` にも含める）、文字を `--mute` にする（薄くはしない） | props: `thread`, `selected`, `account` | — |
 | `LabelChip` | ユーザー作成ラベルのチップ（Gmail の色） | props: `label` | — |
 
@@ -561,3 +561,4 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 1.31 | 2026-11-05 | §3.7 `SenderBadge` をアカウント色の全面塗りから左の帯つきの落ち着いた枠に、`SendConfirmDialog` の本文プレビューを改行つき（署名・引用なし）に変更。`BaseButton` は送信中（loading）のとき薄くしない | #115 |
 | 1.32 | 2026-11-05 | Ousiass デザインガイド準拠: §3.3 の `BaseButton`（`size`）・`BaseDialog`（外側クリックで閉じる・`busy`・全画面にしない）・`ConfirmDialog`・`BaseMenu`（`checked`）・`Spinner`、§3.4 の `ToastHost`（下中央・1 つ・3 秒）・`AlertStack`、§3.10 の `uiStore`（`toast`・`alerts`・`overlays`）、§5.1 のブレークポイント（640／1024）、§5.2 の配色・動き、§5.3（ガイド準拠・未収載・逸脱）を追加・更新 | #119〜#124 |
 | 1.33 | 2026-11-05 | §3.3 に `EmptyState`（空状態の共通部品）を追加し、`ThreadList`・`ThreadPane`・`AccountList`・設定の署名・アカウント・OAuth クライアントの 0 件表示をそれに揃えた。宛先の候補一覧（`RecipientField`）を `BaseMenu` と同じ項目寸法に、`ComposeFields` の項目間を `--gap-field` に、設定の複数文の説明文を `--ink` に、データ保存先・バージョンを `--font-mono` に変更 | #148〜#150 |
+| 1.34 | 2026-11-05 | §3.5 `ThreadList` の続きの読み込みを、末尾到達での自動 `loadMore` から、末尾の明示ボタン（`secondary`・`sm`）だけに変更 | #151 |

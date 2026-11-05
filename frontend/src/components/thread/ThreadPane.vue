@@ -72,11 +72,11 @@ function openDraft(): void {
 
 <template>
   <section class="thread-pane" :aria-label="detail?.subject ?? msg.empty">
-    <div v-if="!store.currentRef" class="state empty" data-testid="thread-empty">
+    <div v-if="!store.currentRef" class="state" data-testid="thread-empty">
       <EmptyState>
         <template #icon><MailOpen class="icon icon-lg" /></template>
         <p class="state-title">{{ msg.empty }}</p>
-        <p class="state-hint">{{ msg.emptyHint }}</p>
+        <p>{{ msg.emptyHint }}</p>
       </EmptyState>
     </div>
 
@@ -132,19 +132,10 @@ function openDraft(): void {
   color: var(--mute);
 }
 
-.empty {
-  padding: var(--s-6);
-}
-
 .state-title {
   margin: 0;
   font-size: var(--font-size-base);
   color: var(--ink);
-}
-
-.state-hint {
-  margin: 0;
-  font-size: var(--font-size-sm);
 }
 
 .scroll {

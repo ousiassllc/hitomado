@@ -12,7 +12,6 @@ import Spinner from '../ui/Spinner.vue'
 import ThreadRow from './ThreadRow.vue'
 
 const ROW_HEIGHT = 88
-const LOAD_MORE_THRESHOLD = 5
 
 const props = defineProps<{
   items: ThreadSummary[]
@@ -63,15 +62,6 @@ function accountOf(t: ThreadSummary) {
   const a = accounts.byId(t.accountId)
   return a ? { ...a, status: accounts.statusOf(a.id) } : undefined
 }
-
-// 末尾付近に来たら続きを読み込む
-watch(
-  () => [rows.value.at(-1)?.index ?? -1, props.items.length, props.hasMore],
-  () => {
-    const last = rows.value.at(-1)?.index ?? -1
-    if (props.hasMore && !props.loading && last >= props.items.length - LOAD_MORE_THRESHOLD) emit('loadMore')
-  },
-)
 
 // カーソルが画面外に出たらスクロールして見える位置に持ってくる
 watch(
@@ -138,9 +128,9 @@ function onKeydown(ev: KeyboardEvent): void {
         />
       </div>
     </div>
-    <!-- 自動継続が上限で止まった場合（未読のみで 0 件等）も、続きを利用者が手動で読める -->
+    <!-- 続きは明示のボタンで読み込む（O7: 無限スクロールにしない） -->
     <div v-if="hasMore && !loading" class="more">
-      <BaseButton :loading="loadingMore" @click="emit('loadMore')">{{
+      <BaseButton size="sm" variant="secondary" :loading="loadingMore" @click="emit('loadMore')">{{
         loadingMore ? common.list.loadingMore : common.list.loadMore
       }}</BaseButton>
     </div>
