@@ -62,7 +62,35 @@ sha256sum -c SHA256SUMS.txt --ignore-missing
 2. `Authorization: Bearer <トークン>` つきで [MCP 連携](../mcp.md#つなぎ方) の接続先 URL へつなげる。トークン無し・不一致は 401。
 3. 設定 → ログ: 「ログフォルダを開く」でエクスプローラーが `%APPDATA%\Hitomado\logs\` を開く。「ログの書き出し」で保存先を選べ、書き出したファイルにトークン・本文・件名・宛先が含まれない。
 
-別の Issue で追跡している項目（本書の対象外）: WebView2 の iframe 高さ計測・リンク捕捉は #49、ログのローテーション中の読み取りとフォルダ表示は #26、ARM64 の Windows は #13。
+### G. 本文 iframe の高さ計測・リンク捕捉・スクリプト遮断（#49）
+
+対象は `MessageBody` の `<iframe sandbox="allow-same-origin" srcdoc>`（[コンポーネント設計 §3.8](../components/overview.md#38-本文の表示方針messagebodylibsanitize)。NF-S04）。自動テストは happy-dom 上のもの（`thread.test.ts`・`bodyFrame.test.ts`・`lib/sanitize/regression.test.ts`）で、WebView2 の実挙動は確かめていない。Windows 実機で、DevTools が開ける開発ビルド（`wails3 dev`。F12）を起動して確かめる。1・2 は、テスト用アカウントの受信箱にある長い HTML メール（ニュースレター等。画像・リンクを含むもの）を使う。
+
+1. **高さ**: 長い HTML メールを開く。iframe に内部のスクロールバーが出ず、内容の高さに合う（`bodyFrame.ts` の `measured` が真）。「画像を表示」を押して画像が読み込まれたあとも、高さが内容に追従して切れない・余白が残らない。ペインの幅を変えても追従する。計測できなかった場合は固定高 480px＋内部スクロールになる（§3.8 の代替案①）ので、その状態になっていないことを見る。
+2. **リンク**: 本文のリンクを、左クリック・中クリックで操作する。(a) `https://` と `mailto:` は既定のブラウザ／メーラーで開き（`ThreadService.OpenExternal`）、iframe の中はナビゲーションしない（本文が置き換わらない）。(b) `javascript:`・`file:///C:/Windows/win.ini`・`ftp:` のリンクは何も開かず、iframe も動かない。右クリックは何もしない。
+3. **スクリプトの遮断**: サニタイズを通さずに危険な HTML を iframe へ入れ、`sandbox` と CSP のそれぞれ単独で止まることを確かめる。DevTools のコンソールで、メール本文を開いた状態から次を実行する（`f` は本文の iframe）。
+
+   ```js
+   const f = document.querySelector('[data-testid="body-frame"]')
+   const csp = (v) => `<meta http-equiv="Content-Security-Policy" content="${v}">`
+   const CSP = "default-src 'none'; img-src data:; style-src 'unsafe-inline'"
+   const body =
+     '<p id="p">probe</p>' +
+     '<script>window.__script = "ran"; document.getElementById("p").textContent = "script ran"<\/script>' +
+     '<img src="x" onerror="window.__onerror = \'ran\'">' +
+     '<a href="javascript:window.__href = \'ran\'">js link</a>'
+   // 判定: f.contentWindow.__script / __onerror が undefined のまま・"probe" のまま・iframe 内のリンクを押しても __href が undefined
+   f.srcdoc = '<!doctype html>' + csp(CSP) + body        // ① sandbox + CSP（本番と同じ）
+   // ② sandbox のみ（CSP を外す）。属性を直接書き換えると再読み込みされる
+   f.srcdoc = '<!doctype html>' + body
+   // ③ CSP のみ（sandbox を外す。確認後は本文を開き直して元に戻す）
+   f.removeAttribute('sandbox'); f.srcdoc = '<!doctype html>' + csp(CSP) + body
+   ```
+
+   ①②③のいずれも `__script`・`__onerror`・`__href` が `undefined`、本文の文字が `probe` のまま（スクリプトも `onerror` も実行されない）なら合格。③は `onerror` などのインラインスクリプトを CSP（`default-src 'none'`）が止めること、②は `sandbox`（`allow-scripts` なし）が止めることを示す。①が実行されたら NF-S04 を満たさない。②③のどちらかが実行されたら、その層が効いておらず多層防御が 1 枚になっている。いずれも別の Issue を作り、`allow-same-origin` を外す設計（§3.8 の代替案）を検討する。
+   本番の経路（`sanitizeEmailHtml` → `buildSrcdoc`）の確認として、`body` と同じ HTML を本文にしたテストメールを送り、`<script>`・`onerror`・`javascript:` が除去されて `probe` だけが表示されることも見る。
+
+別の Issue で追跡している項目（本書の対象外）: ログのローテーション中の読み取りとフォルダ表示は #26、ARM64 の Windows は #13。
 
 ## 結果
 
@@ -74,5 +102,6 @@ sha256sum -c SHA256SUMS.txt --ignore-missing
 | D. 実アプリ起動中の上書きインストール拒否 | — | — | — | **未確認**（Windows 実機が要る。CI は `ping.exe` で代用） |
 | E. 初回リリースの成果物 | 2026-11-06 | v0.1.16 | Linux から `gh` で確認 | **確認済み**。Release に `hitomado-v0.1.16-windows-amd64-setup.exe`・`NOTICE`・`SHA256SUMS.txt`（Android の APK・macOS の zip も）が付いている。`SHA256SUMS.txt` に Windows インストーラーの行があり、`sha256sum -c` で一致した。初回のリリース（v0.1.0 など）はすでに別の版に置き換わっているため、現行の版で確かめた。`release.yml` の `publish` が、成果物の欠けた Release を出さない作りになっている（[setup.md §4.2](setup.md#42-releaseyml)） |
 | F. MCP・ログの設定画面の GUI 操作 | — | — | — | **未確認**（Windows 実機が要る） |
+| G. 本文 iframe の高さ計測・リンク捕捉・スクリプト遮断（#49） | — | — | — | **未確認**（WebView2 の実機が要る。happy-dom の自動テストのみ） |
 
 未確認の行は、確かめたら日付・版・環境・合否を書いて置き換える。確かめて問題が見つかったら、別の Issue を作って番号をここに書く。
