@@ -490,7 +490,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | アイコン | Iconoir（`@iconoir/vue`。MIT）`--icon-sm/md/lg` | `currentColor`・ストローク 1.5。`styles/reset.css` の `.icon`（既定 20px）・`.icon-sm`・`.icon-lg` |
 | モーション | `--motion-*` `--ease-*` | ホバーは色・背景だけ `--motion-base`。出現はフェードイン `--motion-fade-in`、退出はフェードアウト `--motion-fade-out`。押下はリップル `--motion-slow`（`BaseButton`・`BaseIconButton`・`BaseDialog` の ×。チップ・添付の × は小さいので素の `<button>` に `v-ripple` を付ける。素のボタンを作らず、基本は `BaseButton`／`BaseIconButton` を使う） |
 | レイアウト | `--bp-*`（`lib/layout.ts`）`--z-*` | ブレークポイントは 640（`--bp-sm`）・1024（`--bp-lg`）。z-index は `--z-dropdown` 100・`--z-drawer` 300・`--z-modal` 400・`--z-toast` 500 |
-| 部品 | ボタン・フォーム・タブ・ドロップダウン・ツールチップ・ドロワー・トースト・インラインアラート・モーダル・スピナー | 部品名はガイドのもの。検索は左に `Search` アイコン（md）・右にクリア。フォームの無効は opacity .5。ドロップダウンは min-width 180（チェック付き項目は[案件固有部品](#ガイド未収載の部品案件固有部品)）、ツールチップは padding 6×10（`--s-*` に無いので px。[案件固有部品](#ガイド未収載の部品案件固有部品)）。ボタンは SemiBold・小は高さ 32 なので、リンク入力の適用・解除・キャンセルや Cc／Bcc の切り替えも `BaseButton`（`size="sm"`）、ツールバーのアイコンは `BaseIconButton`。宛先チップの地は `--accent-soft` |
+| 部品 | ボタン・フォーム・タブ・ドロップダウン・ツールチップ・ドロワー・トースト・インラインアラート・モーダル・スピナー | 部品名はガイドのもの。検索は左に `Search` アイコン（md）・右にクリア。フォームの無効は opacity .5。ラジオ（`ChatGPTAccountRow` の使うアカウントの選択）はブラウザ標準にせず `appearance: none`・18px・外枠 `--mute`・`--r-full`・選択時は `--accent` 地に `--bone` の点（6px）・フォーカスは `--ring`（`0 0 0 3px`）。ドロップダウンは min-width 180（チェック付き項目は[案件固有部品](#ガイド未収載の部品案件固有部品)）、ツールチップは padding 6×10（`--s-*` に無いので px。[案件固有部品](#ガイド未収載の部品案件固有部品)）。ボタンは SemiBold・小は高さ 32 なので、リンク入力の適用・解除・キャンセルや Cc／Bcc の切り替えも `BaseButton`（`size="sm"`）、ツールバーのアイコンは `BaseIconButton`。宛先チップの地は `--accent-soft` |
 
 #### ガイド未収載の部品・案件固有部品
 
@@ -595,3 +595,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.42 | 2026-11-05 | §3.10 の `inboxStore` に、取り消し対象が無いアーカイブ（受信箱に無かったスレッド）には「元に戻す」を付けないことと、取り消しでスレッドが無い（`NOT_FOUND`）ときの扱いを追記 | #156 の統合レビュー |
 | 1.43 | 2026-11-06 | §3.4 `ToastHost` のスナックバーを、`--ink` 地のピルから `--surface` 地＋border・`--r-md`（折り返しあり）の別の見た目にし、表示時間を 6 秒から 5 秒（アクション付き。ガイド O3）に変更。§5.2 のフォーカスに、スイッチは `--ring` の box-shadow である旨を追記 | #177 |
 | 1.44 | 2026-11-06 | §5.3 の参照時点を brand-guide `73d8cf6` に更新。`--mute` をライト `#6b6b6e`・ダーク `#8b8b8e` に分離（`tokens.css`）したので、逸脱表の `--mute` の行を削除し、複数文の説明文は `--ink` にする運用を「色」の行へ移した。ChatGPT アカウント行のステータスの札（使用中・ログアウト済み）を状態色のピルにした | #178 |
+| 1.45 | 2026-11-06 | §5.3 の部品の行に、ラジオの見た目（`appearance: none`・18px・`--mute` の外枠・選択時の `--accent` 地＋`--bone` の点・`--ring` のフォーカス）を追記。`ChatGPTAccountRow` のラジオを `accent-color` だけのブラウザ標準から、この見た目に変更 | #181 |

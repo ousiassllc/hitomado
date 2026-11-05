@@ -13,6 +13,7 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
   <li class="account" :data-testid="`ai-chatgpt-account-${account.id}`">
     <label v-if="account.signedIn" class="pick">
       <input
+        class="radio"
         type="radio"
         name="chatgpt-account"
         :value="account.id"
@@ -80,14 +81,42 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
   font-size: var(--font-size-sm);
 }
 
-/* ネイティブのラジオのチェック色をトークンに揃える（既定のままだと OS／ブラウザのアクセント＝青になる）。無効は opacity .5。 */
-.pick input[type='radio'] {
+/* ガイドのラジオ（O8）。ブラウザ標準にせず、外枠 --mute・18px・選択時は --accent 地に --bone の点・フォーカスは --ring。無効は opacity .5（フォームの無効の値）。 */
+.radio {
+  appearance: none;
+  flex: none;
+  display: grid;
+  place-content: center;
+  width: 18px;
+  height: 18px;
   margin: 0;
-  accent-color: var(--accent);
+  border: 1px solid var(--mute);
+  border-radius: var(--r-full);
+  background: var(--surface);
+  cursor: pointer;
 }
 
-.pick input[type='radio']:disabled {
+.radio:checked {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.radio:checked::after {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: var(--r-full);
+  background: var(--bone);
+}
+
+.radio:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
+.radio:disabled {
   opacity: 0.5;
+  cursor: default;
 }
 
 .who {

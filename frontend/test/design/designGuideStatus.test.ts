@@ -198,3 +198,42 @@ describe('ChatGPT アカウント行のステータスの札は状態色のピ�
     expect(style).toContain('--badge-soft: var(--warning-soft)')
   })
 })
+
+describe('ChatGPT アカウント行のラジオはガイドの見た目（O8・#181）', () => {
+  const style = parse(
+    readFileSync(
+      new URL('../../src/components/settings/ai/ChatGPTAccountRow.vue', import.meta.url),
+      'utf8',
+    ),
+  ).descriptor.styles[0].content
+
+  test('入力に radio クラスを付け、ブラウザ標準の見た目（accent-color）に頼らない', () => {
+    const w = mount(ChatGPTAccountRow, {
+      props: {
+        account: {
+          id: 'c1',
+          email: 'a@example.com',
+          signedIn: true,
+          active: true,
+          planNoticePending: false,
+        },
+        label: 'a@example.com',
+        busy: false,
+        radioDisabled: false,
+        loggingOut: false,
+      },
+    })
+    expect(w.get('input[type="radio"]').classes()).toContain('radio')
+    expect(style).not.toContain('accent-color')
+  })
+
+  test('appearance:none・18px・--mute の外枠・選択時は --accent 地に --bone の点・フォーカスは --ring', () => {
+    expect(style).toContain('appearance: none')
+    expect(style).toContain('width: 18px')
+    expect(style).toContain('height: 18px')
+    expect(style).toContain('border: 1px solid var(--mute)')
+    expect(style).toContain('background: var(--accent)')
+    expect(style).toContain('background: var(--bone)')
+    expect(style).toContain('box-shadow: 0 0 0 3px var(--ring)')
+  })
+})
