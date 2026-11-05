@@ -90,7 +90,7 @@ sha256sum -c SHA256SUMS.txt --ignore-missing
    ①②③のいずれも `__script`・`__onerror`・`__href` が `undefined`、本文の文字が `probe` のまま（スクリプトも `onerror` も実行されない）なら合格。③は `onerror` などのインラインスクリプトを CSP（`default-src 'none'`）が止めること、②は `sandbox`（`allow-scripts` なし）が止めることを示す。①が実行されたら NF-S04 を満たさない。②③のどちらかが実行されたら、その層が効いておらず多層防御が 1 枚になっている。いずれも別の Issue を作り、`allow-same-origin` を外す設計（§3.8 の代替案）を検討する。
    本番の経路（`sanitizeEmailHtml` → `buildSrcdoc`）の確認として、`body` と同じ HTML を本文にしたテストメールを送り、`<script>`・`onerror`・`javascript:` が除去されて `probe` だけが表示されることも見る。
 
-別の Issue で追跡している項目（本書の対象外）: ログのローテーション中の読み取りとフォルダ表示は #26、ARM64 の Windows は #13。
+別の Issue で追跡している項目（本書の対象外）: ログのローテーション中の読み取りとフォルダ表示は #26。ARM64 の Windows 11 での起動・インストーラーは #13 で CI（`installer-arm64`）に載せた（[setup.md §4.3](setup.md)「ARM64 の扱い」）。
 
 ## 結果
 
