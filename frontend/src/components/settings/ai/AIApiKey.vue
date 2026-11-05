@@ -75,7 +75,7 @@ defineExpose({
 .key {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--gap-field);
 }
 
 .sub {

@@ -150,7 +150,7 @@ async function save(): Promise<void> {
 .stack {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--gap-field);
 }
 
 .waiting {
@@ -167,7 +167,7 @@ async function save(): Promise<void> {
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--gap-label);
   font-size: var(--font-size-sm);
 }
 
