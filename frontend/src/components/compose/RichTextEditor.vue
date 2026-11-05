@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Link } from '@iconoir/vue'
+import { Bold, Link, List } from '@iconoir/vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { compose as msg } from '../../lib/messages'
@@ -108,14 +108,14 @@ onBeforeUnmount(() => editor.value?.destroy())
     <div v-if="editable" class="rte-toolbar" role="toolbar" :aria-label="msg.editor.toolbar">
       <button
         type="button"
-        class="rte-btn rte-bold"
+        class="rte-btn"
         :class="{ 'rte-btn-on': editor?.isActive('bold') }"
         :aria-pressed="editor?.isActive('bold') ?? false"
         :aria-label="msg.editor.bold"
         :title="msg.editor.bold"
         @click="editor?.chain().focus().toggleBold().run()"
       >
-        B
+        <Bold class="icon icon-sm" aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -138,7 +138,7 @@ onBeforeUnmount(() => editor.value?.destroy())
         :title="msg.editor.bulletList"
         @click="editor?.chain().focus().toggleBulletList().run()"
       >
-        •≡
+        <List class="icon icon-sm" aria-hidden="true" />
       </button>
     </div>
     <EditorLinkForm
@@ -189,10 +189,6 @@ onBeforeUnmount(() => editor.value?.destroy())
   color: var(--ink);
   font-size: var(--font-size-sm);
   cursor: pointer;
-}
-
-.rte-bold {
-  font-weight: 700;
 }
 
 .rte-btn:hover {
