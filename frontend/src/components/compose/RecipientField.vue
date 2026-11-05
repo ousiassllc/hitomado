@@ -233,7 +233,7 @@ function onKeydown(e: KeyboardEvent): void {
   max-width: 100%;
   border: 1px solid var(--border);
   border-radius: var(--r-full);
-  background: var(--bone);
+  background: var(--accent-soft);
   font-size: var(--font-size-sm);
   line-height: 22px;
 }
@@ -278,7 +278,7 @@ function onKeydown(e: KeyboardEvent): void {
 }
 
 .chip-remove:hover {
-  background: var(--accent-soft);
+  background: var(--surface);
 }
 
 .recipient-input {

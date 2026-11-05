@@ -130,4 +130,11 @@ describe('部品・オーバーレイ（P・#128）', () => {
       'padding: 6px 10px;',
     )
   })
+
+  test('宛先チップの地は --accent-soft の細枠・ピル（タグ入力）', () => {
+    const body = rule(style('compose/RecipientField.vue'), '\\.chip')
+    expect(body).toContain('background: var(--accent-soft);')
+    expect(body).toContain('border: 1px solid var(--border);')
+    expect(body).toContain('border-radius: var(--r-full);')
+  })
 })
