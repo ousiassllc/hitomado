@@ -105,11 +105,13 @@ const note = computed(() => {
   margin: 0;
   color: var(--mute);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .error {
   margin: calc(var(--gap-help) - var(--gap-label)) 0 0;
   color: var(--danger);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 </style>

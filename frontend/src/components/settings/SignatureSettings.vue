@@ -190,6 +190,7 @@ async function save(): Promise<void> {
   margin: var(--s-2) 0 var(--s-3);
   color: var(--ink);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .select {

@@ -38,11 +38,12 @@ const emit = defineEmits<{ choose: [choice?: 'chatgpt' | 'other'] }>()
 .text {
   margin: 0;
   font-size: var(--font-size-sm);
-  line-height: var(--line-height-base);
+  line-height: var(--line-height-sm);
 }
 
 .note {
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 </style>
