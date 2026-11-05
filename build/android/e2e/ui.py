@@ -3,6 +3,7 @@
 
 使い方: ui.py <dump.xml> find <部分一致の文字列>   → 見つかれば中心座標 "x y" を出して 0、無ければ 1
         ui.py <dump.xml> has <部分一致の文字列>    → 見つかれば 0、無ければ 1
+        ui.py <dump.xml> texts                     → ノードの数と、text・content-desc を持つノードの一覧（診断用）。常に 0
 text・content-desc のどちらかに部分一致する、最初の（クリックの対象になる）ノードを使う。
 """
 import re
@@ -35,7 +36,23 @@ def find(path, needle):
     return None
 
 
+def texts(path):
+    try:
+        all_nodes = list(nodes(path))
+    except ET.ParseError:
+        print("(the dump is empty or not valid XML)")
+        return
+    shown = [(n.get("text") or "", n.get("content-desc") or "") for n in all_nodes]
+    shown = [t for t in shown if t[0] or t[1]]
+    print(f"{len(all_nodes)} nodes, {len(shown)} with text or content-desc")
+    for text, desc in shown[:40]:
+        print(f"  text={text!r} content-desc={desc!r}")
+
+
 def main():
+    if len(sys.argv) == 3 and sys.argv[2] == "texts":
+        texts(sys.argv[1])
+        return 0
     if len(sys.argv) != 4 or sys.argv[2] not in ("find", "has"):
         print(__doc__, file=sys.stderr)
         return 2

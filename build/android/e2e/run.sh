@@ -51,31 +51,57 @@ dump() { # 画面の XML を $out/ui.xml に取る（遷移中で失敗しても
   adb shell uiautomator dump /sdcard/hitomado-e2e-ui.xml >/dev/null 2>&1 || return 1
   adb exec-out cat /sdcard/hitomado-e2e-ui.xml >"$out/ui.xml" 2>/dev/null || return 1
 }
+# 前面に「応答なし」ダイアログ（システムアプリのもの。ソフトウェア描画のエミュレーターで出る）があれば、「待つ」を選んで閉じる。
+# 現在の $out/ui.xml を見る（ダンプは呼び出し側が取る）。閉じたら 0。
+dismiss_anr() {
+  local xy
+  "$ui" "$out/ui.xml" has "isn't responding" || return 1
+  echo "WARN ANR dialog on screen; choosing 'Wait'" >&2
+  xy="$("$ui" "$out/ui.xml" find "Wait")" || return 1
+  # shellcheck disable=SC2086
+  adb shell input tap $xy
+}
 # wait_for <説明> <上限の秒> <文字列>  … 画面に文字列（text か content-desc の部分一致）が出るまで待つ。経過秒を WAITED に入れる。
+# 上限を超えたら、最後の画面（スクリーンショット・ダンプ・要素の一覧）を残して 1 を返す。
 wait_for() {
-  local what="$1" limit="$2" needle="$3" t0
+  local what="$1" limit="$2" needle="$3" t0 dumps=0 dump_failures=0
   t0="$(now)"
   while :; do
     if dump; then
+      dumps=$((dumps + 1))
       if "$ui" "$out/ui.xml" has "$needle"; then WAITED=$(($(now) - t0)); return 0; fi
-      # KVM なしのエミュレーターでは、システムアプリの「応答なし」ダイアログが前面に出て画面を隠す。待つを選んで続ける（記録は残す）。
-      if "$ui" "$out/ui.xml" has "isn't responding"; then
-        echo "WARN ANR dialog on screen; choosing 'Wait'" >&2
-        tap_text "Wait" || true
-      fi
+      dismiss_anr || true
+    else
+      dump_failures=$((dump_failures + 1))
     fi
     if [ $(($(now) - t0)) -ge "$limit" ]; then
-      WAITED=$(($(now) - t0)); shot "timeout-${what// /_}"; return 1
+      WAITED=$(($(now) - t0))
+      shot "timeout-${what// /_}"
+      cp "$out/ui.xml" "$out/timeout-${what// /_}.xml" 2>/dev/null || true
+      echo "--- wait_for '$what' ('$needle') timed out after ${limit}s: $dumps dumps, $dump_failures dump failures; last screen:" >&2
+      "$ui" "$out/ui.xml" texts >&2 || true
+      return 1
     fi
     sleep 2
   done
 }
-tap_text() { # 画面から文字列を探して中心をタップする
+# 画面から文字列を探して中心をタップする。ダンプは遷移・負荷で失敗することがあるので数回やり直す。
+tap_text() {
   local xy
-  dump || return 1
-  xy="$("$ui" "$out/ui.xml" find "$1")" || return 1
-  # shellcheck disable=SC2086
-  adb shell input tap $xy
+  for _ in 1 2 3 4 5; do
+    if dump; then
+      if xy="$("$ui" "$out/ui.xml" find "$1")"; then
+        # shellcheck disable=SC2086
+        adb shell input tap $xy
+        return 0
+      fi
+      dismiss_anr || true
+    fi
+    sleep 2
+  done
+  echo "tap_text: '$1' was not found on screen:" >&2
+  "$ui" "$out/ui.xml" texts >&2 || true
+  return 1
 }
 app_pid() { adb shell pidof "$app_id" 2>/dev/null | tr -d '\r' | awk '{print $1}'; }
 
