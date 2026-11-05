@@ -100,6 +100,17 @@ export const settings = {
     dirty: '未保存の変更があります。',
     revert: '元に戻す',
     saved: (name: string) => `${name} の署名を保存しました。`,
+    fetchGmail: 'Gmail から取得',
+    fetchingGmail: 'Gmail から取得しています…',
+    fetchHint: 'Gmail に設定した署名をエディタに入れます。保存するまで反映されません。',
+    fetchedGmail: (name: string) =>
+      `Gmail の署名を ${name} のエディタに入れました。保存すると反映されます。`,
+    fetchSanitized: '画像・装飾など、取り込めない部分は除きました。',
+    fetchEmpty: 'Gmail に署名が設定されていません。',
+    replaceTitle: 'Gmail の署名で置き換えますか？',
+    replaceBody: 'エディタの内容は、取得した Gmail の署名に置き換わります。',
+    replaceCancel: 'キャンセル',
+    replaceConfirm: '置き換える',
   },
 
   ai: {

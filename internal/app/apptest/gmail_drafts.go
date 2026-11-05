@@ -104,6 +104,17 @@ func (f *FakeGmail) ListLabels(_ context.Context, accountID string) ([]gmail.Lab
 	return slices.Clone(f.Labels[accountID]), nil
 }
 
+// GetSignature は Signatures を返す（未設定は ""）。呼び出した sendAsEmail は SignatureRequests に残る。
+func (f *FakeGmail) GetSignature(_ context.Context, accountID, sendAsEmail string) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.enter("GetSignature", accountID); err != nil {
+		return "", err
+	}
+	f.SignatureRequests = append(f.SignatureRequests, sendAsEmail)
+	return f.Signatures[accountID], nil
+}
+
 // MetaOf は ThreadFull から threads.get(format=metadata) 相当を作る。
 func MetaOf(tf gmail.ThreadFull) gmail.ThreadMeta {
 	m := gmail.ThreadMeta{ID: tf.ID, HistoryID: tf.HistoryID, Messages: make([]gmail.MessageMeta, len(tf.Messages))}

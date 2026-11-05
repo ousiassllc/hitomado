@@ -39,75 +39,146 @@ var blockTags = map[atom.Atom]bool{
 // href は http／https／mailto のみ許可し、それ以外のリンクは中身のテキストだけを残す。
 // 許可外のタグは外して中身を残す（script 等は中身ごと捨てる）。入力が空白だけなら "" を返す。
 func Sanitize(src string) string {
+	out, _ := (&cleaner{}).run(src)
+	return out
+}
+
+// FromGmail は Gmail の署名（sendAs.signature の HTML）を、Sanitize と同じ許可タグへ整えて返す（F-07。#110）。
+// Sanitize との違いは、改行だけの区切りになる `div` を `p` にすること（Gmail の署名は行ごとに div を使う）。
+// dropped は整形で内容を落としたか。画像・表・フォント・文字色などの装飾、安全でないリンク、script 等を落としたときに真になる。
+// `div`・`span` などの入れ物と、`dir`・`class` などの装飾でない属性を外しただけでは偽のまま。
+func FromGmail(src string) (html string, dropped bool) {
+	return (&cleaner{divToP: true}).run(src)
+}
+
+// neutralTags は外しても見た目が変わらない入れ物のタグ。外しても dropped にしない。
+var neutralTags = map[atom.Atom]bool{
+	atom.Div: true, atom.Span: true, atom.Section: true, atom.Article: true, atom.Header: true,
+	atom.Footer: true, atom.Main: true, atom.Nav: true, atom.Aside: true,
+}
+
+// cleaner は 1 回の整形の設定と結果（落とした内容があるか）を持つ。
+type cleaner struct {
+	divToP  bool // 子にブロックを含まない div を p にする
+	dropped bool
+}
+
+func (c *cleaner) run(src string) (string, bool) {
 	nodes, err := html.ParseFragment(strings.NewReader(src), &html.Node{
 		Type: html.ElementNode, DataAtom: atom.Body, Data: "body",
 	})
 	if err != nil {
-		return html.EscapeString(src)
+		return html.EscapeString(src), false
 	}
 	out := &html.Node{Type: html.ElementNode, DataAtom: atom.Body, Data: "body"}
 	for _, n := range nodes {
-		clean(out, n)
+		c.clean(out, n)
 	}
 	var b strings.Builder
-	for c := out.FirstChild; c != nil; c = c.NextSibling {
-		if err := html.Render(&b, c); err != nil {
-			return html.EscapeString(src)
+	for ch := out.FirstChild; ch != nil; ch = ch.NextSibling {
+		if err := html.Render(&b, ch); err != nil {
+			return html.EscapeString(src), false
 		}
 	}
-	return strings.TrimSpace(b.String())
+	return strings.TrimSpace(b.String()), c.dropped
 }
 
 // clean は n を許可規則で変換し、結果を dst の子として追加する。
-func clean(dst, n *html.Node) {
+func (c *cleaner) clean(dst, n *html.Node) {
 	switch n.Type {
 	case html.TextNode:
 		dst.AppendChild(&html.Node{Type: html.TextNode, Data: n.Data})
 	case html.ElementNode:
-		cleanElement(dst, n)
+		c.cleanElement(dst, n)
 	case html.DocumentNode:
-		cleanChildren(dst, n)
+		c.cleanChildren(dst, n)
 	}
 	// コメント・doctype・処理命令は捨てる
 }
 
-func cleanChildren(dst, n *html.Node) {
-	for c := n.FirstChild; c != nil; c = c.NextSibling {
-		clean(dst, c)
+func (c *cleaner) cleanChildren(dst, n *html.Node) {
+	for ch := n.FirstChild; ch != nil; ch = ch.NextSibling {
+		c.clean(dst, ch)
 	}
 }
 
-func cleanElement(dst, n *html.Node) {
+func (c *cleaner) cleanElement(dst, n *html.Node) {
+	if attr(n, "style") != "" {
+		c.dropped = true
+	}
 	switch {
 	case dropWithContent[n.DataAtom]:
+		c.dropped = true
 		return
 	case n.DataAtom == atom.A:
 		href, ok := safeHref(attr(n, "href"))
 		if !ok {
-			cleanChildren(dst, n)
+			c.dropped = true
+			c.cleanChildren(dst, n)
 			return
 		}
 		el := &html.Node{Type: html.ElementNode, DataAtom: atom.A, Data: "a",
 			Attr: []html.Attribute{{Key: "href", Val: href}}}
-		cleanChildren(el, n)
+		c.cleanChildren(el, n)
 		dst.AppendChild(el)
 	case allowedTags[n.DataAtom]:
 		el := &html.Node{Type: html.ElementNode, DataAtom: n.DataAtom, Data: n.Data}
-		cleanChildren(el, n)
+		c.cleanChildren(el, n)
+		dst.AppendChild(el)
+	case c.divToP && n.DataAtom == atom.Div && canWrapParagraph(dst) && !hasBlockChild(n):
+		el := &html.Node{Type: html.ElementNode, DataAtom: atom.P, Data: "p"}
+		c.cleanChildren(el, n)
 		dst.AppendChild(el)
 	case blockTags[n.DataAtom]:
-		cleanChildren(dst, n)
+		c.noteDropped(n)
+		c.cleanChildren(dst, n)
 		appendBreak(dst)
 	default:
-		cleanChildren(dst, n)
+		c.noteDropped(n)
+		c.cleanChildren(dst, n)
 	}
 }
 
-// appendBreak は dst の末尾が改行でなければ <br> を追加する（先頭には追加しない）。
+// noteDropped は許可外のタグを外すとき、装飾や内容を失うタグなら dropped にする。
+func (c *cleaner) noteDropped(n *html.Node) {
+	if !neutralTags[n.DataAtom] {
+		c.dropped = true
+	}
+}
+
+// canWrapParagraph は dst の直下に p を置いてよいか（本文の直下かリスト項目の中だけ）。
+func canWrapParagraph(dst *html.Node) bool {
+	return dst.DataAtom == atom.Body || dst.DataAtom == atom.Li
+}
+
+// hasBlockChild は n の子孫にブロック要素（p・リスト・blockTags）があるかを返す。
+func hasBlockChild(n *html.Node) bool {
+	for ch := n.FirstChild; ch != nil; ch = ch.NextSibling {
+		if ch.Type != html.ElementNode {
+			continue
+		}
+		switch a := ch.DataAtom; {
+		case a == atom.P || a == atom.Ul || a == atom.Ol || a == atom.Li || blockTags[a]:
+			return true
+		}
+		if hasBlockChild(ch) {
+			return true
+		}
+	}
+	return false
+}
+
+// appendBreak は dst の末尾が改行でもブロック（p・リスト）でもなければ <br> を追加する（先頭には追加しない）。
 func appendBreak(dst *html.Node) {
 	last := dst.LastChild
-	if last == nil || (last.Type == html.ElementNode && (last.DataAtom == atom.Br || last.DataAtom == atom.P)) {
+	if last == nil {
 		return
+	}
+	if last.Type == html.ElementNode {
+		switch last.DataAtom {
+		case atom.Br, atom.P, atom.Ul, atom.Ol:
+			return
+		}
 	}
 	dst.AppendChild(&html.Node{Type: html.ElementNode, DataAtom: atom.Br, Data: "br"})
 }

@@ -159,6 +159,9 @@ type Client interface {
 	DeleteDraft(ctx context.Context, accountID, draftID string) error
 	FindDraftForThread(ctx context.Context, accountID, threadID string) (draftID string, ok bool, err error)
 	ListLabels(ctx context.Context, accountID string) ([]Label, error)
+	// GetSignature は users.settings.sendAs.get で sendAsEmail の署名（HTML。未設定は ""）を返す。
+	// 署名の本文は利用者の情報なので、ログにもエラー文言にも出さない。
+	GetSignature(ctx context.Context, accountID, sendAsEmail string) (string, error)
 }
 
 // AccountLookup は Client が OAuth 資格情報を解決するための参照（store アダプタが実装する）。

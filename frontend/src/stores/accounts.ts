@@ -4,6 +4,7 @@ import * as AccountService from '../../bindings/github.com/ousiassllc/hitomado/i
 import type {
   Account,
   AccountPatch,
+  GmailSignature,
   OAuthClient,
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { call, list, parseBindingError } from '../lib/api'
@@ -127,6 +128,11 @@ export const useAccountsStore = defineStore('accounts', () => {
     return a
   }
 
+  /** Gmail の署名を取得して返す（保存しない。保存は setSignature）。 */
+  function fetchGmailSignature(id: string): Promise<GmailSignature> {
+    return api(AccountService.FetchGmailSignature(id))
+  }
+
   async function reorder(ids: string[]): Promise<void> {
     setAccounts(list(await api(AccountService.ReorderAccounts(ids))))
   }
@@ -216,6 +222,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     remove,
     update,
     setSignature,
+    fetchGmailSignature,
     reorder,
     addOAuthClient,
     updateOAuthClient,
