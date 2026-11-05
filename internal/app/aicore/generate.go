@@ -3,8 +3,10 @@ package aicore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
@@ -30,9 +32,15 @@ var errCancelledByUser = errors.New("ai: cancelled by user")
 
 // GenerateReplyDraft は reply／reply_all セッションのスレッドから返信本文を生成する（F-08）。
 // 署名・引用は含めない。ctx のキャンセルと CancelGenerate は CANCELLED、60 秒超過は AI_FAILED。
-func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID string) (dto.ReplyDraft, error) {
+// instruction は利用者が書いた「AI への指示」（#109）。前後の空白を除いて空なら指示なし。
+// 2,000 文字（rune 数）を超えると、通信せず VALIDATION。指示は保存せず、ログ・エラー文面にも残さない。
+func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID, instruction string) (dto.ReplyDraft, error) {
 	if requestID == "" {
 		return dto.ReplyDraft{}, apperr.New(apperr.Validation, "リクエスト ID が必要です。")
+	}
+	instruction = strings.TrimSpace(instruction)
+	if utf8.RuneCountInString(instruction) > ai.MaxInstructionRunes {
+		return dto.ReplyDraft{}, apperr.New(apperr.Validation, fmt.Sprintf("AI への指示は %d 文字までです。", ai.MaxInstructionRunes))
 	}
 	mode, ref, err := s.sessions.ThreadRef(sessionID)
 	if err != nil {
@@ -57,6 +65,7 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID s
 	if err != nil {
 		return dto.ReplyDraft{}, s.mapError(runCtx, err, ref.AccountID)
 	}
+	in.Instruction = instruction
 	text, err := s.generate(runCtx, cfg, key, in)
 	if err != nil {
 		return dto.ReplyDraft{}, err

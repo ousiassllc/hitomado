@@ -178,10 +178,10 @@ func TestAIConsentPerProvider(t *testing.T) {
 func TestGenerateRequiresReplySession(t *testing.T) {
 	f := newAIFixture(t)
 	f.ready(t)
-	_, err := f.ai.GenerateReplyDraft(t.Context(), "missing", "r1")
+	_, err := f.ai.GenerateReplyDraft(t.Context(), "missing", "r1", "")
 	requireCode(t, "SESSION_NOT_FOUND", err)
 	for _, s := range []string{f.openNew(t, f.a.ID).SessionID, f.open(t, "forward").SessionID} {
-		_, err = f.ai.GenerateReplyDraft(t.Context(), s, "r1")
+		_, err = f.ai.GenerateReplyDraft(t.Context(), s, "r1", "")
 		requireCode(t, "VALIDATION", err)
 	}
 	assert.Empty(t, f.provider.inputs)
@@ -191,7 +191,7 @@ func TestGeneratePreconditions(t *testing.T) {
 	f := newAIFixture(t)
 	s := f.open(t, "reply")
 	gen := func() error {
-		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 		return err
 	}
 	requireCode(t, "AI_NOT_CONFIGURED", gen())
@@ -221,7 +221,7 @@ func TestGenerateBuildsEscapedHTMLAndNoSecretsInLogs(t *testing.T) {
 		return "こんにちは <b>&</b>\n改行です\n\n次の段落", nil
 	}
 	s := f.open(t, "reply")
-	got, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	got, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	require.NoError(t, err)
 	assert.Equal(t, "<p>こんにちは &lt;b&gt;&amp;&lt;/b&gt;<br>改行です</p><p>次の段落</p>", got.BodyHTML)
 	assert.NotContains(t, got.BodyHTML, "data-hitomado")
@@ -233,7 +233,7 @@ func TestGenerateBuildsEscapedHTMLAndNoSecretsInLogs(t *testing.T) {
 	require.Len(t, in.Messages, 1)
 	assert.Equal(t, "Alice", in.Messages[0].From)
 
-	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2")
+	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2", "")
 	require.NoError(t, err)
 	logged := f.logs.String()
 	assert.NotContains(t, logged, testAPIKey)
@@ -257,7 +257,7 @@ func TestGenerateTruncatesContext(t *testing.T) {
 	s, err := f.svc.OpenCompose(t.Context(), dto.OpenComposeRequest{Mode: "reply", Ref: &dto.ThreadRef{AccountID: f.a.ID, ThreadID: "tq"}})
 	require.NoError(t, err)
 
-	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	require.NoError(t, err)
 	in := f.provider.inputs[0]
 	assert.LessOrEqual(t, len(in.Messages), 5)

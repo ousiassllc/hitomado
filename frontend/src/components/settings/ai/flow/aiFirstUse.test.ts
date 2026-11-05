@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useSettingsStore } from '../../../../stores/settings'
 import { useUiStore } from '../../../../stores/ui'
-import AiDraftButton from '../../../compose/AiDraftButton.vue'
+import AiDraftButton from '../../../compose/ai/AiDraftButton.vue'
 
 beforeEach(() => {
   document.body.innerHTML = ''

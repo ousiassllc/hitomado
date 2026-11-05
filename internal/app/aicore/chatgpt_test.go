@@ -134,7 +134,7 @@ func TestChatGPTPreconditionsAndConsent(t *testing.T) {
 	f := newAIFixture(t)
 	s := f.open(t, "reply")
 	gen := func() error {
-		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 		return err
 	}
 	_, err := f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "")
@@ -178,7 +178,7 @@ func TestChatGPTUnauthorizedRefreshesOnceAndRetries(t *testing.T) {
 		}
 		return "更新後の本文", nil
 	}
-	got, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	got, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	require.NoError(t, err)
 	assert.Contains(t, got.BodyHTML, "更新後の本文")
 	assert.Equal(t, []string{chatgptToken, chatgptRefresh}, keys)
@@ -189,7 +189,7 @@ func TestChatGPTUnauthorizedRefreshesOnceAndRetries(t *testing.T) {
 	f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) {
 		return "", fmt.Errorf("%w: HTTP 401 %s", ai.ErrUnauthorized, chatgptRefresh)
 	}
-	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2")
+	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2", "")
 	ae := requireError(t, "AI_FAILED", err)
 	assert.Contains(t, ae.Message, "ログイン")
 	assert.NotContains(t, ae.Message, "API キー")
@@ -203,7 +203,7 @@ func TestChatGPTReloginIsRequestedWhenRefreshFails(t *testing.T) {
 	s := f.open(t, "reply")
 	f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) { return "", ai.ErrUnauthorized }
 	f.ChatGPT.RefreshErr = fmt.Errorf("%w: %s", siwc.ErrReauthRequired, chatgptRefresh)
-	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	ae := requireError(t, "AI_NOT_CONFIGURED", err)
 	assert.Contains(t, ae.Message, "「再ログイン」")
 	assert.NotContains(t, ae.Message, chatgptRefresh)
@@ -211,7 +211,7 @@ func TestChatGPTReloginIsRequestedWhenRefreshFails(t *testing.T) {
 	// 事前の更新（AccessToken）で再ログインが必要と分かった場合も同じ案内。
 	f.ChatGPT.RefreshErr = nil
 	f.ChatGPT.AccessErr = siwc.ErrReauthRequired
-	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2")
+	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2", "")
 	requireCode(t, "AI_NOT_CONFIGURED", err)
 }
 
@@ -233,7 +233,7 @@ func TestChatGPTPlanErrors(t *testing.T) {
 		f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) {
 			return "", fmt.Errorf("%w: %s", c.err, chatgptToken)
 		}
-		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 		ae := requireError(t, c.code, err)
 		assert.Contains(t, ae.Message, c.contains)
 		assert.NotContains(t, ae.Message, chatgptToken)
@@ -264,13 +264,13 @@ func TestSecretsNeverAppearInLogsOrErrors(t *testing.T) {
 		f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) {
 			return "", fmt.Errorf("%w: key=%s token=%s refresh=%s", perr, testAPIKey, chatgptToken, chatgptRefresh)
 		}
-		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 		check(err)
 	}
 	f.Deps.AI = func(string, string, string, string) (ai.Provider, error) {
 		return nil, fmt.Errorf("init failed %s %s", chatgptToken, testAPIKey)
 	}
-	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2")
+	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2", "")
 	check(err)
 
 	for _, p := range []string{"openai", "chatgpt", "anthropic"} {
@@ -296,7 +296,7 @@ func TestChatGPTTokenIsNotFetchedBeforeConsent(t *testing.T) {
 	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "")
 	require.NoError(t, err)
 	s := f.open(t, "reply")
-	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	requireCode(t, "AI_CONSENT_REQUIRED", err)
 	assert.Zero(t, f.ChatGPT.AccessCalls)
 }
@@ -311,7 +311,7 @@ func TestChatGPTFailureOtherThan401IsNotRetried(t *testing.T) {
 		calls++
 		return "", fmt.Errorf("%w: HTTP 403", ai.ErrFailed)
 	}
-	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	requireCode(t, "AI_FAILED", err)
 	assert.Equal(t, 1, calls)
 	assert.Zero(t, f.ChatGPT.Refreshes)
@@ -325,6 +325,6 @@ func TestChatGPTCancelDuringRefreshIsCancelled(t *testing.T) {
 	f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) { return "", ai.ErrUnauthorized }
 	f.ChatGPT.RefreshErr = context.Canceled
 	f.ChatGPT.OnRefresh = func() { _ = f.ai.CancelGenerate("r1") }
-	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	requireCode(t, "CANCELLED", err)
 }

@@ -35,7 +35,7 @@ func TestChatGPTTwoAccountsSwitchAndGenerate(t *testing.T) {
 	require.NoError(t, err)
 	gen := func(id string) {
 		t.Helper()
-		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, id)
+		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, id, "")
 		require.NoError(t, err)
 	}
 	gen("r1")

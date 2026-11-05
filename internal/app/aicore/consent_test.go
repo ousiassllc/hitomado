@@ -19,7 +19,7 @@ func (f *aiFixture) consented(t *testing.T) []string {
 
 func (f *aiFixture) generate(t *testing.T, sessionID string) error {
 	t.Helper()
-	_, err := f.ai.GenerateReplyDraft(t.Context(), sessionID, "r1")
+	_, err := f.ai.GenerateReplyDraft(t.Context(), sessionID, "r1", "")
 	return err
 }
 

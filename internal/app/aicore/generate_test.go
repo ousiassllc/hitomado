@@ -22,11 +22,11 @@ func TestGenerateProviderErrors(t *testing.T) {
 	}
 	for perr, want := range cases {
 		f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) { return "", perr }
-		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 		requireCode(t, want, err)
 	}
 	f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) { return "  ", nil }
-	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	requireCode(t, "AI_FAILED", err)
 }
 
@@ -39,7 +39,7 @@ func TestGenerateTimeoutIsAIFailed(t *testing.T) {
 		return "", ctx.Err()
 	}
 	s := f.open(t, "reply")
-	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	ae := requireError(t, "AI_FAILED", err)
 	assert.True(t, ae.Retryable)
 }
@@ -55,7 +55,7 @@ func TestCancelGenerate(t *testing.T) {
 	s := f.open(t, "reply")
 	done := make(chan error, 1)
 	go func() {
-		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r-cancel")
+		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r-cancel", "")
 		done <- err
 	}()
 	<-f.provider.entered
@@ -76,7 +76,7 @@ func TestGenerateCallerContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan error, 1)
 	go func() {
-		_, err := f.ai.GenerateReplyDraft(ctx, s.SessionID, "r1")
+		_, err := f.ai.GenerateReplyDraft(ctx, s.SessionID, "r1", "")
 		done <- err
 	}()
 	<-f.provider.entered
@@ -96,15 +96,15 @@ func TestGenerateDuplicateRequestID(t *testing.T) {
 	s := f.open(t, "reply")
 	done := make(chan error, 1)
 	go func() {
-		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "dup")
+		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "dup", "")
 		done <- err
 	}()
 	<-f.provider.entered
-	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "dup")
+	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "dup", "")
 	requireCode(t, "VALIDATION", err)
 	close(release)
 	require.NoError(t, <-done)
-	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "")
+	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "", "")
 	requireCode(t, "VALIDATION", err)
 }
 
@@ -113,6 +113,6 @@ func TestGenerateFactoryError(t *testing.T) {
 	f.ready(t)
 	f.Deps.AI = func(string, string, string, string) (ai.Provider, error) { return nil, errors.New("bad cfg") }
 	s := f.open(t, "reply")
-	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1")
+	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	requireCode(t, "AI_FAILED", err)
 }

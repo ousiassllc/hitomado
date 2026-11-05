@@ -7,6 +7,9 @@ import (
 	"time"
 )
 
+// MaxInstructionRunes は「AI への指示」の最大文字数（rune 数。#109）。
+const MaxInstructionRunes = 2000
+
 // AI プロバイダのエラー分類。実装は errors.Is で判定できる形で wrap して返す。
 var (
 	ErrUnauthorized = errors.New("ai: unauthorized") // キー不正（401／403）。ChatGPT ではコード subscription_sharing_invalid_user も含む
@@ -30,7 +33,9 @@ type ContextMessage struct {
 type ReplyInput struct {
 	AccountDisplayName string
 	SignatureText      string
-	Messages           []ContextMessage // 時系列昇順
+	// Instruction は利用者が書いた「AI への指示」（#109）。空なら指示なし（従来と同じ要求）。スレッド本文とは別枠（system 側）で渡す。
+	Instruction string
+	Messages    []ContextMessage // 時系列昇順
 }
 
 // Provider は AI プロバイダ。ログに本文・キーを出さないこと。

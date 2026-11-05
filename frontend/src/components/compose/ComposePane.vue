@@ -6,8 +6,8 @@ import { useAccountsStore } from '../../stores/accounts'
 import { useComposeStore } from '../../stores/compose'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseTooltip from '../ui/BaseTooltip.vue'
-import AiDraftButton from './AiDraftButton.vue'
 import AttachmentBar from './AttachmentBar.vue'
+import AiDraftButton from './ai/AiDraftButton.vue'
 import RecipientField from './RecipientField.vue'
 import RichTextEditor from './RichTextEditor.vue'
 import SenderField from './SenderField.vue'
@@ -129,6 +129,7 @@ function send(archive: boolean): void {
 
     <AiDraftButton
       v-if="canAi"
+      :key="session.sessionId"
       :session-id="session.sessionId"
       @generated="compose.insertGenerated"
     />

@@ -71,8 +71,9 @@ func (s *AIService) ListAIModels(ctx context.Context, provider, baseURL string) 
 }
 
 // GenerateReplyDraft は reply／reply_all セッションのスレッドから下書きを生成する。ctx キャンセルは CANCELLED。
-func (s *AIService) GenerateReplyDraft(ctx context.Context, sessionID, requestID string) (dto.ReplyDraft, error) {
-	return s.core.GenerateReplyDraft(ctx, sessionID, requestID)
+// instruction は任意の「AI への指示」（空・空白だけは指示なし。2,000 文字まで。保存しない）。
+func (s *AIService) GenerateReplyDraft(ctx context.Context, sessionID, requestID, instruction string) (dto.ReplyDraft, error) {
+	return s.core.GenerateReplyDraft(ctx, sessionID, requestID, instruction)
 }
 
 // CancelGenerate は実行中の生成を中止する（GenerateReplyDraft は CANCELLED で終わる）。

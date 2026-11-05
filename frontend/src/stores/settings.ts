@@ -213,12 +213,13 @@ export const useSettingsStore = defineStore('settings', () => {
     return r.revocationConfirmed
   }
 
-  /** 返信の下書きを生成する（cancelGenerate で中止できる。requestId は呼び出しごとに一意）。 */
+  /** 返信の下書きを生成する（cancelGenerate で中止できる。requestId は呼び出しごとに一意）。instruction は任意の「AI への指示」（保存しない）。 */
   async function generateReplyDraft(
     sessionId: string,
     requestId: string,
+    instruction = '',
   ): Promise<{ bodyHtml: string }> {
-    return await call(AIService.GenerateReplyDraft(sessionId, requestId))
+    return await call(AIService.GenerateReplyDraft(sessionId, requestId, instruction))
   }
 
   async function cancelGenerate(requestId: string): Promise<void> {
