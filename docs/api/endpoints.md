@@ -131,6 +131,7 @@ type ThreadPage = {
 | `RemoveAccount(accountId)` | string | — | 同期ワーカーを停止（実行中の周期の終了を待つ）→DB カスケード削除→資格情報削除＋トークン revoke（失敗しても削除は成功扱い）。DB 削除に失敗したときは同期を再開してエラーを返す |
 | `UpdateAccount(accountId, patch)` | `{ displayName?, color?, notifyEnabled? }` | `Account` | 表示名・色・通知設定 |
 | `SetSignature(accountId, signatureHtml)` | string ×2 | `Account` | 署名。許可タグ（`p, br, strong, b, em, i, u, a[href], ul, ol, li`）以外はサーバー側で除去 |
+| `FetchGmailSignature(accountId)` | string | `{ signatureHtml: string; found: boolean; sanitized: boolean }` | Gmail の設定（`users.settings.sendAs.get`。`sendAsEmail` は `accounts.email`）から署名を取得して返す。**保存しない**（保存は `SetSignature`）。`signatureHtml` は `SetSignature` と同じ許可タグへ整形したもの（`div` は `p` に、画像・表・`style`・`font` などは除く）。`sanitized` は整形で内容を落としたか（画面が「取り込めない部分は除きました」を出す契機）。Gmail の署名が空なら `found = false`・`signatureHtml = ""`。未登録の `accountId` は `NOT_FOUND`。失敗は §10 の共通の変換（`OFFLINE`・`NEEDS_REAUTH`・`GMAIL_ERROR` など）。署名の本文はログに残さない（NF-S10）。MCP からは呼べない |
 | `ReorderAccounts(accountIds)` | `string[]` | `Account[]` | 並び順を更新。全アカウント ID を過不足なく指定 |
 
 - 色の候補（パレットキー）は定数として TS 側と Go 側で共有し、未知のキーは `VALIDATION`
@@ -503,7 +504,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 外部 API | 用途 | 主なエンドポイント／スコープ |
 |----------|------|------------------------------|
 | Google OAuth 2.0 | 認可・更新・revoke | `https://accounts.google.com/o/oauth2/v2/auth`、`https://oauth2.googleapis.com/token`、`https://oauth2.googleapis.com/revoke`、`https://openidconnect.googleapis.com/v1/userinfo`。スコープ: `https://www.googleapis.com/auth/gmail.modify`、`openid`、`email`、`profile` |
-| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ。§5.2）、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`（いずれも `gmail.modify` スコープ内） |
+| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash`、`users.messages.send`、`users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ。§5.2）、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`、`users.settings.sendAs.get`（署名の取得。`FetchGmailSignature`）（いずれも `gmail.modify` スコープ内） |
 | AI プロバイダ | 下書き生成 | Anthropic Messages API／OpenAI 互換 Chat Completions（Base URL 指定可） |
 | GitHub Releases API | 更新確認 | `GET /repos/ousiassllc/hitomado/releases/latest`（未認証） |
 | GitHub Release の添付ファイル | Windows 版の自動アップデート（NF-D03） | `GET https://github.com/ousiassllc/hitomado/releases/download/vX.Y.Z/hitomado-vX.Y.Z-windows-amd64-setup.exe` と `.../SHA256SUMS.txt`（未認証。`release-assets.githubusercontent.com` へ 302。HTTPS・`github.com`／`*.githubusercontent.com` のみ） |
@@ -555,3 +556,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.30 | 2026-11-04 | `AppService` に `SetAutoUpdateEnabled`・`GetUpdateStatus`・`RestartToUpdate`、`GetAppInfo` に `autoUpdateSupported`／`autoUpdateEnabled`、イベント `update:status`、外部 API に Release の添付ファイルを追加。`CheckForUpdate` に自動ダウンロードの開始を追記 | #103 |
 | 1.31 | 2026-11-04 | `AIConfig` に `configured`（未保存のとき偽。既定のプロバイダは `chatgpt`）と `apiKeyProviders` を追加。`RecordAIConsent` と `ListAIModels` に `baseUrl` を足し、保存済みの設定ではなく渡された送信先に対して同意の保存・一覧の取得をするように変更（保存前でも取得できる。同意前は `consent_required`）。§6.1 の取得先と呼ぶ契機を更新 | #104・#105 |
 | 1.32 | 2026-11-05 | `GenerateReplyDraft` に `instruction?`（AI への指示。2,000 文字まで・保存しない）を追加し、§6 に指示の扱いを追記 | #109 |
+| 1.33 | 2026-11-05 | `AccountService.FetchGmailSignature`（Gmail の署名を取得して返す。保存しない）を追加し、§10 の Gmail API 一覧に `users.settings.sendAs.get` を追加 | #110 |
