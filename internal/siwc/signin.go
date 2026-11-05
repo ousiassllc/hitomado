@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+
+	"github.com/ousiassllc/hitomado/internal/logging"
 )
 
 const (
@@ -73,7 +75,19 @@ type pendingAuth struct {
 	redirectURI            string
 }
 
-func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error) {
+func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (_ Status, err error) {
+	// 失敗したとき、どの段階まで進んでいたかと元のエラーを 1 回だけ記録する（complete は自分の段階で記録する）。
+	stage, oauthError := "prepare", ""
+	defer func() {
+		if err == nil || stage == "complete" {
+			return
+		}
+		if oauthError != "" {
+			m.logFailure(stage, err, "oauth_error", oauthError)
+		} else {
+			m.logFailure(stage, err)
+		}
+	}()
 	hostID, err := m.ensureHostID(ctx)
 	if err != nil {
 		return Status{}, err
@@ -91,6 +105,7 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 		}
 		target = *a
 	}
+	stage = "discover"
 	prov, err := m.discover(ctx)
 	if err != nil {
 		return Status{}, err
@@ -102,12 +117,14 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 			return Status{}, fmt.Errorf("%w: 乱数を作れません", ErrFailed)
 		}
 	}
+	stage = "listen"
 	cb, err := startCallbackServer(p.state)
 	if err != nil {
 		return Status{}, err
 	}
 	defer cb.close()
 	p.redirectURI = cb.redirectURI()
+	m.logProgress("listening")
 
 	// 選んだ登録の保存済みの ID トークン（ログアウトで消えていれば無い）は同じアカウントを示すヒントとして
 	// OpenAI の認可エンドポイントにだけ送る。ほかの登録の ID トークンは送らない。
@@ -119,11 +136,15 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 		}
 		unlock()
 	}
+	stage = "open_browser"
 	authURL := m.authorizeURL(prov.Endpoint().AuthURL, p, hostID, target, hintToken)
 	if err := m.opts.OpenBrowser(authURL); err != nil {
-		return Status{}, fmt.Errorf("%w: ブラウザを開けません", ErrFailed)
+		// 元のエラーも保持して、ログで原因を追えるようにする（画面の分類は ErrFailed のまま）。
+		return Status{}, fmt.Errorf("%w: ブラウザを開けません（%w）", ErrFailed, err)
 	}
+	m.logProgress("browser_opened")
 
+	stage = "wait_callback"
 	timer := time.NewTimer(m.opts.Timeout)
 	defer timer.Stop()
 	var res callbackResult
@@ -135,14 +156,32 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 		return Status{}, ErrTimeout
 	}
 	if res.err != nil {
+		stage, oauthError = "callback", res.oauthError
 		return Status{}, res.err
 	}
+	m.logProgress("callback_received")
+	stage = "complete"
 	return m.complete(ctx, prov, target, p, res)
 }
 
 // complete はコードの交換・ID トークンと scope の検証・保存を行う。target は再ログインした登録（新規登録なら零値）。
 // 検証に通るまで、保存済みの登録・トークン・使用中のアカウントは変えない。保存するのは、このログインのアカウントのトークンと登録だけ。
-func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target account, p pendingAuth, res callbackResult) (Status, error) {
+func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target account, p pendingAuth, res callbackResult) (_ Status, err error) {
+	// 失敗したとき、どの段階だったかと元のエラーを記録する。ID トークンの検証の詳細（detail）は、トークンの中身を含み得るので
+	// 戻り値のエラーには載せず、ログにだけ（伏せ処理を通して）残す。
+	stage := "register"
+	var detail error
+	defer func() {
+		if err == nil {
+			m.logProgress("completed")
+			return
+		}
+		if detail != nil {
+			m.logFailure(stage, err, "cause", detail, "cause_chain", logging.ErrorChain(detail))
+		} else {
+			m.logFailure(stage, err)
+		}
+	}()
 	clientID := target.ClientID
 	if clientID == "" {
 		// 新規登録: コールバックが発行された client_id を返す。無い・不正な値なら登録は未完了。
@@ -157,6 +196,7 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 		return Status{}, fmt.Errorf("%w: クライアント ID が一致しません", ErrInvalidResponse)
 	}
 
+	stage = "token_exchange"
 	tr, err := m.requestTokens(ctx, url.Values{
 		"grant_type":    {"authorization_code"},
 		"client_id":     {clientID},
@@ -168,16 +208,18 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 	if err != nil {
 		var se *serverError
 		if errors.As(err, &se) && se.Code == "invalid_grant" {
-			return Status{}, fmt.Errorf("%w: 認可コードが使えません。もう一度お試しください", ErrInvalidResponse)
+			return Status{}, fmt.Errorf("%w: 認可コードが使えません。もう一度お試しください（%w）", ErrInvalidResponse, se)
 		}
 		return Status{}, err
 	}
+	stage = "identity_check"
 	if tr.IDToken == "" {
 		return Status{}, fmt.Errorf("%w: ID トークンがありません", ErrInvalidResponse)
 	}
 	idt, err := prov.Verifier(&oidc.Config{ClientID: clientID, Now: m.clk.Now}).Verify(oidc.ClientContext(ctx, m.hc), tr.IDToken)
 	if err != nil {
-		// 検証の詳細（トークンの中身を含み得る）は載せない。
+		// 検証の詳細（トークンの中身を含み得る）は戻り値に載せない。
+		detail = err
 		return Status{}, fmt.Errorf("%w: ID トークンが不正です", ErrInvalidResponse)
 	}
 	if subtle.ConstantTimeCompare([]byte(idt.Nonce), []byte(p.nonce)) != 1 || idt.Subject == "" {
@@ -201,6 +243,7 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 	}
 	granted := slices.Contains(strings.Fields(scope), scopePlan)
 
+	stage = "save"
 	defer m.lockAccount(clientID)() // このログインのアカウントだけを守る（別のアカウントの更新・ログアウトは待たない）
 	// 取得したトークンを保存し終えるまで、ログインの中止（ctx）で中断しない（トークンと登録が食い違わないように）。
 	ctx = context.WithoutCancel(ctx)

@@ -21,8 +21,9 @@ const (
 
 // callbackResult はリダイレクトで受け取った結果。code か err のどちらかが入る。
 type callbackResult struct {
-	code string
-	err  error
+	code       string
+	err        error
+	oauthError string // コールバックの error（形式を検査した OAuth の error コードだけ。ログ用）
 }
 
 // callbackServer は 127.0.0.1 の一時ポートで 1 回だけリダイレクトを受け取る待受。
@@ -89,10 +90,12 @@ func (c *callbackServer) handle(w http.ResponseWriter, r *http.Request) {
 	)
 	switch errCode := q.Get("error"); {
 	case errCode == "access_denied":
+		res.oauthError = errCode
 		res.err = fmt.Errorf("%w: 認可が拒否されました", ErrDenied)
 		msg = pageDenied
 	case errCode != "":
-		res.err = fmt.Errorf("oauth: 認可エラー（%s）", errCode)
+		res.oauthError = safeOAuthError(errCode)
+		res.err = fmt.Errorf("oauth: 認可エラー（%s）", res.oauthError)
 		msg = pageDenied
 	case q.Get("code") == "":
 		http.Error(w, "bad request", http.StatusBadRequest)
