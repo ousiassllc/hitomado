@@ -113,7 +113,7 @@ function onOpen(open: boolean): void {
 
 .warning {
   padding: var(--s-2) var(--s-3);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   border: 1px solid var(--warning);
   background: var(--warning-soft);
   color: var(--ink);

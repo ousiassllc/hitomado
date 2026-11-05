@@ -244,7 +244,7 @@ async function remove(): Promise<void> {
   margin: 0;
   padding: var(--s-2) var(--s-3);
   border: 1px solid var(--border);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
 }
 
 .legend {
