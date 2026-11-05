@@ -131,7 +131,7 @@ async function toggleLabel(labelId: string): Promise<void> {
   display: flex;
   align-items: center;
   gap: var(--s-2);
-  padding: var(--s-2) var(--s-3);
+  padding: var(--s-1) var(--s-3);
   border-bottom: 1px solid var(--border);
 }
 
