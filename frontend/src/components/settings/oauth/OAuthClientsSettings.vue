@@ -23,14 +23,14 @@ const editingClient = computed<OAuthClient | undefined>(() =>
   clients.value.find((c) => c.id === editing.value),
 )
 const deletingId = ref<string>()
-/** 削除の確認を出しているクライアント */
+/** 削除の確認を出しているクライアント。閉じたあとも、フェードアウトの間に見出しが空にならないよう持ち続ける。 */
 const removeTarget = ref<OAuthClient>()
-const removeOpen = computed({
-  get: () => removeTarget.value !== undefined,
-  set: (v: boolean) => {
-    if (!v) removeTarget.value = undefined
-  },
-})
+const removeOpen = ref(false)
+
+function askRemove(c: OAuthClient): void {
+  removeTarget.value = c
+  removeOpen.value = true
+}
 
 async function remove(): Promise<void> {
   const c = removeTarget.value
@@ -39,7 +39,7 @@ async function remove(): Promise<void> {
   try {
     await accountsStore.deleteOAuthClient(c.id)
     ui.pushToast('success', msg.oauth.removed(c.name))
-    removeTarget.value = undefined
+    removeOpen.value = false
   } catch (e) {
     // OAUTH_CLIENT_IN_USE（他経路で使用中になった場合）を含め、Go 側のメッセージを表示する。
     ui.pushAlert(parseBindingError(e).message)
@@ -106,7 +106,7 @@ function openGuide(): void {
             :disabled="c.accountCount > 0 || deletingId === c.id"
             :loading="deletingId === c.id"
             :aria-describedby="c.accountCount > 0 ? `inuse-${c.id}` : undefined"
-            @click="removeTarget = c"
+            @click="askRemove(c)"
           >
             {{ msg.oauth.removeFor(c.name) }}
           </BaseButton>

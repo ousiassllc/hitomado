@@ -119,14 +119,14 @@ async function logout(a: ChatGPTAccount): Promise<void> {
   }
 }
 
-/** 登録の削除の確認を出しているアカウント */
+/** 登録の削除の確認を出しているアカウント。閉じたあとも、フェードアウトの間に見出しが空にならないよう持ち続ける。 */
 const removeTarget = ref<ChatGPTAccount>()
-const removeOpen = computed({
-  get: () => removeTarget.value !== undefined,
-  set: (v: boolean) => {
-    if (!v) removeTarget.value = undefined
-  },
-})
+const removeOpen = ref(false)
+
+function askRemove(a: ChatGPTAccount): void {
+  removeTarget.value = a
+  removeOpen.value = true
+}
 
 async function remove(): Promise<void> {
   const a = removeTarget.value
@@ -141,7 +141,7 @@ async function remove(): Promise<void> {
   } finally {
     busy.value = undefined
     // 失敗の理由はこの画面の中に出るので、確認は閉じて見えるようにする。
-    removeTarget.value = undefined
+    removeOpen.value = false
   }
 }
 </script>
@@ -170,7 +170,7 @@ async function remove(): Promise<void> {
           @select="select(a)"
           @logout="logout(a)"
           @relogin="login(a.id)"
-          @remove="removeTarget = a"
+          @remove="askRemove(a)"
         />
       </ul>
       <p class="note">{{ msg.ai.chatgpt.accountHint }}</p>
