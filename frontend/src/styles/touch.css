@@ -76,7 +76,7 @@
   inset: -12px -2px;
 }
 
-/* 一覧の 1 行は 72px（ThreadList の ROW_HEIGHT）で足りている。ツールバーだけ高さを 44px に合わせる */
+/* 一覧の 1 行は 88px（ThreadList の ROW_HEIGHT）で足りている。ツールバーだけ高さを 44px に合わせる */
 :root[data-touch-ui] .toolbar {
   min-height: 52px;
 }
