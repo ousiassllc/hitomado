@@ -209,18 +209,21 @@ async function copy(text: string): Promise<void> {
   margin: 0;
   color: var(--mute);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .body {
   margin: 0;
   color: var(--ink);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .error {
   margin: 0;
   color: var(--danger);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .state {
