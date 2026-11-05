@@ -17,7 +17,7 @@ const page = `<!doctype html>
 :root{--ink:#050505;--bone:#f5f5f4;--surface:#fff;--border:#e7e7e5}
 @media (prefers-color-scheme:dark){:root{--ink:#fff;--bone:#050505;--surface:#141414;--border:#2a2a2a}}
 body{font-family:Sora,"Noto Sans JP",sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:var(--bone);color:var(--ink)}
-main{background:var(--surface);padding:2rem 2.5rem;border-radius:8px;border:1px solid var(--border);box-shadow:0 1px 4px rgba(0,0,0,.2);max-width:28rem}
+main{background:var(--surface);padding:24px;border-radius:12px;border:1px solid var(--border);max-width:28rem}
 h1{font-size:18px;line-height:1.7;margin:0 0 .75rem}
 p{margin:0;font-size:16px;line-height:1.8}
 </style>

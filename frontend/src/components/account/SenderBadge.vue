@@ -20,7 +20,7 @@ defineProps<{
   padding: var(--s-2) var(--s-3);
   border: 1px solid var(--border);
   border-left: var(--s-2) solid transparent;
-  border-radius: var(--r-lg);
+  border-radius: var(--r-md);
   background: var(--bone);
   color: var(--ink);
   line-height: var(--line-height-sm);

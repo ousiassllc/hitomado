@@ -39,7 +39,7 @@ func TestPageColorsComeFromTokens(t *testing.T) {
 		if strings.HasPrefix(line, ":root{") || strings.HasPrefix(line, "@media") {
 			continue // トークンの定義行
 		}
-		if hex.MatchString(line) {
+		if hex.MatchString(line) || strings.Contains(line, "rgb") {
 			t.Errorf("hard-coded color outside token definitions: %s", line)
 		}
 	}
@@ -66,5 +66,22 @@ func TestPageTypography(t *testing.T) {
 		if strings.Contains(body, bad) {
 			t.Errorf("unexpected %q", bad)
 		}
+	}
+}
+
+// カードは影なしの 1px solid var(--border)・--r-lg（12px）・--pad-card（24px）（デザインガイド S1・S3）。
+func TestPageCardShape(t *testing.T) {
+	_, body := render(t, "x")
+	m := regexp.MustCompile(`main\{([^}]*)\}`).FindStringSubmatch(body)
+	if m == nil {
+		t.Fatal("main rule is missing")
+	}
+	for _, want := range []string{"padding:24px", "border-radius:12px", "border:1px solid var(--border)"} {
+		if !strings.Contains(m[1], want) {
+			t.Errorf("main rule lacks %q: %s", want, m[1])
+		}
+	}
+	if strings.Contains(body, "shadow") {
+		t.Error("card must not have a shadow")
 	}
 }

@@ -39,7 +39,7 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
 .dest {
   padding: var(--s-3);
   border: 1px solid var(--mute);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-md);
   background: var(--bone);
 }
 
