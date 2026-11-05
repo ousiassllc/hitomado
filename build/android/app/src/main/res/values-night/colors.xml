@@ -2,4 +2,6 @@
 <resources>
     <!-- フロントの --bone トークン（ダーク）と同じ値（frontend/src/styles/tokens.css）。システムバーの背後・起動直後の背景に使う。 -->
     <color name="app_background">#050505</color>
+    <!-- フロントの --accent トークン（ダーク）と同じ値。Material テーマの主色に使う。 -->
+    <color name="app_accent">#F5F5F4</color>
 </resources>
