@@ -31,6 +31,11 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
     border-color var(--motion-base) var(--ease-out);
 }
 
+.sw:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--ring);
+}
+
 .sw[data-state='checked'] {
   background: var(--accent);
   border-color: var(--accent);
