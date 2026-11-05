@@ -2,6 +2,7 @@
 import { WarningTriangle } from '@iconoir/vue'
 import { common } from '../../lib/messages'
 import { accountColorVar } from '../../lib/palette'
+import BaseIconButton from '../ui/BaseIconButton.vue'
 
 defineProps<{
   account: { id: string; displayName: string; email: string; color: string }
@@ -29,16 +30,15 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
       </span>
       <span v-if="unread > 0" class="badge" :aria-label="common.sidebar.unread(unread)">{{ unread > 999 ? '999+' : unread }}</span>
     </button>
-    <button
+    <BaseIconButton
       v-if="needsReauth"
-      type="button"
       class="warn"
-      :aria-label="`${account.displayName}: ${common.sidebar.needsReauth}（${common.reconnect}）`"
-      :title="common.sidebar.needsReauth"
+      variant="danger"
+      :label="`${account.displayName}: ${common.sidebar.needsReauth}（${common.reconnect}）`"
       @click="emit('reconnect')"
     >
       <WarningTriangle class="icon icon-sm" aria-hidden="true" />
-    </button>
+    </BaseIconButton>
   </li>
 </template>
 
@@ -116,13 +116,9 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   text-align: center;
 }
 
-.warn {
+/* BaseIconButton の属性はボタンへ渡るので、scoped の属性が付かない。:deep で当てる。 */
+.item :deep(.warn) {
   flex: none;
-  width: 32px;
-  border: none;
-  background: transparent;
-  color: var(--danger);
-  font-size: var(--font-size-base);
-  cursor: pointer;
+  align-self: center;
 }
 </style>
