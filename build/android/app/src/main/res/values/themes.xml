@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.WailsApp" parent="Theme.MaterialComponents.DayNight.NoActionBar">
-        <!-- 主色はフロントの --accent トークンに揃える（独自の青は使わない。その上の文字は --bone＝app_background）。 -->
+        <!-- 主色はフロントのトークン accent に揃える（独自の青は使わない。その上の文字はトークン bone＝app_background）。 -->
         <item name="colorPrimary">@color/app_accent</item>
         <item name="colorPrimaryVariant">@color/app_accent</item>
         <item name="colorOnPrimary">@color/app_background</item>

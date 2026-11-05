@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- フロントの --bone トークン（ライト）と同じ値（frontend/src/styles/tokens.css）。システムバーの背後・起動直後の背景に使う。ダークは values-night。 -->
+    <!-- フロントのトークン bone（ライト）と同じ値（frontend/src/styles/tokens.css）。システムバーの背後・起動直後の背景に使う。ダークは values-night。 -->
     <color name="app_background">#F5F5F4</color>
-    <!-- フロントの --accent トークン（ライト）と同じ値。Material テーマの主色に使う。ダークは values-night。 -->
+    <!-- フロントのトークン accent（ライト）と同じ値。Material テーマの主色に使う。ダークは values-night。 -->
     <color name="app_accent">#050505</color>
     <color name="white">#FFFFFFFF</color>
     <color name="black">#FF000000</color>

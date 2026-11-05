@@ -1,5 +1,4 @@
 // 1 画面ずつのレイアウト（狭幅）のスレッド画面: 戻るボタン、返信の埋め込みを出さないこと。
-import '../domPurifyShim'
 import { afterAll, afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'

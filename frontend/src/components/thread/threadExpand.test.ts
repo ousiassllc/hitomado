@@ -1,4 +1,3 @@
-import '../../../test/domPurifyShim'
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
