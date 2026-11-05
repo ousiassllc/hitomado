@@ -314,3 +314,31 @@ describe('フォームの focus（C3・#125）', () => {
     expect(body).toContain('box-shadow: 0 0 0 2px var(--ring)')
   })
 })
+
+describe('タイポグラフィ（T・#126）', () => {
+  const reset = read('../../src/styles/reset.css')
+  const rule = (css: string, selector: string) =>
+    new RegExp(`${selector}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? ''
+
+  test('見出し h1〜h6 は SemiBold（600）、見出しでない <strong> は 400', () => {
+    expect(rule(reset, 'h1,\\s*h2,\\s*h3,\\s*h4,\\s*h5,\\s*h6')).toContain('font-weight: 600')
+    expect(rule(reset, 'strong')).toContain('font-weight: 400')
+  })
+
+  test('本文エディタで利用者が付けた太字は 400 に負けず太字で見える', () => {
+    const style = read('../../src/components/compose/RichTextEditor.vue')
+    expect(rule(style, '\\.rte-body :deep\\(\\.editor-content strong\\)')).toContain(
+      'font-weight: 700',
+    )
+  })
+
+  test.each([
+    ['settings/McpSettings.vue', '\\.token'],
+    ['settings/McpSettings.vue', '\\.path'],
+    ['settings/oauth/OAuthClientsSettings.vue', '\\.client-id'],
+  ])('%s の %s（識別子・トークン）は JetBrains Mono（--font-mono）', (rel, selector) => {
+    expect(rule(read(`../../src/components/${rel}`), selector)).toContain(
+      'font-family: var(--font-mono)',
+    )
+  })
+})

@@ -239,6 +239,11 @@ onBeforeUnmount(() => editor.value?.destroy())
   text-underline-offset: 2px;
 }
 
+/* 利用者が付けた太字（<strong>）は reset.css の既定（400）に負けず、そのまま太字で見せる。 */
+.rte-body :deep(.editor-content strong) {
+  font-weight: 700;
+}
+
 .rte-body :deep([data-hitomado-signature]) {
   margin-top: var(--s-3);
   color: var(--mute);

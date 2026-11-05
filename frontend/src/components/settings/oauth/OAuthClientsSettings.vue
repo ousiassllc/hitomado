@@ -81,7 +81,7 @@ function openGuide(): void {
       <li v-for="c in clients" :key="c.id" class="item" :data-client-id="c.id">
         <div class="info">
           <strong class="name">{{ c.name }}</strong>
-          <span class="meta">{{ c.clientId }}</span>
+          <span class="meta client-id">{{ c.clientId }}</span>
           <span class="meta">
             {{ c.hasSecret ? msg.oauth.secretSaved : msg.oauth.secretMissing }}
             ／ {{ msg.oauth.accountCount(c.accountCount) }}
@@ -173,6 +173,10 @@ function openGuide(): void {
   color: var(--mute);
   font-size: var(--font-size-xs);
   overflow-wrap: anywhere;
+}
+
+.client-id {
+  font-family: var(--font-mono);
 }
 
 .inuse {

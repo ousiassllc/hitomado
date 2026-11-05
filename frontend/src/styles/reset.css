@@ -19,6 +19,20 @@ body {
   line-height: var(--line-height-base);
 }
 
+/* 見出しは SemiBold（600）。見出しでない強調（<strong>）は太字にしない（ガイド T2。区別は --ink と --mute の対比）。 */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 600;
+}
+
+strong {
+  font-weight: 400;
+}
+
 button,
 input,
 select,
