@@ -318,7 +318,7 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 ## 9. ビルド・CI
 
 - ローカル: `wails3 dev`（開発）、`wails3 package VERSION=X.Y.Z`（NSIS インストーラー `bin/hitomado-vX.Y.Z-windows-amd64-setup.exe` を作る。`task package` も同じ）。`sqlc generate` と `wails3 generate bindings` の生成物はコミットする（差分が出ていないことを CI で検査する）
-- GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 package` によりインストーラーを作り、インストール・上書き・アンインストールを検証する）。`main` への push（PR のマージ）ごとに CI を通したうえで patch を 1 つ上げたタグを自動で作り、インストーラーを Releases に添付する。詳細は [環境構築 §4](../environment/setup.md)
+- GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 package` によりインストーラーを作り、インストール・上書き・アンインストールを検証する）、installer-arm64（`windows-11-arm` で同じ x64 のインストーラーと exe を検証する）。`main` への push（PR のマージ）ごとに CI を通したうえで patch を 1 つ上げたタグを自動で作り、インストーラーを Releases に添付する。詳細は [環境構築 §4](../environment/setup.md)
 - マイグレーションは `internal/store/migrations/*.sql`（goose）を `embed` し、起動時に適用する。失敗時は起動中止（NF 可用性）
 
 ## 改訂履歴

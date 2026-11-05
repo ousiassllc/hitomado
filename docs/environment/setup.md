@@ -118,9 +118,10 @@ flowchart LR
 | `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため） |
 | `android` | ubuntu-latest | `pull_request` のみ（`release.yml` からの呼び出しでは動かさない）。release APK（arm64）と AAB を作って検査し、アーティファクトに上げる（使い捨ての署名鍵。[Android ビルド §8](android.md)） |
 | `build` | windows-latest | `needs: [lint, test]`。`wails3 package` でインストーラーを作り（版 `0.99.1` と `0.99.2` の 2 つ）、`.github/scripts/test-installer.ps1` で **インストール → 起動中の上書き拒否 → 上書き → アンインストール** を実機で検証する（§4.3）。新しい方のインストーラーを Actions のアーティファクトに保存 |
+| `installer-arm64` | windows-11-arm（ARM64 の実機） | `needs: build`。`build` の x64 の成果物で、同じ `test-installer.ps1` と、exe の 15 秒の起動確認を通す（#13。§4.3「ARM64 の扱い」） |
 | `macos` | macos-latest（マトリクス: `arm64`／`amd64`） | `pull_request` のみ（`release.yml` からの呼び出しでは動かさない）。`.github/actions/build-macos` で `.app`（ad-hoc 署名）と zip を版 `0.99.1` で作って検査し（§4.4）、zip をアーティファクトに上げる。`arm64` は起動して 10 秒生きていることも確認する（`amd64` は arm64 ランナーでのクロスビルドなので起動しない） |
 
-補足: `.github/workflows/android-e2e.yml`（`workflow_dispatch` のみ。PR の CI には含めない）が、KVM つきの x86_64 エミュレーター（API 35）で Android の E2E を回す。手順と位置づけは [Android ビルド §17](android.md#17-実機エミュレーターでの-e2e-webview-のクラッシュ対策性能90)。
+補足: `.github/workflows/android-e2e.yml`（`workflow_dispatch` のみ。PR の CI には含めない）が、KVM つきの x86_64 エミュレーター（API 35）で Android の E2E を回す（手動実行で通ることを確認済み。実機の arm64 は未確認）。手順と位置づけは [Android ビルド §17](android.md#17-実機エミュレーターでの-e2e-webview-のクラッシュ対策性能90)。
 
 - セットアップ: `actions/setup-go`（`go.mod` のバージョン。Go のモジュール・ビルドキャッシュは既定で効く）、`oven-sh/setup-bun`（bun 1.3.14 を固定）、`bun install --frozen-lockfile`。フロントの依存は明示的にキャッシュしない
 - 生成物の差分検査: `wails3 generate bindings` は Linux でも動く。ただし GTK ヘッダが無い環境では cgo を使う既定の Linux バックエンドをビルドできないため、`CGO_ENABLED=0` と `-tags purego`（Wails v3.1.0 の CGO なし Linux バックエンド）を付ける。Go の lint・vet・test も ubuntu では同じ設定で実行する（Windows 向けビルドには影響しない）。
@@ -147,7 +148,16 @@ flowchart LR
 | 上書き更新 | 新しい版のインストーラーを実行するだけ。前回の `InstallLocation` に入り、exe と登録内容を置き換える。起動中の `hitomado.exe` は置き換えられないため（実行中の exe を書き込みで開けるかで判定）、画面ありなら終了を促して再試行させ、サイレント（`/S`）なら何も変えずエラーコード 5 を設定して中止する（CI で終了コード 5 を確認。ウイルス対策ソフトが exe を一時的に掴んでいる間も同じ扱いになるため、少し待って再実行する）。自動アップデート（NF-D03）は同じインストーラーをサイレントで使う: `/S`（サイレント）・`/WAIT=秒`（サイレント実行のとき、起動中の `hitomado.exe` の終了を最大その秒数〔上限 300〕待ってから上書きする。省略時は待たずに終了コード 5。CI の `test-installer.ps1` が両方を確かめる）・`/RELAUNCH`（成功後にインストール先の `hitomado.exe` を起動する。`.onInstSuccess`）・`/D=パス`（最後の引数・引用符なし）。アプリは終了処理の最後にインストーラーを分離した子プロセスで起動してから終了する（[overview §5.1](../architecture/overview.md#51-自動アップデートwindows-版nf-d03)） |
 | 版番号 | `VERSION=X.Y.Z` 1 つから、`-X main.version`（アプリの表示・更新確認）、exe のファイルバージョン（`build/windows/info.generated.json` を `generate:syso` の前に書く。git 管理外）、インストーラーの表示と「アプリと機能」の `DisplayVersion` を作る。X.Y.Z 以外はビルドを失敗させる。`VERSION` を渡さない場合の既定値は `0.0.0` で、ルートの `Taskfile.yml` の `includes`（`windows`）の `vars`（`APP_VERSION`）に 1 か所だけ書く（コマンドラインの `VERSION` は、各 Taskfile 先頭の `vars` からは見えず、`includes` の `vars` からは見えるため）。`task dev` は `-X` を付けないため、アプリの表示・更新確認には `main.go` の `version` の既定値（`internal/update` の `DevVersion`）が使われる。この既定値と、`build/config.yml` の `info.version`（Wails テンプレート由来。`task dev` が `-config` で読むファイルだが、`info.version` を使う手順はこのリポジトリにない）、`build/windows/wails.exe.manifest` の `assemblyIdentity` の版（exe に埋め込まれる。`VERSION` とは連動しない固定値）、`frontend/package.json` の `version`（`private` で、フロントのコードや生成物から参照しない。配布物の版とは連動しない）は `0.0.0` に揃えてあり、`VERSION` の既定値を変えるときは `Taskfile.yml`・`main.go`（`DevVersion`）・`config.yml`・manifest・`frontend/package.json` も一緒に変える。`0.0.0` は dev・ローカルビルド専用の版で、更新確認をしない（通信せず、「新しい版あり」にもしない）。配布物（`VERSION=X.Y.Z`。CI の `0.99.x` を含む）の更新確認は変わらない |
 | WebView2 | 無い PC ではインストーラーに同梱したブートストラッパー（Microsoft 配布。ビルド時に `wails3 generate webview2bootstrapper` で取得）で入れる |
-| 対応 | Windows 10 以降の x64 のみ。ARM64 は対象外（x64 エミュレーションで動くかは未確認のため、インストーラーは中止する。サイレントはエラーコード 64） |
+| 対応 | Windows 10 以降の x64、と ARM64 の Windows 11（build 22000 以降）。ARM64 には専用のビルドを作らず、**x64 版の exe とインストーラーを x64 エミュレーションで動かす**（#13。下の「ARM64 の扱い」）。それ以外（ARM64 の Windows 10・32 bit 版など）はインストーラーが中止する（サイレントはエラーコード 64） |
+
+#### ARM64 の扱い（#13）
+
+**決定**: (a) x64 のインストーラーを ARM64 の Windows 11 でも許可する。ARM64 専用のビルド・インストーラーは作らない。
+
+- 根拠: ARM64 の Windows 11 の実機（GitHub Actions の `windows-11-arm`、Windows 11 Enterprise 10.0.26200）で、CI が作った x64 版の `hitomado.exe` を起動し、15 秒後も動いていて「Hitomado」のウィンドウがあり、WebView2（`msedgewebview2`）が動き、`%APPDATA%\Hitomado` に DB とログができることを確認した。インストーラーは、ARM64 では `${IsNativeAMD64}` が偽になるため、変更前は終了コード 64 で中止した（同じ実機で確認）。
+- インストーラーの条件（`.onInit`）: x64 は Windows 10 以降、ARM64 は Windows 11（`${AtLeastBuild} 22000`）以降。ARM64 の Windows 10 は x64 エミュレーションを持たない（x86 のみ）ため対象外。
+- CI: `ci.yml` の `installer-arm64`（`windows-11-arm`）が、`build` ジョブで作った x64 の成果物（旧版・新版のインストーラーと exe）を受け取り、`test-installer.ps1`（下の「検証」と同じ）と、exe が 15 秒動き続けて「Hitomado」のウィンドウが出る確認を ARM64 の実機で通す。
+- 範囲外: 通常の操作（Gmail 同期・返信・設定）をエミュレーション下で通した確認はしていない（起動までの確認）。性能はネイティブより下がりうる。ARM64 のネイティブ版が必要になったら、`build/windows/Taskfile.yml` の `ARCH`（`generate:syso` は `arm64` に対応済み）・インストーラー名の `amd64`・`release.yml` を足す別の作業になる。
 
 #### 第三者ライセンスの表記（`NOTICE`）
 
@@ -174,7 +184,7 @@ Hitomado 本体は AGPL-3.0（`LICENSE`）。同梱する依存のライセン�
 
 #### 検証
 
-`.github/scripts/test-installer.ps1`（CI の `build` ジョブ、windows-latest）が、旧版（`0.99.1`）を入れる → 起動中（実行中の exe がある状態）の上書きが拒否され登録が変わらない → 新版（`0.99.2`）で上書きして `DisplayVersion`・exe の置き換え・exe のファイルバージョンと埋め込まれた `main.version`（exe 内の文字列。`-X` が効いていること）が新版になる → アンインストールでプログラム・ショートカット・登録が消え、`%APPDATA%\Hitomado` のデータは残る、を確認する。ローカルで実行するときは、実機のアプリと登録キー・`%APPDATA%\Hitomado` を共有するため、既に Hitomado が入っている PC では `-Force` を付けない限り動かない（使い捨ての環境で `-Force` を付ける。スクリプトが消すのは自分が作ったマーカーだけ）。GUI のウィザード（コンポーネント選択・完了ページ）は自動検証していない。
+`.github/scripts/test-installer.ps1`（CI の `build` ジョブ（windows-latest）と `installer-arm64` ジョブ（windows-11-arm））が、旧版（`0.99.1`）を入れる → 起動中（実行中の exe がある状態）の上書きが拒否され登録が変わらない → 新版（`0.99.2`）で上書きして `DisplayVersion`・exe の置き換え・exe のファイルバージョンと埋め込まれた `main.version`（exe 内の文字列。`-X` が効いていること）が新版になる → アンインストールでプログラム・ショートカット・登録が消え、`%APPDATA%\Hitomado` のデータは残る、を確認する。ローカルで実行するときは、実機のアプリと登録キー・`%APPDATA%\Hitomado` を共有するため、既に Hitomado が入っている PC では `-Force` を付けない限り動かない（使い捨ての環境で `-Force` を付ける。スクリプトが消すのは自分が作ったマーカーだけ）。GUI のウィザード（コンポーネント選択・完了ページ）は自動検証していない。
 
 CI では確かめられない項目（実アプリが起動中の上書き拒否、インストーラーの GUI ウィザード、「アプリと機能」の表示、資格情報マネージャー・トースト・トレイ・単一インスタンス、実 Gmail への通信など）は、[Windows 実機・実 Gmail での確認](windows-verification.md) に手順と確認結果を置く（#174）。
 
@@ -322,3 +332,4 @@ pre-push:
 | 1.13 | 2026-11-04 | §4.3 の上書き更新に、自動アップデートが使うインストーラーの引数（`/S`・`/WAIT=秒`・`/RELAUNCH`）と、CI の `test-installer.ps1` に `/WAIT` の確認を追加した旨を追記 | #103 |
 | 1.14 | 2026-11-05 | Android の APK（§4.2 と android.md §8）・macOS の zip（§4.4 を新設）を Release に添付し、`SHA256SUMS.txt` に載せる。`ci.yml` に `macos` ジョブ、composite action（`setup-android`・`build-android-apk`・`build-macos`）を追加。ツール表・タスク表を更新 | Android・macOS の試験版の配布（NF-D06） |
 | 1.15 | 2026-11-06 | §4.3 の検証に、実機でしか確かめられない項目の手順と結果の記録先として [windows-verification.md](windows-verification.md) への導線を追加 | #174 |
+| 1.16 | 2026-11-06 | §4.3 の対応を「x64 と ARM64 の Windows 11（x64 エミュレーション）」に変更し、「ARM64 の扱い」を追加。§4.1 に `installer-arm64`（windows-11-arm）を追加 | #13 |

@@ -86,7 +86,7 @@
 
 ## 7. 互換性・動作環境
 
-- OS: Windows 10（1809 以降）／Windows 11、x64
+- OS: Windows 10（1809 以降）／Windows 11、x64。ARM64 の Windows 11 は x64 エミュレーションで x64 版を動かす（ARM64 版のビルド・インストーラーは作らない。ARM64 の Windows 10 は x64 エミュレーションが無いため対象外。[環境構築 §4.3](../environment/setup.md)）
 - OS（Android）: Android 12（API 31）以上（`minSdk` 31）。それより古い端末にはインストールできない
 - WebView2 ランタイムが必要。未導入環境ではインストーラ／README で案内する
 - 画面（Windows）: 最小ウィンドウ幅 960px、3 ペイン。DPI スケーリング 100〜200% で崩れないこと
