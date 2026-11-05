@@ -94,6 +94,10 @@ watch(model, () => void nextTick(fit))
   outline: none;
 }
 
+.instruction-input:disabled {
+  opacity: 0.5;
+}
+
 .instruction-foot {
   display: flex;
   justify-content: space-between;
