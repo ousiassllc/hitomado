@@ -391,6 +391,7 @@ AI の設定の入口は 2 つ（作成画面の「AI で下書き」と設定�
 - `NEEDS_REAUTH` を受け取ったら `accountsStore.statuses` を更新し、`BannerStack` に「要再接続」を出す（他アカウントは通常動作）。OAuth クライアントの拒否（`account:status` が `needs_reauth` で、`message` が OAuth クライアント設定の案内）の場合は、`statusMessages` の理由と設定への導線を出す
 - `OFFLINE` を受け取ったら `uiStore.online = false`。次の成功呼び出し、または `sync:updated` で復帰する
 - アーカイブ・ゴミ箱で**開いているスレッド**が除去されるとき、`inboxSelection.afterRemoval` が除去した最初の位置の次の行（末尾なら一つ前。無ければ空表示）を `selectedKey` にして開く（`closeOpened` の真偽は `opened: 'next' | 'close' | 'keep'` に変えた。既読化で消えるだけのときは `keep`、`removeThread` は `close`）。開いていないスレッドの除去では `selectedKey` を変えない。`afterRemoval` が返す関数でロールバック（`applyOptimistic` の戻り値）が、まだ自動で開いたスレッドを見ているときだけ元のスレッドを開き直す。「元に戻す」（`reinsert`）は選択に触れない。自動で開いたスレッドは `ThreadPane` の既存の挙動（表示後に未読なら `MarkRead`）で既読になる
+- 「元に戻す」の差し戻し（`inboxMutations.reinsert`）は、アーカイブ・ゴミ箱をした時点の表示条件（`viewKey`: モード・検索語・タブ・未読のみ・アカウントの絞り込み）を覚えておき、押したときの条件が同じときだけ一覧へ差し戻す（`lastMessageAt` の降順の位置へ入れる）。検索へ切り替えた・絞り込みを変えた後なら差し戻さず、直後の再取得に任せる（条件外の行を一時的にも入れない）（#170）
 - 一覧が 0 件でも続き（`nextCursor`）があるとき（未読のみで該当なし等）、`inboxStore` が 1 回の操作（起動・フィルタ変更・`loadMore`）で自動的に辿るのは最大 3 ページ（`MAX_AUTO_EMPTY_PAGES`）。超えて止まったら `hasMore` のまま残り、続きは `ThreadList` の「さらに読み込む」（`loadMore`）で利用者が読む
 
 ### 3.11 lib・composables
@@ -599,3 +600,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.46 | 2026-11-06 | `McpSettings` の「待ち受け中／停止中」を状態色（`--success`／`--mute`）の文字だけから、他の札と同じピル（枠・地・`--r-full`）に変更。§5.3 のウィンドウ外の表面に、ウィンドウの背景（`BackgroundColour` に `--bone` をテーマごとに指定。`WindowBackground`・`TestWindowBackgroundMatchesBoneToken`）を追記 | #186 |
 | 1.47 | 2026-11-06 | §5.2 のタイポに、折り返しうる `sm`・`xs` の文章の行間をスケールの値（`--line-height-sm`・`--line-height-xs`）にする定めを追記し、設定・アカウント追加・送信確認・AI・添付・バナー・画像バーの説明文・注記・エラーを揃えた | #187 |
 | 1.48 | 2026-11-06 | §5.2 のタイポに、1 行のチップの行間をスケールのトークンにする定めと、本文エディタを `base`＋`--line-height-base` に揃える旨を追記。`RichTextEditor` の `font-size` を `base` に、`BaseChip`・`AccountChip`・`RecipientField` のチップの `line-height` を px 直書きからトークンに、`ToastHost` の `.toast` の `line-height: 1` を削除 | #195 |
+| 1.49 | 2026-11-06 | §3.10 の `inboxStore` に、「元に戻す」の差し戻しは除去した時点と同じ表示条件のときだけ行うことを追記（`MutationDeps.viewKey`） | #170 |

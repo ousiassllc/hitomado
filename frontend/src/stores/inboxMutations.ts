@@ -21,6 +21,8 @@ export interface MutationDeps {
   hidesRead: () => boolean
   /** 検索結果の表示中か（元に戻したスレッドを、受信箱の条件に関わらず一覧へ戻す） */
   searching: () => boolean
+  /** 今の一覧の表示条件（モード・検索語・タブ・未読のみ・アカウントの絞り込み）を表す文字列。「元に戻す」は操作時と同じ条件のときだけ一覧へ差し戻す。 */
+  viewKey: () => string
   /** サーバー反映待ちで楽観的に除去した行。先頭ページの再取得で復活させない。 */
   pendingRemoval: Set<string>
   api: <T>(p: PromiseLike<T>) => Promise<T>
@@ -97,6 +99,7 @@ export function useInboxMutations(d: MutationDeps) {
     const wasInInbox = new Map(
       d.items.value.filter((t) => keys.has(keyOf(t))).map((t) => [keyOf(t), t.inInbox]),
     )
+    const view = d.viewKey()
     const undo = applyOptimistic(op, keys)
     try {
       const updated = await callOp(op, refs)
@@ -104,7 +107,7 @@ export function useInboxMutations(d: MutationDeps) {
         const byKey = new Map(list(updated).map((t) => [keyOf(t), t]))
         d.items.value = d.items.value.map((t) => byKey.get(keyOf(t)) ?? t)
       } else if (op === 'archive' || op === 'trash') {
-        announceRemoval(op, refs, wasInInbox)
+        announceRemoval(op, refs, wasInInbox, view)
       }
       return true
     } catch (e) {
@@ -130,8 +133,13 @@ export function useInboxMutations(d: MutationDeps) {
     }
   }
 
-  /** 元に戻したスレッドを、今の検索か受信箱の表示条件（検索中か・未読のみか）に合うものだけ一覧へ差し戻す（先頭ページの再取得より先に見せる。アカウントの絞り込みは直後の再取得で正される）。 */
-  function reinsert(restored: ThreadSummary[]): void {
+  /**
+   * 元に戻したスレッドを一覧へ差し戻す（先頭ページの再取得より先に見せる。位置は lastMessageAt の降順）。
+   * `view` は除去したときの表示条件。今が別の条件（検索へ切り替えた・絞り込みを変えた等）なら、
+   * 条件に合わない行を入れないよう差し戻さず、直後の再取得に任せる。
+   */
+  function reinsert(restored: ThreadSummary[], view: string): void {
+    if (d.viewKey() !== view) return
     const fits = (t: ThreadSummary) =>
       d.searching() || (t.inInbox && (!d.hidesRead() || t.isUnread))
     const back = restored.filter(fits).map((item) => ({ item, index: 0 }))
@@ -143,13 +151,14 @@ export function useInboxMutations(d: MutationDeps) {
     op: 'archive' | 'trash',
     refs: ThreadRef[],
     backToInbox: boolean,
+    view: string,
   ): Promise<void> {
     try {
       const restored =
         op === 'archive'
           ? await d.api(InboxService.Unarchive(refs))
           : await d.api(InboxService.Untrash(refs, backToInbox))
-      reinsert(list(restored))
+      reinsert(list(restored), view)
     } catch (e) {
       const err = e as AppError
       if (err.code === 'NOT_FOUND') {
@@ -159,7 +168,7 @@ export function useInboxMutations(d: MutationDeps) {
         const retryRefs = failed.length > 0 ? failed : refs
         d.ui.pushAlert(
           `${common.op.undoFailed}${err.message}`,
-          () => void undoRemoval(op, retryRefs, backToInbox),
+          () => void undoRemoval(op, retryRefs, backToInbox, view),
         )
       }
     } finally {
@@ -167,11 +176,12 @@ export function useInboxMutations(d: MutationDeps) {
     }
   }
 
-  /** 成功したアーカイブ・ゴミ箱をスナックバーで知らせる。`wasInInbox` は一覧にあった行の受信箱判定（一覧に無ければ受信箱にあったとみなす）。 */
+  /** 成功したアーカイブ・ゴミ箱をスナックバーで知らせる。`wasInInbox` は一覧にあった行の受信箱判定（一覧に無ければ受信箱にあったとみなす）。`view` は除去したときの表示条件。 */
   function announceRemoval(
     op: 'archive' | 'trash',
     refs: ThreadRef[],
     wasInInbox: Map<string, boolean>,
+    view: string,
   ): void {
     const message =
       op === 'archive' ? common.op.archived(refs.length) : common.op.trashed(refs.length)
@@ -183,8 +193,8 @@ export function useInboxMutations(d: MutationDeps) {
       return
     }
     const undo = async () => {
-      if (inbox.length > 0) await undoRemoval(op, inbox, true)
-      if (op === 'trash' && others.length > 0) await undoRemoval(op, others, false)
+      if (inbox.length > 0) await undoRemoval(op, inbox, true, view)
+      if (op === 'trash' && others.length > 0) await undoRemoval(op, others, false, view)
     }
     d.ui.pushSnackbar(message, { label: common.op.undo, run: () => void undo() })
   }
