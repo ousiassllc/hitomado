@@ -347,3 +347,4 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 | 1.19 | 2026-11-04 | `internal/update` に Windows 版の自動アップデート（ダウンロード・`SHA256SUMS.txt` との照合・入れ替えの指示）を追加し、§5.1 に通信先（`github.com` とリダイレクト先）・安全条件・NSIS のサイレント実行（`/S /WAIT=60 /RELAUNCH`）・インストーラーの失敗の扱いを追記。通信先の図と発行イベント（`update:status`）を更新 | #103 |
 | 1.20 | 2026-11-05 | §7.4 の `GenerateReplyDraft` に任意の `instruction` を追加（プロバイダへはスレッド本文とは別枠の「利用者の指示」として渡す） | #109 |
 | 1.21 | 2026-11-05 | §7.4 に、`ai.Provider` が設定されたエフォートをプロバイダごとの項目（`output_config.effort`／`reasoning_effort`／`reasoning.effort`）で要求に載せることを追記（設定が無ければ従来の要求） | #111 |
+| 1.22 | 2026-11-06 | §9 の GitHub Actions に、ARM64 の Windows 11 実機（`windows-11-arm`）で x64 のインストーラーと exe を検証する `installer-arm64` を追記 | #13 |
