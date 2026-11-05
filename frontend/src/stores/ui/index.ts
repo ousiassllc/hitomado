@@ -1,13 +1,23 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
-export type ToastKind = 'success' | 'error' | 'info'
+/** トースト（一瞬の結果の知らせ。1 行・同時に 1 つ）。失敗は `Alert` で伝える（ガイド O3: エラー詳細をトーストに出さない）。 */
+export type ToastKind = 'success' | 'info'
 
 export interface Toast {
   id: number
   kind: ToastKind
   message: string
-  /** 再試行ボタン用。指定時はエラートーストに再試行ボタンを出す */
+}
+
+/** インラインアラートの種類（ガイドのお知らせ・成功・エラー）。注意は常設のバナー（`Banner`）が受け持つ。 */
+export type AlertKind = 'error' | 'success' | 'info'
+
+/** インラインアラート（失敗の理由や、読んでほしい補足を、閉じるまで読める形で出す。再試行できる失敗は `retry` を持つ）。 */
+export interface Alert {
+  id: number
+  kind: AlertKind
+  message: string
   retry?: () => void
 }
 
@@ -26,7 +36,11 @@ export type DialogName = 'settings' | 'addAccount' | 'sendConfirm'
 
 export const useUiStore = defineStore('ui', () => {
   const theme = ref<'light' | 'dark'>('light')
-  const toasts = ref<Toast[]>([])
+  /** 同時に 1 つ。新しいものが前のものを置き換える（ガイド O3）。 */
+  const toast = ref<Toast>()
+  const alerts = ref<Alert[]>([])
+  /** 開いているダイアログの印（開いた順）。末尾が最前面で、アラートはその中に出す（前面の外に隠れさせない）。 */
+  const overlays = ref<symbol[]>([])
   const banners = ref<Banner[]>([])
   const dialogs = ref<Record<DialogName, boolean>>({
     settings: false,
@@ -41,14 +55,50 @@ export const useUiStore = defineStore('ui', () => {
   const menuOpen = ref(false)
   let nextId = 1
 
-  function pushToast(kind: ToastKind, message: string, retry?: () => void): number {
+  function pushToast(kind: ToastKind, message: string): number {
     const id = nextId++
-    toasts.value.push({ id, kind, message, retry })
+    toast.value = { id, kind, message }
     return id
   }
 
   function dismissToast(id: number): void {
-    toasts.value = toasts.value.filter((t) => t.id !== id)
+    if (toast.value?.id === id) toast.value = undefined
+  }
+
+  /** 失敗を知らせる。同じ文言がすでに出ていれば、重ねずに新しいものへ置き換える。 */
+  function pushAlert(message: string, retry?: () => void): number {
+    return pushInline('error', message, retry)
+  }
+
+  /** 1 行に収まらない成功・お知らせ（読んでほしい補足つき）を、トーストではなくインラインアラートで出す。 */
+  function pushNotice(message: string, kind: 'success' | 'info' = 'info'): number {
+    return pushInline(kind, message)
+  }
+
+  function pushInline(kind: AlertKind, message: string, retry?: () => void): number {
+    const id = nextId++
+    alerts.value = [
+      ...alerts.value.filter((a) => a.message !== message),
+      { id, kind, message, retry },
+    ]
+    return id
+  }
+
+  function dismissAlert(id: number): void {
+    alerts.value = alerts.value.filter((a) => a.id !== id)
+  }
+
+  function enterOverlay(mark: symbol): void {
+    overlays.value = [...overlays.value, mark]
+  }
+
+  function leaveOverlay(mark: symbol): void {
+    overlays.value = overlays.value.filter((m) => m !== mark)
+  }
+
+  /** `mark` が最前面のダイアログか。 */
+  function isTopOverlay(mark: symbol): boolean {
+    return overlays.value.at(-1) === mark
   }
 
   function setBanner(b: Banner): void {
@@ -100,7 +150,9 @@ export const useUiStore = defineStore('ui', () => {
 
   return {
     theme,
-    toasts,
+    toast,
+    alerts,
+    overlays,
     banners,
     dialogs,
     settingsTab,
@@ -109,6 +161,12 @@ export const useUiStore = defineStore('ui', () => {
     menuOpen,
     pushToast,
     dismissToast,
+    pushAlert,
+    pushNotice,
+    dismissAlert,
+    enterOverlay,
+    leaveOverlay,
+    isTopOverlay,
     setBanner,
     clearBanner,
     openDialog,

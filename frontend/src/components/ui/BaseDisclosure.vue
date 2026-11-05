@@ -13,17 +13,17 @@ defineProps<{ summary: string }>()
 <style scoped>
 .disclosure-summary {
   width: fit-content;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
 .disclosure-summary:focus-visible {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
 }
 
 .disclosure-body {
-  margin-top: var(--space-2);
+  margin-top: var(--s-2);
 }
 </style>

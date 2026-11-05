@@ -27,7 +27,7 @@ async function clear(): Promise<void> {
       <span>{{ common.filter.unreadOnly }}</span>
       <BaseSwitch :model-value="inbox.filter.unreadOnly" :ariaLabel="common.filter.unreadOnly" @update:model-value="setUnreadOnly" />
     </div>
-    <BaseButton v-if="active" variant="ghost" @click="clear">{{ common.filter.clear }}</BaseButton>
+    <BaseButton size="sm" v-if="active" variant="ghost" @click="clear">{{ common.filter.clear }}</BaseButton>
   </div>
 </template>
 
@@ -35,9 +35,9 @@ async function clear(): Promise<void> {
 .filter {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border-top: 1px solid var(--color-border);
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border-top: 1px solid var(--border);
 }
 
 .row {

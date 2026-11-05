@@ -30,7 +30,7 @@ async function run(id: string, op: () => Promise<unknown>, success?: string): Pr
     if (success) ui.pushToast('success', success)
     return true
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
     return false
   } finally {
     busyId.value = undefined
@@ -121,6 +121,7 @@ const removeOpen = computed({
     <BaseDialog
       v-model:open="removeOpen"
       size="sm"
+      :busy="busyId !== undefined && busyId === removeTarget?.id"
       :title="msg.accounts.removeTitle(removeTarget?.displayName ?? '')"
       :description="msg.accounts.removeDescription(removeTarget?.email ?? '')"
     >
@@ -140,19 +141,19 @@ const removeOpen = computed({
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--s-3);
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--s-3);
   margin: 0;
   padding: 0;
 }
 
 .empty {
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .detail {

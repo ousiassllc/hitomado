@@ -75,6 +75,6 @@ describe('usePlatformStore', () => {
     expect(p.settled).toBe(true) // 失敗しても画面は出す（デスクトップの構成で）
     expect(p.touchUi).toBe(false)
     expect(p.supportsMcp).toBe(true)
-    expect(useUiStore().toasts.at(-1)?.kind).toBe('error')
+    expect(useUiStore().alerts.at(-1)?.kind).toBe('error')
   })
 })

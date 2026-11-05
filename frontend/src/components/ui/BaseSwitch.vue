@@ -22,30 +22,32 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
   width: 40px;
   height: 22px;
   padding: 0;
-  border: 1px solid var(--color-border);
-  border-radius: 11px;
-  background: var(--color-bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--r-full);
+  background: var(--bone);
   cursor: pointer;
-  transition: background var(--transition-fast);
+  transition:
+    background-color var(--motion-base) var(--ease-out),
+    border-color var(--motion-base) var(--ease-out);
 }
 
 .sw[data-state='checked'] {
-  background: var(--color-accent);
-  border-color: var(--color-accent);
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 .sw-thumb {
   display: block;
   width: 16px;
   height: 16px;
-  border-radius: 50%;
-  background: var(--color-text-muted);
+  border-radius: var(--r-full);
+  background: var(--mute);
   transform: translateX(2px);
-  transition: transform var(--transition-fast);
+  transition: transform var(--motion-base) var(--ease-out);
 }
 
 .sw-thumb[data-state='checked'] {
-  background: var(--color-accent-text);
+  background: var(--bone);
   transform: translateX(20px);
 }
 </style>

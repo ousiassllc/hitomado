@@ -34,7 +34,7 @@ async function toggleUpdateCheck(enabled: boolean): Promise<void> {
   try {
     await store.setUpdateCheckEnabled(enabled)
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   }
 }
 
@@ -45,7 +45,7 @@ async function checkNow(): Promise<void> {
     await store.checkUpdate()
     checked.value = true
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   } finally {
     checking.value = false
   }
@@ -55,7 +55,7 @@ async function toggleAutoUpdate(enabled: boolean): Promise<void> {
   try {
     await store.setAutoUpdateEnabled(enabled)
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   }
 }
 
@@ -174,25 +174,25 @@ function openUpdate(): void {
 .general {
   display: flex;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--s-4);
 }
 
 .block {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .toggle,
 .check {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .hint {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
@@ -202,18 +202,21 @@ function openUpdate(): void {
 }
 
 .link {
-  color: var(--color-accent);
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--mute);
+  text-underline-offset: 2px;
 }
 
 .info {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: var(--space-1) var(--space-3);
+  gap: var(--s-1) var(--s-3);
   margin: 0;
 }
 
 .info dt {
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .info dd {

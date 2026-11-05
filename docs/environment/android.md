@@ -474,7 +474,7 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 | `internal/oauth/flow_test.go`・`callback`（既存） | 偽 IdP（httptest）で、ループバックの待受・PKCE・`state` の検証（不一致は無視）・`access_denied`・スコープ不足・トークン交換の失敗・タイムアウト・キャンセルを試す。Android でもこのコードがそのまま動く（ビルドタグなし） |
 | `internal/oauth/tracker_test.go` | 印がブラウザに出ている間だけ存在し、成功・拒否・タイムアウト・ブラウザ起動失敗・キャンセルのどれでも消える。印に `state`・verifier・コード・トークンを含まない。**プロセスが止められた（`End` が呼ばれない）ときに、次の起動の `Tracker` が一度だけ検出する**。検出の前に新しい認可を始めても完了でき、前回の中断も案内される。ストアの失敗が認可を壊さない。`nil` の `Tracker` は何もしない（Windows） |
 | `internal/app/apptests/account_interrupted_test.go` | `TakeInterruptedAuth` の一度だけの検出と、`nil`（Windows）での `false`。検出後のやり直しが完了する |
-| `frontend/test/accountsInterrupted.test.ts` | 検出時にやり直しのトーストを 1 回だけ出す。呼び出しの失敗で起動を止めない |
+| `frontend/test/accountsInterrupted.test.ts` | 検出時にやり直しのお知らせ（インラインアラート）を 1 回だけ出す。呼び出しの失敗で起動を止めない |
 
 ### 14.6 実機で確認する手順（未確認）
 
@@ -594,7 +594,7 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 
 - targetSdk 36 では、Activity のウィンドウがステータスバー・ナビゲーションバーの背後まで広がる（エッジ・ツー・エッジが強制される）。テンプレートの `MainActivity` は insets を扱っておらず、そのままでは WebView の上端・下端がバーに隠れる。
 - **Activity 側で insets を当てる方式を選んだ**（`MainActivity.applyWindowInsets()`）。system bars・display cutout・IME の insets を、WebView を入れた `main_container` の padding に当てる。CSS の `env(safe-area-inset-*)` と `viewport-fit=cover` は使わない: Android の WebView では `env()` の値が端末・WebView のバージョンで 0 のままになることがあり、信頼できないため。Java で 1 か所に当てれば、フロントの CSS は safe area を知らなくてよい（`index.html` の viewport も変えない）。IME の insets も同じ padding に含めるので、ソフトキーボードが出たときも入力欄が隠れない（`adjustResize` は 36 のエッジ・ツー・エッジでは効かないため）。
-- バーの背景色は `app_background`（`values`＝`#FFFFFF`、`values-night`＝`#14171C`。フロントの `--color-bg` のライト／ダークと同じ値）。バーのアイコンの明暗は `updateSystemBarIcons()` が uiMode に合わせる。フロントの配色を変える（`tokens.css`）ときはここも合わせる。
+- バーの背景色は `app_background`（`values`＝`#F5F5F4`、`values-night`＝`#050505`。フロントの `--bone` のライト／ダークと同じ値）。バーのアイコンの明暗は `updateSystemBarIcons()` が uiMode に合わせる。フロントの配色を変える（`tokens.css`）ときはここも合わせる。
 
 ### 16.3 戻るボタン
 
@@ -734,4 +734,4 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 
 - **未確認（実機）**: 実機の Chrome などで OpenAI のログイン画面が開き、`http://127.0.0.1:<ポート>/auth/callback` へ戻って完了するか（§14.1 と同じく、本物の OpenAI と実機のブラウザは使っていない）。ブラウザが前面に出ている間にアプリのプロセスが止められたときは、ログインの待受が消えて完了できず、時間切れかキャンセルとして終わる（§14.3 と同じ理由。Google OAuth のような「途中で止められた」印と案内は、ChatGPT ログインには無い。再度「Continue with ChatGPT」を押せば最初からやり直せる。トークン・登録は完了するまで書き込まれない）。
 - **ログインできないとき**: ログインのエラーを表示し、案内の「別のプロバイダを選ぶ」（設定画面の AI タブ）で Anthropic・OpenAI 互換の API キーを使える。既定が ChatGPT でも、保存済みのプロバイダ（anthropic・openai・chatgpt）の設定は変えない。
-- Android の画面（§16）でも、初回の案内・同意の画面は同じダイアログで、1 画面ずつの幅のときは全画面で出る（`BaseDialog` の既存の動作）。
+- Android の画面（§16）でも、初回の案内・同意の画面は同じダイアログで、1 画面ずつの幅のときも中央のモーダル（幅は画面幅 − 32px）で出る（`BaseDialog`。外側のクリックで閉じる）。

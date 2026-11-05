@@ -21,8 +21,10 @@ describe('layoutModeFor', () => {
     expect(layoutModeFor(true, false, false)).toBe('stack')
   })
 
-  test('ブレイクポイントは 1 か所の定数。3 ペインはデスクトップの最小幅（960px）以上', () => {
-    expect(BREAKPOINT_WIDE).toBe(MIN_WINDOW_WIDTH)
+  test('ブレイクポイントは 1 か所の定数（ガイドの --bp-sm・--bp-lg）。3 ペインはデスクトップの最小幅（960px）以上', () => {
+    expect(BREAKPOINT_WIDE).toBe(1024)
+    expect(BREAKPOINT_MEDIUM).toBe(640)
+    expect(BREAKPOINT_WIDE).toBeGreaterThanOrEqual(MIN_WINDOW_WIDTH)
     expect(BREAKPOINT_MEDIUM).toBeLessThan(BREAKPOINT_WIDE)
     expect(WIDE_QUERY).toBe(`(min-width: ${BREAKPOINT_WIDE}px)`)
     expect(MEDIUM_QUERY).toBe(`(min-width: ${BREAKPOINT_MEDIUM}px)`)

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Xmark } from '@iconoir/vue'
 import { ref, watch } from 'vue'
 import { common } from '../../lib/messages'
 import BaseIconButton from '../ui/BaseIconButton.vue'
@@ -49,7 +50,7 @@ function onEscape(): void {
       spellcheck="false"
       @keydown.esc.stop.prevent="onEscape"
     />
-    <BaseIconButton v-if="active" :label="common.search.clear" @click="emit('clear')">×</BaseIconButton>
+    <BaseIconButton v-if="active" :label="common.search.clear" @click="emit('clear')"><Xmark class="icon" aria-hidden="true" /></BaseIconButton>
     </form>
   </search>
 </template>
@@ -57,25 +58,25 @@ function onEscape(): void {
 <style scoped>
 .search {
   display: block;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--border);
 }
 
 .form {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--s-1);
+  padding: var(--s-2) var(--s-3);
 }
 
 .input {
   flex: 1;
   min-width: 0;
-  height: 32px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-elevated);
-  color: var(--color-text);
+  height: var(--control-h);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 </style>

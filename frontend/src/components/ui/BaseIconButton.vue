@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { common } from '../../lib/messages'
+import { vRipple } from '../../lib/ripple'
 import BaseTooltip from './BaseTooltip.vue'
 
 // 属性（click・data-testid など）は BaseTooltip ではなくボタンへ渡す
@@ -21,6 +22,7 @@ withDefaults(
   <BaseTooltip :text="shortcut ? common.shortcutHint(label, shortcut) : undefined">
     <button
       v-bind="$attrs"
+      v-ripple
       class="icon-btn"
       :class="`icon-btn-${variant}`"
       type="button"
@@ -38,39 +40,44 @@ withDefaults(
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
   padding: 0;
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-md);
   background: transparent;
-  color: var(--color-text);
-  font-size: var(--font-size-lg);
+  color: var(--ink);
+  font-size: var(--font-size-base);
   line-height: 1;
   cursor: pointer;
-  transition: background var(--transition-fast);
+  /* ホバーは色・背景だけ（180ms） */
+  transition: background-color var(--motion-base) var(--ease-out);
 }
 
 .icon-btn:hover:not(:disabled) {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
 .icon-btn:disabled {
-  opacity: 0.45;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .icon-btn-secondary {
-  border-color: var(--color-border);
-  background: var(--color-bg-elevated);
+  border-color: var(--border);
+  background: var(--surface);
 }
 
 .icon-btn-primary {
-  background: var(--color-accent);
-  color: var(--color-accent-text);
+  background: var(--accent);
+  color: var(--bone);
+}
+
+.icon-btn-primary:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 85%, var(--bone));
 }
 
 .icon-btn-danger {
-  color: var(--color-danger);
+  color: var(--danger);
 }
 </style>

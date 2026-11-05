@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Link } from '@iconoir/vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { compose as msg } from '../../lib/messages'
@@ -126,7 +127,7 @@ onBeforeUnmount(() => editor.value?.destroy())
         :title="msg.editor.link"
         @click="toggleLink"
       >
-        🔗
+        <Link class="icon icon-sm" aria-hidden="true" />
       </button>
       <button
         type="button"
@@ -155,14 +156,14 @@ onBeforeUnmount(() => editor.value?.destroy())
 .rte {
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
-  color: var(--color-text);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .rte:focus-within {
-  border-color: var(--color-focus);
+  border-color: var(--focus);
 }
 
 .rte-disabled {
@@ -171,21 +172,21 @@ onBeforeUnmount(() => editor.value?.destroy())
 
 .rte-toolbar {
   display: flex;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-subtle);
+  gap: var(--s-1);
+  padding: var(--s-1) var(--s-2);
+  border-bottom: 1px solid var(--border);
+  background: var(--bone);
 }
 
 .rte-btn {
   min-width: 32px;
   height: 28px;
-  padding: 0 var(--space-2);
+  padding: 0 var(--s-2);
   border: 1px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
   background: transparent;
-  color: var(--color-text);
-  font-size: var(--font-size-md);
+  color: var(--ink);
+  font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
@@ -194,12 +195,12 @@ onBeforeUnmount(() => editor.value?.destroy())
 }
 
 .rte-btn:hover {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
 .rte-btn-on {
-  border-color: var(--color-accent);
-  background: var(--color-selected);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .rte-body {
@@ -210,20 +211,20 @@ onBeforeUnmount(() => editor.value?.destroy())
 
 .rte-body :deep(.editor-content) {
   min-height: 120px;
-  padding: var(--space-3);
+  padding: var(--s-3);
   outline: none;
-  font-size: var(--font-size-md);
-  line-height: 1.6;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
   overflow-wrap: anywhere;
 }
 
 .rte-body :deep(.editor-content p) {
-  margin: 0 0 var(--space-2);
+  margin: 0 0 var(--s-2);
 }
 
 .rte-body :deep(.editor-content ul) {
-  margin: 0 0 var(--space-2);
-  padding-left: var(--space-6);
+  margin: 0 0 var(--s-2);
+  padding-left: var(--s-6);
 }
 
 .rte-body :deep(.editor-content li > p) {
@@ -231,19 +232,21 @@ onBeforeUnmount(() => editor.value?.destroy())
 }
 
 .rte-body :deep(.editor-content a) {
-  color: var(--color-accent);
+  color: var(--ink);
   text-decoration: underline;
+  text-decoration-color: var(--mute);
+  text-underline-offset: 2px;
 }
 
 .rte-body :deep([data-hitomado-signature]) {
-  margin-top: var(--space-3);
-  color: var(--color-text-muted);
+  margin-top: var(--s-3);
+  color: var(--mute);
 }
 
 .rte-body :deep([data-hitomado-quote]) {
-  margin: var(--space-3) 0 0;
-  padding-left: var(--space-3);
-  border-left: 3px solid var(--color-border);
-  color: var(--color-text-muted);
+  margin: var(--s-3) 0 0;
+  padding-left: var(--s-3);
+  border-left: 3px solid var(--border);
+  color: var(--mute);
 }
 </style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { NavArrowDown, NavArrowRight } from '@iconoir/vue'
 import { ref, watch } from 'vue'
 import type { ThreadMessage } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import type { AttachmentInfo } from '../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
@@ -31,7 +32,7 @@ watch(
       :aria-label="open ? msg.collapse : msg.expand"
       @click="open = !open"
     >
-      <span class="toggle-mark" aria-hidden="true">{{ open ? '▾' : '▸' }}</span>
+      <component :is="open ? NavArrowDown : NavArrowRight" class="icon icon-sm toggle-mark" aria-hidden="true" />
       <span class="sender" :title="formatAddress(message.from)">{{ shortName(message.from) }}</span>
       <span v-if="message.isUnread" class="unread-badge">{{ msg.unreadMark }}</span>
       <span v-if="!open && message.attachments?.length" class="clip">{{ msg.attachmentCount(message.attachments.length) }}</span>
@@ -66,41 +67,40 @@ watch(
 
 <style scoped>
 .message-card {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
 }
 
 .message-card.is-unread {
-  background: var(--color-unread-bg);
+  background: var(--surface);
 }
 
 .card-toggle {
   display: flex;
   align-items: baseline;
-  gap: var(--space-2);
+  gap: var(--s-2);
   width: 100%;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--s-2) var(--s-3);
   border: 0;
   background: transparent;
-  color: var(--color-text);
+  color: var(--ink);
   font: inherit;
   text-align: left;
   cursor: pointer;
 }
 
 .card-toggle:focus-visible {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 
 .toggle-mark {
-  color: var(--color-text-muted);
+  color: var(--mute);
   width: 1em;
 }
 
 .sender {
-  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -108,21 +108,21 @@ watch(
 }
 
 .unread-badge {
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--color-accent);
-  color: var(--color-accent-text);
+  padding: 0 var(--s-2);
+  border-radius: var(--r-sm);
+  background: var(--accent);
+  color: var(--bone);
   font-size: var(--font-size-xs);
 }
 
 .clip {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
 .date {
   margin-left: auto;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
   white-space: nowrap;
 }
@@ -130,19 +130,19 @@ watch(
 .card-content {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: 0 var(--space-3) var(--space-3);
+  gap: var(--s-3);
+  padding: 0 var(--s-3) var(--s-3);
 }
 
 .headers {
   margin: 0;
   font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .headers > div {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 dt {
@@ -153,6 +153,6 @@ dt {
 dd {
   margin: 0;
   overflow-wrap: anywhere;
-  color: var(--color-text);
+  color: var(--ink);
 }
 </style>

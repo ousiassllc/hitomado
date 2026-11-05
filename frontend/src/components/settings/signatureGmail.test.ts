@@ -80,8 +80,9 @@ function editorText(w: VueWrapper): string {
   return w.get('[role="textbox"]').text()
 }
 
-function toasts(ui: ReturnType<typeof useUiStore>): string[] {
-  return ui.toasts.map((t) => t.message)
+/** 画面に出している知らせ（トースト・インラインアラート）の文言。 */
+function shown(ui: ReturnType<typeof useUiStore>): string[] {
+  return [ui.toast?.message, ...ui.alerts.map((a) => a.message)].filter((m): m is string => !!m)
 }
 
 function dialogButton(label: string): HTMLButtonElement | undefined {
@@ -105,7 +106,7 @@ describe('署名の「Gmail から取得」', () => {
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()
     expect(calls.map((c) => c.name)).toEqual(['FetchGmailSignature'])
     expect(calls[0]?.args).toEqual(['a1'])
-    expect(toasts(ui)).toEqual([msg.signature.fetchedGmail('Me')])
+    expect(shown(ui)).toEqual([msg.signature.fetchedGmail('Me')])
     expect(w.text()).toContain(msg.signature.dirty)
     w.unmount()
   })
@@ -121,7 +122,7 @@ describe('署名の「Gmail から取得」', () => {
     await flushPromises()
 
     expect(editorText(w)).toBe('Taro')
-    expect(toasts(ui)).toContain(msg.signature.fetchSanitized)
+    expect(shown(ui)).toContain(msg.signature.fetchSanitized)
     expect(msg.signature.fetchSanitized).toBe('画像・装飾など、取り込めない部分は除きました。')
     w.unmount()
   })
@@ -143,7 +144,7 @@ describe('署名の「Gmail から取得」', () => {
 
     expect(editorText(w)).toBe('既存の署名')
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()
-    expect(toasts(ui)).toEqual([])
+    expect(shown(ui)).toEqual([])
     w.unmount()
   })
 
@@ -172,7 +173,7 @@ describe('署名の「Gmail から取得」', () => {
 
     expect(editorText(w)).toBe('既存の署名')
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()
-    expect(toasts(ui)).toEqual(['Gmail に署名が設定されていません。'])
+    expect(shown(ui)).toEqual(['Gmail に署名が設定されていません。'])
     w.unmount()
   })
 
@@ -188,7 +189,7 @@ describe('署名の「Gmail から取得」', () => {
 
     expect(editorText(w)).toBe('既存の署名')
     expect(document.body.querySelector('[role="dialog"]')).toBeNull()
-    expect(toasts(ui)).toEqual(['オフラインです。接続を確認してください。'])
+    expect(shown(ui)).toEqual(['オフラインです。接続を確認してください。'])
     expect(fetchButton(w)?.attributes('disabled')).toBeUndefined()
     w.unmount()
   })

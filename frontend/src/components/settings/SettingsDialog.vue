@@ -76,28 +76,27 @@ watch(open, (isOpen) => {
 
 .tab-list {
   display: flex;
-  gap: var(--space-1);
-  border-bottom: 1px solid var(--color-border);
-  margin-bottom: var(--space-3);
+  gap: var(--s-1);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: var(--s-3);
 }
 
 .tab {
-  padding: var(--space-2) var(--space-3);
+  padding: var(--s-2) var(--s-3);
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--mute);
   cursor: pointer;
 }
 
 .tab:hover {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
 .tab[data-state="active"] {
-  border-bottom-color: var(--color-accent);
-  color: var(--color-text);
-  font-weight: 600;
+  border-bottom-color: var(--accent);
+  color: var(--ink);
 }
 
 .panel {

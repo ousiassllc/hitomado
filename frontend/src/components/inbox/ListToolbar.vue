@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Archive, Label, Mail, MailOpen, Refresh, Trash } from '@iconoir/vue'
 import { computed } from 'vue'
 import { common } from '../../lib/messages'
 import { SHORTCUT_KEYS } from '../../lib/shortcuts'
@@ -35,7 +36,7 @@ const bulk = computed(() => !props.compact && props.selectedCount > 1)
 const menuItems = computed(() => {
   if (props.labelsLoading) return [{ key: '', label: common.toolbar.labelLoading, disabled: true }]
   if (props.labels.length === 0) return [{ key: '', label: common.toolbar.labelEmpty, disabled: true }]
-  return props.labels.map((l) => ({ key: l.id, label: `${l.checked ? '✓ ' : ''}${l.name}` }))
+  return props.labels.map((l) => ({ key: l.id, label: l.name, checked: l.checked }))
 })
 
 function onLabelSelect(key: string): void {
@@ -46,22 +47,22 @@ function onLabelSelect(key: string): void {
 <template>
   <div class="toolbar" role="toolbar" :aria-label="common.list.label">
     <BaseIconButton :label="common.toolbar.refresh" :disabled="refreshing" @click="emit('refresh')">
-      <Spinner v-if="refreshing" :size="14" />
-      <span v-else aria-hidden="true">⟳</span>
+      <Spinner v-if="refreshing" size="sm" />
+      <Refresh v-else class="icon" aria-hidden="true" />
     </BaseIconButton>
     <template v-if="bulk">
       <span class="sep" aria-hidden="true" />
       <BaseIconButton :label="common.toolbar.markRead" :shortcut="SHORTCUT_KEYS.markRead" @click="emit('toggleRead', true)">
-        <span aria-hidden="true">✉</span>
+        <MailOpen class="icon" aria-hidden="true" />
       </BaseIconButton>
       <BaseIconButton :label="common.toolbar.markUnread" :shortcut="SHORTCUT_KEYS.markUnread" @click="emit('toggleRead', false)">
-        <span aria-hidden="true">●</span>
+        <Mail class="icon" aria-hidden="true" />
       </BaseIconButton>
       <BaseIconButton :label="common.toolbar.archive" :shortcut="SHORTCUT_KEYS.archive" @click="emit('archive')">
-        <span aria-hidden="true">🗄</span>
+        <Archive class="icon" aria-hidden="true" />
       </BaseIconButton>
       <BaseIconButton :label="common.toolbar.trash" :shortcut="SHORTCUT_KEYS.trash" variant="danger" @click="emit('trash')">
-        <span aria-hidden="true">🗑</span>
+        <Trash class="icon" aria-hidden="true" />
       </BaseIconButton>
       <BaseMenu :items="menuItems" @select="onLabelSelect">
         <template #trigger>
@@ -70,7 +71,7 @@ function onLabelSelect(key: string): void {
             :disabled="!labelEnabled"
             @click="emit('openLabels')"
           >
-            <span aria-hidden="true">🏷</span>
+            <Label class="icon" aria-hidden="true" />
           </BaseIconButton>
         </template>
       </BaseMenu>
@@ -87,17 +88,17 @@ function onLabelSelect(key: string): void {
 .toolbar {
   display: flex;
   align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-3);
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--s-1);
+  padding: var(--s-1) var(--s-3);
+  border-bottom: 1px solid var(--border);
   min-height: 40px;
 }
 
 .sep {
   width: 1px;
   height: 20px;
-  margin: 0 var(--space-1);
-  background: var(--color-border);
+  margin: 0 var(--s-1);
+  background: var(--border);
 }
 
 .grow {
@@ -105,15 +106,15 @@ function onLabelSelect(key: string): void {
 }
 
 .count {
-  margin-left: var(--space-2);
-  color: var(--color-text-muted);
+  margin-left: var(--s-2);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .mode {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
   min-width: 0;
   font-size: var(--font-size-sm);
 }
@@ -121,10 +122,12 @@ function onLabelSelect(key: string): void {
 .back {
   border: none;
   background: transparent;
-  color: var(--color-accent);
+  color: var(--ink);
   font-size: var(--font-size-sm);
   cursor: pointer;
   text-decoration: underline;
+  text-decoration-color: var(--mute);
+  text-underline-offset: 2px;
   white-space: nowrap;
 }
 </style>

@@ -45,12 +45,12 @@ const emit = defineEmits<{ ask: []; agree: []; decline: [] }>()
 .consent {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 .sub {
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
 }
 
 .status {
@@ -60,13 +60,13 @@ const emit = defineEmits<{ ask: []; agree: []; decline: [] }>()
 
 .error {
   margin: 0;
-  color: var(--color-danger);
+  color: var(--danger);
   font-size: var(--font-size-sm);
 }
 
 .actions {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 </style>

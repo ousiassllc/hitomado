@@ -7,6 +7,10 @@ export const common = {
   retry: '再試行',
   loading: '読み込み中',
   dismiss: '閉じる',
+  /** インラインアラートの見出し（エラー・お知らせ・成功） */
+  alertTitle: 'うまくいきませんでした',
+  noticeTitle: 'お知らせ',
+  successTitle: '完了しました',
   /** ツールチップ・メニューのショートカット併記（例: アーカイブ (e)） */
   shortcutHint: (label: string, key: string) => `${label} (${key})`,
   offlineBanner: 'オフラインです。取得済みの内容を表示しています。',

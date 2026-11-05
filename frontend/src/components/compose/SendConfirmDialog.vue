@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WarningTriangle } from '@iconoir/vue'
 import { computed } from 'vue'
 import { compose as msg } from '../../lib/messages'
 import { addressLabel } from '../../lib/recipients'
@@ -36,7 +37,7 @@ function onOpen(open: boolean): void {
     :title="msg.confirm.title"
     :description="msg.confirm.description"
     size="lg"
-    :closable="!compose.sending"
+    :busy="compose.sending"
     @update:open="onOpen"
   >
     <div v-if="preview" class="confirm">
@@ -52,7 +53,7 @@ function onOpen(open: boolean): void {
           class="warning"
           :class="{ 'warning-strong': w.code === 'OTHER_OWN_ACCOUNT' }"
         >
-          <strong v-if="w.code === 'OTHER_OWN_ACCOUNT'">⚠ </strong>{{ w.message }}
+          <WarningTriangle class="icon icon-sm warning-icon" aria-hidden="true" />{{ w.message }}
           <span v-if="w.emails && w.emails.length > 0" class="warning-emails">{{ w.emails.join('、') }}</span>
         </li>
       </ul>
@@ -87,41 +88,43 @@ function onOpen(open: boolean): void {
 .confirm {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 .confirm-from {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--s-1);
 }
 
 .confirm-from-label {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
 .warnings {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--s-1);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
 .warning {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
-  background: var(--color-warning-bg);
-  color: var(--color-warning-text);
+  padding: var(--s-2) var(--s-3);
+  border-radius: var(--r-sm);
+  border: 1px solid var(--warning);
+  background: var(--warning-soft);
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 
+/* 他の自アカウント宛は、送信元より目立たせる（状態色の細枠・薄い地・大きめの文字。太字にしない）。 */
 .warning-strong {
-  border: 2px solid var(--color-danger);
+  border-color: var(--danger);
+  background: var(--danger-soft);
   font-size: var(--font-size-lg);
-  font-weight: 700;
 }
 
 .warning-emails {
@@ -133,13 +136,13 @@ function onOpen(open: boolean): void {
 .confirm-fields {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: var(--space-2) var(--space-3);
+  gap: var(--s-2) var(--s-3);
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
 }
 
 .confirm-fields dt {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
@@ -156,13 +159,13 @@ function onOpen(open: boolean): void {
 
 .confirm-note {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .confirm-error {
   margin: 0;
-  color: var(--color-danger);
+  color: var(--danger);
   font-size: var(--font-size-sm);
 }
 </style>

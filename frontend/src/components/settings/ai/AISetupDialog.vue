@@ -9,7 +9,7 @@ const emit = defineEmits<{ choose: [choice?: 'chatgpt' | 'other'] }>()
 </script>
 
 <template>
-  <BaseDialog :open="open" :title="msg.ai.setup.title" size="sm" :closable="false">
+  <BaseDialog :open="open" :title="msg.ai.setup.title" size="sm" @update:open="(v) => !v && emit('choose')">
     <div class="setup" data-testid="ai-setup">
       <p class="text">{{ msg.ai.setup.body }}</p>
       <p class="note">{{ msg.ai.setup.note }}</p>
@@ -32,17 +32,17 @@ const emit = defineEmits<{ choose: [choice?: 'chatgpt' | 'other'] }>()
 .setup {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .text {
   margin: 0;
-  font-size: var(--font-size-md);
-  line-height: 1.6;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
 }
 
 .note {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 </style>

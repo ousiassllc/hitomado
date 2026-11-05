@@ -91,7 +91,7 @@ async function save(): Promise<void> {
     try {
       result = await accounts.update(a.id, patch)
     } catch {
-      ui.pushToast('error', t.updateFailed)
+      ui.pushAlert(t.updateFailed)
     } finally {
       saving.value = false
     }
@@ -103,7 +103,7 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-  <BaseDialog v-model:open="open" :title="title" size="sm" :closable="step !== 'customize' || !saving">
+  <BaseDialog v-model:open="open" :title="title" size="sm" :busy="step === 'customize' && saving">
     <!-- 1. OAuth クライアント選択（未登録なら設定へ誘導） -->
     <template v-if="step === 'choose'">
       <div v-if="options.length === 0" class="stack">
@@ -120,7 +120,7 @@ async function save(): Promise<void> {
 
     <!-- 2. ブラウザでの認可待ち -->
     <div v-else-if="step === 'waiting'" class="stack waiting" role="status">
-      <Spinner :size="24" />
+      <Spinner size="lg" />
       <p>{{ t.waiting }}</p>
       <p class="muted">{{ t.waitingHint }}</p>
     </div>
@@ -150,7 +150,7 @@ async function save(): Promise<void> {
 .stack {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 .waiting {
@@ -160,29 +160,29 @@ async function save(): Promise<void> {
 
 .muted {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--s-1);
   font-size: var(--font-size-sm);
 }
 
 .text {
-  height: 32px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-elevated);
-  color: var(--color-text);
+  height: var(--control-h);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .error {
-  margin: var(--space-3) 0 0;
-  color: var(--color-danger);
+  margin: var(--s-3) 0 0;
+  color: var(--danger);
   font-size: var(--font-size-sm);
 }
 </style>

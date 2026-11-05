@@ -13,7 +13,7 @@ const compose = useComposeStore()
     :open="compose.signatureConflict !== undefined"
     :title="msg.signature.conflictTitle"
     size="sm"
-    :closable="false"
+    @update:open="(v) => !v && compose.resolveSignatureConflict(false)"
   >
     <p class="text">{{ msg.signature.conflictBody }}</p>
     <template #footer>
@@ -30,7 +30,7 @@ const compose = useComposeStore()
 <style scoped>
 .text {
   margin: 0;
-  font-size: var(--font-size-md);
-  line-height: 1.6;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
 }
 </style>

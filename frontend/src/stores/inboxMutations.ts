@@ -102,11 +102,11 @@ export function useInboxMutations(d: MutationDeps) {
         const gone = failed ?? keys
         undo(new Set())
         d.items.value = d.items.value.filter((t) => !gone.has(keyOf(t)))
-        d.ui.pushToast('error', common.op.threadGone)
+        d.ui.pushAlert(common.op.threadGone)
       } else {
         undo(failed)
         const retryRefs = failed ? failedRefs : refs
-        d.ui.pushToast('error', `${OP_FAILED[op]}${err.message}`, () => void mutate(op, retryRefs))
+        d.ui.pushAlert(`${OP_FAILED[op]}${err.message}`, () => void mutate(op, retryRefs))
       }
       return false
     } finally {
@@ -126,7 +126,7 @@ export function useInboxMutations(d: MutationDeps) {
         d.items.value = d.items.value.map((t) => (keyOf(t) === keyOf(updated) ? updated : t))
       } catch (e) {
         ok = false
-        d.ui.pushToast('error', `${common.op.labelFailed}${(e as AppError).message}`)
+        d.ui.pushAlert(`${common.op.labelFailed}${(e as AppError).message}`)
         break
       }
     }

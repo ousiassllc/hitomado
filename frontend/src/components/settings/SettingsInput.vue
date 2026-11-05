@@ -53,42 +53,41 @@ const id = useId()
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--s-1);
   min-width: 0;
 }
 
 .field-label {
   font-size: var(--font-size-sm);
-  font-weight: 600;
 }
 
 .field-input {
-  min-height: 32px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-size: var(--font-size-md);
+  min-height: var(--control-h);
+  padding: 0 var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--font-size-sm);
 }
 
 .field-input:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
 }
 
 .field-input[aria-invalid="true"] {
-  border-color: var(--color-danger);
+  border-color: var(--danger);
 }
 
 .field-hint {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
 .field-error {
   margin: 0;
-  color: var(--color-danger);
+  color: var(--danger);
   font-size: var(--font-size-sm);
 }
 </style>

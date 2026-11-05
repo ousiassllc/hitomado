@@ -156,10 +156,26 @@ describe('BaseDialog', () => {
     w.unmount()
   })
 
-  test('closable=false は閉じるボタンが無く、閉じる要求も通さない', async () => {
-    const w = mount(BaseDialog, { ...opts, props: { open: true, title: '確認', closable: false } })
+  test('busy（送信中・保存中）は閉じるボタンが無く、閉じる要求も通さない', async () => {
+    const w = mount(BaseDialog, { ...opts, props: { open: true, title: '確認', busy: true } })
     await nextTick()
     expect(document.querySelector('button[aria-label="閉じる"]')).toBeNull()
+    document
+      .querySelector('[role="dialog"]')
+      ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await nextTick()
+    expect(w.emitted('update:open')).toBeUndefined()
+    w.unmount()
+  })
+
+  test('外側（スクラム）クリック・Esc は update:open(false)（キャンセル）として通す', async () => {
+    const w = mount(BaseDialog, { ...opts, props: { open: true, title: '確認' } })
+    await nextTick()
+    document
+      .querySelector('[role="dialog"]')
+      ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await nextTick()
+    expect(w.emitted('update:open')?.at(-1)).toEqual([false])
     w.unmount()
   })
 })

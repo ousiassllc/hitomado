@@ -39,18 +39,17 @@ const options = computed<SelectOption[]>(() => [
 .field {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--s-1);
   max-width: 320px;
 }
 
 .label {
   font-size: var(--font-size-sm);
-  font-weight: 600;
 }
 
 .hint {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 </style>

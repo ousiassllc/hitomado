@@ -25,13 +25,13 @@ async function gotIt(): Promise<void> {
   try {
     await store.ackChatGPTPlanNotice(a.id)
   } catch {
-    ui.pushToast('error', msg.ai.chatgpt.planNotice.ackFailed)
+    ui.pushAlert(msg.ai.chatgpt.planNotice.ackFailed)
   }
 }
 </script>
 
 <template>
-  <BaseDialog :open="target !== undefined" :title="msg.ai.chatgpt.planNotice.title" size="sm" :closable="false">
+  <BaseDialog :open="target !== undefined" :title="msg.ai.chatgpt.planNotice.title" size="sm" @update:open="(v) => !v && gotIt()">
     <div class="notice" data-testid="ai-chatgpt-plan-notice">
       <p class="text">{{ msg.ai.chatgpt.planNotice.body }}</p>
       <p v-if="target?.email" class="note">{{ msg.ai.chatgpt.planNotice.account(target.email) }}</p>
@@ -50,18 +50,18 @@ async function gotIt(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .text {
   margin: 0;
-  font-size: var(--font-size-md);
-  line-height: 1.6;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
 }
 
 .note {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 </style>

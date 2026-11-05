@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowDown, ArrowUp } from '@iconoir/vue'
 import { computed, ref, watch } from 'vue'
 import type { Account } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { isClientRejectedMessage } from '../../../lib/clientRejected'
@@ -74,10 +75,10 @@ const statusText = computed(() => {
       />
       <span v-if="statusText" class="status" role="status">{{ statusText }}</span>
       <span class="spacer" />
-      <BaseButton v-if="clientRejected" :disabled="busy" @click="emit('checkClient')">
+      <BaseButton size="sm" v-if="clientRejected" :disabled="busy" @click="emit('checkClient')">
         {{ msg.accounts.checkOAuthClient }}
       </BaseButton>
-      <BaseButton v-if="status === 'needs_reauth'" :loading="busy" @click="emit('reconnect')">
+      <BaseButton size="sm" v-if="status === 'needs_reauth'" :loading="busy" @click="emit('reconnect')">
         {{ busy ? msg.accounts.reconnecting : msg.accounts.reconnect }}
       </BaseButton>
       <BaseIconButton
@@ -86,7 +87,7 @@ const statusText = computed(() => {
         :data-move="`${account.id}:up`"
         @click="emit('move', -1)"
       >
-        <span aria-hidden="true">↑</span>
+        <ArrowUp class="icon" aria-hidden="true" />
       </BaseIconButton>
       <BaseIconButton
         :label="msg.accounts.moveDown(account.displayName)"
@@ -94,7 +95,7 @@ const statusText = computed(() => {
         :data-move="`${account.id}:down`"
         @click="emit('move', 1)"
       >
-        <span aria-hidden="true">↓</span>
+        <ArrowDown class="icon" aria-hidden="true" />
       </BaseIconButton>
     </div>
 
@@ -105,7 +106,7 @@ const statusText = computed(() => {
         :error="dirty ? nameError : ''"
         @enter="submitName"
       />
-      <BaseButton :disabled="!dirty || !!nameError || busy" @click="submitName">
+      <BaseButton size="sm" :disabled="!dirty || !!nameError || busy" @click="submitName">
         {{ msg.save }}
       </BaseButton>
     </div>
@@ -125,7 +126,7 @@ const statusText = computed(() => {
         />
         <span>{{ msg.accounts.notify }}：{{ account.notifyEnabled ? msg.accounts.notifyOn : msg.accounts.notifyOff }}</span>
       </span>
-      <BaseButton variant="danger" :disabled="busy" @click="emit('remove')">
+      <BaseButton size="sm" variant="danger" :disabled="busy" @click="emit('remove')">
         {{ msg.accounts.removeFor(account.displayName) }}
       </BaseButton>
     </div>
@@ -136,11 +137,11 @@ const statusText = computed(() => {
 .row {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bone);
   list-style: none;
 }
 
@@ -149,7 +150,7 @@ const statusText = computed(() => {
 .notify {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .foot {
@@ -161,17 +162,18 @@ const statusText = computed(() => {
 }
 
 .status {
-  color: var(--color-warning-text);
-  background: var(--color-warning-bg);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--warning);
+  background: var(--warning-soft);
+  color: var(--warning);
+  padding: 0 var(--s-2);
+  border-radius: var(--r-sm);
   font-size: var(--font-size-xs);
 }
 
 .name {
   display: flex;
   align-items: flex-end;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .name :deep(.field) {
