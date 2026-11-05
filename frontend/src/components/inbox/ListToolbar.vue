@@ -91,7 +91,7 @@ function onLabelSelect(key: string): void {
   gap: var(--s-1);
   padding: var(--s-1) var(--s-3);
   border-bottom: 1px solid var(--border);
-  min-height: 40px;
+  min-height: var(--control-h);
 }
 
 .sep {
