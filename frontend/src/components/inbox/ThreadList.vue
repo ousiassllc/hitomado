@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Mail } from '@iconoir/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { ThreadRef, ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
@@ -6,6 +7,7 @@ import { keyOf } from '../../lib/inboxItems'
 import { common } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'
 import BaseButton from '../ui/BaseButton.vue'
+import EmptyState from '../ui/EmptyState.vue'
 import Spinner from '../ui/Spinner.vue'
 import ThreadRow from './ThreadRow.vue'
 
@@ -111,7 +113,12 @@ function onKeydown(ev: KeyboardEvent): void {
     @keydown="onKeydown"
   >
     <div v-if="loading && items.length === 0" class="state"><Spinner /></div>
-    <div v-else-if="items.length === 0" class="state">{{ emptyText }}</div>
+    <div v-else-if="items.length === 0" class="state">
+      <EmptyState>
+        <template #icon><Mail class="icon icon-lg" /></template>
+        {{ emptyText }}
+      </EmptyState>
+    </div>
     <div v-else class="inner" :style="{ height: `${totalSize}px` }">
       <!-- biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: キーボード操作は親の listbox（矢印・j/k・Enter）が担う。この要素は仮想スクロールの位置決め用ラッパー -->
       <div

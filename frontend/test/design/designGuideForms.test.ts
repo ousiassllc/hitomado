@@ -142,3 +142,30 @@ describe('部品・オーバーレイ（P・#128）', () => {
     expect(body).toContain('border-radius: var(--r-full);')
   })
 })
+
+describe('複数文の説明文は --mute にしない（C6・#148）', () => {
+  const rule = (css: string, selector: string) =>
+    new RegExp(`${selector}\\s*\\{([^}]*)\\}`).exec(css)?.[1] ?? ''
+
+  test.each([
+    ['settings/McpSettings.vue', '\\.body'],
+    ['settings/GeneralSettings.vue', '\\.body'],
+    ['settings/LogSettings.vue', '\\.body'],
+    ['settings/ai/AISettings.vue', '\\.intro'],
+    ['settings/SignatureSettings.vue', '\\.intro'],
+    ['settings/oauth/OAuthClientsSettings.vue', '\\.intro'],
+    ['account/AddAccountDialog.vue', '\\.body'],
+  ])('%s の %s は --ink', (rel, selector) => {
+    const css = rule(read(`../../src/components/${rel}`), selector)
+    expect(css).toContain('color: var(--ink)')
+    expect(css).not.toContain('--mute')
+  })
+})
+
+describe('データの保存先・バージョンは JetBrains Mono（T5・#149）', () => {
+  test('GeneralSettings の .path は --font-mono で、バージョンにも付く', () => {
+    const src = read('../../src/components/settings/GeneralSettings.vue')
+    expect(/\.path\s*\{([^}]*)\}/.exec(src)?.[1]).toContain('font-family: var(--font-mono)')
+    expect(src).toContain('<dd class="path" data-testid="app-version">')
+  })
+})

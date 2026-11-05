@@ -252,6 +252,7 @@ graph TD
 | `BaseDisclosure` | 折りたたみ（ネイティブの `<details>`）。初回だけ必要な補足を既定で閉じて置く（MCP の「接続方法」）。枠つきカード（`1px --border`・`--r-lg`・`--surface`）、summary は padding 12/16・SemiBold・`--ink`・右端に 8px のシェブロン（`--mute` の辺。開閉で回転・`--motion-base`。ネイティブのマーカーは非表示）、body は padding `0 16 12`・Regular・`--mute`（ガイドの P1 部品） | `summary` を props で受け取る |
 | `BaseChip` | 小さなラベル | 色トークンを受け取る |
 | `Spinner` | 読み込み表示。`size`: `sm`／`md`（既定）／`lg`＝`--icon-sm/md/lg`（16／20／24px）。2px・track `--accent-soft`・先端 `--accent`。**処理中の表示なので `prefers-reduced-motion` でも回し続ける**（M3） | — |
+| `EmptyState` | 空状態（ガイド S4）。`1px dashed --border`・`--r-lg`・padding 48/24（`compact` は `--pad-card-sm`。サイドバー用）、アイコン（`icon` スロット。24px）＋文言（既定スロット。`--mute`）＋次の操作（`action` スロット。任意）。設定の「アカウント」「OAuth クライアント」は、すぐ上に主ボタン（追加）があるため `action` は使わない | スロットで受け取る |
 
 > **ポップアップ本体のスタイル（`BaseMenu`／`BaseSelect`／`BaseTooltip`）**: Reka UI の Popper は、親の scoped 属性（`data-v-*`）を外側のラッパーに付け、`class` を付けた本体には付けない。本体（`.menu-pop`／`.sel-pop`／`.tip-pop`）の CSS は `:global(...)` で書く。scoped のままだと `z-index`・背景・枠が効かず、`BaseDialog`（`--z-modal`）の中で一覧が背面に隠れる（#98。ダイアログの中から開くポップアップは `--z-popup`＝`--z-modal` + 1 で前に出す）。回帰テストは `frontend/test/popperStyles.test.ts`。
 
@@ -559,3 +560,4 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 1.30 | 2026-11-05 | §3.5 `ListToolbar` の一括操作を複数選択（2 件以上）のときだけに、§3.7 `AiDraftInstruction` を常時表示に、§3.9 `LogSettings` の保存場所・ローテーションを折りたたみに変更。`AIChatGPTLogin`・`ChatGPTPlanNotice` から「Using ChatGPT plan」「Manage usage」を外した | #106 の判断 |
 | 1.31 | 2026-11-05 | §3.7 `SenderBadge` をアカウント色の全面塗りから左の帯つきの落ち着いた枠に、`SendConfirmDialog` の本文プレビューを改行つき（署名・引用なし）に変更。`BaseButton` は送信中（loading）のとき薄くしない | #115 |
 | 1.32 | 2026-11-05 | Ousiass デザインガイド準拠: §3.3 の `BaseButton`（`size`）・`BaseDialog`（外側クリックで閉じる・`busy`・全画面にしない）・`ConfirmDialog`・`BaseMenu`（`checked`）・`Spinner`、§3.4 の `ToastHost`（下中央・1 つ・3 秒）・`AlertStack`、§3.10 の `uiStore`（`toast`・`alerts`・`overlays`）、§5.1 のブレークポイント（640／1024）、§5.2 の配色・動き、§5.3（ガイド準拠・未収載・逸脱）を追加・更新 | #119〜#124 |
+| 1.33 | 2026-11-05 | §3.3 に `EmptyState`（空状態の共通部品）を追加し、`ThreadList`・`ThreadPane`・`AccountList`・設定の署名・アカウント・OAuth クライアントの 0 件表示をそれに揃えた。宛先の候補一覧（`RecipientField`）を `BaseMenu` と同じ項目寸法に、`ComposeFields` の項目間を `--gap-field` に、設定の複数文の説明文を `--ink` に、データ保存先・バージョンを `--font-mono` に変更 | #148〜#150 |
