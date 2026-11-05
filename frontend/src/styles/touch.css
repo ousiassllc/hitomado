@@ -69,11 +69,11 @@
   min-height: var(--tap-min);
 }
 
-/* スイッチ: 見た目（40x22）は保ち、当たり判定だけ 44px 以上に広げる */
+/* スイッチ: 見た目（36x20）は保ち、当たり判定だけ 44px 以上に広げる */
 :root[data-touch-ui] .sw::after {
   content: "";
   position: absolute;
-  inset: -11px -2px;
+  inset: -12px -2px;
 }
 
 /* 一覧の 1 行は 72px（ThreadList の ROW_HEIGHT）で足りている。ツールバーだけ高さを 44px に合わせる */

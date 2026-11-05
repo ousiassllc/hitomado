@@ -247,9 +247,9 @@ graph TD
 | `ConfirmDialog` | 破壊的操作の確認（O2: トーストで確認しない）。タイトル・補足（`detail`）・「キャンセル」と赤の確認ボタン。実行中（`busy`）は閉じない。OAuth クライアント・ChatGPT アカウント登録の削除、MCP トークンの無効化が使う（アカウントの削除は同じ作りの `BaseDialog`） | `BaseDialog` |
 | `BaseMenu` | ドロップダウンメニュー（返信メニュー・ラベル付け替え等）。項目に任意の `shortcut` を併記できる。`checked` を指定した項目はチェック項目（`menuitemcheckbox`）で、選択中は Iconoir の Check を出す（ラベルの付け替え） | Reka UI `DropdownMenu` |
 | `BaseSelect` | 選択（AI プロバイダ等） | Reka UI `Select` |
-| `BaseSwitch` | オン／オフ（通知・更新確認） | Reka UI `Switch` |
+| `BaseSwitch` | オン／オフ（通知・更新確認）。ガイドのトグル: トラック 36×20・OFF の地 `--accent-soft`＋`1px --border`、つまみ 14×14（OFF は `--surface`＋`0 0 0 1px --border`、ON は `--bone`）、ON のトラックは `--accent`。タッチ UI の当たり判定は `styles/touch.css` の `.sw::after`（上下 12px 拡張で 44px） | Reka UI `Switch` |
 | `BaseTooltip` | ツールチップ（ショートカット表示）。ボタンを包んでホバー／フォーカスで表示。キー表記は `lib/shortcuts` の `SHORTCUT_KEYS`、併記文言は `common.shortcutHint` | Reka UI `Tooltip` |
-| `BaseDisclosure` | 折りたたみ（ネイティブの `<details>`）。初回だけ必要な補足を既定で閉じて置く（MCP の「接続方法」）。summary は SemiBold・`--ink`、body は Regular・`--mute`（ガイドの P1 部品） | `summary` を props で受け取る |
+| `BaseDisclosure` | 折りたたみ（ネイティブの `<details>`）。初回だけ必要な補足を既定で閉じて置く（MCP の「接続方法」）。枠つきカード（`1px --border`・`--r-lg`・`--surface`）、summary は padding 12/16・SemiBold・`--ink`・右端に 8px のシェブロン（`--mute` の辺。開閉で回転・`--motion-base`。ネイティブのマーカーは非表示）、body は padding `0 16 12`・Regular・`--mute`（ガイドの P1 部品） | `summary` を props で受け取る |
 | `BaseChip` | 小さなラベル | 色トークンを受け取る |
 | `Spinner` | 読み込み表示。`size`: `sm`／`md`（既定）／`lg`＝`--icon-sm/md/lg`（16／20／24px）。2px・track `--accent-soft`・先端 `--accent`。**処理中の表示なので `prefers-reduced-motion` でも回し続ける**（M3） | — |
 
