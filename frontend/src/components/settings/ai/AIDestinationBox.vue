@@ -64,6 +64,7 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
   padding: var(--s-1) var(--s-2);
   border-radius: var(--r-md);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .dest-pending-icon {
@@ -73,5 +74,6 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
   margin: 0;
   color: var(--ink);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 </style>

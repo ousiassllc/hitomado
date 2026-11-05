@@ -55,17 +55,20 @@ defineEmits<{ manage: []; dismiss: [] }>()
 .identity {
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .title {
   margin: 0;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .body,
 .note {
   margin: 0;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .note {

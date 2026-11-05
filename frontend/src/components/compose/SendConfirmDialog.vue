@@ -118,6 +118,7 @@ function onOpen(open: boolean): void {
   background: var(--warning-soft);
   color: var(--ink);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .warning-icon {
@@ -129,6 +130,7 @@ function onOpen(open: boolean): void {
   border-color: var(--danger-border);
   background: var(--danger-soft);
   font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
 }
 
 .warning-strong .warning-icon {
@@ -147,6 +149,7 @@ function onOpen(open: boolean): void {
   gap: var(--s-2) var(--s-3);
   margin: 0;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .confirm-fields dt {
@@ -169,11 +172,13 @@ function onOpen(open: boolean): void {
   margin: 0;
   color: var(--mute);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .confirm-error {
   margin: 0;
   color: var(--danger);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 </style>
