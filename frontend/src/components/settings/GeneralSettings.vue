@@ -162,7 +162,7 @@ function openUpdate(): void {
 
     <dl class="info">
       <dt>{{ msg.general.version }}</dt>
-      <dd data-testid="app-version">{{ info?.version ?? msg.general.unknown }}</dd>
+      <dd class="path" data-testid="app-version">{{ info?.version ?? msg.general.unknown }}</dd>
       <dt>{{ msg.general.dataDir }}</dt>
       <dd class="path" data-testid="app-datadir">{{ info?.dataDir ?? msg.general.unknown }}</dd>
     </dl>
@@ -234,6 +234,7 @@ function openUpdate(): void {
 }
 
 .path {
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 </style>
