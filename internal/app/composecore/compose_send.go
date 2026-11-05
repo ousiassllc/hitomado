@@ -17,8 +17,8 @@ import (
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
-// bodyPreviewRunes は SendPreview.BodyPreview の最大文字数。
-const bodyPreviewRunes = 200
+// bodyPreviewRunes は SendPreview.BodyPreview の最大文字数（改行を含む）。
+const bodyPreviewRunes = 600
 
 // labelInbox は受信箱のシステムラベル。
 const labelInbox = "INBOX"
@@ -66,7 +66,7 @@ func (s *Service) PrepareSend(ctx context.Context, sessionID string, content dto
 		Bcc:             c.Bcc,
 		Subject:         c.Subject,
 		AttachmentCount: len(cs.attachments),
-		BodyPreview:     textconv.Preview(c.BodyHTML, bodyPreviewRunes),
+		BodyPreview:     textconv.Preview(bodyhtml.UserBodyHTML(c.BodyHTML), bodyPreviewRunes),
 		Warnings:        warnings,
 	}, nil
 }

@@ -120,7 +120,7 @@ function onOpen(open: boolean): void {
 
 .warning-strong {
   border: 2px solid var(--color-danger);
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-lg);
   font-weight: 700;
 }
 
@@ -149,7 +149,7 @@ function onOpen(open: boolean): void {
 }
 
 .confirm-body {
-  max-height: 6em;
+  max-height: min(16em, 40vh);
   overflow-y: auto;
   white-space: pre-wrap;
 }

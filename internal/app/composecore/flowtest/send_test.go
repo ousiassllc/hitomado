@@ -85,6 +85,19 @@ func TestPrepareSendPreviewAndWarnings(t *testing.T) {
 	assert.NotNil(t, p.Bcc)
 }
 
+// 確認ダイアログの本文プレビューは、利用者が書いた段落・改行を保ち、引用と署名を含めない。
+func TestPrepareSendPreviewKeepsLinesAndOmitsQuote(t *testing.T) {
+	f := newComposeFixture(t)
+	s := f.OpenNew(t, f.A.ID)
+
+	body := "<p>明日の会議ですが、<br>資料を共有します。</p><p>よろしくお願いします。</p>" +
+		"<div data-hitomado-signature>-- <br>署名</div>" +
+		"<blockquote data-hitomado-quote><p>2026-01-02 15:04 Alice が書きました:</p><p>元の本文</p></blockquote>"
+	p, err := f.Svc.PrepareSend(t.Context(), s.SessionID, toContent("件名", body, "dave@x.example"), dto.SendOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, "明日の会議ですが、\n資料を共有します。\n\nよろしくお願いします。", p.BodyPreview)
+}
+
 func TestConfirmTokenEnforcement(t *testing.T) {
 	f := newComposeFixture(t)
 	s, c := f.NewMail(t)

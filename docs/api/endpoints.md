@@ -258,7 +258,7 @@ type SendPreview = {
   to: Address[]; cc: Address[]; bcc: Address[];
   subject: string;
   attachmentCount: number;
-  bodyPreview: string;       // 本文冒頭（プレーンテキスト、約 200 文字）
+  bodyPreview: string;       // 本文（プレーンテキスト。改行を保つ。署名・引用は含めない。約 600 文字）
   warnings: SendWarning[];
 };
 
@@ -563,3 +563,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.32 | 2026-11-05 | `GenerateReplyDraft` に `instruction?`（AI への指示。2,000 文字まで・保存しない）を追加し、§6 に指示の扱いを追記 | #109 |
 | 1.33 | 2026-11-05 | `AccountService.FetchGmailSignature`（Gmail の署名を取得して返す。保存しない）を追加し、§10 の Gmail API 一覧に `users.settings.sendAs.get` を追加 | #110 |
 | 1.34 | 2026-11-05 | `AIConfig.effort`・`AIModel.efforts` を追加し、`SetAIConfig` に `effort?` を足した。§6 にプロバイダごとの渡し方（`output_config.effort`／`reasoning_effort`／`reasoning.effort`）、§6.1 に段階の取得（Anthropic は `capabilities.effort`。OpenAI 互換・ChatGPT は共通の 3 段階）を追記 | #111 |
+| 1.35 | 2026-11-05 | `SendPreview.bodyPreview` を、改行を保ち署名・引用を除いた約 600 文字（従来は空白を畳んだ約 200 文字）に変更 | #115 |

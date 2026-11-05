@@ -24,5 +24,8 @@ func TestHTMLToText(t *testing.T) {
 
 func TestPreview(t *testing.T) {
 	assert.Equal(t, "あいう…", Preview("<p>あいうえお</p>", 3))
-	assert.Equal(t, "あ い", Preview("<p>あ</p>\n<p>い</p>", 10))
+	assert.Equal(t, "あ\n\nい", Preview("<p>あ</p>\n<p>い</p>", 10), "段落の境目は空行で保つ")
+	assert.Equal(t, "一行目\n二行目\n\n三行目", Preview("<p>一行目<br>二行目</p><p>三行目</p>", 50), "<br> と段落の空行を保つ")
+	assert.Equal(t, "a b\nc d", Preview("<p>a \t b<br>c　d</p>", 50), "行内の空白は 1 つに畳む")
+	assert.Equal(t, "あ\n\nい", Preview("<p>あ</p><p>　</p><p>　</p><p>い</p>", 50), "空白だけの行が続いても空行は 1 つ")
 }
