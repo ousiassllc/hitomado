@@ -137,7 +137,7 @@ defineExpose({ commitPending })
 .subject-input {
   flex: 1;
   height: var(--control-h);
-  padding: 0 var(--s-2);
+  padding: 0 var(--s-3);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
@@ -147,6 +147,11 @@ defineExpose({ commitPending })
 
 .subject-input:focus {
   border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
   outline: none;
+}
+
+.subject-input:disabled {
+  opacity: 0.5;
 }
 </style>

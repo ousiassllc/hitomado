@@ -144,7 +144,7 @@ function openUpdate(): void {
       data-testid="notification-permission"
       :data-state="notifications.permission"
     >
-      <strong>{{ msg.notifications.heading }}</strong>
+      <strong class="block-title">{{ msg.notifications.heading }}</strong>
       <p v-if="notifications.permission === 'granted'" class="hint" role="status">
         {{ msg.notifications.granted }}
       </p>
@@ -181,6 +181,10 @@ function openUpdate(): void {
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
+}
+
+.block-title {
+  font-weight: 600;
 }
 
 .toggle,

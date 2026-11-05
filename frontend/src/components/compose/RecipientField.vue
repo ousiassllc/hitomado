@@ -202,7 +202,7 @@ function onKeydown(e: KeyboardEvent): void {
   align-items: center;
   gap: var(--s-1);
   min-height: var(--control-h);
-  padding: var(--s-1) var(--s-2);
+  padding: var(--s-1) var(--s-3);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
@@ -210,10 +210,11 @@ function onKeydown(e: KeyboardEvent): void {
 
 .recipient-box:focus-within {
   border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .recipient-disabled {
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 .chip {

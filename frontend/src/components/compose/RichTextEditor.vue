@@ -164,10 +164,11 @@ onBeforeUnmount(() => editor.value?.destroy())
 
 .rte:focus-within {
   border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
 }
 
 .rte-disabled {
-  opacity: 0.7;
+  opacity: 0.5;
 }
 
 .rte-toolbar {
@@ -236,6 +237,11 @@ onBeforeUnmount(() => editor.value?.destroy())
   text-decoration: underline;
   text-decoration-color: var(--mute);
   text-underline-offset: 2px;
+}
+
+/* 利用者が付けた太字（<strong>）は reset.css の既定（400）に負けず、そのまま太字で見せる。 */
+.rte-body :deep(.editor-content strong) {
+  font-weight: 700;
 }
 
 .rte-body :deep([data-hitomado-signature]) {

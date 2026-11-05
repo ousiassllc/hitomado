@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Xmark } from '@iconoir/vue'
+import { Search as SearchIcon, Xmark } from '@iconoir/vue'
 import { ref, watch } from 'vue'
 import { common } from '../../lib/messages'
 import BaseIconButton from '../ui/BaseIconButton.vue'
@@ -38,19 +38,22 @@ function onEscape(): void {
 <template>
   <search class="search">
     <form class="form" @submit.prevent="onEnter">
-    <input
-      ref="input"
-      v-model="text"
-      class="input"
-      type="search"
-      :placeholder="common.search.placeholder"
-      :aria-label="common.search.label"
-      data-search-input
-      autocomplete="off"
-      spellcheck="false"
-      @keydown.esc.stop.prevent="onEscape"
-    />
-    <BaseIconButton v-if="active" :label="common.search.clear" @click="emit('clear')"><Xmark class="icon" aria-hidden="true" /></BaseIconButton>
+      <div class="field">
+        <SearchIcon class="icon field-icon" aria-hidden="true" />
+        <input
+          ref="input"
+          v-model="text"
+          class="input"
+          type="search"
+          :placeholder="common.search.placeholder"
+          :aria-label="common.search.label"
+          data-search-input
+          autocomplete="off"
+          spellcheck="false"
+          @keydown.esc.stop.prevent="onEscape"
+        />
+      </div>
+      <BaseIconButton v-if="active" :label="common.search.clear" @click="emit('clear')"><Xmark class="icon" aria-hidden="true" /></BaseIconButton>
     </form>
   </search>
 </template>
@@ -68,15 +71,38 @@ function onEscape(): void {
   padding: var(--s-2) var(--s-3);
 }
 
-.input {
+.field {
+  position: relative;
   flex: 1;
+  min-width: 0;
+}
+
+.field-icon {
+  position: absolute;
+  top: 50%;
+  left: var(--s-3);
+  color: var(--mute);
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.input {
+  width: 100%;
   min-width: 0;
   height: var(--control-h);
   padding: 0 var(--s-3);
+  /* 左の検索アイコン（--icon-md）の分だけ空ける */
+  padding-left: calc(var(--s-3) + var(--icon-md) + var(--s-2));
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
   color: var(--ink);
   font-size: var(--font-size-sm);
+}
+
+.input:focus {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 2px var(--ring);
+  outline: none;
 }
 </style>

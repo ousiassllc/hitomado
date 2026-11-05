@@ -53,7 +53,7 @@ const emit = defineEmits<{ select: [key: string] }>()
 <style scoped>
 /* Popper 本体には scoped 属性が付かない（BaseSelect.vue の .sel-pop と同じ）ので :global で当てる。 */
 :global(.menu-pop) {
-  min-width: 160px;
+  min-width: 180px;
   max-height: 320px;
   overflow: auto;
   padding: var(--s-1);
