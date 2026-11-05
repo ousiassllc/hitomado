@@ -206,3 +206,14 @@ describe('利用枠超過の案内は状態色の部品（C4・#141）', () => {
     expect(rule).toContain('border-radius: var(--r-md)')
   })
 })
+
+describe('送信確認の警告アイコンは状態色（C4・#144）', () => {
+  const css = style('compose/SendConfirmDialog.vue')
+  const colorOf = (selector: string) =>
+    new RegExp(`${selector.replaceAll('.', '\\.')}\\s*\\{([^}]*)\\}`).exec(css)?.[1]
+
+  test('通常の警告は --warning、他の自アカウント宛は --danger（枠の色に揃える）', () => {
+    expect(colorOf('.warning-icon')).toContain('color: var(--warning)')
+    expect(colorOf('.warning-strong .warning-icon')).toContain('color: var(--danger)')
+  })
+})
