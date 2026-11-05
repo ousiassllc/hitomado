@@ -9,7 +9,7 @@ import {
   DialogRoot,
   DialogTitle,
 } from 'reka-ui'
-import { onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { common } from '../../lib/messages'
 import { vRipple } from '../../lib/ripple'
 import { useUiStore } from '../../stores/ui'
@@ -17,7 +17,7 @@ import AlertStack from '../shell/AlertStack.vue'
 
 // 外側（スクラム）クリック・Esc・× は、どれも「キャンセル」として `update:open(false)` を出す（ガイド O1）。
 // 確認を迫るダイアログは、呼び出し側が `update:open(false)` を「キャンセル」と同じ処理につなぐ。
-// 送信中・保存中のように中断できない間だけ、`busy` で閉じる操作を無効にする。
+// 送信中・保存中のように中断できない間は `busy` で、「キャンセル」の無い確認（OpenAI の確認など）は `closable=false` で、閉じる操作を無効にする。
 const props = withDefaults(
   defineProps<{
     open: boolean
@@ -25,9 +25,11 @@ const props = withDefaults(
     description?: string
     /** 中断できない処理の間（送信中・保存中）。外側クリック・Esc・× で閉じない。 */
     busy?: boolean
+    /** false なら、外側クリック・Esc・× で閉じない（明示のボタンだけで閉じる確認）。 */
+    closable?: boolean
     size?: 'sm' | 'md' | 'lg'
   }>(),
-  { description: undefined, busy: false, size: 'md' },
+  { description: undefined, busy: false, closable: true, size: 'md' },
 )
 
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
@@ -42,13 +44,15 @@ watch(
 )
 onBeforeUnmount(() => ui.leaveOverlay(mark))
 
+const locked = computed(() => props.busy || !props.closable)
+
 function onUpdate(v: boolean): void {
-  if (!v && props.busy) return
+  if (!v && locked.value) return
   emit('update:open', v)
 }
 
 function guard(e: Event): void {
-  if (props.busy) e.preventDefault()
+  if (locked.value) e.preventDefault()
 }
 </script>
 
@@ -66,7 +70,7 @@ function guard(e: Event): void {
       >
         <header class="dlg-head">
           <DialogTitle class="dlg-title">{{ title }}</DialogTitle>
-          <DialogClose v-if="!busy" v-ripple class="dlg-close" :aria-label="common.close"><Xmark class="icon" aria-hidden="true" /></DialogClose>
+          <DialogClose v-if="!locked" v-ripple class="dlg-close" :aria-label="common.close"><Xmark class="icon" aria-hidden="true" /></DialogClose>
         </header>
         <DialogDescription v-if="description" class="dlg-desc">{{ description }}</DialogDescription>
         <AlertStack v-if="ui.isTopOverlay(mark)" class="dlg-alerts" />

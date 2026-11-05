@@ -107,7 +107,7 @@ async function save(): Promise<void> {
     <!-- 1. OAuth クライアント選択（未登録なら設定へ誘導） -->
     <template v-if="step === 'choose'">
       <div v-if="options.length === 0" class="stack">
-        <strong>{{ t.noClientTitle }}</strong>
+        <h3 class="title">{{ t.noClientTitle }}</h3>
         <p class="body">{{ t.noClientBody }}</p>
         <BaseButton variant="primary" @click="openClientSettings">{{ t.openClientSettings }}</BaseButton>
       </div>
@@ -151,6 +151,11 @@ async function save(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--gap-field);
+}
+
+.title {
+  margin: 0;
+  font-size: var(--font-size-base);
 }
 
 .waiting {
