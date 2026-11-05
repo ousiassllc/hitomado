@@ -9,7 +9,11 @@ import (
 	"image/png"
 )
 
-// BadgeIcon は PNG アイコンの右下に未読を示す赤い丸（白縁付き）を描いた PNG を返す。
+// badgeColor は未読バッジの塗り色。frontend/src/styles/tokens.css の --danger（ライト値 #7a4545）と同じ値。
+// トレイの背景はライト／ダーク両方があり得るため、白縁を付けて固定色にする。
+var badgeColor = color.RGBA{R: 0x7a, G: 0x45, B: 0x45, A: 255}
+
+// BadgeIcon は PNG アイコンの右下に未読を示す丸（--danger 色・白縁付き）を描いた PNG を返す。
 // トレイアイコンの未読バッジ表現（F-10。形式は実装で決める）。
 func BadgeIcon(base []byte) ([]byte, error) {
 	src, err := png.Decode(bytes.NewReader(base))
@@ -24,7 +28,7 @@ func BadgeIcon(base []byte) ([]byte, error) {
 	radius := max(size/4, 3)
 	cx, cy := b.Max.X-radius-1, b.Max.Y-radius-1
 	fillCircle(dst, cx, cy, radius+max(radius/4, 1), color.RGBA{R: 255, G: 255, B: 255, A: 255})
-	fillCircle(dst, cx, cy, radius, color.RGBA{R: 217, G: 48, B: 37, A: 255})
+	fillCircle(dst, cx, cy, radius, badgeColor)
 
 	var out bytes.Buffer
 	if err := png.Encode(&out, dst); err != nil {
