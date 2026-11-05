@@ -8,6 +8,8 @@ export const compose = {
 
   close: '閉じる（下書きを保存）',
   discard: '破棄',
+  expand: '広げる',
+  collapse: '元に戻す',
   send: '送信',
   sendAndArchive: '送信してアーカイブ',
   sending: '送信中…',

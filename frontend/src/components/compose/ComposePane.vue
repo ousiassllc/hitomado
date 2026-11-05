@@ -2,19 +2,24 @@
 import { computed, ref } from 'vue'
 import { common, compose as msg } from '../../lib/messages'
 import { SEND_SHORTCUT_KEY } from '../../lib/shortcuts'
-import { useAccountsStore } from '../../stores/accounts'
 import { useComposeStore } from '../../stores/compose'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseTooltip from '../ui/BaseTooltip.vue'
 import AttachmentBar from './AttachmentBar.vue'
 import AiDraftButton from './ai/AiDraftButton.vue'
-import RecipientField from './RecipientField.vue'
+import ComposeFields from './ComposeFields.vue'
 import RichTextEditor from './RichTextEditor.vue'
-import SenderField from './SenderField.vue'
 import SignatureConflictDialog from './SignatureConflictDialog.vue'
 
+const props = defineProps<{
+  /** スレッドの下に埋め込んで出すか（返信・転送。ThreadPane）。埋め込みのときだけ「広げる／元に戻す」を出す。 */
+  embedded?: boolean
+  /** 埋め込みのとき、右ペイン全体へ広げているか（状態は呼び出し側が持つ）。 */
+  expanded?: boolean
+}>()
+const emit = defineEmits<{ 'toggle-expand': [] }>()
+
 const compose = useComposeStore()
-const accounts = useAccountsStore()
 
 const session = computed(() => compose.session)
 const title = computed(() => {
@@ -35,11 +40,6 @@ const frozen = computed(() => compose.sending || compose.preview !== undefined)
 /** 本文エディタ: 送信確認中・送信中に加え、AI 生成中も読み取り専用（生成のキャンセルは可能）。 */
 const bodyFrozen = computed(() => frozen.value || compose.aiGenerating)
 
-const ccOpen = ref(false)
-const bccOpen = ref(false)
-const showCc = computed(() => ccOpen.value || compose.content.cc.length > 0)
-const showBcc = computed(() => bccOpen.value || compose.content.bcc.length > 0)
-
 function onKeydown(e: KeyboardEvent): void {
   // Ctrl+Enter は送信確認を開く（確認なしの送信はできない）
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) {
@@ -48,14 +48,12 @@ function onKeydown(e: KeyboardEvent): void {
   }
 }
 
-const toField = ref<InstanceType<typeof RecipientField>>()
-const ccField = ref<InstanceType<typeof RecipientField>>()
-const bccField = ref<InstanceType<typeof RecipientField>>()
+const fields = ref<InstanceType<typeof ComposeFields>>()
 
 /** 入力途中の宛先を確定してから送信確認を開く（確定後の content を使う）。 */
 function send(archive: boolean): void {
   if (!compose.canSend || frozen.value) return
-  for (const f of [toField, ccField, bccField]) f.value?.commitPending()
+  fields.value?.commitPending()
   void compose.prepareSend(archive)
 }
 </script>
@@ -64,6 +62,7 @@ function send(archive: boolean): void {
   <section
     v-if="session"
     class="compose-pane"
+    :class="{ embedded: props.embedded, expanded: props.embedded && props.expanded }"
     data-file-drop-target
     :aria-label="msg.paneLabel"
     @keydown="onKeydown"
@@ -73,59 +72,20 @@ function send(archive: boolean): void {
       <span v-if="compose.saving" class="compose-status" role="status">{{ msg.saving }}</span>
       <span v-else-if="compose.dirty" class="compose-status">●</span>
       <span class="spacer" />
+      <BaseButton
+        v-if="props.embedded"
+        variant="ghost"
+        :aria-pressed="props.expanded === true"
+        data-testid="compose-expand"
+        @click="emit('toggle-expand')"
+      >
+        {{ props.expanded ? msg.collapse : msg.expand }}
+      </BaseButton>
       <BaseButton variant="ghost" :disabled="compose.sending" @click="compose.close()">{{ msg.close }}</BaseButton>
       <BaseButton variant="ghost" :disabled="compose.sending" @click="compose.discard()">{{ msg.discard }}</BaseButton>
     </header>
 
-    <div class="compose-fields">
-      <SenderField
-        :from="session.from ?? undefined"
-        :account-id="session.accountId"
-        :locked="session.senderLocked"
-        :accounts="accounts.accounts"
-        @select="compose.setSender"
-      />
-      <div class="to-row">
-        <RecipientField
-          ref="toField"
-          v-model="compose.content.to"
-          class="to-field"
-          :label="msg.fields.to"
-          :account-id="session.accountId"
-          :disabled="frozen"
-        />
-        <div class="toggles">
-          <button v-if="!showCc" type="button" class="toggle" @click="ccOpen = true">{{ msg.fields.showCc }}</button>
-          <button v-if="!showBcc" type="button" class="toggle" @click="bccOpen = true">{{ msg.fields.showBcc }}</button>
-        </div>
-      </div>
-      <RecipientField
-        v-if="showCc"
-        ref="ccField"
-        v-model="compose.content.cc"
-        :label="msg.fields.cc"
-        :account-id="session.accountId"
-        :disabled="frozen"
-      />
-      <RecipientField
-        v-if="showBcc"
-        ref="bccField"
-        v-model="compose.content.bcc"
-        :label="msg.fields.bcc"
-        :account-id="session.accountId"
-        :disabled="frozen"
-      />
-      <label class="subject-row">
-        <span class="subject-label">{{ msg.fields.subject }}</span>
-        <input
-          v-model="compose.content.subject"
-          class="subject-input"
-          type="text"
-          :placeholder="msg.fields.subjectPlaceholder"
-          :disabled="frozen"
-        />
-      </label>
-    </div>
+    <ComposeFields ref="fields" :frozen="frozen" />
 
     <AiDraftButton
       v-if="canAi"
@@ -177,14 +137,34 @@ function send(archive: boolean): void {
 </template>
 
 <style scoped>
+/* 高さが足りないときは、本文エディタを縮めず、作成画面全体が縦にスクロールする（F-11。#112）。 */
 .compose-pane {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-3);
   min-height: 0;
   padding: var(--space-4);
+  overflow-y: auto;
   background: var(--color-bg);
   color: var(--color-text);
+}
+
+.compose-pane > * {
+  flex-shrink: 0;
+}
+
+/* スレッド内の作成画面: 右ペインの 60% までにする。ただし本文エディタの最低高さが優先で、収まらない分はスクロールする。 */
+.compose-pane.embedded {
+  flex: none;
+  max-height: 60%;
+  border-top: 1px solid var(--color-border);
+}
+
+/* 広げる: 右ペイン全体を使う（スレッドの本文は ThreadPane が隠す）。 */
+.compose-pane.embedded.expanded {
+  flex: 1 1 auto;
+  max-height: none;
 }
 
 .compose-pane.file-drop-target-active {
@@ -214,74 +194,10 @@ function send(archive: boolean): void {
   flex: 1;
 }
 
-.compose-fields {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.to-row {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
-
-.to-field {
-  flex: 1;
-  min-width: 0;
-}
-
-.toggles {
-  display: flex;
-  gap: var(--space-1);
-  padding-top: 4px;
-}
-
-.toggle {
-  padding: 2px var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  cursor: pointer;
-}
-
-.toggle:hover {
-  background: var(--color-selected);
-}
-
-.subject-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.subject-label {
-  flex: 0 0 56px;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-}
-
-.subject-input {
-  flex: 1;
-  height: 34px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-size: var(--font-size-md);
-}
-
-.subject-input:focus {
-  border-color: var(--color-focus);
-  outline: none;
-}
-
+/* 本文エディタの最低高さ（約 10 行）。余った高さは広がるが、足りなくても 240px 未満には縮めない。 */
 .compose-editor {
-  flex: 1;
-  min-height: 200px;
+  flex: 1 0 240px;
+  min-height: 240px;
 }
 
 .compose-error {
