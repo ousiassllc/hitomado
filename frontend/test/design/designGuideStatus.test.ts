@@ -7,7 +7,9 @@ import type { ThreadSummary } from '../../bindings/github.com/ousiassllc/hitomad
 import ComposePane from '../../src/components/compose/ComposePane.vue'
 import RecipientField from '../../src/components/compose/RecipientField.vue'
 import ThreadRow from '../../src/components/inbox/ThreadRow.vue'
+import AIDestinationBox from '../../src/components/settings/ai/AIDestinationBox.vue'
 import BannerStack from '../../src/components/shell/BannerStack.vue'
+import MessageBody from '../../src/components/thread/MessageBody.vue'
 import { useComposeStore } from '../../src/stores/compose'
 import { useUiStore } from '../../src/stores/ui'
 
@@ -143,5 +145,49 @@ describe('作成画面のエラー（C4・#129）', () => {
     const { w } = await mountPane()
     expect(w.find('.compose-error').exists()).toBe(false)
     w.unmount()
+  })
+})
+
+const resetCss = read('../../src/styles/reset.css')
+
+describe('警告・エラーの案内はアイコンを付ける（C4・#135）', () => {
+  test('画像ブロックの案内は、警告アイコン＋文言＋--r-md の細枠', () => {
+    const w = mount(MessageBody, { props: { html: '<p>x</p>', hasRemoteImages: true } })
+    const bar = w.get('[data-testid="image-bar"]')
+    expect(bar.find('svg').exists()).toBe(true)
+    expect(bar.text()).toContain('画像')
+    const css = style('thread/MessageBody.vue')
+    expect(/\.image-bar\s*\{([^}]*)\}/.exec(css)?.[1]).toContain('border-radius: var(--r-md)')
+    expect(bar.get('svg').classes()).toContain('icon-warning')
+  })
+
+  test('送信先の「保存前」の警告は、警告アイコン＋文言＋--r-md の細枠', () => {
+    const w = mount(AIDestinationBox, {
+      props: { provider: 'anthropic', draftProvider: 'openai', draftBaseUrl: '' },
+    })
+    const note = w.get('.dest-pending')
+    expect(note.find('svg').exists()).toBe(true)
+    expect(note.text()).not.toBe('')
+    const css = style('settings/ai/AIDestinationBox.vue')
+    expect(/\.dest-pending\s*\{([^}]*)\}/.exec(css)?.[1]).toContain('border-radius: var(--r-md)')
+    expect(note.get('svg').classes()).toContain('icon-warning')
+  })
+
+  test('警告アイコンの色は --warning（.icon-warning）', () => {
+    expect(/\.icon-warning\s*\{([^}]*)\}/.exec(resetCss)?.[1]).toContain('color: var(--warning)')
+  })
+
+  test('生成失敗のエラーは、作成画面のエラーと同じ見た目（--danger-soft の地・--r-md・アイコン）', () => {
+    const template =
+      /<template>[\s\S]*<\/template>/.exec(
+        read('../../src/components/compose/ai/AiDraftButton.vue'),
+      )?.[0] ?? ''
+    expect(template).toMatch(/class="ai-error"[^>]*role="alert"/)
+    expect(template).toContain('<WarningCircle')
+    expect(template).toContain('common.alertTitle')
+    const rule = /\.ai-error\s*\{([^}]*)\}/.exec(style('compose/ai/AiDraftButton.vue'))?.[1] ?? ''
+    expect(rule).toContain('background: var(--danger-soft)')
+    expect(rule).toContain('border-radius: var(--r-md)')
+    expect(rule).toContain('border: 1px solid var(--danger)')
   })
 })

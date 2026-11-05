@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WarningTriangle } from '@iconoir/vue'
 import { computed } from 'vue'
 import { settings as msg } from '../../../lib/messages'
 import { aiDestination } from './aiDestination'
@@ -28,7 +29,8 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
       {{ saved.note ?? (saved.custom ? msg.ai.destinationCustomNote : msg.ai.destinationDefaultNote) }}
     </p>
     <p v-if="differs" class="dest-pending" role="status">
-      {{ msg.ai.destinationPending(text(draft)) }}
+      <WarningTriangle class="icon icon-sm icon-warning dest-pending-icon" aria-hidden="true" />
+      <span>{{ msg.ai.destinationPending(text(draft)) }}</span>
     </p>
   </fieldset>
 </template>
@@ -52,13 +54,20 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
 }
 
 .dest-pending {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
   margin: var(--s-2) 0 0;
   border: 1px solid var(--warning);
   background: var(--warning-soft);
   color: var(--ink);
   padding: var(--s-1) var(--s-2);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   font-size: var(--font-size-sm);
+}
+
+.dest-pending-icon {
+  margin-top: var(--s-1);
 }
 .dest-note {
   margin: 0;

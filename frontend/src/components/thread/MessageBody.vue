@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { WarningTriangle } from '@iconoir/vue'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { thread as msg } from '../../lib/messages'
 import { buildSrcdoc, sanitizeEmailHtml } from '../../lib/sanitize'
@@ -58,7 +59,7 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
 <template>
   <div class="message-body">
     <div v-if="html && hasRemoteImages && !showImages" class="image-bar" data-testid="image-bar">
-      <span>{{ msg.imagesBlocked }}</span>
+      <WarningTriangle class="icon icon-sm icon-warning" aria-hidden="true" /><span>{{ msg.imagesBlocked }}</span>
       <BaseButton size="sm" data-testid="show-images" @click="showImages = true">{{ msg.showImages }}</BaseButton>
     </div>
     <iframe
@@ -93,7 +94,7 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
   border: 1px solid var(--warning);
   background: var(--warning-soft);
   color: var(--ink);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
   font-size: var(--font-size-sm);
 }
 

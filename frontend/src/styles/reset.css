@@ -63,6 +63,11 @@ textarea {
   height: var(--icon-lg);
 }
 
+/* 警告の案内に付けるアイコンの色（C4: アイコン＋文言＋状態色）。 */
+.icon-warning {
+  color: var(--warning);
+}
+
 /* 押下リップル（lib/ripple.ts）。ボタンとクローズだけ。280ms・ease-out。 */
 .has-ripple {
   position: relative;

@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { MagicWand } from '@iconoir/vue'
+import { MagicWand, WarningCircle } from '@iconoir/vue'
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useAiDraft } from '../../../composables/useAiDraft'
 import { instructionLength, MAX_INSTRUCTION_CHARS } from '../../../lib/aiInstruction'
-import { compose as msg, settings as settingsMsg } from '../../../lib/messages'
+import { common, compose as msg, settings as settingsMsg } from '../../../lib/messages'
 import { hasUserBody } from '../../../lib/signature'
 import { useComposeStore } from '../../../stores/compose'
 import { useSettingsStore } from '../../../stores/settings'
@@ -89,7 +89,13 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
       @manage="settings.openExternal(settingsMsg.ai.chatgpt.usageUrl)"
       @dismiss="ai.usageLimit.value = false"
     />
-    <p v-else-if="ai.error.value" class="ai-error" role="alert">{{ msg.ai.failed }}（{{ ai.error.value }}）</p>
+    <div v-else-if="ai.error.value" class="ai-error" role="alert">
+      <WarningCircle class="icon ai-error-icon" aria-hidden="true" />
+      <div class="ai-error-main">
+        <strong class="ai-error-title">{{ common.alertTitle }}</strong>
+        <p class="ai-error-body">{{ msg.ai.failed }}（{{ ai.error.value }}）</p>
+      </div>
+    </div>
 
     <AISetupDialog :open="setupOpen" @choose="ai.answerSetup($event)" />
 
@@ -141,12 +147,38 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
 }
 
 .ai-error {
-  margin: 0;
-  padding: var(--s-2) var(--s-3);
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
   border: 1px solid var(--danger);
-  border-radius: var(--r-sm);
+  border-radius: var(--r-md);
+  background: var(--danger-soft);
+  color: var(--ink);
+}
+
+.ai-error-icon {
+  flex: none;
+  margin-top: var(--s-1);
   color: var(--danger);
+}
+
+.ai-error-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-error-title {
+  display: block;
   font-size: var(--font-size-sm);
+  font-weight: 600;
+}
+
+.ai-error-body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  overflow-wrap: anywhere;
 }
 
 .dlg-text {
