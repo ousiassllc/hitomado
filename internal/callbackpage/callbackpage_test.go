@@ -50,12 +50,12 @@ func TestPageColorsComeFromTokens(t *testing.T) {
 	}
 }
 
-// フォントは Sora + Noto Sans JP、サイズ・行間はガイドのスケール（デザインガイド T1・T3・T4）。
+// フォントは Sora + Noto Sans JP、サイズ・行間はガイドのスケール、見出しは SemiBold 600（デザインガイド T1・T2・T3・T4）。
 func TestPageTypography(t *testing.T) {
 	_, body := render(t, "x")
 	for _, want := range []string{
 		`font-family:Sora,"Noto Sans JP",sans-serif`,
-		"h1{font-size:18px;line-height:1.7;",
+		"h1{font-size:18px;line-height:1.7;font-weight:600;",
 		"p{margin:0;font-size:16px;line-height:1.8}",
 	} {
 		if !strings.Contains(body, want) {

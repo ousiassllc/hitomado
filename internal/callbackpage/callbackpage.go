@@ -18,7 +18,7 @@ const page = `<!doctype html>
 @media (prefers-color-scheme:dark){:root{--ink:#fff;--bone:#050505;--surface:#141414;--border:#2a2a2a}}
 body{font-family:Sora,"Noto Sans JP",sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;margin:0;background:var(--bone);color:var(--ink)}
 main{background:var(--surface);padding:24px;border-radius:12px;border:1px solid var(--border);max-width:28rem}
-h1{font-size:18px;line-height:1.7;margin:0 0 .75rem}
+h1{font-size:18px;line-height:1.7;font-weight:600;margin:0 0 .75rem}
 p{margin:0;font-size:16px;line-height:1.8}
 </style>
 </head><body><main><h1>Hitomado</h1><p>%s</p></main></body></html>
