@@ -125,6 +125,18 @@ export const settings = {
     modelPlaceholder: '例: claude-sonnet-4-5',
     modelRequired: 'モデルを入力してください。',
     modelSelectPlaceholder: 'モデルを選択',
+    // モデルのエフォート（#111）。先頭は常に「モデルの既定」（何も送らない）。
+    effort: 'エフォート',
+    effortDefault: 'モデルの既定',
+    effortHint:
+      '考える深さ（使うトークン量）です。「モデルの既定」では何も指定せず、従来と同じ要求になります。',
+    effortLabels: {
+      low: 'low（控えめ）',
+      medium: 'medium（標準）',
+      high: 'high（深く）',
+      xhigh: 'xhigh（より深く）',
+      max: 'max（最大）',
+    } as Record<string, string>,
     modelNotListed: (id: string) => `${id}（一覧にありません）`,
     modelsRefresh: '一覧を更新',
     modelsRefreshing: '取得中…',

@@ -1,4 +1,4 @@
-package aicore_test
+package aicoretests
 
 import (
 	"context"
@@ -57,18 +57,18 @@ func TestInstructionIsNotLoggedOrStored(t *testing.T) {
 	f := newAIFixture(t)
 	f.ready(t)
 	s := f.open(t, "reply")
-	const secret = "社外秘のプロジェクトXの件を断る"
+	const sensitive = "社外秘のプロジェクトXの件を断る"
 
-	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", secret)
+	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", sensitive)
 	require.NoError(t, err)
 	f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) { return "", errors.New("boom") }
-	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2", secret)
+	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2", sensitive)
 	require.Error(t, err)
-	assert.NotContains(t, err.Error(), secret)
-	assert.NotContains(t, f.logs.String(), secret)
+	assert.NotContains(t, err.Error(), sensitive)
+	assert.NotContains(t, f.logs.String(), sensitive)
 
 	cfg, ok, err := f.Store.GetSetting(t.Context(), store.SettingAIConfig)
 	require.NoError(t, err)
 	require.True(t, ok)
-	assert.NotContains(t, cfg, secret)
+	assert.NotContains(t, cfg, sensitive)
 }

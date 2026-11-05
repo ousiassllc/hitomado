@@ -1,4 +1,4 @@
-package aicore_test
+package aicoretests
 
 import (
 	"context"
@@ -29,7 +29,7 @@ func (f *aiFixture) chatgptReady(t *testing.T) {
 	f.ChatGPT.NextToken = chatgptRefresh
 	_, err := f.ai.SignInChatGPT(t.Context(), "")
 	require.NoError(t, err)
-	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1")
+	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt", "")
 	require.NoError(t, err)
@@ -55,7 +55,7 @@ func TestChatGPTSignInOutAndConfig(t *testing.T) {
 	assert.True(t, acct.Active)
 	assert.True(t, cfg.HasAPIKey, "既定の chatgpt では、ログイン済みが資格情報あり")
 
-	cfg, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1")
+	cfg, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1", "")
 	require.NoError(t, err)
 	assert.True(t, cfg.HasAPIKey, "chatgpt では、ログイン済みが資格情報あり")
 	assert.Empty(t, cfg.BaseURL, "baseUrl は openai のみ")
@@ -137,7 +137,7 @@ func TestChatGPTPreconditionsAndConsent(t *testing.T) {
 		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 		return err
 	}
-	_, err := f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "")
+	_, err := f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "", "")
 	require.NoError(t, err)
 	requireCode(t, "AI_NOT_CONFIGURED", gen()) // 未ログイン
 
@@ -293,7 +293,7 @@ func TestChatGPTTokenIsNotFetchedBeforeConsent(t *testing.T) {
 	f.ChatGPT.Token = chatgptToken
 	_, err := f.ai.SignInChatGPT(t.Context(), "")
 	require.NoError(t, err)
-	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "")
+	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "", "")
 	require.NoError(t, err)
 	s := f.open(t, "reply")
 	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")

@@ -1,4 +1,4 @@
-package aicore_test
+package aicoretests
 
 import (
 	"context"
@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ousiassllc/hitomado/internal/ai"
+	"github.com/ousiassllc/hitomado/internal/app/aicore"
+	"github.com/ousiassllc/hitomado/internal/app/deps"
 )
 
 func TestGenerateProviderErrors(t *testing.T) {
@@ -33,7 +35,7 @@ func TestGenerateProviderErrors(t *testing.T) {
 func TestGenerateTimeoutIsAIFailed(t *testing.T) {
 	f := newAIFixture(t)
 	f.ready(t)
-	f.ai.SetTimeoutForTest(10 * time.Millisecond)
+	f.ai = aicore.New((*deps.Deps)(f.Deps), f.svc, aicore.WithTimeout(10*time.Millisecond))
 	f.provider.fn = func(ctx context.Context, _ ai.ReplyInput) (string, error) {
 		<-ctx.Done()
 		return "", ctx.Err()

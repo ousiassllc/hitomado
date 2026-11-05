@@ -21,8 +21,8 @@ func (s *AIService) GetAIConfig(ctx context.Context) (dto.AIConfig, error) {
 	return s.core.GetAIConfig(ctx)
 }
 
-func (s *AIService) SetAIConfig(ctx context.Context, provider, model, baseURL string) (dto.AIConfig, error) {
-	return s.core.SetAIConfig(ctx, provider, model, baseURL)
+func (s *AIService) SetAIConfig(ctx context.Context, provider, model, baseURL, effort string) (dto.AIConfig, error) {
+	return s.core.SetAIConfig(ctx, provider, model, baseURL, effort)
 }
 
 func (s *AIService) SetAIApiKey(ctx context.Context, provider, apiKey string) (dto.AIConfig, error) {

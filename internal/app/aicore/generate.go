@@ -66,6 +66,7 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID, 
 		return dto.ReplyDraft{}, s.mapError(runCtx, err, ref.AccountID)
 	}
 	in.Instruction = instruction
+	in.Effort = cfg.Effort
 	text, err := s.generate(runCtx, cfg, key, in)
 	if err != nil {
 		return dto.ReplyDraft{}, err
@@ -81,7 +82,7 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID, 
 func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key string, in ai.ReplyInput) (string, error) {
 	text, err := s.callProvider(ctx, cfg, key, in)
 	if err == nil || cfg.Provider != providerChatGPT || !errors.Is(err, ai.ErrUnauthorized) || ctx.Err() != nil {
-		return text, s.mapProviderError(cfg.Provider, err)
+		return text, s.mapProviderError(cfg.Provider, in.Effort, err)
 	}
 	key, rerr := s.d.ChatGPT.ForceRefresh(ctx)
 	if rerr != nil {
@@ -91,7 +92,7 @@ func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key string, 
 		return "", mapChatGPTError(rerr)
 	}
 	text, err = s.callProvider(ctx, cfg, key, in)
-	return text, s.mapProviderError(cfg.Provider, err)
+	return text, s.mapProviderError(cfg.Provider, in.Effort, err)
 }
 
 // callProvider はプロバイダを作って GenerateReply を呼ぶ。プロバイダのエラーは生のまま返す（呼び出し側が分類する）。
@@ -117,13 +118,18 @@ func (s *Service) callProvider(ctx context.Context, cfg storedAIConfig, key stri
 }
 
 // mapProviderError はプロバイダのエラーを AppError にする。ChatGPT の 401 は API キーではなくログインの問題として伝える。
-func (s *Service) mapProviderError(provider string, err error) error {
+// effort を載せた要求をプロバイダが拒否したとき（400／422）は、エフォートが原因のことがあるので、設定で「既定」に戻す案内を付ける（#111）。
+func (s *Service) mapProviderError(provider, effort string, err error) error {
 	if err == nil {
 		return nil
 	}
 	var ae *apperr.Error
 	if errors.As(err, &ae) {
 		return err
+	}
+	if effort != "" && errors.Is(err, ai.ErrRejected) {
+		return apperr.Wrap(apperr.AIFailed, "このモデルは選んだエフォートに対応していません。設定でエフォートを「既定」に戻してください。", err).
+			WithDetail(apperr.DetailReason, apperr.ReasonEffortRejected)
 	}
 	if provider == providerChatGPT && errors.Is(err, ai.ErrUnauthorized) {
 		return apperr.Wrap(apperr.AIFailed, "ChatGPT のログインを確認できませんでした。設定画面でログインし直してください。", err)

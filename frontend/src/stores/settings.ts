@@ -163,8 +163,16 @@ export const useSettingsStore = defineStore('settings', () => {
     started = false
   }
 
-  async function setAIConfig(provider: string, model: string, baseUrl: string): Promise<void> {
-    aiConfig.value = normalizeAIConfig(await call(AIService.SetAIConfig(provider, model, baseUrl)))
+  /** AI 設定を保存する。effort は空で「モデルの既定」（#111）。渡さなければ前の値は引き継がず「既定」に戻る。 */
+  async function setAIConfig(
+    provider: string,
+    model: string,
+    baseUrl: string,
+    effort = '',
+  ): Promise<void> {
+    aiConfig.value = normalizeAIConfig(
+      await call(AIService.SetAIConfig(provider, model, baseUrl, effort)),
+    )
   }
 
   async function setAIApiKey(provider: string, apiKey: string): Promise<void> {

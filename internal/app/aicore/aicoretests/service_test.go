@@ -1,4 +1,4 @@
-package aicore_test
+package aicoretests
 
 import (
 	"bytes"
@@ -69,7 +69,7 @@ func newAIFixture(t *testing.T) *aiFixture {
 // ready は設定・キー・同意をすべて済ませる。
 func (f *aiFixture) ready(t *testing.T) {
 	t.Helper()
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1")
+	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
@@ -90,7 +90,7 @@ func TestAIConfigDefaultsAndRoundTrip(t *testing.T) {
 	assert.NotNil(t, cfg.ConsentedProviders)
 	assert.Empty(t, cfg.ConsentedProviders)
 
-	cfg, err = f.ai.SetAIConfig(t.Context(), "openai", " gpt-x ", "https://llm.example/v1")
+	cfg, err = f.ai.SetAIConfig(t.Context(), "openai", " gpt-x ", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	assert.True(t, cfg.Configured)
 	assert.Equal(t, "gpt-x", cfg.Model)
@@ -108,7 +108,7 @@ func TestAIConfigDefaultsAndRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, cfg.HasAPIKey)
 
-	cfg, err = f.ai.SetAIConfig(t.Context(), "anthropic", "claude", "https://ignored.example")
+	cfg, err = f.ai.SetAIConfig(t.Context(), "anthropic", "claude", "https://ignored.example", "")
 	require.NoError(t, err)
 	assert.Empty(t, cfg.BaseURL, "baseUrl は openai のみ")
 }
@@ -117,7 +117,7 @@ func TestAIConfigDefaultsAndRoundTrip(t *testing.T) {
 func TestSavedProviderIsNotReplacedByTheDefault(t *testing.T) {
 	for _, p := range []string{"anthropic", "openai", "chatgpt"} {
 		f := newAIFixture(t)
-		_, err := f.ai.SetAIConfig(t.Context(), p, "m-"+p, "")
+		_, err := f.ai.SetAIConfig(t.Context(), p, "m-"+p, "", "")
 		require.NoError(t, err)
 		cfg, err := f.ai.GetAIConfig(t.Context())
 		require.NoError(t, err)
@@ -146,10 +146,10 @@ func TestSavedProviderIsNotReplacedByTheDefault(t *testing.T) {
 
 func TestAIConfigValidation(t *testing.T) {
 	f := newAIFixture(t)
-	_, err := f.ai.SetAIConfig(t.Context(), "gemini", "m", "")
+	_, err := f.ai.SetAIConfig(t.Context(), "gemini", "m", "", "")
 	requireCode(t, "VALIDATION", err)
 	for _, u := range []string{"ftp://x.example", "not a url", "https://", "javascript:alert(1)"} {
-		_, err = f.ai.SetAIConfig(t.Context(), "openai", "m", u)
+		_, err = f.ai.SetAIConfig(t.Context(), "openai", "m", u, "")
 		requireCode(t, "VALIDATION", err)
 	}
 	_, err = f.ai.SetAIApiKey(t.Context(), "gemini", "k")
@@ -200,7 +200,7 @@ func TestGeneratePreconditions(t *testing.T) {
 	require.NoError(t, err)
 	requireCode(t, "AI_NOT_CONFIGURED", gen()) // model が空
 
-	_, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "")
+	_, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "", "")
 	require.NoError(t, err)
 	requireCode(t, "AI_CONSENT_REQUIRED", gen())
 

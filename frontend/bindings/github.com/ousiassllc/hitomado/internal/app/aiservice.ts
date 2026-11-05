@@ -81,8 +81,8 @@ export function SetAIApiKey(provider: string, apiKey: string): $CancellablePromi
     return $Call.ByID(3227425416, provider, apiKey);
 }
 
-export function SetAIConfig(provider: string, model: string, baseURL: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(101858289, provider, model, baseURL);
+export function SetAIConfig(provider: string, model: string, baseURL: string, effort: string): $CancellablePromise<dto$0.AIConfig> {
+    return $Call.ByID(101858289, provider, model, baseURL, effort);
 }
 
 /**

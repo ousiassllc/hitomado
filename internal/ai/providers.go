@@ -15,10 +15,24 @@ type chatMessage struct {
 type anthropic struct{ client }
 
 type anthropicRequest struct {
-	Model     string        `json:"model"`
-	MaxTokens int           `json:"max_tokens"`
-	System    string        `json:"system"`
-	Messages  []chatMessage `json:"messages"`
+	Model        string        `json:"model"`
+	MaxTokens    int           `json:"max_tokens"`
+	System       string        `json:"system"`
+	Messages     []chatMessage `json:"messages"`
+	OutputConfig *effortConfig `json:"output_config,omitempty"` // エフォートがあるときだけ（#111）
+}
+
+// effortConfig は Anthropic の output_config と OpenAI Responses の reasoning が持つ effort。
+type effortConfig struct {
+	Effort string `json:"effort"`
+}
+
+// effortConfigOf は effort が空なら nil（要求に載せない）。
+func effortConfigOf(effort string) *effortConfig {
+	if effort == "" {
+		return nil
+	}
+	return &effortConfig{Effort: effort}
 }
 
 type anthropicResponse struct {
@@ -31,10 +45,11 @@ type anthropicResponse struct {
 // GenerateReply は Provider の実装。
 func (a *anthropic) GenerateReply(ctx context.Context, in ReplyInput) (string, error) {
 	req := anthropicRequest{
-		Model:     a.model,
-		MaxTokens: anthropicMaxTokens,
-		System:    systemPrompt(in),
-		Messages:  []chatMessage{{Role: "user", Content: userPrompt(in)}},
+		Model:        a.model,
+		MaxTokens:    anthropicMaxTokens,
+		System:       systemPrompt(in),
+		Messages:     []chatMessage{{Role: "user", Content: userPrompt(in)}},
+		OutputConfig: effortConfigOf(in.Effort),
 	}
 	headers := map[string]string{"x-api-key": a.apiKey, "anthropic-version": anthropicVersion}
 	var resp anthropicResponse
@@ -54,8 +69,9 @@ func (a *anthropic) GenerateReply(ctx context.Context, in ReplyInput) (string, e
 type openAI struct{ client }
 
 type openAIRequest struct {
-	Model    string        `json:"model"`
-	Messages []chatMessage `json:"messages"`
+	Model           string        `json:"model"`
+	Messages        []chatMessage `json:"messages"`
+	ReasoningEffort string        `json:"reasoning_effort,omitempty"` // エフォートがあるときだけ（#111）
 }
 
 type openAIResponse struct {
@@ -74,6 +90,7 @@ func (o *openAI) GenerateReply(ctx context.Context, in ReplyInput) (string, erro
 			{Role: "system", Content: systemPrompt(in)},
 			{Role: "user", Content: userPrompt(in)},
 		},
+		ReasoningEffort: in.Effort,
 	}
 	headers := map[string]string{"Authorization": "Bearer " + o.apiKey}
 	var resp openAIResponse

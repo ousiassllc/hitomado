@@ -222,8 +222,9 @@ graph TD
   ThreadPane --> MessageCard --> MessageBody
   MessageCard --> AttachmentList
   ThreadPane --> ReplyBar
-  ComposePane --> SenderField
-  ComposePane --> RecipientField
+  ComposePane --> ComposeFields
+  ComposeFields --> SenderField
+  ComposeFields --> RecipientField
   ComposePane --> RichTextEditor
   ComposePane --> AttachmentBar
   ComposePane --> AiDraftButton
@@ -294,6 +295,7 @@ graph TD
 |----------------|------|--------------|------------------------|
 | `ComposePane` | 返信・転送・新規のエディタ全体。メインウィンドウ内のペイン。破棄・閉じる（閉じる時は自動保存してから閉じる）、「送信」「送信してアーカイブ」（返信・転送のみ）。**本文エディタ（`RichTextEditor`）の高さは 240px 以上を保証する**（#112）: 全体は縦スクロール可能にし、ヘッダ・宛先・AI・添付が増えてもエディタを縮めない。返信・転送（`ThreadPane` の中に埋め込むとき）は「広げる／元に戻す」ボタンを出す | props: `embedded`（スレッド内に埋め込むか）, `expanded`。emits: `toggle-expand` | `composeStore` |
 | `SenderField` | 送信元表示。`senderLocked` なら**表示のみ**（変更 UI なし）。`new` は選択式（未選択状態あり）。未選択時は送信ボタンを無効化 | props: `from`, `locked`, `accounts` | `ComposeService.SetComposeSender` |
+| `ComposeFields` | `ComposePane` の宛先・件名の入力部（送信元・To・Cc・Bcc・件名。`SenderField`／`RecipientField` を持つ）。入力途中の宛先の確定（`commitPending`）を `ComposePane` へ公開する | props: `frozen` | `composeStore` |
 | `RecipientField` | To／Cc／Bcc の入力（Cc／Bcc は開閉式）。チップ化、貼り付けの複数アドレス分割、オートコンプリート | props: `modelValue`, `accountId` | `ComposeService.SuggestContacts`（デバウンス 150ms） |
 | `RichTextEditor` | Tiptap。太字・リンク・箇条書き。署名ブロックを `data-hitomado-signature` として保持。貼り付けは書式をクリーニング | props/emits: `v-model:html` | — |
 | `AttachmentBar` | 添付の一覧・削除・追加ボタン・ドラッグ＆ドロップ。合計サイズ表示と上限エラー | | `ComposeService.AddAttachments／RemoveAttachment` |
@@ -404,6 +406,7 @@ AI の設定の入口は 2 つ（作成画面の「AI で下書き」と設定�
 | `composables/useAutosave` | §3.7 の自動保存 |
 | `composables/useQuitFlush` | `app:before-quit`（トレイの「終了」）で未保存の下書きを保存（`SaveDraft`）してから `AppService.AckBeforeQuit` を呼ぶ。保存に失敗しても必ず Ack する（F-12） |
 | `composables/useAiDraft` | 「AI で下書き」の状態遷移（AI の設定が未保存→初回の案内、キー未設定→設定へ誘導、未同意→同意、本文入力済み→置換確認、生成中→キャンセル可。F-08） |
+| `components/settings/ai/useAiSetupFlow` | 設定画面の AI の「プロバイダを選ぶ→同意→モデル一覧の取得」の流れ（`AISettings` の一部。§3.9.1） |
 | `composables/useContactSuggest` | 宛先オートコンプリート。入力が止まって 150ms で `SuggestContacts` を呼ぶ（F-13） |
 | `composables/useComposeLifecycle` | 作成セッションの保存・終了（`composeStore` の一部） |
 | `composables/useComposeSend` | 作成セッションの送信フローと添付の追加・削除（`composeStore` の一部）。`prepareSend`（`PrepareSend`）→ 確認ダイアログ → `confirmSend`（`Send`）の順で、確認のキャンセル（`cancelPreview`）でトークンを破棄する。送信が失敗してもセッション・本文・添付は保持し、再度 `prepareSend` から送れる |
@@ -513,3 +516,4 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 1.26 | 2026-11-05 | §3.9 の `SignatureSettings` に「Gmail から取得」（`AccountService.FetchGmailSignature`）を追加し、§6 の F-07 の対応を更新 | #110 |
 | 1.27 | 2026-11-05 | §3.9 に `AIEffortField`（モデルのエフォートの選択）を追加し、`settingsStore.setAIConfig` が `effort` を渡す旨を追記 | #111 |
 | 1.28 | 2026-11-05 | §3.7 の `ComposePane` に本文エディタの最低高さ（240px）・縦スクロール・「広げる／元に戻す」を、`ThreadPane` に作成画面の高さの上限と「広げる」中の表示を追記 | #112 |
+| 1.29 | 2026-11-05 | §3.7 に `ComposeFields`（`ComposePane` の宛先・件名の入力部）を、§5 に `useAiSetupFlow`（設定画面の AI の流れの部分）を実装の分割に合わせて追記 | #111・#112 |

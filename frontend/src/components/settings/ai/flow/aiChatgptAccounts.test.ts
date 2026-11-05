@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import { acctA, acctB, base, chatgptCfg, flushPromises, mountAI, setup } from './aiTestSupport'
+import { acctA, acctB, base, chatgptCfg, flushPromises, mountAI, setup } from '../aiTestSupport'
 
 describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
   test('保存済みのアカウントを一覧に出し、使用中を示す。追加はアカウントを追加ボタン', () => {

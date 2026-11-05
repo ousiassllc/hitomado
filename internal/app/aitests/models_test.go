@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 	"testing"
 
@@ -66,7 +67,7 @@ func TestListAIModelsAnthropicAndChatGPT(t *testing.T) {
 	m := &modelsLister{list: []ai.ModelInfo{{ID: "m1"}}}
 	f.withModels(m)
 
-	_, err := f.ai.SetAIConfig(t.Context(), "anthropic", "claude", "https://ignored.example")
+	_, err := f.ai.SetAIConfig(t.Context(), "anthropic", "claude", "https://ignored.example", "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "anthropic", testAPIKey)
 	require.NoError(t, err)
@@ -89,7 +90,7 @@ func TestListAIModelsSendsNothingBeforeConsentOrWithoutCredentials(t *testing.T)
 	f := newAIFixture(t)
 	m := &modelsLister{list: []ai.ModelInfo{{ID: "m1"}}}
 	f.withModels(m)
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "", readyBaseURL)
+	_, err := f.ai.SetAIConfig(t.Context(), "openai", "", readyBaseURL, "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
@@ -259,4 +260,29 @@ func TestSavedModelAndConfigAreUntouchedByListing(t *testing.T) {
 	cfg, err := f.ai.GetAIConfig(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, "gpt-test", cfg.Model, "保存済みのモデルが一覧に無くても消さない")
+}
+
+// Anthropic のモデルごとのエフォートの段階は、そのまま画面へ返す（対応しないモデルは省略。#111）。
+func TestListAIModelsReturnsEfforts(t *testing.T) {
+	f := newAIFixture(t)
+	m := &modelsLister{list: []ai.ModelInfo{
+		{ID: "claude-new", Efforts: []string{"low", "medium", "high", "xhigh", "max"}},
+		{ID: "claude-old"},
+	}}
+	f.withModels(m)
+	_, err := f.ai.RecordAIConsent(t.Context(), "anthropic", "")
+	require.NoError(t, err)
+	_, err = f.ai.SetAIApiKey(t.Context(), "anthropic", testAPIKey)
+	require.NoError(t, err)
+
+	got, err := f.ai.ListAIModels(t.Context(), "anthropic", "")
+	require.NoError(t, err)
+	require.Len(t, got.Models, 2)
+	assert.Equal(t, []string{"low", "medium", "high", "xhigh", "max"}, got.Models[0].Efforts)
+	assert.Nil(t, got.Models[1].Efforts)
+
+	b, err := json.Marshal(got)
+	require.NoError(t, err)
+	assert.Contains(t, string(b), `"efforts":["low","medium","high","xhigh","max"]`)
+	assert.Equal(t, 1, strings.Count(string(b), "efforts"), "対応しないモデルは efforts を省く")
 }

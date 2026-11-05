@@ -12,6 +12,9 @@ import (
 type ModelInfo struct {
 	ID          string
 	DisplayName string
+	// Efforts はそのモデルが受け付けるエフォートの段階（弱い順。#111）。anthropic は Models API の capabilities.effort から作り、
+	// 対応していない（supported が偽）・取れないモデルは nil。openai・chatgpt の一覧はモデルごとの段階を返さないので常に nil。
+	Efforts []string
 }
 
 // ErrModelsUnsupported はプロバイダにモデル一覧 API が無いこと（404／405／501）。
@@ -47,7 +50,7 @@ func ListModels(ctx context.Context, provider, baseURL, apiKey string, hc *http.
 		return nil, err
 	}
 	if hc == nil {
-		hc = newHTTPClient()
+		hc = NewHTTPClient()
 	}
 	c := client{hc: hc, base: base, apiKey: apiKey}
 
@@ -71,7 +74,7 @@ func newModelSet() *modelSet {
 	return &modelSet{list: []ModelInfo{}, seen: map[string]struct{}{}}
 }
 
-func (s *modelSet) add(id, displayName string) {
+func (s *modelSet) add(id, displayName string, efforts []string) {
 	if id == "" {
 		return
 	}
@@ -79,7 +82,7 @@ func (s *modelSet) add(id, displayName string) {
 		return
 	}
 	s.seen[id] = struct{}{}
-	s.list = append(s.list, ModelInfo{ID: id, DisplayName: displayName})
+	s.list = append(s.list, ModelInfo{ID: id, DisplayName: displayName, Efforts: efforts})
 }
 
 func (c client) listOpenAIModels(ctx context.Context) ([]ModelInfo, error) {
@@ -94,7 +97,7 @@ func (c client) listOpenAIModels(ctx context.Context) ([]ModelInfo, error) {
 	}
 	set := newModelSet()
 	for _, m := range resp.Data {
-		set.add(m.ID, "")
+		set.add(m.ID, "", nil)
 	}
 	return set.list, nil
 }
@@ -114,7 +117,7 @@ func (c client) listChatGPTModels(ctx context.Context) ([]ModelInfo, error) {
 	set := newModelSet()
 	for _, m := range resp.Models {
 		if m.Visibility == "list" {
-			set.add(m.Slug, m.DisplayName)
+			set.add(m.Slug, m.DisplayName, nil)
 		}
 	}
 	return set.list, nil
@@ -127,8 +130,9 @@ func (c client) listAnthropicModels(ctx context.Context) ([]ModelInfo, error) {
 	for range anthropicModelsMaxPages {
 		var resp struct {
 			Data []struct {
-				ID          string `json:"id"`
-				DisplayName string `json:"display_name"`
+				ID           string                `json:"id"`
+				DisplayName  string                `json:"display_name"`
+				Capabilities anthropicCapabilities `json:"capabilities"`
 			} `json:"data"`
 			HasMore bool   `json:"has_more"`
 			LastID  string `json:"last_id"`
@@ -137,7 +141,7 @@ func (c client) listAnthropicModels(ctx context.Context) ([]ModelInfo, error) {
 			return nil, err
 		}
 		for _, m := range resp.Data {
-			set.add(m.ID, m.DisplayName)
+			set.add(m.ID, m.DisplayName, m.Capabilities.Effort.levels())
 		}
 		if !resp.HasMore || resp.LastID == "" {
 			break
@@ -145,4 +149,47 @@ func (c client) listAnthropicModels(ctx context.Context) ([]ModelInfo, error) {
 		endpoint = c.base + "/v1/models?limit=1000&after_id=" + url.QueryEscape(resp.LastID)
 	}
 	return set.list, nil
+}
+
+// anthropicCapabilities は Models API の capabilities のうち、使う項目（effort）だけ。
+type anthropicCapabilities struct {
+	Effort anthropicEffort `json:"effort"`
+}
+
+// anthropicEffort は capabilities.effort（EffortCapability）。段階ごとの CapabilitySupport は supported だけ読む。
+// xhigh はモデルによって null（無い）。
+type anthropicEffort struct {
+	Supported bool              `json:"supported"`
+	Low       anthropicSupport  `json:"low"`
+	Medium    anthropicSupport  `json:"medium"`
+	High      anthropicSupport  `json:"high"`
+	XHigh     *anthropicSupport `json:"xhigh"`
+	Max       anthropicSupport  `json:"max"`
+}
+
+type anthropicSupport struct {
+	Supported bool `json:"supported"`
+}
+
+// levels はモデルが受け付ける段階（弱い順）。エフォートに対応していない（supported が偽・項目なし）なら nil。
+func (e anthropicEffort) levels() []string {
+	if !e.Supported {
+		return nil
+	}
+	var out []string
+	for _, l := range []struct {
+		name string
+		ok   bool
+	}{
+		{EffortLow, e.Low.Supported},
+		{EffortMedium, e.Medium.Supported},
+		{EffortHigh, e.High.Supported},
+		{EffortXHigh, e.XHigh != nil && e.XHigh.Supported},
+		{EffortMax, e.Max.Supported},
+	} {
+		if l.ok {
+			out = append(out, l.name)
+		}
+	}
+	return out
 }

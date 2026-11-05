@@ -4,6 +4,7 @@ package ai
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -15,6 +16,8 @@ var (
 	ErrUnauthorized = errors.New("ai: unauthorized") // キー不正（401／403）。ChatGPT ではコード subscription_sharing_invalid_user も含む
 	ErrRateLimited  = errors.New("ai: rate limited") // レート制限（429）
 	ErrFailed       = errors.New("ai: failed")       // その他のプロバイダエラー（不正な応答など）
+	// ErrRejected はプロバイダが要求を 400／422 で拒否したこと（ErrFailed でもある）。エフォートを載せた要求では、エフォートが原因のことがある。
+	ErrRejected = fmt.Errorf("%w: rejected", ErrFailed)
 
 	// ErrUsageLimit は ChatGPT 利用枠の上限超過（429 または response.failed のコード subscription_sharing_usage_limit_exceeded）。
 	ErrUsageLimit = errors.New("ai: usage limit exceeded")
@@ -35,7 +38,10 @@ type ReplyInput struct {
 	SignatureText      string
 	// Instruction は利用者が書いた「AI への指示」（#109）。空なら指示なし（従来と同じ要求）。スレッド本文とは別枠（system 側）で渡す。
 	Instruction string
-	Messages    []ContextMessage // 時系列昇順
+	// Effort はモデルのエフォート（#111）。空は「モデルの既定」で、要求に載せない（従来と同じ要求）。
+	// メール内容ではなく生成のパラメータなので、同意の単位・送信先は変わらない。範囲の検査は呼び出し側（ValidEffort）。
+	Effort   string
+	Messages []ContextMessage // 時系列昇順
 }
 
 // Provider は AI プロバイダ。ログに本文・キーを出さないこと。
