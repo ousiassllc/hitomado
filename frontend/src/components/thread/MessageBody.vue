@@ -84,6 +84,8 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .image-bar {
@@ -91,11 +93,10 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
   align-items: center;
   gap: var(--s-3);
   padding: var(--s-2) var(--s-3);
-  border: 1px solid var(--warning);
+  border: 1px solid var(--warning-border);
   background: var(--warning-soft);
   color: var(--ink);
   border-radius: var(--r-md);
-  font-size: var(--font-size-sm);
 }
 
 .body-frame {
@@ -111,13 +112,11 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: var(--font-sans);
-  font-size: var(--font-size-sm);
   color: var(--ink);
 }
 
 .body-empty {
   margin: 0;
   color: var(--mute);
-  font-size: var(--font-size-sm);
 }
 </style>

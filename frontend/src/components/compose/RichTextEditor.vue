@@ -187,7 +187,7 @@ onBeforeUnmount(() => editor.value?.destroy())
   min-height: 120px;
   padding: var(--s-3);
   outline: none;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   line-height: var(--line-height-base);
   overflow-wrap: anywhere;
 }

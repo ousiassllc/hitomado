@@ -136,6 +136,7 @@ function openGuide(): void {
   margin: var(--s-2) 0;
   color: var(--ink);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .link {
@@ -158,7 +159,7 @@ function openGuide(): void {
   align-items: center;
   justify-content: space-between;
   gap: var(--s-3);
-  padding: var(--s-3);
+  padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   list-style: none;
@@ -173,6 +174,7 @@ function openGuide(): void {
 .meta {
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
   overflow-wrap: anywhere;
 }
 
@@ -181,7 +183,7 @@ function openGuide(): void {
 }
 
 .inuse {
-  border: 1px solid var(--warning);
+  border: 1px solid var(--warning-border);
   background: var(--warning-soft);
   color: var(--warning);
   align-self: flex-start;

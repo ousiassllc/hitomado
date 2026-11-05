@@ -217,7 +217,8 @@ onBeforeUnmount(() => {
   bottom: 0;
   left: 0;
   z-index: var(--z-drawer);
-  width: min(320px, 85vw);
+  width: 78vw;
+  max-width: 320px;
 }
 
 /* スクラムとドロワーの出入り: フェード＋小さな移動（ガイド M5。reduced-motion ではフェードだけ）。 */

@@ -85,6 +85,22 @@ func MinWindowSize(caps capability.Capabilities) (width, height int) {
 	return MinWidth, MinHeight
 }
 
+// 起動直後・リサイズ中にフロントの描画が追いつかない面の色。frontend/src/styles/tokens.css の --bone（ライト #f5f5f4・ダーク #050505）と同じ値
+// （Wails の既定は純黒 #000 で、ガイドの C8 に反する）。トークンを変えたら、ここと docs/components/overview.md §5.3 も直す
+// （TestWindowBackgroundMatchesBoneToken が一致を検証する）。
+var (
+	windowBackgroundLight = application.NewRGB(0xf5, 0xf5, 0xf4)
+	windowBackgroundDark  = application.NewRGB(0x05, 0x05, 0x05)
+)
+
+// WindowBackground は OS のテーマ（dark）に合わせたウィンドウの背景色（--bone）を返す。
+func WindowBackground(dark bool) application.RGBA {
+	if dark {
+		return windowBackgroundDark
+	}
+	return windowBackgroundLight
+}
+
 // NewMainWindow はメインウィンドウを作る。トレイがある OS では、× で終了せずトレイへ格納する（フックで閉じるのを取り消して隠す）。
 // ウィンドウ状態を保存する OS（caps.SupportsWindowState）では、saved の位置・サイズで開き、以後の変化を save へ渡す
 // （window.state。呼び出し側は戻り値の WindowKeeper の Flush を終了前に呼ぶ）。保存しない OS では saved・save は使わず、WindowKeeper は nil。
@@ -94,14 +110,15 @@ func NewMainWindow(app *application.App, caps capability.Capabilities, saved Win
 	}
 	minW, minH := MinWindowSize(caps)
 	opts := application.WebviewWindowOptions{
-		Name:           "main",
-		Title:          "Hitomado",
-		Width:          saved.Width,
-		Height:         saved.Height,
-		MinWidth:       minW,
-		MinHeight:      minH,
-		URL:            "/",
-		EnableFileDrop: true,
+		Name:             "main",
+		Title:            "Hitomado",
+		Width:            saved.Width,
+		Height:           saved.Height,
+		MinWidth:         minW,
+		MinHeight:        minH,
+		URL:              "/",
+		EnableFileDrop:   true,
+		BackgroundColour: WindowBackground(app.Env.IsDarkMode()),
 	}
 	if r, ok := saved.Bounds(); ok {
 		opts.InitialPosition = application.WindowXY

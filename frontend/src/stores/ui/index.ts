@@ -69,7 +69,7 @@ export const useUiStore = defineStore('ui', () => {
     return id
   }
 
-  /** 戻せる結果（アーカイブ・ゴミ箱）をスナックバー（「元に戻す」つきのトースト）で知らせる。 */
+  /** 戻せる結果（アーカイブ・ゴミ箱）を、「元に戻す」つきのスナックバーで知らせる（トーストと同じ 1 枠を使う）。 */
   function pushSnackbar(message: string, action: ToastAction): number {
     const id = nextId++
     toast.value = { id, kind: 'success', message, action }

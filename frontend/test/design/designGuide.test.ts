@@ -1,5 +1,7 @@
 // Ousiass デザインガイド準拠の回帰テスト（#119〜#124）。マウントして、振る舞い・DOM を確かめる。
 import { afterEach, describe, expect, jest, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
+import { parse } from '@vue/compiler-sfc'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { h, nextTick } from 'vue'
@@ -35,6 +37,23 @@ describe('トースト（O3）: 同時に 1 つ・3 秒・短い結果だけ', (
     await nextTick()
     expect(w.find('.toast').exists()).toBe(true)
     jest.advanceTimersByTime(2999)
+    expect(ui.toast).toBeDefined()
+    jest.advanceTimersByTime(1)
+    expect(ui.toast).toBeUndefined()
+    w.unmount()
+  })
+
+  test('スナックバー（元に戻す）はトーストと別の見た目で、アクション付きの 5 秒で消える', async () => {
+    jest.useFakeTimers()
+    setActivePinia(createPinia())
+    const ui = useUiStore()
+    const w = mount(ToastHost, { attachTo: document.body })
+    ui.pushSnackbar('アーカイブしました。', { label: '元に戻す', run: () => {} })
+    await nextTick()
+    expect(w.find('.snackbar').exists()).toBe(true)
+    expect(w.find('.toast').exists()).toBe(false)
+    expect(w.find('[data-testid="snackbar-action"]').text()).toBe('元に戻す')
+    jest.advanceTimersByTime(4999)
     expect(ui.toast).toBeDefined()
     jest.advanceTimersByTime(1)
     expect(ui.toast).toBeUndefined()
@@ -198,5 +217,30 @@ describe('モーション（M）', () => {
     const off = mount(BaseButton, { props: { disabled: true }, slots: { default: '送信' } })
     await off.trigger('pointerdown')
     expect(off.element.querySelectorAll('.ripple')).toHaveLength(0)
+  })
+})
+
+describe('危険ボタン（O7・#190）: 透明地・--danger の文字・45% の枠', () => {
+  const style = parse(
+    readFileSync(new URL('../../src/components/ui/BaseButton.vue', import.meta.url), 'utf8'),
+  ).descriptor.styles[0].content
+  const rule = (selector: string) =>
+    style.slice(style.indexOf(selector)).match(/\{([^}]*)\}/)?.[1] ?? ''
+
+  test('variant="danger" は btn-danger クラスを付ける', () => {
+    const w = mount(BaseButton, { props: { variant: 'danger' }, slots: { default: '削除' } })
+    expect(w.classes()).toContain('btn-danger')
+  })
+
+  test('塗りつぶさない（透明地・文字 --danger・枠は --danger の 45%）', () => {
+    const body = rule('.btn-danger {')
+    expect(body).toContain('background: transparent')
+    expect(body).toContain('color: var(--danger)')
+    expect(body).toContain('border-color: color-mix(in srgb, var(--danger) 45%, transparent)')
+    expect(body).not.toContain('var(--bone)')
+  })
+
+  test('ホバーは --danger-soft（--danger の 10%）の薄い地', () => {
+    expect(rule('.btn-danger:hover:not(:disabled) {')).toContain('background: var(--danger-soft)')
   })
 })

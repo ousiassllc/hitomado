@@ -97,7 +97,6 @@ watch(
 
 .toggle-mark {
   color: var(--mute);
-  width: 1em;
 }
 
 .sender {
@@ -137,6 +136,7 @@ watch(
 .headers {
   margin: 0;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   color: var(--mute);
 }
 

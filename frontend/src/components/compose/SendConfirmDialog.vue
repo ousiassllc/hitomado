@@ -114,10 +114,11 @@ function onOpen(open: boolean): void {
 .warning {
   padding: var(--s-2) var(--s-3);
   border-radius: var(--r-md);
-  border: 1px solid var(--warning);
+  border: 1px solid var(--warning-border);
   background: var(--warning-soft);
   color: var(--ink);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .warning-icon {
@@ -126,9 +127,10 @@ function onOpen(open: boolean): void {
 
 /* 他の自アカウント宛は、送信元より目立たせる（状態色の細枠・薄い地・大きめの文字。太字にしない）。 */
 .warning-strong {
-  border-color: var(--danger);
+  border-color: var(--danger-border);
   background: var(--danger-soft);
   font-size: var(--font-size-lg);
+  line-height: var(--line-height-lg);
 }
 
 .warning-strong .warning-icon {
@@ -147,6 +149,7 @@ function onOpen(open: boolean): void {
   gap: var(--s-2) var(--s-3);
   margin: 0;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .confirm-fields dt {
@@ -169,11 +172,13 @@ function onOpen(open: boolean): void {
   margin: 0;
   color: var(--mute);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .confirm-error {
   margin: 0;
   color: var(--danger);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 </style>

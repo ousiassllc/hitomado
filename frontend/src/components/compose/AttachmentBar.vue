@@ -104,6 +104,7 @@ onBeforeUnmount(() => stopDrop?.())
   margin: 0;
   color: var(--danger);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .attach-list {
@@ -153,5 +154,10 @@ onBeforeUnmount(() => stopDrop?.())
 
 .attach-remove:hover:not(:disabled) {
   background: var(--accent-soft);
+}
+
+.attach-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 </style>

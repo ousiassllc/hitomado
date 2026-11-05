@@ -190,6 +190,7 @@ async function save(): Promise<void> {
   margin: var(--s-2) 0 var(--s-3);
   color: var(--ink);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .select {
@@ -215,7 +216,7 @@ async function save(): Promise<void> {
 }
 
 .dirty {
-  border: 1px solid var(--warning);
+  border: 1px solid var(--warning-border);
   background: var(--warning-soft);
   color: var(--warning);
   padding: 0 var(--s-2);

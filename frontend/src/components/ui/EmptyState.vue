@@ -40,6 +40,7 @@ defineProps<{ compact?: boolean }>()
   flex-direction: column;
   gap: var(--s-1);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .empty-text :deep(p) {

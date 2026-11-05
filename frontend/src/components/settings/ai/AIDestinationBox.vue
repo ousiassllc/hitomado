@@ -58,12 +58,13 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
   align-items: flex-start;
   gap: var(--s-2);
   margin: var(--s-2) 0 0;
-  border: 1px solid var(--warning);
+  border: 1px solid var(--warning-border);
   background: var(--warning-soft);
   color: var(--ink);
   padding: var(--s-1) var(--s-2);
   border-radius: var(--r-md);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .dest-pending-icon {
@@ -73,5 +74,6 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
   margin: 0;
   color: var(--ink);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 </style>

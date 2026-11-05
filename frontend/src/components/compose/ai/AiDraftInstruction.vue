@@ -83,7 +83,7 @@ watch(model, () => void nextTick(fit))
   color: var(--ink);
   font: inherit;
   font-size: var(--font-size-sm);
-  line-height: var(--line-height-base);
+  line-height: var(--line-height-sm);
   resize: none;
   overflow-y: auto;
 }
@@ -94,12 +94,17 @@ watch(model, () => void nextTick(fit))
   outline: none;
 }
 
+.instruction-input:disabled {
+  opacity: 0.5;
+}
+
 .instruction-foot {
   display: flex;
   justify-content: space-between;
   gap: var(--s-2);
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .instruction-count.over {

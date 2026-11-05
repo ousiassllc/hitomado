@@ -5,11 +5,11 @@ import { vRipple } from '../../lib/ripple'
 import { useUiStore } from '../../stores/ui'
 
 // トースト: 画面下中央・ピル・1 行の短い結果。同時に 1 つ（新しいものが前を置き換える）、3 秒で消える（ガイド O3）。
-// 戻せる結果（アーカイブ・ゴミ箱）は「元に戻す」つきのスナックバーにして、操作できるよう 6 秒出す。
+// 戻せる結果（アーカイブ・ゴミ箱）は別部品のスナックバー（--surface 地 + border・やや長め・「元に戻す」つき）にして、アクション付きの 5 秒出す（ガイド O3）。
 // 失敗の理由・再試行は AlertStack（インラインアラート）に出す。
 const ui = useUiStore()
 const TOAST_MS = 3000
-const SNACKBAR_MS = 6000
+const SNACKBAR_MS = 5000
 let timer: ReturnType<typeof setTimeout> | undefined
 
 function stop(): void {
@@ -41,8 +41,7 @@ onBeforeUnmount(stop)
       <div
         v-if="ui.toast"
         :key="ui.toast.id"
-        class="toast"
-        :class="{ 'toast-action': ui.toast.action }"
+        :class="ui.toast.action ? 'snackbar' : 'toast'"
         role="status"
         aria-live="polite"
         :title="ui.toast.message"
@@ -88,14 +87,25 @@ onBeforeUnmount(stop)
   background: var(--ink);
   color: var(--bone);
   font-size: var(--font-size-sm);
-  line-height: 1;
 }
 
-.toast-action {
+/* スナックバー: トーストとは別の部品。--surface 地 + 1px border・--r-md。1 行に収まらなければ折り返す */
+.snackbar {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  min-height: calc(var(--toast-h) + var(--s-2));
+  padding: var(--s-2) var(--s-4);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   pointer-events: auto;
 }
 
-/* 「元に戻す」: ink 地の上の bone 字のテキストボタン（素のボタンに v-ripple。ガイドの小さな操作と同じ作り） */
+/* 「元に戻す」: surface 地の上の ink 字のテキストボタン（素のボタンに v-ripple。ガイドの小さな操作と同じ作り） */
 .undo {
   flex: none;
   min-height: var(--control-h-sm);
@@ -104,7 +114,7 @@ onBeforeUnmount(stop)
   border: 0;
   border-radius: var(--r-full);
   background: transparent;
-  color: var(--bone);
+  color: var(--ink);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -113,7 +123,7 @@ onBeforeUnmount(stop)
 }
 
 .undo:hover {
-  background: color-mix(in srgb, var(--bone) 16%, transparent);
+  background: var(--accent-soft);
 }
 
 .msg {
@@ -121,6 +131,13 @@ onBeforeUnmount(stop)
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.snackbar .msg {
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .toast-enter-active {
