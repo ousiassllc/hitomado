@@ -1,6 +1,6 @@
 # Android ビルド
 
-> 関連: [環境構築](setup.md) / [プロジェクト概要](../overview.md) / [アーキテクチャ設計](../architecture/overview.md)
+> 関連: [環境構築](setup.md) / [プロジェクト概要](../overview.md) / [アーキテクチャ設計](../architecture/overview.md) / [Google Play での配布の準備](android-play-distribution.md)
 
 本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。以降の節で、Android で動かさない機能（§10・#89）、資格情報の保管（§11・#84）、`modernc.org/libc` の android/amd64 問題（§12・#83）、添付・ログの保存先（§13・#85）、Google OAuth のリダイレクト方式（§14・#86）、バックグラウンド同期と新着通知（§15・#88）、スマホ向けの画面（§16・#87）、E2E・WebView のクラッシュ対策・性能（§17・#90）、AI の既定のプロバイダと ChatGPT ログイン（§18・#104）を決めた。 試作と調査（#81）の結果表・作業の一覧は [android-investigation.md](android-investigation.md) にまとめている。
 
