@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Attachment } from '@iconoir/vue'
+import { Attachment, WarningTriangle } from '@iconoir/vue'
 import { computed } from 'vue'
 import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { formatDate } from '../../lib/format'
@@ -22,13 +22,13 @@ const props = defineProps<{
 }>()
 
 const sender = computed(() => props.thread.lastFrom.name || props.thread.lastFrom.email || common.list.noSender)
-const faded = computed(() => props.account?.status === 'needs_reauth')
+const needsReauth = computed(() => props.account?.status === 'needs_reauth')
 const labels = computed(() => props.thread.labels ?? [])
 const label = computed(
   () =>
     `${props.thread.isUnread ? `${common.list.unreadMark}、` : ''}${props.account?.displayName ?? ''} ${sender.value}、${
       props.thread.subject || common.list.noSubject
-    }`,
+    }${needsReauth.value ? `、${common.list.needsReauthRow}` : ''}`,
 )
 </script>
 
@@ -41,13 +41,12 @@ const label = computed(
       selected,
       checked,
       active,
-      faded,
+      'needs-reauth': needsReauth,
     }"
     role="option"
     tabindex="-1"
     :aria-selected="selected || checked || false"
     :aria-label="label"
-    :title="faded ? common.list.needsReauthRow : undefined"
   >
     <span class="band" :style="{ background: account ? accountColorVar(account.color) : 'var(--border)' }" aria-hidden="true" />
     <div class="main">
@@ -62,6 +61,7 @@ const label = computed(
       </div>
       <div class="line2">
         <span v-if="thread.isUnread" class="dot" aria-hidden="true" />
+        <span v-if="needsReauth" class="reauth"><WarningTriangle class="icon icon-sm" aria-hidden="true" />{{ common.list.needsReauthRow }}</span>
         <span class="subject">{{ thread.subject || common.list.noSubject }}</span>
         <span class="snippet">{{ thread.snippet }}</span>
       </div>
@@ -189,13 +189,22 @@ const label = computed(
   color: var(--ink);
 }
 
-/* 要再接続のアカウントの行は薄くして、操作できる行と区別する。 */
-.row.faded .main {
-  opacity: 0.7;
+/* 要再接続のアカウントの行は、アイコンと文言で伝える（色や濃淡だけにしない）。文字は --mute にして、操作できる行と区別する。 */
+.reauth {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--s-1);
+  color: var(--ink);
+  font-size: var(--font-size-xs);
 }
 
-.row.faded .sender,
-.row.faded .subject {
+.reauth .icon {
+  color: var(--warning);
+}
+
+.row.needs-reauth .sender,
+.row.needs-reauth .subject {
   color: var(--mute);
 }
 </style>

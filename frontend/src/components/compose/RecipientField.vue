@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Xmark } from '@iconoir/vue'
+import { WarningTriangle, Xmark } from '@iconoir/vue'
 import { computed, ref, useId } from 'vue'
 import { ComposeService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
 import type { Address } from '../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
@@ -22,6 +22,7 @@ const text = ref('')
 const input = ref<HTMLInputElement>()
 const active = ref(-1)
 const listId = useId()
+const invalidId = useId()
 
 const { suggestions, query, clear } = useContactSuggest({
   accountId: () => props.accountId,
@@ -33,6 +34,7 @@ const shown = computed(() => {
   return suggestions.value.filter((s) => !have.has(s.email.toLowerCase()))
 })
 const open = computed(() => shown.value.length > 0 && text.value.trim() !== '')
+const hasInvalid = computed(() => props.modelValue.some((a) => !isLikelyEmail(a.email)))
 
 function add(addrs: Address[]): void {
   if (addrs.length === 0) return
@@ -130,6 +132,7 @@ function onKeydown(e: KeyboardEvent): void {
         :class="{ 'chip-invalid': !isLikelyEmail(a.email) }"
         :title="isLikelyEmail(a.email) ? undefined : msg.fields.invalidAddress"
       >
+        <WarningTriangle v-if="!isLikelyEmail(a.email)" class="icon icon-sm chip-icon" aria-hidden="true" />
         <span class="chip-text">{{ addressLabel(a) }}</span>
         <button
           type="button"
@@ -155,6 +158,7 @@ function onKeydown(e: KeyboardEvent): void {
         :aria-controls="listId"
         :aria-activedescendant="active >= 0 ? `${listId}-${active}` : undefined"
         aria-autocomplete="list"
+        :aria-describedby="hasInvalid ? invalidId : undefined"
         @input="onInput"
         @keydown="onKeydown"
         @paste="onPaste"
@@ -177,12 +181,16 @@ function onKeydown(e: KeyboardEvent): void {
         </div>
       </div>
     </label>
+    <p v-if="hasInvalid" :id="invalidId" class="recipient-invalid">
+      <WarningTriangle class="icon icon-sm" aria-hidden="true" />{{ msg.fields.invalidAddress }}
+    </p>
   </div>
 </template>
 
 <style scoped>
 .recipient-field {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: var(--s-2);
 }
@@ -231,6 +239,22 @@ function onKeydown(e: KeyboardEvent): void {
 .chip-invalid {
   border-color: var(--danger);
   color: var(--danger);
+}
+
+.chip-icon {
+  flex: none;
+  margin-left: var(--s-2);
+}
+
+.recipient-invalid {
+  display: flex;
+  flex: 0 0 100%;
+  align-items: center;
+  gap: var(--s-1);
+  margin: 0;
+  padding-left: calc(56px + var(--s-2));
+  color: var(--danger);
+  font-size: var(--font-size-xs);
 }
 
 .chip-text {
