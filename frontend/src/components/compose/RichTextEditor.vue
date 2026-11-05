@@ -5,6 +5,7 @@ import { onBeforeUnmount, ref, watch } from 'vue'
 import { compose as msg } from '../../lib/messages'
 import { cleanRichHtml } from '../../lib/richtext'
 import { ensureLeadingParagraph } from '../../lib/signature'
+import BaseIconButton from '../ui/BaseIconButton.vue'
 import EditorLinkForm from './EditorLinkForm.vue'
 import { editorExtensions } from './editorExtensions'
 
@@ -106,40 +107,31 @@ onBeforeUnmount(() => editor.value?.destroy())
 <template>
   <div class="rte" :class="{ 'rte-disabled': !editable }">
     <div v-if="editable" class="rte-toolbar" role="toolbar" :aria-label="msg.editor.toolbar">
-      <button
-        type="button"
-        class="rte-btn"
+      <BaseIconButton
         :class="{ 'rte-btn-on': editor?.isActive('bold') }"
         :aria-pressed="editor?.isActive('bold') ?? false"
-        :aria-label="msg.editor.bold"
-        :title="msg.editor.bold"
+        :label="msg.editor.bold"
         @click="editor?.chain().focus().toggleBold().run()"
       >
         <Bold class="icon icon-sm" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="rte-btn"
+      </BaseIconButton>
+      <BaseIconButton
         :class="{ 'rte-btn-on': editor?.isActive('link') }"
         :aria-pressed="editor?.isActive('link') ?? false"
         :aria-expanded="linkOpen"
-        :aria-label="msg.editor.link"
-        :title="msg.editor.link"
+        :label="msg.editor.link"
         @click="toggleLink"
       >
         <Link class="icon icon-sm" aria-hidden="true" />
-      </button>
-      <button
-        type="button"
-        class="rte-btn"
+      </BaseIconButton>
+      <BaseIconButton
         :class="{ 'rte-btn-on': editor?.isActive('bulletList') }"
         :aria-pressed="editor?.isActive('bulletList') ?? false"
-        :aria-label="msg.editor.bulletList"
-        :title="msg.editor.bulletList"
+        :label="msg.editor.bulletList"
         @click="editor?.chain().focus().toggleBulletList().run()"
       >
         <List class="icon icon-sm" aria-hidden="true" />
-      </button>
+      </BaseIconButton>
     </div>
     <EditorLinkForm
       v-if="linkOpen"
@@ -179,23 +171,8 @@ onBeforeUnmount(() => editor.value?.destroy())
   background: var(--bone);
 }
 
-.rte-btn {
-  min-width: 32px;
-  height: 28px;
-  padding: 0 var(--s-2);
-  border: 1px solid transparent;
-  border-radius: var(--r-sm);
-  background: transparent;
-  color: var(--ink);
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-
-.rte-btn:hover {
-  background: var(--accent-soft);
-}
-
-.rte-btn-on {
+/* 押されている（太字・リンク・箇条書きが今の位置で有効な）ボタン。BaseIconButton の hover 等より優先させる。 */
+.rte-toolbar :deep(.rte-btn-on) {
   border-color: var(--accent);
   background: var(--accent-soft);
 }

@@ -7,6 +7,7 @@ import { useContactSuggest } from '../../composables/useContactSuggest'
 import { call } from '../../lib/api'
 import { compose as msg } from '../../lib/messages'
 import { addressLabel, isLikelyEmail, mergeAddresses, parseAddresses } from '../../lib/recipients'
+import { vRipple } from '../../lib/ripple'
 
 const props = defineProps<{
   modelValue: Address[]
@@ -135,6 +136,7 @@ function onKeydown(e: KeyboardEvent): void {
         <WarningTriangle v-if="!isLikelyEmail(a.email)" class="icon icon-sm chip-icon" aria-hidden="true" />
         <span class="chip-text">{{ addressLabel(a) }}</span>
         <button
+          v-ripple
           type="button"
           class="chip-remove"
           :aria-label="msg.fields.removeRecipient(a.email)"
