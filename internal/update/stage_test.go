@@ -127,6 +127,32 @@ func TestStageMissingAssets(t *testing.T) {
 	}
 }
 
+// Release には Android の APK・macOS の zip も添付される（release.yml）。Windows の更新は名前で Windows 版だけを選び、
+// 他の添付ファイルは取得せず、SHA256SUMS.txt に他の行が並んでいても自分の行だけを使う。
+func TestStageIgnoresOtherPlatformAssets(t *testing.T) {
+	srv := updatetest.NewServer(t, "0.2.0", installerBody)
+	name := update.InstallerName("0.2.0")
+	apk, mac := "hitomado-v0.2.0-android-arm64.apk", "hitomado-v0.2.0-macos-arm64.zip"
+	srv.Sums = strings.Repeat("1", 64) + "  " + apk + "\n" +
+		strings.Repeat("2", 64) + "  " + mac + "\n" +
+		strings.Repeat("3", 64) + "  NOTICE\n" +
+		updatetest.Sum(installerBody) + "  " + name + "\n"
+	rel := latest(t, srv)
+	// 他の添付を先頭に置く（一覧の順序に依存しない）。
+	rel.Assets = append([]update.Asset{
+		{Name: apk, URL: srv.URL + "/dl/" + apk},
+		{Name: mac, URL: srv.URL + "/dl/" + mac},
+		{Name: "NOTICE", URL: srv.URL + "/dl/NOTICE"},
+	}, rel.Assets...)
+	dir := t.TempDir()
+
+	got, err := srv.Stager(dir).Stage(t.Context(), rel)
+	require.NoError(t, err)
+	assert.Equal(t, filepath.Join(dir, name), got.Path)
+	assert.Equal(t, updatetest.Sum(installerBody), got.SHA256)
+	assert.Zero(t, srv.Hits("/dl/"+apk)+srv.Hits("/dl/"+mac)+srv.Hits("/dl/NOTICE"), "他の OS の添付は取得しない")
+}
+
 func TestStageRejectsBadVersion(t *testing.T) {
 	srv := updatetest.NewServer(t, "0.2.0", installerBody)
 	rel := latest(t, srv)

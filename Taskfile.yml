@@ -14,6 +14,11 @@ includes:
     # 版の既定値（main.go の version・build/config.yml と揃える）。コマンドラインの VERSION を上書きとして使うため、ここで定義する。
     vars:
       APP_VERSION: '{{.VERSION | default "0.0.0"}}'
+  # macOS 版（.app の zip）。windows と同じ理由で APP_VERSION をここに置く。macOS 上でだけ動かす（README.md「macOS」）。
+  darwin:
+    taskfile: ./build/darwin/Taskfile.yml
+    vars:
+      APP_VERSION: '{{.VERSION | default "0.0.0"}}'
   # Android 版（docs/environment/android.md）。APP_ID は build/config.yml の productIdentifier と同じ。
   # APP_VERSION は windows と同じ理由でここに置く（VERSION を渡さなければ 0.0.0）。versionName・versionCode は VERSION から決まる。
   android:
@@ -24,12 +29,12 @@ includes:
 
 tasks:
   build:
-    summary: Builds the application (Windows artifact)
+    summary: Builds the application (Windows exe / macOS executable, by the host OS)
     cmds:
       - task: "{{.GOOS}}:build"
 
   package:
-    summary: Builds the Windows installer (VERSION=X.Y.Z)
+    summary: Builds the Windows installer / the macOS .app and zip (VERSION=X.Y.Z)
     cmds:
       - task: "{{.GOOS}}:package"
 

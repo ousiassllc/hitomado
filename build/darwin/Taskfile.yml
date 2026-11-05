@@ -1,0 +1,78 @@
+version: '3'
+
+includes:
+  common: ../Taskfile.yml
+
+# macOS 版（.app を zip にしたもの）。macOS 上でだけ動かす（cgo と codesign・ditto・PlistBuddy を使う。Linux・Windows からのクロスビルドはしない）。
+# 版番号は、リリースではタグから v を除いた値を VERSION で渡す（例: wails3 package VERSION=0.1.1。既定は 0.0.0）。
+# 実行ファイルの -X main.version と .app の Info.plist（CFBundleVersion・CFBundleShortVersionString）が同じ値になる。
+# APP_VERSION（VERSION の既定値 0.0.0 を含む）はルートの Taskfile.yml の includes（darwin）の vars で 1 か所だけ定義して渡す。
+# ARCH は arm64（既定は実行中の Mac のもの）か amd64。Apple Silicon の Mac で ARCH=amd64 を渡すと Intel 向けにクロスビルドする。
+# 署名は ad-hoc（codesign -s -）だけで、Developer ID の署名も公証もしない（Gatekeeper の警告が出る。README.md）。
+vars:
+  # .app の名前。実行ファイル（Contents/MacOS/hitomado）は APP_NAME のまま、Finder に出る名前だけ大文字で始める。
+  BUNDLE_NAME: Hitomado
+
+tasks:
+  build:
+    summary: Builds the executable (bin/hitomado) natively with cgo
+    deps:
+      - task: common:build:frontend
+        vars:
+          BUILD_FLAGS:
+            ref: .BUILD_FLAGS
+          DEV:
+            ref: .DEV
+    preconditions:
+      - sh: '{{if regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+$" .APP_VERSION}}true{{else}}false{{end}}'
+        msg: "VERSION must look like X.Y.Z (no leading v), got '{{.APP_VERSION}}'"
+    cmds:
+      - go build {{.BUILD_FLAGS}} -o "{{.BIN_DIR}}/{{.APP_NAME}}"
+    vars:
+      BUILD_FLAGS: '{{if eq .DEV "true"}}-buildvcs=false -gcflags=all="-l"{{else}}-tags production -trimpath -buildvcs=false -ldflags="-w -s -X main.version={{.APP_VERSION}}"{{end}}'
+    env:
+      GOOS: darwin
+      CGO_ENABLED: "1"
+      GOARCH: '{{.ARCH | default ARCH}}'
+      # Info.plist の LSMinimumSystemVersion と同じ（12.0）。
+      CGO_CFLAGS: "-mmacosx-version-min=12.0"
+      CGO_LDFLAGS: "-mmacosx-version-min=12.0"
+      MACOSX_DEPLOYMENT_TARGET: "12.0"
+
+  package:
+    summary: Builds bin/Hitomado.app (ad-hoc signed) and bin/hitomado-vX.Y.Z-macos-<arch>.zip
+    cmds:
+      - task: build
+        vars:
+          ARCH: '{{.ARCH}}'
+          DEV: '{{.DEV}}'
+      - task: create:app:bundle
+      - task: zip
+        vars:
+          ARCH: '{{.ARCH}}'
+
+  create:app:bundle:
+    summary: Creates the ad-hoc signed bin/Hitomado.app from bin/hitomado
+    cmds:
+      # 前のビルドの .app を再利用すると署名が壊れるので、毎回作り直す。
+      - test -n "{{.BIN_DIR}}" && rm -rf -- "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app"
+      - mkdir -p "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/MacOS" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources"
+      - cp build/darwin/icons.icns "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Resources/icons.icns"
+      - cp "{{.BIN_DIR}}/{{.APP_NAME}}" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/MacOS/{{.APP_NAME}}"
+      - cp build/darwin/Info.plist "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Info.plist"
+      - /usr/libexec/PlistBuddy -c "Set :CFBundleVersion {{.APP_VERSION}}" -c "Set :CFBundleShortVersionString {{.APP_VERSION}}" "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app/Contents/Info.plist"
+      - xattr -cr "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app"
+      - codesign --force --deep --sign - "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app"
+      - codesign --verify --deep --strict "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app"
+
+  zip:
+    summary: Zips bin/Hitomado.app into bin/hitomado-vX.Y.Z-macos-<arch>.zip (ditto keeps the signature and symlinks)
+    cmds:
+      - ditto -c -k --keepParent "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app" "{{.BIN_DIR}}/{{.APP_NAME}}-v{{.APP_VERSION}}-macos-{{.TARGET_ARCH}}.zip"
+    vars:
+      TARGET_ARCH: '{{.ARCH | default ARCH}}'
+
+  run:
+    summary: Runs the executable directly (not as an .app bundle)
+    cmds:
+      - '{{.BIN_DIR}}/{{.APP_NAME}}'

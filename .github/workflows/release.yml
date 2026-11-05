@@ -19,6 +19,9 @@ permissions:
 
 env:
   WAILS_VERSION: v3.1.0
+  # Android ビルド（.github/actions/setup-android が使う）。NDK は build/android/Taskfile.yml の NDK_VERSION と同じ値にする。
+  ANDROID_NDK_VERSION: 26.3.11579264
+  ANDROID_BUILD_TOOLS_VERSION: 36.0.0
 
 jobs:
   # 今回のコミットで公開するタグを決める（ロジックは .github/scripts/next-version.sh）。
@@ -38,12 +41,15 @@ jobs:
           [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "::error::invalid release tag: '$tag'" >&2; exit 1; }
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-  # このコミットでも CI（lint・test・Windows ビルド）を必ず通す。
+  # このコミットでも CI（lint・test・Windows ビルド）を必ず通す。Android・macOS のビルドは PR 用のジョブで、
+  # この呼び出し（push）では動かない。リリース用の成果物は下の android・macos ジョブが作る。
   ci:
     uses: ./.github/workflows/ci.yml
     permissions:
       contents: read
 
+  # 成果物（Windows・Android・macOS）はすべて publish がまとめて公開する。どれか 1 つでも失敗したら Release は作らない
+  # （成果物の欠けた Release を出さない。直したら同じコミットの run を再実行する）。
   build:
     needs: [version, ci]
     runs-on: windows-latest
@@ -55,42 +61,98 @@ jobs:
         uses: ./.github/actions/build-installer
         with:
           version: ${{ needs.version.outputs.tag }}
-      - name: Checksums
+      - name: Collect the installer
         shell: pwsh
         env:
           TAG: ${{ needs.version.outputs.tag }}
-        run: |
-          $name = "hitomado-$env:TAG-windows-amd64-setup.exe"
-          Move-Item "bin\$name" $name
-          $hash = (Get-FileHash $name -Algorithm SHA256).Hash.ToLower()
-          "$hash  $name" | Out-File -Encoding ascii SHA256SUMS.txt
-          # NOTICE（リポジトリ直下。インストーラーに同梱したものと同じファイル）も同じコミットから添付する。
-          $hash = (Get-FileHash NOTICE -Algorithm SHA256).Hash.ToLower()
-          "$hash  NOTICE" | Out-File -Encoding ascii -Append SHA256SUMS.txt
+        run: Move-Item "bin\hitomado-$env:TAG-windows-amd64-setup.exe" .
       - uses: actions/upload-artifact@v4
         with:
-          name: release-files
+          name: release-windows
+          # NOTICE（リポジトリ直下。インストーラーに同梱したものと同じファイル）も同じコミットから添付する。
           path: |
             hitomado-*-windows-amd64-setup.exe
             NOTICE
-            SHA256SUMS.txt
+          if-no-files-found: error
+
+  # Android の APK（arm64）。署名は使い捨ての鍵（実鍵は使わない）なので、版ごとに署名が変わる（README.md）。
+  android:
+    needs: [version, ci]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-android
+      - name: Build the APK (version is injected from the tag)
+        uses: ./.github/actions/build-android-apk
+        with:
+          version: ${{ needs.version.outputs.tag }}
+          output: out/hitomado-${{ needs.version.outputs.tag }}-android-arm64.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-android
+          path: out/hitomado-*-android-arm64.apk
+          if-no-files-found: error
+
+  # macOS の .app を zip にしたもの。署名は ad-hoc だけで公証はしない（Gatekeeper の警告が出る。README.md）。
+  macos:
+    needs: [version, ci]
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [arm64, amd64]
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build the app (version is injected from the tag)
+        uses: ./.github/actions/build-macos
+        with:
+          version: ${{ needs.version.outputs.tag }}
+          arch: ${{ matrix.arch }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-macos-${{ matrix.arch }}
+          path: bin/hitomado-${{ needs.version.outputs.tag }}-macos-${{ matrix.arch }}.zip
           if-no-files-found: error
 
   publish:
-    needs: [version, build]
+    needs: [version, build, android, macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/download-artifact@v4
         with:
-          name: release-files
+          pattern: release-*
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          # 全成果物（と NOTICE）の SHA-256。アプリ内の更新確認は、この中の Windows インストーラーの行だけを使う。
+          # glob が 1 つも一致しない成果物があれば sha256sum が失敗する（成果物の欠けた Release を出さない）。
+          sha256sum \
+            hitomado-*-windows-amd64-setup.exe \
+            hitomado-*-android-arm64.apk \
+            hitomado-*-macos-arm64.zip \
+            hitomado-*-macos-amd64.zip \
+            NOTICE > SHA256SUMS.txt
+          cat SHA256SUMS.txt
       - name: Publish release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ needs.version.outputs.tag }}
           REPO: ${{ github.repository }}
         run: |
+          files=(
+            hitomado-*-windows-amd64-setup.exe
+            hitomado-*-android-arm64.apk
+            hitomado-*-macos-arm64.zip
+            hitomado-*-macos-amd64.zip
+            NOTICE
+            SHA256SUMS.txt
+          )
           # タグは --target のコミット（このワークフローを起動した main のコミット）に作られる。
           # 新規作成時は成果物を同じコマンドで渡す（gh が下書き作成 → 添付 → 公開の順に処理するため、
           # 成果物のない Release が releases/latest に出ない）。
@@ -102,8 +164,7 @@ jobs:
               echo "::error::$TAG は別のコミット ($tag_sha) の Release です。上書きしません" >&2
               exit 1
             fi
-            gh release upload "$TAG" --repo "$REPO" --clobber hitomado-*-windows-amd64-setup.exe NOTICE SHA256SUMS.txt
+            gh release upload "$TAG" --repo "$REPO" --clobber "${files[@]}"
           else
-            gh release create "$TAG" --repo "$REPO" --target "$GITHUB_SHA" --title "$TAG" --generate-notes \
-              hitomado-*-windows-amd64-setup.exe NOTICE SHA256SUMS.txt
+            gh release create "$TAG" --repo "$REPO" --target "$GITHUB_SHA" --title "$TAG" --generate-notes "${files[@]}"
           fi

@@ -144,10 +144,14 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 - フロントは通知サービスのバインディングを参照していない（`frontend/src` に参照なし）。Android で通知サービスが無くてもフロントのビルドは通る。
 - 生成物（`frontend/bindings`）を変えるのは `task generate`（既定のタグ）だけ。Android 用の生成物は git 管理に入れない。
 
-## 8. CI（`ci.yml`）
+## 8. CI・リリース（`ci.yml`・`release.yml`）
 
 - `lint` に `Go lint (android)` を追加（`GOOS=android GOARCH=arm64 CGO_ENABLED=0 golangci-lint run`）。`*_android.go`・`!android` 側の型検査と lint が対象になる。手元では `task android:lint`（`build/android/gen` は overlay の生成物で単体では型検査に失敗するため、先に消してから実行し、次の `android:build` が作り直す）。
-- `android` ジョブ（ubuntu-latest、**pull_request のみ**。`release.yml` が呼ぶとき（push）は動かさない）: JDK 17、SDK platform 36・build-tools・NDK を `sdkmanager` で入れ、wails3 は `WAILS_VERSION`。デバッグ鍵（フォールバック）の APK を検査したあと、使い捨ての鍵（`keytool` で作り、パスワードは `::add-mask::` で伏せ、ジョブの中だけに存在）で release APK（arm64）と AAB（arm64＋x86_64）を作って `android:verify`・`bundletool validate` し、`hitomado-android` のアーティファクトに上げる（署名は使い捨ての鍵。実鍵は使わない）。
+- ビルド環境と release APK の作り方は、`.github/actions/` の composite action に切り出して `ci.yml` と `release.yml` で共有する（Windows の `build-installer` と同じ流儀）。
+  - `setup-android`: Go・bun・JDK 17・wails3（`WAILS_VERSION`）・SDK platform 36・build-tools・NDK（`sdkmanager`）・フロントの依存。呼び出し元の `env` に `WAILS_VERSION`・`ANDROID_NDK_VERSION`・`ANDROID_BUILD_TOOLS_VERSION` が要る（NDK は `build/android/Taskfile.yml` の `NDK_VERSION` と同じ値）。
+  - `build-android-apk`（入力 `version`・`output`）: `keytool` で**使い捨ての鍵**を作り（パスワードは `::add-mask::` で伏せ、ジョブの中だけに存在し、成果物には含めない）、環境変数で渡して `android:package ARCH=arm64 VERSION=…` → `EXPECT_SIGNING=release android:verify` を通した APK を `output` へ置く。
+- `ci.yml` の `android` ジョブ（ubuntu-latest、**pull_request のみ**。`release.yml` が呼ぶとき（push）は動かさず、リリース用の APK は `release.yml` の `android` ジョブが同じ action で作る）: `setup-android` のあと、SecureStore の JVM 単体テスト、デバッグ鍵（フォールバック）の APK の検査、`build-android-apk`（版 `0.99.1`）、AAB（arm64＋x86_64）の作成と `bundletool validate` を行い、`hitomado-android` のアーティファクトに上げる。
+- `release.yml` の `android` ジョブ（ubuntu-latest。`needs: [version, ci]`）: `setup-android` → `build-android-apk`（版はタグから `v` を除いた値）で `hitomado-vX.Y.Z-android-arm64.apk` を作り、`publish` が Release に添付して `SHA256SUMS.txt` に載せる。**署名は使い捨ての鍵**（実鍵は使わない）なので、版ごとに署名が変わり、上書きインストールはできない（更新は `adb uninstall jp.ousias.hitomado` → 入れ直し。アプリのデータは消える）。Google Play では配布しない。arm64 だけで、AAB・x86_64 は Release に添付しない。この APK のビルドが落ちると `publish` が動かず、Release は作られない。
 - Gradle のキャッシュは明示していない（初回は Gradle 本体の取得を含む）。
 - `android-e2e.yml`（**workflow_dispatch のみ**。`ci.yml` には入れていない）: KVM つきのエミュレーターでの E2E（§17.4）。
 
@@ -160,7 +164,7 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 
 ## 10. Android で動かさない機能
 
-配布は Google Play で、画面もタッチ前提のため、Android では次の機能を**コード上も動かさず、設定画面にも出さない**（Issue #89。Windows 版の動きは変えない）。
+Android 版はタッチ前提の画面で、Releases の APK は検証用（Google Play では配布しない。§8）のため、Android では次の機能を**コード上も動かさず、設定画面にも出さない**（Issue #89。Windows 版の動きは変えない）。
 
 | 機能 | Android | どう止めるか |
 |------|---------|--------------|

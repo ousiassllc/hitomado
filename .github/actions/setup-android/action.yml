@@ -1,0 +1,36 @@
+name: Set up the Android build
+description: >-
+  ubuntu-latest に Android 版（docs/environment/android.md）のビルド環境を用意する（Go・bun・JDK 17・wails3・SDK／NDK・フロントの依存）。
+  呼び出し側で actions/checkout を済ませておく。呼び出し元のワークフローの env に
+  WAILS_VERSION・ANDROID_NDK_VERSION・ANDROID_BUILD_TOOLS_VERSION が要る（NDK は build/android/Taskfile.yml の NDK_VERSION と同じ値）。
+  CI とリリースで同じ手順を使うためのもの。
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: 1.3.14
+    - uses: actions/setup-java@v4
+      with:
+        distribution: temurin
+        java-version: "17"
+    - name: Install tools
+      shell: bash
+      env:
+        CGO_ENABLED: "0"
+      run: go install -tags purego github.com/wailsapp/wails/v3/cmd/wails3@"${WAILS_VERSION}"
+    - name: Install Android SDK packages
+      shell: bash
+      run: |
+        yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null
+        "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+          "platforms;android-36" "build-tools;${ANDROID_BUILD_TOOLS_VERSION}" "ndk;${ANDROID_NDK_VERSION}"
+        echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/${ANDROID_NDK_VERSION}" >> "$GITHUB_ENV"
+        echo "$ANDROID_HOME/build-tools/${ANDROID_BUILD_TOOLS_VERSION}" >> "$GITHUB_PATH"
+    - name: Install frontend dependencies
+      shell: bash
+      run: bun install --frozen-lockfile
+      working-directory: frontend
