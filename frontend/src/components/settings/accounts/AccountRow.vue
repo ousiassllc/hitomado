@@ -162,7 +162,7 @@ const statusText = computed(() => {
 }
 
 .status {
-  border: 1px solid var(--warning);
+  border: 1px solid var(--warning-border);
   background: var(--warning-soft);
   color: var(--warning);
   padding: 0 var(--s-2);

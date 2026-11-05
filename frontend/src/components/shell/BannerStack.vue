@@ -57,7 +57,7 @@ const banners = computed(() =>
   padding: var(--s-2) var(--s-4);
   background: var(--warning-soft);
   color: var(--ink);
-  border-bottom: 1px solid var(--warning);
+  border-bottom: 1px solid var(--warning-border);
   font-size: var(--font-size-sm);
 }
 

@@ -58,7 +58,7 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
   align-items: flex-start;
   gap: var(--s-2);
   margin: var(--s-2) 0 0;
-  border: 1px solid var(--warning);
+  border: 1px solid var(--warning-border);
   background: var(--warning-soft);
   color: var(--ink);
   padding: var(--s-1) var(--s-2);

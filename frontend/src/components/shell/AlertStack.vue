@@ -56,7 +56,7 @@ function retry(id: number, run: (() => void) | undefined): void {
   align-items: flex-start;
   gap: var(--s-3);
   padding: var(--s-3) var(--s-4);
-  border: 1px solid var(--alert-color);
+  border: 1px solid var(--alert-border);
   border-radius: var(--r-md);
   background: var(--alert-soft);
   color: var(--ink);
@@ -64,16 +64,19 @@ function retry(id: number, run: (() => void) | undefined): void {
 
 .alert-error {
   --alert-color: var(--danger);
+  --alert-border: var(--danger-border);
   --alert-soft: var(--danger-soft);
 }
 
 .alert-info {
   --alert-color: var(--info);
+  --alert-border: var(--info-border);
   --alert-soft: var(--info-soft);
 }
 
 .alert-success {
   --alert-color: var(--success);
+  --alert-border: var(--success-border);
   --alert-soft: var(--success-soft);
 }
 

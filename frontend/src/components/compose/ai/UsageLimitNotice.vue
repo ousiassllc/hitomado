@@ -34,7 +34,7 @@ defineEmits<{ manage: []; dismiss: [] }>()
   align-items: flex-start;
   gap: var(--s-2);
   padding: var(--s-2) var(--s-3);
-  border: 1px solid var(--warning);
+  border: 1px solid var(--warning-border);
   border-radius: var(--r-md);
   background: var(--warning-soft);
   color: var(--ink);

@@ -91,7 +91,7 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
   align-items: center;
   gap: var(--s-3);
   padding: var(--s-2) var(--s-3);
-  border: 1px solid var(--warning);
+  border: 1px solid var(--warning-border);
   background: var(--warning-soft);
   color: var(--ink);
   border-radius: var(--r-md);

@@ -181,7 +181,7 @@ function openGuide(): void {
 }
 
 .inuse {
-  border: 1px solid var(--warning);
+  border: 1px solid var(--warning-border);
   background: var(--warning-soft);
   color: var(--warning);
   align-self: flex-start;
