@@ -463,7 +463,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 
 - **テーマ**: ライトとダーク。`prefers-color-scheme` に追従する（`composables/useTheme`）。配色は `styles/tokens.css` の CSS 変数（Ousiass デザインガイドの `--ink`・`--bone`・`--mute`・`--surface`・`--border`・`--accent`・`--accent-soft`・`--focus`・状態色 `--success`／`--warning`／`--danger`／`--info`、アカウント色 `--account-<key>`）で定義し、コンポーネントに色値を直書きしない
 - **アカウント色パレット**: 10 色を用意し、ライト／ダークの各背景に対して文字・帯のコントラスト比 4.5:1 を満たす値のみ採用する（NF §11）。**色だけで識別させない**（名前チップを常に併記）
-- **フォーカス**: すべての操作要素で可視フォーカスを表示する。ダイアログはフォーカストラップ（Reka UI）。スレッドリストは矢印キーでも移動できる（`role="listbox"`、`aria-activedescendant`）
+- **フォーカス**: すべての操作要素で可視フォーカスを表示する（`--focus` 2px。既定は外側 offset 2。切れる・隣と重なる場所だけ内側 offset −2px。[§5.3 逸脱](#逸脱)）。ダイアログはフォーカストラップ（Reka UI）。スレッドリストは矢印キーでも移動できる（`role="listbox"`、`aria-activedescendant`）
 - **動き**: `prefers-reduced-motion` では装飾的な動き（移動・スライド・リップル）を無効にし、必要な opacity のフェードは 80ms にする。スピナーなど処理中の表示は止めない
 - **文字**: UI は日本語。文言は `lib/messages/` に集約する（将来の多言語化を妨げない。NF §7）
 - **ダイアログの代替文**: アイコンのみのボタンには `aria-label` を付ける（アイコン本体は `aria-hidden`）
@@ -479,7 +479,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 区分 | 使うトークン・部品 | 使いどころ |
 |------|------------------|------------|
 | 色 | `--ink` `--bone` `--mute` `--surface` `--border` `--accent` `--accent-soft` | 文字は `--ink`、補助は `--mute`、ページは `--bone`、カード・ダイアログ・入力は `--surface`、ホバー・選択は `--accent-soft`、主ボタン・未読ドット・件数バッジは `--accent` 地＋`--bone` 字 |
-| フォーカス | `--focus` `--ring` | フォーカスリング・フォームの focus のみ（青はここだけ）。テキスト入力（宛先・本文エディタは外枠の `:focus-within`）は focus で `border-color: var(--focus)` と `box-shadow: 0 0 0 2px var(--ring)` に揃える。ペイン分割ハンドルも `styles/reset.css` のグローバルな `:focus-visible`（`--focus` 2px・offset 2）を使う |
+| フォーカス | `--focus` `--ring` | フォーカスリング・フォームの focus のみ（青はここだけ）。テキスト入力（宛先・本文エディタは外枠の `:focus-within`）は focus で `border-color: var(--focus)` と `box-shadow: 0 0 0 2px var(--ring)` に揃える。ペイン分割ハンドルも `styles/reset.css` のグローバルな `:focus-visible`（`--focus` 2px・offset 2）を使う。スクロール領域・タブ・リスト行・カードのトグルだけ内側（offset −2px。[逸脱](#逸脱)） |
 | 状態色 | `--success` `--warning` `--danger` `--info` | アイコン＋文言＋状態色の細枠と薄い地（`--*-soft`。バナー（`WarningTriangle`）・送信確認の警告・インラインアラート・作成画面のエラー（`AlertStack` と同じ見た目）・ステータスの小さな札）。色や濃淡だけで状態を伝えない |
 | タイポ | サイズ `xs`〜`3xl`（`--font-size-*`）・行間 `--line-height-*`・Sora + Noto Sans JP（`@fontsource-variable/*`。SIL OFL。アプリに同梱）・JetBrains Mono（`--font-mono`。識別子・トークン・エンドポイントなど桁を揃えたい文字） | 本文 `base`（16px・行間 1.8）。SemiBold は見出し・ボタン・アコーディオンの summary（`BaseDisclosure`。body は Regular `--mute`）のみ（`styles/reset.css` で `h1`〜`h6` は 600、見出しでない `<strong>` は 400。本文エディタで利用者が付けた太字だけ 700）。未読の強調は太字にしない（`--ink`／`--mute` の対比と未読ドット） |
 | 角丸・余白 | `--r-*` `--s-*` | ボタン・入力 `--r-md`、カード `--r-lg`、モーダル `--r-xl`、ピル・バッジ `--r-full`（状態色のステータスの札もピル）。テキスト入力は高さ `--control-h`・左右 padding `--s-3`（検索・select・設定・件名・宛先・AI への指示・リンク入力で揃える） |
@@ -507,6 +507,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 確認を伴うダイアログ（`ChatGPTPlanNotice`） | O1: 外側（スクラム）クリックで閉じる | `closable=false`。外側クリック・Esc・× で閉じず、「Got it」だけで確認済みにする | OpenAI の UI/UX ガイドラインで求められる確認で、明示の操作なしに永続しない（キャンセルの無いダイアログ） | 未承認（ガイド側の判断待ち） |
 | 最小ウィンドウ幅 960px（Windows） | `--bp-*`（640/768/1024/1280） | Windows 版の `.shell` は幅 960px の最小サイズを持つ（3 ペインの最小幅）。画面幅で切り替えるブレークポイントはガイドの値（640・1024） | Windows のウィンドウの最小サイズであり、レイアウトの切り替え点ではない | 未承認（案件ガイドで定義する） |
 | 認可の完了ページ（`internal/callbackpage`）のフォント名 | `--font-sans`（`"Sora Variable"`・`"Noto Sans JP Variable"`。アプリに同梱した `@font-face` の名前） | `font-family: Sora,"Noto Sans JP",sans-serif`（`Variable` を付けない端末のフォント名） | ページは素のブラウザタブで開き、アプリ同梱のフォントを読めない（CSP `default-src 'none'`）。端末に Sora・Noto Sans JP があれば使い、無ければ `sans-serif` | ガイドの逸脱ではなく案件固有の実装上の差（承認不要） |
+| フォーカスリングの内側 offset（`outline-offset: -2px`） | `:focus-visible` は `--focus` 2px・offset 2（外側。`styles/reset.css`） | 次の 5 か所だけ、リングを要素の内側に描く（`outline: 2px solid var(--focus)`・`outline-offset: -2px`）。(1) `InboxTabs` のタブ（`.tab:focus-visible`）、(2) `ThreadList` のスクロール領域（`.list:focus-visible`）、(3) `ThreadRow` のキーボードカーソル行（`.row.active`。行は `:focus-visible` でなく `aria-activedescendant` で示す）、(4) `MessageCard` のヘッダのトグル（`.card-toggle:focus-visible`）、(5) `BaseDisclosure` の summary（`.disclosure-summary:focus-visible`）。色・太さはガイドのとおりで、offset の向きだけが違う | (1) タブは横スクロール（`overflow-x: auto`）の中にあり、(2) は一覧自体がスクロール領域、(5) は角丸＋`overflow: hidden` のため、外側のリングが切れる。(3)(4) は全幅で隣の行・カード枠や端に接し、外側に出すと重なる・切れる。内側にすれば常に全周が見える。ガイドへ提案予定（未提出） | 未承認（案件ガイドで定義する） |
 
 #### フロントの外にある画面（認可の完了ページ）
 
