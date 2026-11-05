@@ -392,6 +392,7 @@ AI の設定の入口は 2 つ（作成画面の「AI で下書き」と設定�
 - `OFFLINE` を受け取ったら `uiStore.online = false`。次の成功呼び出し、または `sync:updated` で復帰する
 - アーカイブ・ゴミ箱で**開いているスレッド**が除去されるとき、`inboxSelection.afterRemoval` が除去した最初の位置の次の行（末尾なら一つ前。無ければ空表示）を `selectedKey` にして開く（`closeOpened` の真偽は `opened: 'next' | 'close' | 'keep'` に変えた。既読化で消えるだけのときは `keep`、`removeThread` は `close`）。開いていないスレッドの除去では `selectedKey` を変えない。`afterRemoval` が返す関数でロールバック（`applyOptimistic` の戻り値）が、まだ自動で開いたスレッドを見ているときだけ元のスレッドを開き直す。「元に戻す」（`reinsert`）は選択に触れない。自動で開いたスレッドは `ThreadPane` の既存の挙動（表示後に未読なら `MarkRead`）で既読になる
 - 「元に戻す」の差し戻し（`inboxMutations.reinsert`）は、アーカイブ・ゴミ箱をした時点の表示条件（`viewKey`: モード・検索語・タブ・未読のみ・アカウントの絞り込み）を覚えておき、押したときの条件が同じときだけ一覧へ差し戻す（`lastMessageAt` の降順の位置へ入れる）。検索へ切り替えた・絞り込みを変えた後なら差し戻さず、直後の再取得に任せる（条件外の行を一時的にも入れない）（#170）
+- 開いているスレッドを `'next'` で除去して**次の行が無く空表示にした**ときも、失敗のロールバックは（まだ何も開き直されていなければ）元のスレッドを開き直す（`afterRemoval` は切り替えたかどうかを `autoOpened` の有無ではなく別に覚える）。開いていないスレッドの失敗では選択を変えない（#171）
 - 一覧が 0 件でも続き（`nextCursor`）があるとき（未読のみで該当なし等）、`inboxStore` が 1 回の操作（起動・フィルタ変更・`loadMore`）で自動的に辿るのは最大 3 ページ（`MAX_AUTO_EMPTY_PAGES`）。超えて止まったら `hasMore` のまま残り、続きは `ThreadList` の「さらに読み込む」（`loadMore`）で利用者が読む
 
 ### 3.11 lib・composables
@@ -601,3 +602,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.47 | 2026-11-06 | §5.2 のタイポに、折り返しうる `sm`・`xs` の文章の行間をスケールの値（`--line-height-sm`・`--line-height-xs`）にする定めを追記し、設定・アカウント追加・送信確認・AI・添付・バナー・画像バーの説明文・注記・エラーを揃えた | #187 |
 | 1.48 | 2026-11-06 | §5.2 のタイポに、1 行のチップの行間をスケールのトークンにする定めと、本文エディタを `base`＋`--line-height-base` に揃える旨を追記。`RichTextEditor` の `font-size` を `base` に、`BaseChip`・`AccountChip`・`RecipientField` のチップの `line-height` を px 直書きからトークンに、`ToastHost` の `.toast` の `line-height: 1` を削除 | #195 |
 | 1.49 | 2026-11-06 | §3.10 の `inboxStore` に、「元に戻す」の差し戻しは除去した時点と同じ表示条件のときだけ行うことを追記（`MutationDeps.viewKey`） | #170 |
+| 1.50 | 2026-11-06 | §3.10 の `inboxStore` に、最後の 1 件のアーカイブ・ゴミ箱が失敗したとき空表示にしていた元のスレッドも開き直すことを追記 | #171 |

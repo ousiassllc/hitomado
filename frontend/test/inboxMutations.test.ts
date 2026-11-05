@@ -150,6 +150,46 @@ describe('アーカイブ・ゴミ箱後の次のスレッド', () => {
     expect(s.selectedKey).toBe('a1:t2')
   })
 
+  test('最後の 1 件の失敗でも、空表示にしていたなら元のスレッドを開き直す', async () => {
+    failures.Archive = appError('GMAIL_ERROR')
+    responses.ListInbox = () => page([base[0]])
+    const s = useInboxStore()
+    await s.load()
+    s.select(ref('a1', 't1'))
+    expect(await s.archive([ref('a1', 't1')])).toBe(false)
+    expect(ids(s)).toEqual(['t1'])
+    expect(s.selectedKey).toBe('a1:t1')
+    expect(s.cursorKey).toBe('a1:t1')
+  })
+
+  test('開いていないスレッドの失敗では、選択は変わらない', async () => {
+    failures.Archive = appError('GMAIL_ERROR')
+    const s = useInboxStore()
+    await s.load()
+    s.select(ref('a1', 't1'))
+    expect(await s.archive([ref('a1', 't2')])).toBe(false)
+    expect(s.selectedKey).toBe('a1:t1')
+    s.clearSelection()
+    expect(await s.archive([ref('a1', 't2')])).toBe(false)
+    expect(s.selectedKey).toBeUndefined()
+  })
+
+  test('最後の 1 件の失敗でも、その間にユーザーが開き直したスレッドは変えない', async () => {
+    failures.Archive = appError('GMAIL_ERROR')
+    const g = deferred()
+    gates.Archive = g.p
+    responses.ListInbox = () => page([base[0], base[1]])
+    const s = useInboxStore()
+    await s.load()
+    s.select(ref('a1', 't2'))
+    s.select(ref('a1', 't1'))
+    const done = s.archive([ref('a1', 't1'), ref('a1', 't2')])
+    s.select(ref('a1', 't2'))
+    g.resolve()
+    expect(await done).toBe(false)
+    expect(s.selectedKey).toBe('a1:t2')
+  })
+
   test('失敗のロールバックでも、その間にユーザーが開き直したスレッドは変えない', async () => {
     failures.Archive = appError('GMAIL_ERROR')
     const g = deferred()
