@@ -175,12 +175,12 @@ export function useInboxMutations(d: MutationDeps) {
   ): void {
     const message =
       op === 'archive' ? common.op.archived(refs.length) : common.op.trashed(refs.length)
+    const inbox = refs.filter((r) => wasInInbox.get(keyOf(r)) !== false)
+    const others = refs.filter((r) => wasInInbox.get(keyOf(r)) === false)
     const undo = async () => {
-      if (op === 'archive') return undoRemoval(op, refs, true)
-      const inbox = refs.filter((r) => wasInInbox.get(keyOf(r)) !== false)
-      const others = refs.filter((r) => wasInInbox.get(keyOf(r)) === false)
       if (inbox.length > 0) await undoRemoval(op, inbox, true)
-      if (others.length > 0) await undoRemoval(op, others, false)
+      // アーカイブは INBOX を外すだけなので、受信箱に無かったスレッドは何も変わっておらず、取り消しても INBOX へ入れない
+      if (op === 'trash' && others.length > 0) await undoRemoval(op, others, false)
     }
     d.ui.pushSnackbar(message, { label: common.op.undo, run: () => void undo() })
   }

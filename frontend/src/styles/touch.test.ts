@@ -6,7 +6,7 @@ const css = await Bun.file(new URL('./touch.css', import.meta.url)).text()
 describe('touch.css', () => {
   test('--tap-min は 44px で、押せる要素と入力欄の最小高さに使う', () => {
     expect(css).toMatch(/:root\[data-touch-ui\]\s*\{\s*--tap-min:\s*44px;/)
-    expect(css).toMatch(/\.btn,[\s\S]*?\{\s*min-height:\s*var\(--tap-min\);/)
+    expect(css).toMatch(/\.btn,[^{}]*\{\s*min-height:\s*var\(--tap-min\);/)
     expect(css).toMatch(/input\.text\s*\{\s*min-height:\s*var\(--tap-min\);/)
   })
 

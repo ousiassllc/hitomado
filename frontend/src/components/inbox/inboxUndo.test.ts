@@ -78,6 +78,32 @@ describe('アーカイブ・ゴミ箱のスナックバー（元に戻す）', (
     expect(ui.alerts).toHaveLength(0)
   })
 
+  test('戻したスレッドは、先頭ページの再取得を待たずに一覧へ差し戻す', async () => {
+    const inbox = await loaded()
+    const ui = useUiStore()
+    // 再取得を止めておき、差し戻しだけで一覧が戻ることを確かめる
+    const gate = Promise.withResolvers<void>()
+    ctl.responses.ListInbox = async () => {
+      await gate.promise
+      return { items: [T2], failures: [] }
+    }
+    await inbox.archive([REF])
+    ui.toast?.action?.run()
+    await until(() => inbox.items.length === 2)
+    expect(inbox.items.map((t) => t.threadId)).toEqual(['t1', 't2'])
+    gate.resolve()
+  })
+
+  test('検索結果で受信箱にないスレッドのアーカイブは、元に戻しても INBOX へ入れない', async () => {
+    ctl.responses.Search = { items: [summary('t1', { inInbox: false })], failures: [] }
+    const inbox = useInboxStore()
+    await inbox.runSearch('is:starred')
+    const ui = useUiStore()
+    expect(await inbox.archive([REF])).toBe(true)
+    ui.toast?.action?.run()
+    expect(callsOf('Unarchive')).toHaveLength(0)
+  })
+
   test('ゴミ箱成功の直後にスナックバーが出て、受信箱にあったスレッドは INBOX へ戻す', async () => {
     const inbox = await loaded()
     const ui = useUiStore()

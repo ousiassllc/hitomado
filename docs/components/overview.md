@@ -482,7 +482,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 区分 | 使うトークン・部品 | 使いどころ |
 |------|------------------|------------|
 | 色 | `--ink` `--bone` `--mute` `--surface` `--border` `--accent` `--accent-soft` | 文字は `--ink`、補助は `--mute`、ページは `--bone`、カード・ダイアログ・入力は `--surface`、ホバー・選択は `--accent-soft`、主ボタン・未読ドット・件数バッジは `--accent` 地＋`--bone` 字 |
-| フォーカス | `--focus` `--ring` | フォーカスリング・フォームの focus のみ（青はここだけ）。テキスト入力（宛先・本文エディタは外枠の `:focus-within`）は focus で `border-color: var(--focus)` と `box-shadow: 0 0 0 2px var(--ring)` に揃える。ペイン分割ハンドルも `styles/reset.css` のグローバルな `:focus-visible`（`--focus` 2px・offset 2）を使う。スクロール領域・タブ・リスト行・カードのトグルだけ内側（offset −2px。[逸脱](#逸脱)） |
+| フォーカス | `--focus` `--ring` | フォーカスリング・フォームの focus のみ（青はここだけ）。テキスト入力（宛先・本文エディタは外枠の `:focus-within`）は focus で `border-color: var(--focus)` と `box-shadow: 0 0 0 2px var(--ring)` に揃える。ペイン分割ハンドルも `styles/reset.css` のグローバルな `:focus-visible`（`--focus` 2px・offset 2）を使う。スクロール領域・タブ・リスト行・カードのトグル・折りたたみの summary だけ内側（offset −2px。[逸脱](#逸脱)） |
 | 状態色 | `--success` `--warning` `--danger` `--info` | アイコン＋文言＋状態色の細枠と薄い地（`--*-soft`。バナー（`WarningTriangle`）・送信確認の警告・インラインアラート・作成画面のエラー（`AlertStack` と同じ見た目）・ステータスの小さな札）。色や濃淡だけで状態を伝えない |
 | タイポ | サイズ `xs`〜`3xl`（`--font-size-*`）・行間 `--line-height-*`・Sora + Noto Sans JP（`@fontsource-variable/*`。SIL OFL。アプリに同梱）・JetBrains Mono（`--font-mono`。識別子・トークン・エンドポイントなど桁を揃えたい文字） | 本文 `base`（16px・行間 1.8）。SemiBold は見出し・ボタン・アコーディオンの summary（`BaseDisclosure`。body は Regular `--mute`）のみ（`styles/reset.css` で `h1`〜`h6` は 600、見出しでない `<strong>` は 400。本文エディタで利用者が付けた太字だけ 700）。未読の強調は太字にしない（`--ink`／`--mute` の対比と未読ドット） |
 | 角丸・余白 | `--r-*` `--s-*` | ボタン・入力 `--r-md`、カード `--r-lg`、モーダル `--r-xl`、ピル・バッジ `--r-full`（状態色のステータスの札もピル）。テキスト入力は高さ `--control-h`・左右 padding `--s-3`（検索・select・設定・件名・宛先・AI への指示・リンク入力で揃える） |
@@ -592,3 +592,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.38 | 2026-11-05 | §5.3 の案件固有部品に、ドロップダウンのチェック付き項目（`BaseMenu` の `checked`）、ツールチップの padding（6px 10px。`--s-*` に無い）、ウィンドウ外の表面（トレイの未読バッジ・Android の通知の小アイコン）を、逸脱にトレイの未読バッジの色（ライト値固定＋白縁）を追記。いずれも案件内で定め、ガイドへの提案は未提出。`badgeColor` と `--danger` の一致を検証するテストを追加 | #166・#167・#160 |
 | 1.39 | 2026-11-05 | §5.2 のアカウント色パレットと §5.3 の案件固有部品に、アカウント識別色（10 色のキー・ライト／ダークの値・帯とチップの形・選択 UI・コントラストの根拠）と、ペイン分割ハンドル（`PaneSplitter`）・リサイズ可能な 3 ペイン骨格（`AppShell`。幅の範囲・キー操作・タッチでの差）を、実装の値に揃えて明記。いずれも案件内で定め、ガイドへの提案は未提出 | #157・#158 |
 | 1.40 | 2026-11-05 | §3.10 の `inboxStore` に、アーカイブ・ゴミ箱の後に次の行を自動で開く動作（`afterRemoval` の `opened`・ロールバックの扱い・既読になる旨）を追記 | #168 |
+| 1.41 | 2026-11-05 | §5.3 の逸脱表の `--mute` の文字に、複数文の説明文は `--ink` にする旨を追記（設定の説明文を実装に揃えた）。認可の完了ページ（`internal/callbackpage`）が `tokens.css` の値を複製する方針（複製・テストでの同期・フォント名の逸脱）を、逸脱表と「フロントの外にある画面」に追記。§5.3 のフォーカスの行に `BaseDisclosure` の summary を加えた | #152・#154 |

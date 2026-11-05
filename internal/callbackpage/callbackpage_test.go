@@ -135,6 +135,13 @@ func TestPageValuesMatchTokens(t *testing.T) {
 		}
 	}
 
+	// トークンが改名・削除されると下の期待値が空文字を含んで常に一致してしまうので、先に存在を確かめる。
+	for _, k := range []string{"--font-sans", "--font-size-lg", "--line-height-lg", "--font-size-base", "--line-height-base", "--s-6", "--r-lg", "--s-3"} {
+		if light[k] == "" {
+			t.Fatalf("tokens.css has no %s", k)
+		}
+	}
+
 	// フォントはトークンの family（"Sora Variable" 等は同梱フォントの @font-face 名）から " Variable" を外した、端末のフォント名。
 	fam := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(light["--font-sans"], " Variable", ""), `"Sora"`, "Sora"), ", ", ",")
 	if want := "font-family:" + fam; !strings.Contains(body, want) {
