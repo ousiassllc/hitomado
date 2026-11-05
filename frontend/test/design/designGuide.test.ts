@@ -256,6 +256,11 @@ describe('トークン（C・T・S・O）', () => {
     expect(css).not.toContain('--shadow-popup')
   })
 
+  test('ダークでは --shadow-modal を alpha 40% に切り替える', () => {
+    const dark = css.slice(css.indexOf('@media (prefers-color-scheme: dark)'))
+    expect(/--shadow-modal:\s*([^;]+);/.exec(dark)?.[1]?.trim()).toBe('0 1px 2px rgb(0 0 0 / 40%)')
+  })
+
   test('z-index は --z-*（dropdown 100 / drawer 300 / modal 400 / toast 500）', () => {
     expect(['dropdown', 'drawer', 'modal', 'toast'].map((k) => token(`--z-${k}`))).toEqual([
       '100',
