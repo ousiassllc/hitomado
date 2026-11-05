@@ -2,9 +2,14 @@ package platform
 
 import (
 	"bytes"
+	"fmt"
 	"image"
 	"image/color"
 	"image/png"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -43,4 +48,14 @@ func TestBadgeIconDrawsBadgeDotInBottomRight(t *testing.T) {
 func TestBadgeIconRejectsInvalidPNG(t *testing.T) {
 	_, err := BadgeIcon([]byte("not png"))
 	assert.Error(t, err)
+}
+
+// badgeColor は tokens.css の --danger（ライト値。最初の宣言）と同じ値を複製している。トークンを変えたらここも直す
+// （docs/components/overview.md §5.3 のウィンドウ外の表面）。
+func TestBadgeColorMatchesDangerToken(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "frontend", "src", "styles", "tokens.css"))
+	require.NoError(t, err)
+	m := regexp.MustCompile(`(?m)^\s*--danger:\s*#([0-9a-fA-F]{6});`).FindSubmatch(b)
+	require.NotNil(t, m, "tokens.css に --danger（#rrggbb）が無い")
+	assert.Equal(t, fmt.Sprintf("%02x%02x%02x", badgeColor.R, badgeColor.G, badgeColor.B), strings.ToLower(string(m[1])))
 }
