@@ -151,7 +151,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
   align-items: flex-start;
   gap: var(--s-3);
   padding: var(--s-3) var(--s-4);
-  border: 1px solid var(--danger);
+  border: 1px solid var(--danger-border);
   border-radius: var(--r-md);
   background: var(--danger-soft);
   color: var(--ink);

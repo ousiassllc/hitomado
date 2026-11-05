@@ -114,7 +114,7 @@ function onOpen(open: boolean): void {
 .warning {
   padding: var(--s-2) var(--s-3);
   border-radius: var(--r-md);
-  border: 1px solid var(--warning);
+  border: 1px solid var(--warning-border);
   background: var(--warning-soft);
   color: var(--ink);
   font-size: var(--font-size-sm);
@@ -126,7 +126,7 @@ function onOpen(open: boolean): void {
 
 /* 他の自アカウント宛は、送信元より目立たせる（状態色の細枠・薄い地・大きめの文字。太字にしない）。 */
 .warning-strong {
-  border-color: var(--danger);
+  border-color: var(--danger-border);
   background: var(--danger-soft);
   font-size: var(--font-size-lg);
 }

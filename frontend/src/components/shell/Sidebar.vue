@@ -75,7 +75,7 @@ async function reconnect(id: string): Promise<void> {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: var(--bone);
+  background: var(--surface);
   border-right: 1px solid var(--border);
 }
 
