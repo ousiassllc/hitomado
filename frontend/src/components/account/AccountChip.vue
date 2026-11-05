@@ -32,12 +32,12 @@ withDefaults(
 
 .account-chip-md {
   font-size: var(--font-size-sm);
-  line-height: 22px;
+  line-height: var(--line-height-sm);
 }
 
 .account-chip-sm {
   font-size: var(--font-size-xs);
-  line-height: 18px;
+  line-height: var(--line-height-xs);
 }
 
 .account-chip-name {
