@@ -17,27 +17,25 @@ defineProps<{
 
 <style scoped>
 .sender-badge {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-left: var(--space-2) solid transparent;
-  border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
-  color: var(--color-text);
-  line-height: 1.35;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--border);
+  border-left: var(--s-2) solid transparent;
+  border-radius: var(--r-lg);
+  background: var(--bone);
+  color: var(--ink);
+  line-height: var(--line-height-sm);
   overflow-wrap: anywhere;
 }
 
 .sender-name {
   font-size: var(--font-size-lg);
-  font-weight: 700;
 }
 
 .sender-email {
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
 }
 
 .sender-email:only-child {
   font-size: var(--font-size-lg);
-  font-weight: 700;
 }
 </style>

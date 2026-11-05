@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ArrowLeft } from '@iconoir/vue'
 import { common } from '../../lib/messages'
 import { useInboxStore } from '../../stores/inbox'
 import { useLayoutStore } from '../../stores/layout'
@@ -16,6 +17,6 @@ const layout = useLayoutStore()
     data-testid="back-to-list"
     @click="inbox.select(undefined)"
   >
-    <span aria-hidden="true">←</span>
+    <ArrowLeft class="icon" aria-hidden="true" />
   </BaseIconButton>
 </template>

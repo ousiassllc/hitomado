@@ -56,23 +56,22 @@ const options = computed(() =>
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
   min-height: 36px;
 }
 
 .sender-label {
   flex: 0 0 56px;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .sender-email {
   font-size: var(--font-size-sm);
-  font-weight: 600;
 }
 
 .sender-hint {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 

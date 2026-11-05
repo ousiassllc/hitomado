@@ -4,6 +4,14 @@ import { plugin } from 'bun'
 
 GlobalRegistrator.register()
 
+// アイコン（Iconoir）は App.vue の IconoirProvider から既定値を受ける。単体でマウントするテストでは無い（なくても描ける）ので、その警告だけ出さない。
+// Vue（runtime-dom）は読み込み時に document を見るので、DOM を登録したあとで読み込む。
+const { config } = await import('@vue/test-utils')
+config.global.config.warnHandler = (msg, _instance, trace) => {
+  if (msg.includes('IconoirProvider')) return
+  console.warn(`[Vue warn]: ${msg}${trace}`)
+}
+
 // bun test が .vue（<script setup lang="ts"> ＋ template）を import できるようにする SFC ローダー。
 const transpiler = new Bun.Transpiler({ loader: 'ts' })
 

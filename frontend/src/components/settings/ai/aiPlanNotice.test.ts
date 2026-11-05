@@ -80,7 +80,7 @@ describe('ChatGPT プランの確認モーダル（#80）', () => {
       ?.click()
     await flushPromises()
     expect(dialogText()).not.toContain("You're using your ChatGPT plan")
-    expect(ui.toasts.map((t) => [t.kind, t.message])).toEqual([
+    expect(ui.alerts.map((a) => [a.kind, a.message])).toEqual([
       ['error', '確認の記録に失敗しました。次回もう一度表示されます。'],
     ])
   })

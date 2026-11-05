@@ -38,19 +38,19 @@ describe('楽観的更新', () => {
     expect(callsOf('Archive')[0].args[0]).toEqual([ref('a1', 't1')])
   })
 
-  test('失敗時は元の位置へ復元し、再試行付きエラートーストを出す', async () => {
+  test('失敗時は元の位置へ復元し、再試行付きエラーアラートを出す', async () => {
     failures.Archive = appError('GMAIL_ERROR')
     const s = useInboxStore()
     const ui = useUiStore()
     await s.load()
     expect(await s.archive([ref('a2', 't3')])).toBe(false)
     expect(ids(s)).toEqual(['t1', 't2', 't3', 't4'])
-    expect(ui.toasts).toHaveLength(1)
-    expect(ui.toasts[0].kind).toBe('error')
-    expect(typeof ui.toasts[0].retry).toBe('function')
+    expect(ui.alerts).toHaveLength(1)
+    expect(ui.alerts[0].kind).toBe('error')
+    expect(typeof ui.alerts[0].retry).toBe('function')
 
     delete failures.Archive
-    ui.toasts[0].retry?.()
+    ui.alerts[0].retry?.()
     await until(() => callsOf('Archive').length === 2)
     expect(ids(s)).toEqual(['t1', 't2', 't4'])
   })
@@ -91,20 +91,20 @@ describe('楽観的更新', () => {
     // 再読込の前でも、成功した t1 は一覧へ戻らない（復元しない）
     expect(ids(s)).toEqual(['t2', 't4'])
     expect(ids(s)).toContain('t2')
-    expect(ui.toasts).toHaveLength(1)
-    expect(ui.toasts[0].message).toContain('見つかりません')
-    expect(ui.toasts[0].retry).toBeUndefined()
+    expect(ui.alerts).toHaveLength(1)
+    expect(ui.alerts[0].message).toContain('見つかりません')
+    expect(ui.alerts[0].retry).toBeUndefined()
     hold.resolve()
   })
 
-  test('NOT_FOUND 以外の失敗は従来どおり復元＋再試行トースト', async () => {
+  test('NOT_FOUND 以外の失敗は従来どおり復元＋再試行アラート', async () => {
     failures.Archive = appError('GMAIL_ERROR')
     const s = useInboxStore()
     const ui = useUiStore()
     await s.load()
     await s.archive([ref('a2', 't3')])
     expect(ids(s)).toContain('t3')
-    expect(typeof ui.toasts[0].retry).toBe('function')
+    expect(typeof ui.alerts[0].retry).toBe('function')
   })
 
   test('markRead は即時に既読表示になり、失敗時は未読に戻る', async () => {

@@ -27,11 +27,16 @@ const platform = usePlatformStore()
 <style scoped>
 /* Popper 本体には scoped 属性が付かない（BaseSelect.vue の .sel-pop と同じ）ので :global で当てる。 */
 :global(.tip-pop) {
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--color-text);
-  color: var(--color-bg);
+  padding: var(--s-1) var(--s-2);
+  border-radius: var(--r-sm);
+  background: var(--ink);
+  color: var(--bone);
   font-size: var(--font-size-xs);
-  z-index: 130;
+  z-index: var(--z-popup);
+  animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
+}
+
+:global(.tip-pop[data-state='closed']) {
+  animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 </style>

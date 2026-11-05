@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Attachment, Xmark } from '@iconoir/vue'
 import { Dialogs } from '@wailsio/runtime'
 import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { droppedPaths, FILES_DROPPED_EVENT } from '../../lib/dropFiles'
@@ -32,7 +33,7 @@ async function pick(): Promise<void> {
     if (paths.length > 0) await compose.addAttachments(paths)
   } catch {
     // 選択のキャンセルはエラーにしない。ダイアログを開けなかった場合のみ知らせる。
-    ui.pushToast('error', msg.attachments.pickFailed)
+    ui.pushAlert(msg.attachments.pickFailed)
   }
 }
 
@@ -51,7 +52,7 @@ onBeforeUnmount(() => stopDrop?.())
 <template>
   <section class="attachments" :aria-label="msg.attachments.label">
     <div class="attach-head">
-      <BaseButton variant="secondary" :disabled="disabled" @click="pick">📎 {{ msg.attachments.add }}</BaseButton>
+      <BaseButton size="sm" variant="secondary" :disabled="disabled" @click="pick"><Attachment class="icon icon-sm" aria-hidden="true" /> {{ msg.attachments.add }}</BaseButton>
       <span v-if="compose.attachments.length > 0" class="attach-total">
         {{ msg.attachments.total(formatSize(total)) }} / {{ msg.attachments.limit(formatSize(LIMIT_BYTES)) }}
       </span>
@@ -70,7 +71,7 @@ onBeforeUnmount(() => stopDrop?.())
           :disabled="disabled"
           @click="compose.removeAttachment(a.id)"
         >
-          ×
+          <Xmark class="icon icon-sm" aria-hidden="true" />
         </button>
       </li>
     </ul>
@@ -81,32 +82,32 @@ onBeforeUnmount(() => stopDrop?.())
 .attachments {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .attach-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 .attach-total,
 .attach-hint {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
 .attach-error {
   margin: 0;
-  color: var(--color-danger);
+  color: var(--danger);
   font-size: var(--font-size-sm);
 }
 
 .attach-list {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--s-2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -115,12 +116,12 @@ onBeforeUnmount(() => stopDrop?.())
 .attach-item {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
   max-width: 100%;
-  padding: 2px var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-subtle);
+  padding: var(--s-1) var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--bone);
   font-size: var(--font-size-sm);
 }
 
@@ -133,7 +134,7 @@ onBeforeUnmount(() => stopDrop?.())
 
 .attach-size,
 .attach-tag {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
@@ -142,13 +143,13 @@ onBeforeUnmount(() => stopDrop?.())
   height: 24px;
   padding: 0;
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
   background: transparent;
   color: inherit;
   cursor: pointer;
 }
 
 .attach-remove:hover:not(:disabled) {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 </style>

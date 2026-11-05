@@ -28,7 +28,7 @@ describe('オフライン・要再接続', () => {
     const ui = useUiStore()
     await s.load()
     expect(ui.online).toBe(false)
-    expect(ui.toasts).toHaveLength(0)
+    expect(ui.alerts).toHaveLength(0)
     delete failures.ListInbox
     delete failures.GetUnreadCounts
     await s.load()

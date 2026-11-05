@@ -7,6 +7,7 @@ import { useUiStore } from '../../stores/ui'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseDisclosure from '../ui/BaseDisclosure.vue'
 import BaseSwitch from '../ui/BaseSwitch.vue'
+import ConfirmDialog from '../ui/ConfirmDialog.vue'
 import SettingsInput from './SettingsInput.vue'
 
 const store = useSettingsStore()
@@ -43,13 +44,16 @@ function parsePort(): number | undefined {
   return Number.isInteger(n) && n >= 1024 && n <= 65535 ? n : undefined
 }
 
-async function run(fn: () => Promise<void>): Promise<void> {
-  if (busy.value) return
+/** 成功したら true。失敗は日本語メッセージのエラーアラートにして false を返す。 */
+async function run(fn: () => Promise<void>): Promise<boolean> {
+  if (busy.value) return false
   busy.value = true
   try {
     await fn()
+    return true
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
+    return false
   } finally {
     busy.value = false
   }
@@ -82,12 +86,15 @@ async function issue(): Promise<void> {
   })
 }
 
+const revokeOpen = ref(false)
+
 async function revoke(): Promise<void> {
-  await run(async () => {
+  const ok = await run(async () => {
     await store.revokeMcpToken()
     shownToken.value = undefined
     ui.pushToast('success', msg.mcp.revoked)
   })
+  if (ok) revokeOpen.value = false
 }
 
 async function copy(text: string): Promise<void> {
@@ -95,7 +102,7 @@ async function copy(text: string): Promise<void> {
     await navigator.clipboard.writeText(text)
     ui.pushToast('success', msg.mcp.copied)
   } catch {
-    ui.pushToast('error', msg.mcp.copyFailed)
+    ui.pushAlert(msg.mcp.copyFailed)
   }
 }
 </script>
@@ -147,7 +154,7 @@ async function copy(text: string): Promise<void> {
         <BaseButton variant="primary" :loading="busy" @click="issue">
           {{ status.hasToken ? msg.mcp.reissue : msg.mcp.issue }}
         </BaseButton>
-        <BaseButton v-if="status.hasToken" :loading="busy" @click="revoke">{{ msg.mcp.revoke }}</BaseButton>
+        <BaseButton v-if="status.hasToken" :loading="busy" @click="revokeOpen = true">{{ msg.mcp.revoke }}</BaseButton>
       </div>
       <p v-if="status.hasToken" class="hint">{{ msg.mcp.reissueHint }}</p>
 
@@ -160,6 +167,15 @@ async function copy(text: string): Promise<void> {
         <p class="hint">{{ msg.mcp.clientHint }}</p>
       </BaseDisclosure>
     </div>
+
+    <ConfirmDialog
+      v-model:open="revokeOpen"
+      :title="msg.mcp.revokeTitle"
+      :detail="msg.mcp.revokeDetail"
+      :confirm-label="msg.mcp.revokeConfirm"
+      :busy="busy"
+      @confirm="revoke"
+    />
   </section>
 </template>
 
@@ -168,58 +184,58 @@ async function copy(text: string): Promise<void> {
 .block {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 .heading {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-base);
 }
 
 .toggle,
 .actions {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .addr {
   display: grid;
   grid-template-columns: 1fr 140px;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 .hint {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .error {
   margin: 0;
-  color: var(--color-danger);
+  color: var(--danger);
   font-size: var(--font-size-sm);
 }
 
 .state {
   margin-left: auto;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .state.on {
-  color: var(--color-accent);
+  color: var(--success);
 }
 
 .info {
   display: grid;
   grid-template-columns: max-content 1fr;
-  gap: var(--space-1) var(--space-3);
+  gap: var(--s-1) var(--s-3);
   margin: 0;
 }
 
 .info dt {
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .info dd {
@@ -233,11 +249,11 @@ async function copy(text: string): Promise<void> {
 .token-box {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background: var(--color-bg-subtle);
+  gap: var(--s-2);
+  padding: var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bone);
 }
 
 .token {

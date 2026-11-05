@@ -27,7 +27,7 @@ export interface RefreshReportDeps {
   markNeedsReauth: (accountId: string) => void
   setOffline: () => void
   nameOf: (accountId: string) => string
-  toast: (message: string) => void
+  alert: (message: string) => void
 }
 
 /** 手動更新のアカウントごとの結果を反映する: 要再接続・オフラインは共通状態へ、それ以外はエラートースト。 */
@@ -37,6 +37,6 @@ export function reportRefreshResults(results: RefreshResult[], d: RefreshReportD
     const code = isAppErrorLike(r.error) ? r.error.code : undefined
     if (code === 'NEEDS_REAUTH') d.markNeedsReauth(r.accountId)
     else if (code === 'OFFLINE') d.setOffline()
-    else d.toast(common.op.refreshFailed(d.nameOf(r.accountId)))
+    else d.alert(common.op.refreshFailed(d.nameOf(r.accountId)))
   }
 }

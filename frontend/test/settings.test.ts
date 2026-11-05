@@ -68,13 +68,13 @@ describe('settingsStore', () => {
     expect(s.appInfo?.dataDir).toBe('/data')
   })
 
-  test('load 失敗時はエラートーストを出し、例外にしない', async () => {
+  test('load 失敗時はエラーアラートを出し、例外にしない', async () => {
     failures.GetAIConfig = { code: 'INTERNAL', message: '読み込めません', retryable: false }
     const s = useSettingsStore()
     await s.load()
     expect(s.aiConfig).toBeUndefined()
     const ui = useUiStore()
-    expect(ui.toasts.at(-1)).toMatchObject({ kind: 'error', message: '読み込めません' })
+    expect(ui.alerts.at(-1)).toMatchObject({ kind: 'error', message: '読み込めません' })
   })
 
   test('setAIConfig・setAIApiKey・clearAIApiKey・recordAIConsent は戻り値で aiConfig を更新する', async () => {
@@ -185,7 +185,7 @@ describe('settingsStore', () => {
     s.stop()
     failures.CheckForUpdate = { code: 'OFFLINE', message: 'オフライン', retryable: true }
     await s.start()
-    expect(ui.toasts).toHaveLength(0)
+    expect(ui.alerts).toHaveLength(0)
     expect(ui.banners).toHaveLength(0)
   })
 
@@ -216,11 +216,11 @@ describe('settingsStore', () => {
     expect(unsubscribed).toEqual(['update:available', 'update:status'])
   })
 
-  test('openExternal の失敗はエラートーストにする', async () => {
+  test('openExternal の失敗はエラーアラートにする', async () => {
     failures.OpenExternal = { code: 'VALIDATION', message: '開けません', retryable: false }
     const s = useSettingsStore()
     await s.openExternal('ftp://x')
-    expect(useUiStore().toasts.at(-1)).toMatchObject({ kind: 'error', message: '開けません' })
+    expect(useUiStore().alerts.at(-1)).toMatchObject({ kind: 'error', message: '開けません' })
   })
 
   test('MCP: 既定はオフ。設定の反映・トークンの発行と無効化は戻り値の状態で更新し、トークンの値は状態に残さない', async () => {
@@ -287,7 +287,7 @@ describe('settingsStore（自動アップデート。Windows 版）', () => {
       cause: { code: 'VALIDATION', message: '送信中のため更新できません。', retryable: false },
     }
     await s.restartToUpdate()
-    expect(useUiStore().toasts.at(-1)?.message).toContain('送信中のため')
+    expect(useUiStore().alerts.at(-1)?.message).toContain('送信中のため')
   })
 
   test('start は購読前に始まっていた進みを GetUpdateStatus で取り込む。使えない設定では呼ばない', async () => {

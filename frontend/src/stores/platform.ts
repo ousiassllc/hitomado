@@ -50,7 +50,7 @@ export const usePlatformStore = defineStore('platform', () => {
       capabilities.value = await call(PlatformService.GetCapabilities())
       loaded.value = true
     } catch (e) {
-      ui.pushToast('error', parseBindingError(e).message || msg.loadFailed)
+      ui.pushAlert(parseBindingError(e).message || msg.loadFailed)
     } finally {
       settled.value = true
     }

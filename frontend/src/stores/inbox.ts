@@ -111,8 +111,7 @@ export const useInboxStore = defineStore('inbox', () => {
       if (gen !== generation) return
       const err = e as AppError
       if (err.code !== 'OFFLINE') {
-        ui.pushToast(
-          'error',
+        ui.pushAlert(
           mode.value === 'search' ? common.op.searchFailed : common.op.loadFailed,
           () => void load(),
         )
@@ -145,7 +144,7 @@ export const useInboxStore = defineStore('inbox', () => {
       }
     } catch (e) {
       if ((e as AppError).code !== 'OFFLINE')
-        ui.pushToast('error', common.op.loadFailed, () => void loadMore())
+        ui.pushAlert(common.op.loadFailed, () => void loadMore())
     } finally {
       if (gen === generation) loadingMore.value = false
     }
@@ -201,11 +200,11 @@ export const useInboxStore = defineStore('inbox', () => {
         markNeedsReauth: accounts.markNeedsReauth,
         setOffline: () => ui.setOnline(false),
         nameOf: (id) => accounts.byId(id)?.displayName ?? id,
-        toast: (m) => ui.pushToast('error', m),
+        alert: (m) => ui.pushAlert(m),
       })
     } catch (e) {
       if ((e as AppError).code !== 'OFFLINE')
-        ui.pushToast('error', common.op.loadFailed, () => void refresh())
+        ui.pushAlert(common.op.loadFailed, () => void refresh())
     } finally {
       refreshing.value = false
     }
@@ -246,7 +245,7 @@ export const useInboxStore = defineStore('inbox', () => {
         }),
       )
     } catch (e) {
-      ui.pushToast('error', parseBindingError(e).message)
+      ui.pushAlert(parseBindingError(e).message)
     }
     await load()
   }

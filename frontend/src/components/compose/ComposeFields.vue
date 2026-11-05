@@ -88,13 +88,13 @@ defineExpose({ commitPending })
 .compose-fields {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .to-row {
   display: flex;
   align-items: flex-start;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .to-field {
@@ -104,49 +104,49 @@ defineExpose({ commitPending })
 
 .toggles {
   display: flex;
-  gap: var(--space-1);
-  padding-top: 4px;
+  gap: var(--s-1);
+  padding-top: var(--s-1);
 }
 
 .toggle {
-  padding: 2px var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
+  padding: var(--s-1) var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
 
 .toggle:hover {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
 .subject-row {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .subject-label {
   flex: 0 0 56px;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .subject-input {
   flex: 1;
-  height: 34px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-size: var(--font-size-md);
+  height: var(--control-h);
+  padding: 0 var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--font-size-sm);
 }
 
 .subject-input:focus {
-  border-color: var(--color-focus);
+  border-color: var(--focus);
   outline: none;
 }
 </style>

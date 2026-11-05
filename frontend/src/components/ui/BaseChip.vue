@@ -12,13 +12,13 @@ defineProps<{ bg?: string; fg?: string }>()
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--s-1);
   max-width: 100%;
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-subtle);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
+  padding: 0 var(--s-2);
+  border-radius: var(--r-sm);
+  background: var(--bone);
+  color: var(--ink);
+  border: 1px solid var(--border);
   font-size: var(--font-size-xs);
   line-height: 18px;
   white-space: nowrap;

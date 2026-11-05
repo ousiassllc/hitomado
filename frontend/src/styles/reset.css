@@ -12,11 +12,11 @@ body,
 }
 
 body {
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: var(--bone);
+  color: var(--ink);
   font-family: var(--font-sans);
-  font-size: var(--font-size-md);
-  line-height: 1.5;
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
 }
 
 button,
@@ -28,6 +28,122 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--focus);
   outline-offset: 2px;
+}
+
+/* Iconoir のアイコン（currentColor・ストローク 1.5）。大きさは --icon-sm/md/lg（16/20/24）。 */
+.icon {
+  flex: none;
+  width: var(--icon-md);
+  height: var(--icon-md);
+}
+
+.icon-sm {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.icon-lg {
+  width: var(--icon-lg);
+  height: var(--icon-lg);
+}
+
+/* 押下リップル（lib/ripple.ts）。ボタンとクローズだけ。280ms・ease-out。 */
+.has-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple {
+  position: absolute;
+  border-radius: var(--r-full);
+  background: currentcolor;
+  opacity: 0.2;
+  transform: scale(0);
+  pointer-events: none;
+  animation: ripple var(--motion-slow) var(--ease-out) forwards;
+}
+
+@keyframes ripple {
+  to {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+/* 装飾的な動きは止める。 */
+@media (prefers-reduced-motion: reduce) {
+  .ripple {
+    display: none;
+  }
+}
+
+/* 出現・退出のフェード（ガイド M5）。opacity と小さな移動（8px）だけ。値は --motion-fade-in/out・--ease-*。
+   ポップアップ・ダイアログ・ドロワー・トーストが共用する。reduced-motion では移動をやめ、opacity だけにする。 */
+@keyframes ui-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@keyframes ui-sink-out {
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+/* 中央に置くダイアログ用（translate(-50%, -50%) を保ったまま動かす）。 */
+@keyframes ui-rise-in-centered {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px));
+  }
+}
+
+@keyframes ui-sink-out-centered {
+  to {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 8px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes ui-rise-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes ui-sink-out {
+    to {
+      opacity: 0;
+    }
+  }
+
+  @keyframes ui-rise-in-centered {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes ui-sink-out-centered {
+    to {
+      opacity: 0;
+    }
+  }
 }

@@ -40,7 +40,7 @@ export function useThreadExtras(d: ThreadExtrasDeps) {
       const ls = list(await d.api(InboxService.ListLabels(ref.accountId)))
       labelsByAccount.value = { ...labelsByAccount.value, [ref.accountId]: ls }
     } catch {
-      d.ui.pushToast('error', msg.labelsLoadFailed)
+      d.ui.pushAlert(msg.labelsLoadFailed)
     } finally {
       labelsLoading.value = false
     }
@@ -65,7 +65,7 @@ export function useThreadExtras(d: ThreadExtrasDeps) {
       const r = await d.api(ThreadService.SaveAttachment({ ...ref, messageId }, a.id, a.filename))
       if (r.saved) d.ui.pushToast('success', msg.attachmentSaved)
     } catch (e) {
-      d.ui.pushToast('error', `${msg.attachmentFailed}${(e as AppError).message ?? ''}`)
+      d.ui.pushAlert(`${msg.attachmentFailed}${(e as AppError).message ?? ''}`)
     }
   }
 
@@ -75,7 +75,7 @@ export function useThreadExtras(d: ThreadExtrasDeps) {
     try {
       await d.api(ThreadService.OpenExternal(url))
     } catch (e) {
-      d.ui.pushToast('error', `${msg.openFailed}${(e as AppError).message ?? ''}`)
+      d.ui.pushAlert(`${msg.openFailed}${(e as AppError).message ?? ''}`)
     }
   }
 

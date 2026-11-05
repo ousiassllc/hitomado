@@ -25,6 +25,10 @@ export const settingsChatgpt = {
   remove: '削除',
   removeAccount: (label: string) => `${label} の登録を削除`,
   removed: 'ChatGPT アカウントの登録を削除しました。',
+  removeTitle: (label: string) => `${label} の登録を削除しますか？`,
+  removeDetail:
+    'このアプリに保存されているこの ChatGPT アカウントの登録（ログアウト済みのもの）を忘れます。使うには、もう一度ログインして登録し直してください。',
+  removeConfirm: '削除する',
   switched: (label: string) => `${label} に切り替えました。`,
   // ログアウト済みのアカウントを選んだとき（一覧が古いなど）。ボタン名は一覧の「再ログイン」と同じ。
   selectSignedOut:

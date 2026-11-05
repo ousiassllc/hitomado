@@ -15,7 +15,7 @@ async function openFolder(): Promise<void> {
   try {
     await store.openLogFolder()
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   }
 }
 
@@ -24,9 +24,9 @@ async function exportLogs(): Promise<void> {
   exporting.value = true
   try {
     const res = await store.exportLogs()
-    if (res.saved && res.path) ui.pushToast('success', msg.logs.exported(res.path))
+    if (res.saved && res.path) ui.pushNotice(msg.logs.exported(res.path), 'success')
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   } finally {
     exporting.value = false
   }
@@ -52,17 +52,17 @@ async function exportLogs(): Promise<void> {
 .logs {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 .hint {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .actions {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 </style>

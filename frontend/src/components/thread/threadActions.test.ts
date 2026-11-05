@@ -61,14 +61,15 @@ describe('threadStore: 操作', () => {
     ])
   })
 
-  test('saveAttachment: 保存で成功トースト、キャンセル（saved=false）は何も出さない', async () => {
+  test('saveAttachment: 保存で成功トースト、キャンセル（saved=false）は何も出さず、失敗はエラーアラート', async () => {
     const s = useThreadStore()
     const ui = useUiStore()
     await s.open(REF)
     const att = { id: 'att1', filename: 'a.pdf', mimeType: 'application/pdf', size: 3 }
     ctl.responses.SaveAttachment = { saved: false }
     await s.saveAttachment('m1', att)
-    expect(ui.toasts).toHaveLength(0)
+    expect(ui.toast).toBeUndefined()
+    expect(ui.alerts).toHaveLength(0)
     expect(callsOf('SaveAttachment')[0].args).toEqual([
       { ...REF, messageId: 'm1' },
       'att1',
@@ -76,10 +77,10 @@ describe('threadStore: 操作', () => {
     ])
     ctl.responses.SaveAttachment = { saved: true, path: '/x/a.pdf' }
     await s.saveAttachment('m1', att)
-    expect(ui.toasts.map((t) => t.kind)).toEqual(['success'])
+    expect(ui.toast?.kind).toBe('success')
     ctl.failures.SaveAttachment = appError('ATTACHMENT_IO', '書き込めません')
     await s.saveAttachment('m1', att)
-    expect(ui.toasts.at(-1)?.kind).toBe('error')
+    expect(ui.alerts.at(-1)?.kind).toBe('error')
   })
 
   test('ラベル: loadLabels はアカウントごとに 1 度だけ取得し、toggleLabel は付与・除去を切り替える', async () => {

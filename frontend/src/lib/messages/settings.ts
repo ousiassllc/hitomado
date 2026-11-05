@@ -81,6 +81,10 @@ export const settings = {
     secretSaved: 'Secret: 保存済み',
     secretMissing: 'Secret: 未設定',
     removed: (name: string) => `${name} を削除しました。`,
+    removeTitle: (name: string) => `${name} を削除しますか？`,
+    removeDetail:
+      'このアプリに保存されている Client ID と Client Secret が削除されます。削除したあとは元に戻せません。このクライアントで接続していたアカウントはありません。',
+    removeConfirm: '削除する',
     formAdd: 'OAuth クライアントを追加',
     formEdit: 'OAuth クライアントを編集',
     name: '名前',
@@ -241,6 +245,10 @@ export const settings = {
     reissue: 'トークンを再発行',
     revoke: 'トークンを無効にする',
     revoked: 'トークンを無効にしました。',
+    revokeTitle: 'トークンを無効にしますか？',
+    revokeDetail:
+      '今のトークンで接続している MCP クライアントは、すべて接続できなくなり、開いている接続も切れます。再び使うには、トークンを発行し直して、MCP クライアントに設定し直してください。',
+    revokeConfirm: '無効にする',
     tokenShown: '新しいトークン（この画面を閉じると二度と表示できません）',
     tokenIssuedToast: 'トークンを発行しました。',
     copy: 'コピー',

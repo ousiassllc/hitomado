@@ -186,10 +186,10 @@ export const useComposeStore = defineStore('compose', () => {
       })
       sigSwap.init()
       const warning = draftAttachmentWarning(s)
-      if (warning) ui.pushToast('error', warning)
+      if (warning) ui.pushAlert(warning)
       return true
     } catch (e) {
-      ui.pushToast('error', fail(e) || msg.openFailed)
+      ui.pushAlert(fail(e) || msg.openFailed)
       return false
     } finally {
       opening = false

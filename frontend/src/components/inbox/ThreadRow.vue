@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Attachment } from '@iconoir/vue'
 import { computed } from 'vue'
 import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { formatDate } from '../../lib/format'
@@ -48,7 +49,7 @@ const label = computed(
     :aria-label="label"
     :title="faded ? common.list.needsReauthRow : undefined"
   >
-    <span class="band" :style="{ background: account ? accountColorVar(account.color) : 'var(--color-border)' }" aria-hidden="true" />
+    <span class="band" :style="{ background: account ? accountColorVar(account.color) : 'var(--border)' }" aria-hidden="true" />
     <div class="main">
       <div class="line1">
         <AccountChip v-if="account" :account="account" size="sm" />
@@ -56,7 +57,7 @@ const label = computed(
         <span v-if="thread.messageCount > 1" class="count" :title="common.list.messageCount(thread.messageCount)">{{
           thread.messageCount
         }}</span>
-        <span v-if="thread.hasAttachment" class="clip" role="img" :aria-label="common.list.attachment">📎</span>
+        <span v-if="thread.hasAttachment" class="clip" role="img" :aria-label="common.list.attachment"><Attachment class="icon icon-sm" aria-hidden="true" /></span>
         <time class="date">{{ formatDate(thread.lastMessageAt) }}</time>
       </div>
       <div class="line2">
@@ -76,27 +77,23 @@ const label = computed(
   display: flex;
   align-items: stretch;
   height: 100%;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
   cursor: pointer;
   overflow: hidden;
 }
 
-.row.unread {
-  background: var(--color-unread-bg);
-}
-
 .row:hover {
-  background: var(--color-bg-subtle);
+  background: var(--accent-soft);
 }
 
 .row.selected,
 .row.checked {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
 .row.active {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 
@@ -108,11 +105,11 @@ const label = computed(
 .main {
   flex: 1;
   min-width: 0;
-  padding: var(--space-1) var(--space-3);
+  padding: var(--s-1) var(--s-3);
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 2px;
+  gap: var(--s-1);
 }
 
 .line1,
@@ -120,7 +117,7 @@ const label = computed(
 .labels {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
   min-width: 0;
 }
 
@@ -139,7 +136,7 @@ const label = computed(
 
 .count {
   flex: none;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
@@ -150,7 +147,7 @@ const label = computed(
 
 .date {
   flex: none;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
 }
 
@@ -158,8 +155,8 @@ const label = computed(
   flex: none;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
-  background: var(--color-accent);
+  border-radius: var(--r-full);
+  background: var(--accent);
 }
 
 .subject {
@@ -177,21 +174,28 @@ const label = computed(
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-sm);
+}
+
+/* 未読は太字にせず、未読ドットと文字色の対比（未読 = --ink、既読 = --mute）で区別する。 */
+.sender,
+.subject {
+  color: var(--mute);
 }
 
 .unread .sender,
 .unread .subject {
-  font-weight: 700;
+  color: var(--ink);
+}
+
+/* 要再接続のアカウントの行は薄くして、操作できる行と区別する。 */
+.row.faded .main {
+  opacity: 0.7;
 }
 
 .row.faded .sender,
-.row.faded .subject,
-.row.faded .snippet,
-.row.faded .date,
-.row.faded .count {
-  color: var(--color-text-faded);
-  font-weight: 400;
+.row.faded .subject {
+  color: var(--mute);
 }
 </style>

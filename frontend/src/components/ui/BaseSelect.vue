@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { Check, NavArrowDown } from '@iconoir/vue'
 import {
   SelectContent,
   SelectItem,
+  SelectItemIndicator,
   SelectItemText,
   SelectPortal,
   SelectRoot,
@@ -28,13 +30,14 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   <SelectRoot :model-value="modelValue" @update:model-value="(v) => emit('update:modelValue', String(v))">
     <SelectTrigger class="sel" :aria-label="ariaLabel">
       <SelectValue :placeholder="placeholder" />
-      <span class="sel-arrow" aria-hidden="true">▾</span>
+      <NavArrowDown class="icon icon-sm sel-arrow" aria-hidden="true" />
     </SelectTrigger>
     <SelectPortal>
       <SelectContent class="sel-pop" position="popper" :side-offset="4">
         <SelectViewport>
           <SelectItem v-for="o in options" :key="o.value" :value="o.value" class="sel-item">
             <SelectItemText>{{ o.label }}</SelectItemText>
+            <SelectItemIndicator class="sel-check"><Check class="icon icon-sm" aria-hidden="true" /></SelectItemIndicator>
           </SelectItem>
         </SelectViewport>
       </SelectContent>
@@ -47,48 +50,60 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   display: inline-flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-2);
-  min-height: 32px;
+  gap: var(--s-2);
+  min-height: var(--control-h);
   min-width: 140px;
-  padding: 0 var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-elevated);
-  color: var(--color-text);
+  padding: 0 var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
   font-size: var(--font-size-sm);
   cursor: pointer;
 }
 
 .sel[data-placeholder] {
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 /* Reka UI の Popper は scoped 属性（data-v-*）を内側の本体ではなく外側のラッパーに付ける。本体は :global で当てる。 */
 :global(.sel-pop) {
   min-width: var(--reka-select-trigger-width);
   max-height: 280px;
-  background: var(--color-bg-elevated);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-popup);
-  padding: var(--space-1);
-  z-index: 120;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  padding: var(--s-1);
+  z-index: var(--z-popup);
+}
+
+:global(.sel-pop[data-state='open']) {
+  animation: ui-rise-in var(--motion-fade-in) var(--ease-out);
+}
+
+:global(.sel-pop[data-state='closed']) {
+  animation: ui-sink-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 
 .sel-item {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--menu-item-h);
+  padding: 0 var(--menu-pad-x);
+  border-radius: var(--r-sm);
   font-size: var(--font-size-sm);
   cursor: pointer;
   outline: none;
 }
 
 .sel-item[data-highlighted] {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
-.sel-item[data-state='checked'] {
-  font-weight: 600;
+.sel-check {
+  display: inline-flex;
+  margin-left: var(--s-2);
 }
 </style>

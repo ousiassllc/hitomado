@@ -14,7 +14,7 @@ async function reconnect(id: string): Promise<void> {
     await accounts.reconnect(id)
   } catch (e) {
     const err = parseBindingError(e)
-    if (err.code !== 'OAUTH_CANCELLED') ui.pushToast('error', err.message, () => void reconnect(id))
+    if (err.code !== 'OAUTH_CANCELLED') ui.pushAlert(err.message, () => void reconnect(id))
   }
 }
 
@@ -37,7 +37,7 @@ const banners = computed(() =>
   <div v-if="banners.length > 0" class="banners">
     <div v-for="b in banners" :key="b.key" class="banner" :class="`banner-${b.kind}`" role="status">
       <span class="msg">{{ b.message }}</span>
-      <BaseButton v-if="b.action" @click="b.action.run()">{{ b.action.label }}</BaseButton>
+      <BaseButton size="sm" v-if="b.action" @click="b.action.run()">{{ b.action.label }}</BaseButton>
     </div>
   </div>
 </template>
@@ -51,11 +51,11 @@ const banners = computed(() =>
 .banner {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4);
-  background: var(--color-warning-bg);
-  color: var(--color-warning-text);
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-4);
+  background: var(--warning-soft);
+  color: var(--ink);
+  border-bottom: 1px solid var(--warning);
   font-size: var(--font-size-sm);
 }
 

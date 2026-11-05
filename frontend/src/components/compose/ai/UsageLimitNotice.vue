@@ -14,10 +14,10 @@ defineEmits<{ manage: []; dismiss: [] }>()
     <p class="body">{{ msg.ai.usageLimit.body }}</p>
     <p class="note">{{ msg.ai.usageLimit.note }}</p>
     <div class="actions">
-      <BaseButton variant="primary" data-testid="ai-usage-limit-manage" @click="$emit('manage')">
+      <BaseButton size="sm" variant="primary" data-testid="ai-usage-limit-manage" @click="$emit('manage')">
         {{ settingsMsg.ai.chatgpt.manageUsage }}
       </BaseButton>
-      <BaseButton variant="ghost" data-testid="ai-usage-limit-dismiss" @click="$emit('dismiss')">
+      <BaseButton size="sm" variant="ghost" data-testid="ai-usage-limit-dismiss" @click="$emit('dismiss')">
         {{ msg.ai.usageLimit.dismiss }}
       </BaseButton>
     </div>
@@ -28,22 +28,21 @@ defineEmits<{ manage: []; dismiss: [] }>()
 .limit {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-elevated);
+  gap: var(--s-1);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
 }
 
 .identity {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
-  font-weight: 600;
 }
 
 .title {
   margin: 0;
-  font-size: var(--font-size-md);
+  font-size: var(--font-size-sm);
 }
 
 .body,
@@ -53,12 +52,12 @@ defineEmits<{ manage: []; dismiss: [] }>()
 }
 
 .note {
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .actions {
   display: flex;
-  gap: var(--space-2);
-  margin-top: var(--space-1);
+  gap: var(--s-2);
+  margin-top: var(--s-1);
 }
 </style>

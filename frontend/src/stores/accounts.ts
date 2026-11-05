@@ -99,7 +99,7 @@ export const useAccountsStore = defineStore('accounts', () => {
     try {
       await call(AccountService.CancelAddAccount())
     } catch (e) {
-      ui.pushToast('error', parseBindingError(e).message)
+      ui.pushAlert(parseBindingError(e).message)
     }
   }
 
@@ -179,7 +179,7 @@ export const useAccountsStore = defineStore('accounts', () => {
   async function notifyInterruptedAuth(): Promise<void> {
     try {
       if (await AccountService.TakeInterruptedAuth()) {
-        ui.pushToast('info', common.addAccount.interrupted)
+        ui.pushNotice(common.addAccount.interrupted)
       }
     } catch {
       // 案内できなくても通常の利用には影響しない。

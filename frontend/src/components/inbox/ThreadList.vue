@@ -9,7 +9,7 @@ import BaseButton from '../ui/BaseButton.vue'
 import Spinner from '../ui/Spinner.vue'
 import ThreadRow from './ThreadRow.vue'
 
-const ROW_HEIGHT = 72
+const ROW_HEIGHT = 88
 const LOAD_MORE_THRESHOLD = 5
 
 const props = defineProps<{
@@ -150,7 +150,7 @@ function onKeydown(ev: KeyboardEvent): void {
 }
 
 .list:focus-visible {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 
@@ -170,17 +170,17 @@ function onKeydown(ev: KeyboardEvent): void {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
-  color: var(--color-text-muted);
+  padding: var(--s-6);
+  color: var(--mute);
 }
 
 .more {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-3);
-  color: var(--color-text-muted);
+  gap: var(--s-2);
+  padding: var(--s-3);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 </style>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Xmark } from '@iconoir/vue'
 import {
   DialogClose,
   DialogContent,
@@ -8,30 +9,46 @@ import {
   DialogRoot,
   DialogTitle,
 } from 'reka-ui'
+import { onBeforeUnmount, watch } from 'vue'
 import { common } from '../../lib/messages'
-import { useLayoutStore } from '../../stores/layout'
+import { vRipple } from '../../lib/ripple'
+import { useUiStore } from '../../stores/ui'
+import AlertStack from '../shell/AlertStack.vue'
 
+// 外側（スクラム）クリック・Esc・× は、どれも「キャンセル」として `update:open(false)` を出す（ガイド O1）。
+// 確認を迫るダイアログは、呼び出し側が `update:open(false)` を「キャンセル」と同じ処理につなぐ。
+// 送信中・保存中のように中断できない間だけ、`busy` で閉じる操作を無効にする。
 const props = withDefaults(
   defineProps<{
     open: boolean
     title: string
     description?: string
-    closable?: boolean
+    /** 中断できない処理の間（送信中・保存中）。外側クリック・Esc・× で閉じない。 */
+    busy?: boolean
     size?: 'sm' | 'md' | 'lg'
   }>(),
-  { description: undefined, closable: true, size: 'md' },
+  { description: undefined, busy: false, size: 'md' },
 )
 
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
-const layout = useLayoutStore()
+
+// 開いている間は最前面のダイアログとして登録し、失敗のアラートをダイアログの中に出す（外のアラートはスクラムの裏に隠れるため）。
+const ui = useUiStore()
+const mark = Symbol('dialog')
+watch(
+  () => props.open,
+  (open) => (open ? ui.enterOverlay(mark) : ui.leaveOverlay(mark)),
+  { immediate: true },
+)
+onBeforeUnmount(() => ui.leaveOverlay(mark))
 
 function onUpdate(v: boolean): void {
-  if (!v && !props.closable) return
+  if (!v && props.busy) return
   emit('update:open', v)
 }
 
 function guard(e: Event): void {
-  if (!props.closable) e.preventDefault()
+  if (props.busy) e.preventDefault()
 }
 </script>
 
@@ -41,7 +58,7 @@ function guard(e: Event): void {
       <DialogOverlay class="dlg-overlay" />
       <DialogContent
         class="dlg"
-        :class="[`dlg-${size}`, { 'dlg-full': layout.isStack }]"
+        :class="`dlg-${size}`"
         :aria-describedby="description ? undefined : ''"
         @escape-key-down="guard"
         @pointer-down-outside="guard"
@@ -49,9 +66,10 @@ function guard(e: Event): void {
       >
         <header class="dlg-head">
           <DialogTitle class="dlg-title">{{ title }}</DialogTitle>
-          <DialogClose v-if="closable" class="dlg-close" :aria-label="common.close">×</DialogClose>
+          <DialogClose v-if="!busy" v-ripple class="dlg-close" :aria-label="common.close"><Xmark class="icon" aria-hidden="true" /></DialogClose>
         </header>
         <DialogDescription v-if="description" class="dlg-desc">{{ description }}</DialogDescription>
+        <AlertStack v-if="ui.isTopOverlay(mark)" class="dlg-alerts" />
         <div class="dlg-body"><slot /></div>
         <footer v-if="$slots.footer" class="dlg-foot"><slot name="footer" /></footer>
       </DialogContent>
@@ -63,8 +81,17 @@ function guard(e: Event): void {
 .dlg-overlay {
   position: fixed;
   inset: 0;
-  background: var(--color-overlay);
-  z-index: 100;
+  background: var(--scrim);
+  z-index: var(--z-modal);
+}
+
+/* 出現はフェードイン、退出はフェードアウト（スクラムもダイアログと一緒にフェード。ガイド M5）。 */
+.dlg-overlay[data-state='open'] {
+  animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
+}
+
+.dlg-overlay[data-state='closed'] {
+  animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 
 .dlg {
@@ -76,23 +103,21 @@ function guard(e: Event): void {
   flex-direction: column;
   max-height: calc(100vh - 48px);
   width: min(var(--dlg-w, 520px), calc(100vw - 32px));
-  padding: var(--space-4);
-  background: var(--color-bg-elevated);
-  color: var(--color-text);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-popup);
-  z-index: 101;
+  padding: var(--pad-card-sm);
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+  box-shadow: var(--shadow-modal);
+  z-index: var(--z-modal);
 }
 
-/* 1 画面ずつのレイアウト（スマホ幅）では、ダイアログを全画面にする。 */
-.dlg-full {
-  inset: 0;
-  transform: none;
-  width: auto;
-  max-height: none;
-  border: none;
-  border-radius: 0;
+.dlg[data-state='open'] {
+  animation: ui-rise-in-centered var(--motion-fade-in) var(--ease-out);
+}
+
+.dlg[data-state='closed'] {
+  animation: ui-sink-out-centered var(--motion-fade-out) var(--ease-in) forwards;
 }
 
 .dlg-sm {
@@ -111,7 +136,7 @@ function guard(e: Event): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
+  gap: var(--s-3);
 }
 
 .dlg-title {
@@ -121,29 +146,35 @@ function guard(e: Event): void {
 }
 
 .dlg-close {
-  width: 28px;
-  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--control-h-sm);
+  height: var(--control-h-sm);
   border: none;
-  border-radius: var(--radius-sm);
+  border-radius: var(--r-sm);
   background: transparent;
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xl);
+  color: var(--mute);
   line-height: 1;
   cursor: pointer;
 }
 
 .dlg-close:hover {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
 .dlg-desc {
-  margin: var(--space-2) 0 0;
-  color: var(--color-text-muted);
+  margin: var(--s-2) 0 0;
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
+.dlg-alerts {
+  margin-top: var(--s-3);
+}
+
 .dlg-body {
-  margin-top: var(--space-3);
+  margin-top: var(--s-3);
   overflow: auto;
   min-height: 0;
 }
@@ -151,7 +182,7 @@ function guard(e: Event): void {
 .dlg-foot {
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-2);
-  margin-top: var(--space-4);
+  gap: var(--gap-inline);
+  margin-top: var(--gap-field);
 }
 </style>

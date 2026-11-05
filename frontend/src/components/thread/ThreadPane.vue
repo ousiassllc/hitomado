@@ -114,7 +114,7 @@ function openDraft(): void {
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  background: var(--color-bg-subtle);
+  background: var(--bone);
 }
 
 .state {
@@ -123,14 +123,14 @@ function openDraft(): void {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
-  color: var(--color-text-muted);
+  gap: var(--s-3);
+  color: var(--mute);
 }
 
 .state-title {
   margin: 0;
-  font-size: var(--font-size-lg);
-  color: var(--color-text);
+  font-size: var(--font-size-base);
+  color: var(--ink);
 }
 
 .state-hint {
@@ -142,9 +142,9 @@ function openDraft(): void {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--s-3);
   min-height: 0;
   overflow-y: auto;
-  padding: var(--space-4);
+  padding: var(--s-4);
 }
 </style>

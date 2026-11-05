@@ -70,10 +70,11 @@ function send(archive: boolean): void {
     <header class="compose-head">
       <h2 class="compose-title">{{ title }}</h2>
       <span v-if="compose.saving" class="compose-status" role="status">{{ msg.saving }}</span>
-      <span v-else-if="compose.dirty" class="compose-status">●</span>
+      <span v-else-if="compose.dirty" class="compose-dirty" aria-hidden="true" />
       <span class="spacer" />
       <BaseButton
         v-if="props.embedded"
+        size="sm"
         variant="ghost"
         :aria-pressed="props.expanded === true"
         data-testid="compose-expand"
@@ -81,8 +82,8 @@ function send(archive: boolean): void {
       >
         {{ props.expanded ? msg.collapse : msg.expand }}
       </BaseButton>
-      <BaseButton variant="ghost" :disabled="compose.sending" @click="compose.close()">{{ msg.close }}</BaseButton>
-      <BaseButton variant="ghost" :disabled="compose.sending" @click="compose.discard()">{{ msg.discard }}</BaseButton>
+      <BaseButton size="sm" variant="ghost" :disabled="compose.sending" @click="compose.close()">{{ msg.close }}</BaseButton>
+      <BaseButton size="sm" variant="ghost" :disabled="compose.sending" @click="compose.discard()">{{ msg.discard }}</BaseButton>
     </header>
 
     <ComposeFields ref="fields" :frozen="frozen" />
@@ -142,12 +143,12 @@ function send(archive: boolean): void {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--s-3);
   min-height: 0;
-  padding: var(--space-4);
+  padding: var(--s-4);
   overflow-y: auto;
-  background: var(--color-bg);
-  color: var(--color-text);
+  background: var(--surface);
+  color: var(--ink);
 }
 
 .compose-pane > * {
@@ -158,7 +159,7 @@ function send(archive: boolean): void {
 .compose-pane.embedded {
   flex: none;
   max-height: 60%;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid var(--border);
 }
 
 /* 広げる: 右ペイン全体を使う（スレッドの本文は ThreadPane が隠す）。 */
@@ -167,8 +168,10 @@ function send(archive: boolean): void {
   max-height: none;
 }
 
+/* ドロップ領域: ドラッグ中は --accent-soft の地に --accent の破線（1px）。 */
 .compose-pane.file-drop-target-active {
-  outline: 2px dashed var(--color-accent);
+  background: var(--accent-soft);
+  outline: 1px dashed var(--accent);
   outline-offset: -4px;
 }
 
@@ -176,18 +179,26 @@ function send(archive: boolean): void {
 .compose-foot {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 
 .compose-title {
   margin: 0;
-  font-size: var(--font-size-lg);
+  font-size: var(--font-size-base);
 }
 
 .compose-status,
 .foot-hint {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
+}
+
+/* 未保存の印（小さな点） */
+.compose-dirty {
+  width: var(--s-2);
+  height: var(--s-2);
+  border-radius: var(--r-full);
+  background: var(--mute);
 }
 
 .spacer {
@@ -202,10 +213,10 @@ function send(archive: boolean): void {
 
 .compose-error {
   margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-danger);
-  border-radius: var(--radius-sm);
-  color: var(--color-danger);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--danger);
+  border-radius: var(--r-sm);
+  color: var(--danger);
   font-size: var(--font-size-sm);
 }
 </style>

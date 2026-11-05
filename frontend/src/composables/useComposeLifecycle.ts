@@ -65,7 +65,7 @@ export function useComposeLifecycle(ctx: ComposeLifecycleContext) {
     try {
       await call(ComposeService.CloseCompose(s.sessionId))
     } catch (e) {
-      if (parseBindingError(e).code !== 'SESSION_NOT_FOUND') ui.pushToast('error', ctx.fail(e))
+      if (parseBindingError(e).code !== 'SESSION_NOT_FOUND') ui.pushAlert(ctx.fail(e))
     }
     ctx.clearSession()
     return true

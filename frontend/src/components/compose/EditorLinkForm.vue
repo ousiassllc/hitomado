@@ -51,42 +51,42 @@ function submit(): void {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2);
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-bg-subtle);
+  gap: var(--s-2);
+  padding: var(--s-2);
+  border-bottom: 1px solid var(--border);
+  background: var(--bone);
 }
 
 .rte-link-input {
   flex: 1 1 240px;
   min-width: 0;
   height: 28px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
-  color: var(--color-text);
+  padding: 0 var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
   font-size: var(--font-size-sm);
 }
 
 .rte-link-input[aria-invalid="true"] {
-  border-color: var(--color-danger);
+  border-color: var(--danger);
 }
 
 .rte-link-btn {
   height: 28px;
-  padding: 0 var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  background: var(--color-bg-elevated);
-  color: var(--color-text);
+  padding: 0 var(--s-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
   font-size: var(--font-size-xs);
   cursor: pointer;
 }
 
 .rte-link-error {
   flex-basis: 100%;
-  color: var(--color-danger);
+  color: var(--danger);
   font-size: var(--font-size-xs);
 }
 </style>

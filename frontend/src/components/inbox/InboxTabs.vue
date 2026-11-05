@@ -25,35 +25,34 @@ function onSelect(v: string | number): void {
 /* 狭い画面（スマホ）では横にスクロールする。 */
 .tab-list {
   display: flex;
-  gap: var(--space-1);
-  padding: 0 var(--space-3);
-  border-bottom: 1px solid var(--color-border);
+  gap: var(--s-1);
+  padding: 0 var(--s-3);
+  border-bottom: 1px solid var(--border);
   overflow-x: auto;
 }
 
 .tab {
   flex: none;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--s-2) var(--s-3);
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--color-text-muted);
+  color: var(--mute);
   white-space: nowrap;
   cursor: pointer;
 }
 
 .tab:hover {
-  background: var(--color-selected);
+  background: var(--accent-soft);
 }
 
 .tab:focus-visible {
-  outline: 2px solid var(--color-focus);
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
 
 .tab[data-state="active"] {
-  border-bottom-color: var(--color-accent);
-  color: var(--color-text);
-  font-weight: 600;
+  border-bottom-color: var(--accent);
+  color: var(--ink);
 }
 </style>

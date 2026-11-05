@@ -7,6 +7,7 @@ import { useAccountsStore } from '../../../stores/accounts'
 import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'
 import BaseButton from '../../ui/BaseButton.vue'
+import ConfirmDialog from '../../ui/ConfirmDialog.vue'
 import OAuthClientForm from './OAuthClientForm.vue'
 
 const accountsStore = useAccountsStore()
@@ -20,16 +21,26 @@ const editingClient = computed<OAuthClient | undefined>(() =>
   clients.value.find((c) => c.id === editing.value),
 )
 const deletingId = ref<string>()
+/** 削除の確認を出しているクライアント */
+const removeTarget = ref<OAuthClient>()
+const removeOpen = computed({
+  get: () => removeTarget.value !== undefined,
+  set: (v: boolean) => {
+    if (!v) removeTarget.value = undefined
+  },
+})
 
-async function remove(c: OAuthClient): Promise<void> {
-  if (c.accountCount > 0) return
+async function remove(): Promise<void> {
+  const c = removeTarget.value
+  if (!c || c.accountCount > 0) return
   deletingId.value = c.id
   try {
     await accountsStore.deleteOAuthClient(c.id)
     ui.pushToast('success', msg.oauth.removed(c.name))
+    removeTarget.value = undefined
   } catch (e) {
     // OAUTH_CLIENT_IN_USE（他経路で使用中になった場合）を含め、Go 側のメッセージを表示する。
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   } finally {
     deletingId.value = undefined
   }
@@ -80,22 +91,32 @@ function openGuide(): void {
           </span>
         </div>
         <div class="ops">
-          <BaseButton :disabled="editing !== undefined" @click="editing = c.id">
+          <BaseButton size="sm" :disabled="editing !== undefined" @click="editing = c.id">
             {{ msg.oauth.editFor(c.name) }}
           </BaseButton>
           <BaseButton
+            size="sm"
             variant="danger"
             class="remove"
             :disabled="c.accountCount > 0 || deletingId === c.id"
             :loading="deletingId === c.id"
             :aria-describedby="c.accountCount > 0 ? `inuse-${c.id}` : undefined"
-            @click="remove(c)"
+            @click="removeTarget = c"
           >
             {{ msg.oauth.removeFor(c.name) }}
           </BaseButton>
         </div>
       </li>
     </ul>
+
+    <ConfirmDialog
+      v-model:open="removeOpen"
+      :title="msg.oauth.removeTitle(removeTarget?.name ?? '')"
+      :detail="msg.oauth.removeDetail"
+      :confirm-label="msg.oauth.removeConfirm"
+      :busy="deletingId !== undefined && deletingId === removeTarget?.id"
+      @confirm="remove"
+    />
   </section>
 </template>
 
@@ -107,24 +128,27 @@ function openGuide(): void {
 }
 
 .intro {
-  margin: var(--space-2) 0;
-  color: var(--color-text-muted);
+  margin: var(--s-2) 0;
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .link {
-  color: var(--color-accent);
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: var(--mute);
+  text-underline-offset: 2px;
 }
 
 .empty {
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  margin: var(--space-3) 0 0;
+  gap: var(--s-2);
+  margin: var(--s-3) 0 0;
   padding: 0;
 }
 
@@ -132,10 +156,10 @@ function openGuide(): void {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  gap: var(--s-3);
+  padding: var(--s-3);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
   list-style: none;
 }
 
@@ -146,23 +170,24 @@ function openGuide(): void {
 }
 
 .meta {
-  color: var(--color-text-muted);
+  color: var(--mute);
   font-size: var(--font-size-xs);
   overflow-wrap: anywhere;
 }
 
 .inuse {
-  color: var(--color-warning-text);
-  background: var(--color-warning-bg);
+  border: 1px solid var(--warning);
+  background: var(--warning-soft);
+  color: var(--warning);
   align-self: flex-start;
-  margin-top: var(--space-1);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
+  margin-top: var(--s-1);
+  padding: 0 var(--s-2);
+  border-radius: var(--r-sm);
   font-size: var(--font-size-xs);
 }
 
 .ops {
   display: flex;
-  gap: var(--space-2);
+  gap: var(--s-2);
 }
 </style>

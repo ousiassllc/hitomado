@@ -79,7 +79,7 @@ async function fetchFromGmail(): Promise<void> {
       pendingReplace.value = { accountId: a.id, html: sig.signatureHtml, sanitized: sig.sanitized }
     }
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   } finally {
     fetching.value = false
   }
@@ -88,8 +88,9 @@ async function fetchFromGmail(): Promise<void> {
 function applyGmail(accountId: string, name: string, signatureHtml: string, sanitized: boolean): void {
   drafts.value = { ...drafts.value, [accountId]: signatureHtml }
   editorKey.value++
-  ui.pushToast('success', msg.signature.fetchedGmail(name))
-  if (sanitized) ui.pushToast('info', msg.signature.fetchSanitized)
+  // 「保存すると反映されます」まで読ませたいので、1 行のトーストではなくインラインアラートで出す。
+  ui.pushNotice(msg.signature.fetchedGmail(name), 'success')
+  if (sanitized) ui.pushNotice(msg.signature.fetchSanitized)
 }
 
 function confirmReplace(): void {
@@ -115,7 +116,7 @@ async function save(): Promise<void> {
     editorKey.value++
     ui.pushToast('success', msg.signature.saved(a.displayName))
   } catch (e) {
-    ui.pushToast('error', parseBindingError(e).message)
+    ui.pushAlert(parseBindingError(e).message)
   } finally {
     saving.value = false
   }
@@ -164,7 +165,7 @@ async function save(): Promise<void> {
       :open="pendingReplace !== undefined"
       :title="msg.signature.replaceTitle"
       size="sm"
-      :closable="false"
+      @update:open="(v) => !v && cancelReplace()"
     >
       <p class="text">{{ msg.signature.replaceBody }}</p>
       <template #footer>
@@ -181,25 +182,25 @@ async function save(): Promise<void> {
 
 <style scoped>
 .intro {
-  margin: var(--space-2) 0 var(--space-3);
-  color: var(--color-text-muted);
+  margin: var(--s-2) 0 var(--s-3);
+  color: var(--mute);
   font-size: var(--font-size-sm);
 }
 
 .empty {
-  color: var(--color-text-muted);
+  color: var(--mute);
 }
 
 .select {
-  margin-bottom: var(--space-3);
+  margin-bottom: var(--s-3);
   max-width: 420px;
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  margin-top: var(--space-3);
+  gap: var(--s-2);
+  margin-top: var(--s-3);
 }
 
 .spacer {
@@ -208,15 +209,16 @@ async function save(): Promise<void> {
 
 .text {
   margin: 0;
-  font-size: var(--font-size-md);
-  line-height: 1.6;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .dirty {
-  color: var(--color-warning-text);
-  background: var(--color-warning-bg);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-sm);
+  border: 1px solid var(--warning);
+  background: var(--warning-soft);
+  color: var(--warning);
+  padding: 0 var(--s-2);
+  border-radius: var(--r-sm);
   font-size: var(--font-size-xs);
 }
 </style>
