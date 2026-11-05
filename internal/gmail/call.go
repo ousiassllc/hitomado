@@ -79,6 +79,22 @@ func (c *client) do(ctx context.Context, accountID string, spec callSpec, op fun
 				continue
 			}
 		}
-		return wrapFailure(spec.name, f)
+		wrapped := wrapFailure(spec.name, f)
+		c.logAPIFailure(accountID, wrapped)
+		return wrapped
 	}
+}
+
+// logAPIFailure は Gmail API がエラー応答を返して失敗した呼び出しを、Google が返した reason・status・message つきで記録する。
+// 値は APIError の構築時に伏せ字処理・文字種の制限を済ませている。存在確認などで想定内の 404 は Debug に留める。
+func (c *client) logAPIFailure(accountID string, err error) {
+	ae, ok := AsAPIError(err)
+	if !ok {
+		return
+	}
+	level := slog.LevelWarn
+	if errors.Is(err, ErrNotFound) {
+		level = slog.LevelDebug
+	}
+	c.logger.Log(context.Background(), level, "Gmail API がエラーを返しました", append([]any{slog.String("account_id", accountID)}, ae.logAttrs()...)...)
 }

@@ -23,6 +23,12 @@ var (
 	ErrSendUncertain  = errors.New("gmail: send result unknown")    // Send の応答を受け取れず、送信済みかも確認できない（再送すると二重送信になり得る）
 )
 
+// 次の 2 つは Google が 403 で返した reason から判定する補助の sentinel。*APIError に対して errors.Is で調べる（単独の公開エラーとしては返さない）。
+var (
+	ErrAPIDisabled       = errors.New("gmail: api disabled")       // Gmail API が Google Cloud のプロジェクトで無効（SERVICE_DISABLED／accessNotConfigured）。分類は ErrGeneric
+	ErrScopeInsufficient = errors.New("gmail: scope insufficient") // 権限（スコープ）不足（ACCESS_TOKEN_SCOPE_INSUFFICIENT／insufficientPermissions）。分類は ErrNeedsReauth
+)
+
 // Profile は users.getProfile の結果。
 type Profile struct {
 	Email     string // 小文字

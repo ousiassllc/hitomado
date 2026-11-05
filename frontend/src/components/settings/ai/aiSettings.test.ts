@@ -1,7 +1,20 @@
-import { describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import BaseSelect from '../../ui/BaseSelect.vue'
 import AIModelField from './AIModelField.vue'
-import { acctA, base, button, chatgptCfg, flushPromises, mountAI, setup } from './aiTestSupport'
+import {
+  acctA,
+  base,
+  button,
+  chatgptCfg,
+  consentEl,
+  flushPromises,
+  mountAI,
+  setup,
+} from './aiTestSupport'
+
+beforeEach(() => {
+  document.body.innerHTML = ''
+})
 
 describe('AISettings モデル一覧（#76）', () => {
   test('取得した一覧があれば一覧から選ぶ。取得は勝手にしない（マウント時は呼ばない）', async () => {
@@ -82,29 +95,35 @@ describe('AISettings モデル一覧（#76）', () => {
     expect(w.html()).not.toContain('sk-secret-value')
   })
 
-  test('Base URL を変えて保存したあとに取得する。未保存の変更中は更新を促さない', async () => {
-    const { pinia, store, calls } = setup()
+  test('Base URL は保存前でも、決めたとき（Enter）にその送信先で取得する。入力しただけでは取得しない', async () => {
+    const { pinia, store, loads } = setup()
     store.setAIConfig = async () => {}
     const w = mountAI(pinia)
     const url = w.get('input[type="url"]')
     await url.setValue('https://llm.example/v1')
-    expect(button(w, '一覧を更新').attributes('disabled')).toBeDefined()
-    expect(w.text()).toContain('先に「設定を保存」')
-    await button(w, '設定を保存').trigger('click')
     await flushPromises()
-    expect(calls).toEqual(['models:openai'])
+    expect(loads).toEqual([])
+    expect(button(w, '一覧を更新').attributes('disabled')).toBeUndefined()
+    expect(w.text()).not.toContain('先に「設定を保存」')
+    await url.trigger('keydown.enter')
+    await flushPromises()
+    expect(loads).toEqual([{ provider: 'openai', baseUrl: 'https://llm.example/v1' }])
   })
 
-  test('同意前の送信先は、設定画面で同意すると一覧を取得する', async () => {
+  test('同意前の送信先は、同意の画面で同意すると一覧を取得する（設定画面の同意のボタンも同じ画面）', async () => {
     const { pinia, store, calls } = setup({ consentedProviders: [] })
-    const agreed: string[] = []
-    store.recordAIConsent = async (p: string) => {
-      agreed.push(p)
+    const agreed: string[][] = []
+    store.recordAIConsent = async (p: string, url = '') => {
+      agreed.push([p, url])
     }
     const w = mountAI(pinia)
     await w.get('[data-testid="ai-consent-now"]').trigger('click')
+    expect(consentEl('ai-consent-body')?.textContent).toContain(
+      'OpenAI 互換（https://api.openai.com）',
+    )
+    consentEl('ai-consent-agree')?.click()
     await flushPromises()
-    expect(agreed).toEqual(['openai'])
+    expect(agreed).toEqual([['openai', '']])
     expect(calls).toEqual(['models:openai'])
   })
 })

@@ -11,6 +11,7 @@ import { useLayoutStore } from '../../stores/layout'
 import { useUiStore } from '../../stores/ui'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseIconButton from '../ui/BaseIconButton.vue'
+import InboxTabs from './InboxTabs.vue'
 import ListToolbar from './ListToolbar.vue'
 import SearchBar from './SearchBar.vue'
 import ThreadList from './ThreadList.vue'
@@ -39,7 +40,10 @@ const labelItems = computed(() => {
 
 const emptyText = computed(() => {
   if (inbox.mode === 'search') return common.list.emptySearch
-  return inbox.filter.unreadOnly ? common.list.emptyUnread : common.list.empty
+  if (inbox.filter.unreadOnly || inbox.tab === 'new') return common.list.emptyUnread
+  return inbox.tab === 'primary' || inbox.tab === 'social' || inbox.tab === 'promotions'
+    ? common.list.emptyCategory
+    : common.list.empty
 })
 
 async function loadLabels(): Promise<void> {
@@ -76,6 +80,7 @@ async function toggleLabel(labelId: string): Promise<void> {
       <BaseButton variant="primary" data-testid="head-compose" @click="compose.open({ mode: 'new' })">{{ common.sidebar.compose }}</BaseButton>
     </header>
     <SearchBar :active="inbox.mode === 'search'" :query="inbox.searchQuery" @search="inbox.runSearch" @clear="inbox.clearSearch" />
+    <InboxTabs v-if="inbox.mode === 'inbox'" :model-value="inbox.tab" @update:model-value="inbox.setTab" />
     <ListToolbar
       :selected-count="targets.length"
       :refreshing="inbox.refreshing"

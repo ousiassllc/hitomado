@@ -8,8 +8,6 @@ import SettingsInput from '../SettingsInput.vue'
 const props = defineProps<{
   providerLabel: string
   hasKey: boolean
-  /** プロバイダが未保存で変わっている（保存してからキーを設定する）。 */
-  providerChanged: boolean
   busy?: 'config' | 'key' | 'clear' | 'models' | 'consent'
   error?: string
 }>()
@@ -27,17 +25,21 @@ function save(): void {
   emit('save', apiKey.value)
 }
 
-defineExpose({ reset: () => (apiKey.value = '') })
+const root = ref<HTMLElement>()
+defineExpose({
+  reset: () => (apiKey.value = ''),
+  /** キーが未登録のとき、入力欄へ誘導する（取得にはキーが要る）。 */
+  focus: () => root.value?.querySelector('input')?.focus(),
+})
 </script>
 
 <template>
-  <div class="key">
+  <div ref="root" class="key">
     <h4 class="sub">{{ msg.ai.apiKeyHeading }}</h4>
     <p class="status">
       {{ props.providerLabel }}：
       <strong>{{ props.hasKey ? msg.ai.apiKeyStatusSet : msg.ai.apiKeyStatusUnset }}</strong>
     </p>
-    <p v-if="props.providerChanged" class="hint">{{ msg.ai.apiKeyNeedsSavedProvider }}</p>
     <SettingsInput
       v-model="apiKey"
       type="password"
@@ -46,7 +48,6 @@ defineExpose({ reset: () => (apiKey.value = '') })
       :placeholder="msg.ai.apiKeyPlaceholder"
       :hint="msg.ai.apiKeyStored"
       :error="props.error ?? localError"
-      :disabled="props.providerChanged"
       @enter="save"
     />
     <div class="actions">
@@ -60,7 +61,7 @@ defineExpose({ reset: () => (apiKey.value = '') })
       </BaseButton>
       <BaseButton
         variant="primary"
-        :disabled="props.providerChanged || apiKey === ''"
+        :disabled="apiKey === ''"
         :loading="props.busy === 'key'"
         @click="save"
       >
@@ -84,12 +85,6 @@ defineExpose({ reset: () => (apiKey.value = '') })
 
 .status {
   margin: 0;
-  font-size: var(--font-size-sm);
-}
-
-.hint {
-  margin: 0;
-  color: var(--color-text-muted);
   font-size: var(--font-size-sm);
 }
 

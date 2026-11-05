@@ -177,6 +177,9 @@ export const settings = {
       removeAccount: (label: string) => `${label} の登録を削除`,
       removed: 'ChatGPT アカウントの登録を削除しました。',
       switched: (label: string) => `${label} に切り替えました。`,
+      // ログアウト済みのアカウントを選んだとき（一覧が古いなど）。ボタン名は一覧の「再ログイン」と同じ。
+      selectSignedOut:
+        'このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。',
       statusSignedIn: (email: string) => (email ? `ログイン済み（${email}）` : 'ログイン済み'),
       statusSignedOut: '未ログインです。',
       statusChoose: '使うアカウントを選んでください。',
@@ -200,6 +203,15 @@ export const settings = {
       saveBeforeUse:
         '「設定を保存」でプロバイダを ChatGPT プランに切り替えてから、モデルを選んで保存してください。',
     },
+    // プロバイダを選んだときの同意（F-08）と、同意のあとの取得。同意の画面の文言は compose.ai の consentTitle／consentBody と共通。
+    consentDialogAgree: '同意して一覧を取得する',
+    consentAsk: '同意の画面を開く',
+    consentUnknown: (provider: string) =>
+      `${provider} への送信は、選んだ送信先で未確認です。一覧を取得するときに確認します。`,
+    consentNeeded: (provider: string) =>
+      `${provider} への送信は未同意です。同意すると、使えるモデルの一覧を取得します。`,
+    baseUrlDecide:
+      'Base URL を入力して Enter（または「一覧を更新」）を押すと、その送信先への同意を確認して一覧を取得します。',
     consentAgreeNow: (dest: string) => `${dest} への送信に同意する`,
     consentAgreed: '同意しました。',
     consentHeading: '送信への同意',
@@ -211,13 +223,18 @@ export const settings = {
   general: {
     updateCheck: '更新を確認する',
     updateCheckHint:
-      '起動時と 24 時間ごとに GitHub で新しいバージョンを確認します。メールやアカウントの情報は送信しません。自動ではダウンロード・インストールしません。',
+      '起動時と 24 時間ごとに GitHub で新しいバージョンを確認します。メールやアカウントの情報は送信しません。',
     updateCheckSwitch: '更新の自動確認',
     checkNow: '今すぐ確認',
     checking: '確認中…',
     upToDate: '最新のバージョンです。',
     updateAvailable: (version: string) => `新しいバージョン ${version} があります。`,
     updateLink: 'ダウンロードページを開く',
+    autoUpdate: '自動アップデート',
+    autoUpdateSwitch: '自動アップデート',
+    autoUpdateHint:
+      '新しいバージョンを自動でダウンロードし、公開されているハッシュと照合します。入れ替えは「再起動して更新」を押したとき、または次にアプリを終了するときに行います（送信中・下書きの保存中は行いません）。オフにすると、新しいバージョンのリンクを表示するだけになります。',
+    autoUpdateRequiresCheck: '更新の自動確認がオフのあいだは、自動アップデートも行いません。',
     version: 'バージョン',
     dataDir: 'データの保存先',
     dataDirHint: '設定とメールの一覧キャッシュ（本文は保存しません）が保存されています。',
@@ -288,5 +305,11 @@ export const settings = {
     banner: (version: string) => `新しいバージョン ${version} が公開されています。`,
     bannerAction: 'ダウンロードページを開く',
     openFailed: 'リンクを開けませんでした。',
+    downloading: (version: string) => `新しいバージョン ${version} をダウンロードしています。`,
+    ready: (version: string) =>
+      `新しいバージョン ${version} の準備ができました。次にアプリを終了するときに更新します。`,
+    restart: '再起動して更新',
+    restarting: '更新を始めています…',
+    restartFailed: '更新を始められませんでした。',
   },
 } as const

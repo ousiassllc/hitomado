@@ -107,6 +107,7 @@ func (s *Service) warnings(ctx context.Context, sender store.Account, c dto.Comp
 // Send は確認トークンを検証して送信する。トークンは成功・失敗にかかわらず 1 回の Send で使用済みになる
 // （ハッシュ不一致のときだけは消費されず、内容を戻せば再送できる）。同一セッションの Send は排他。
 func (s *Service) Send(ctx context.Context, sessionID, confirmToken string, content dto.ComposeContent) (dto.SendResult, error) {
+	defer s.d.Busy.Begin()() // 送信中は自動アップデートの入れ替えをしない
 	cs, view, err := s.beginSend(sessionID, confirmToken, content)
 	if err != nil {
 		return dto.SendResult{}, err

@@ -264,13 +264,18 @@ func TestNewRegistrationWithoutIssuedClientIDIsIncomplete(t *testing.T) {
 	assert.Empty(t, e.f.tokenFormsCopy(), "client_id が無ければ交換しない")
 }
 
+// 再認可で別の client_id（大文字小文字だけ違う値も。Windows の資格情報ストアでは同じキー）が返ったら、コードを交換する前に拒否する。
 func TestReauthorizationRejectsADifferentClientID(t *testing.T) {
-	e := newEnv(t, nil, nil)
-	e.signIn(t)
-	e.f.callbackExtras = url.Values{"client_id": {"oaiapp_ATTACKER"}}
-	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{AccountID: issuedClient})
-	require.ErrorIs(t, err, siwc.ErrInvalidResponse)
-	assert.Equal(t, issuedClient, e.reg(t).first().ClientID)
+	for _, other := range []string{"oaiapp_ATTACKER", strings.ToLower(issuedClient)} {
+		e := newEnv(t, secrets.FoldKeyCase(secrets.NewMemory()), nil)
+		e.signIn(t)
+		forms := len(e.f.tokenFormsCopy())
+		e.f.callbackExtras = url.Values{"client_id": {other}}
+		_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{AccountID: issuedClient})
+		require.ErrorIs(t, err, siwc.ErrInvalidResponse)
+		assert.Equal(t, issuedClient, e.reg(t).first().ClientID)
+		assert.Len(t, e.f.tokenFormsCopy(), forms, "コードを交換しない")
+	}
 }
 
 func TestSignInTimeoutAndCancel(t *testing.T) {

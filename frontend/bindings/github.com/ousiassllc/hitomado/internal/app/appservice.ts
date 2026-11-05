@@ -23,14 +23,15 @@ export function AckBeforeQuit(): $CancellablePromise<void> {
 }
 
 /**
- * CheckForUpdate は更新確認を今すぐ行う。無効のとき（アプリ内の更新確認を持たない OS を含む）、および dev・ローカルビルド（版 update.DevVersion）のときは通信せず {available:false}。
+ * CheckForUpdate は更新確認を今すぐ行う。新しい版があり自動アップデートが有効なら、更新ファイルのダウンロードと照合も始める（応答は待たない）。
+ * 無効のとき（アプリ内の更新確認を持たない OS を含む）、および dev・ローカルビルド（版 update.DevVersion）のときは通信せず {available:false}。
  */
 export function CheckForUpdate(): $CancellablePromise<dto$0.UpdateInfo> {
     return $Call.ByID(338931324);
 }
 
 /**
- * GetAppInfo はバージョン・更新確認の有効／無効・データ保存先を返す。
+ * GetAppInfo はバージョン・更新確認と自動アップデートの有効／無効・データ保存先を返す。
  */
 export function GetAppInfo(): $CancellablePromise<dto$0.AppInfo> {
     return $Call.ByID(2903597929);
@@ -44,6 +45,29 @@ export function GetInboxFilter(): $CancellablePromise<dto$0.InboxFilter> {
 }
 
 /**
+ * GetUpdateStatus は自動アップデートの現在の状態（ダウンロード中・入れ替え待ち・失敗・なし）を返す。
+ */
+export function GetUpdateStatus(): $CancellablePromise<dto$0.UpdateStatus> {
+    return $Call.ByID(810034493);
+}
+
+/**
+ * RestartToUpdate は「再起動して更新」。ダウンロードと照合が済んだ更新があるときに、アプリを終了して入れ替え、
+ * インストール後に起動し直す。送信中・下書きの保存中は VALIDATION（入れ替えない）。
+ */
+export function RestartToUpdate(): $CancellablePromise<void> {
+    return $Call.ByID(3820631737);
+}
+
+/**
+ * SetAutoUpdateEnabled は自動アップデートのオン／オフを保存する。オフにすると、用意済みの更新ファイルを捨て、
+ * 以後は新しい版のリンクを出すだけになる。入れ替えを行わないビルドでは UNSUPPORTED。
+ */
+export function SetAutoUpdateEnabled(enabled: boolean): $CancellablePromise<void> {
+    return $Call.ByID(2308413777, enabled);
+}
+
+/**
  * SetInboxFilter はフィルタを保存する。存在しないアカウント ID は除いて保存する。
  */
 export function SetInboxFilter(filter: dto$0.InboxFilter): $CancellablePromise<void> {
@@ -51,7 +75,7 @@ export function SetInboxFilter(filter: dto$0.InboxFilter): $CancellablePromise<v
 }
 
 /**
- * SetUpdateCheckEnabled は更新確認のオン／オフを保存する。
+ * SetUpdateCheckEnabled は更新確認のオン／オフを保存する。アプリ内の更新確認を持たない OS（Android）では UNSUPPORTED。
  */
 export function SetUpdateCheckEnabled(enabled: boolean): $CancellablePromise<void> {
     return $Call.ByID(2002059346, enabled);

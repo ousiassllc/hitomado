@@ -1,66 +1,22 @@
-import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
-import * as realBindings from '../bindings/github.com/ousiassllc/hitomado/internal/app'
-import * as realEvents from '../src/lib/events'
+import {
+  calls,
+  callsOf,
+  failures,
+  handlers,
+  installMocks,
+  resetKit,
+  responses,
+  restoreMocks,
+  unsubscribed,
+} from '../src/stores/__tests__/settingsKit'
 
-const BINDINGS = '../bindings/github.com/ousiassllc/hitomado/internal/app'
-
-type Handler = (payload: unknown) => void
-const handlers = new Map<string, Handler>()
-const unsubscribed: string[] = []
-const calls: { name: string; args: unknown[] }[] = []
-let responses: Record<string, unknown> = {}
-let failures: Record<string, unknown> = {}
-
-function binding(name: string) {
-  return (...args: unknown[]) => {
-    calls.push({ name, args })
-    if (name in failures) return Promise.reject(failures[name])
-    return Promise.resolve(responses[name])
-  }
-}
-
-mock.module(BINDINGS, () => ({
-  AIService: {
-    GetAIConfig: binding('GetAIConfig'),
-    SetAIConfig: binding('SetAIConfig'),
-    SetAIApiKey: binding('SetAIApiKey'),
-    ClearAIApiKey: binding('ClearAIApiKey'),
-    RecordAIConsent: binding('RecordAIConsent'),
-  },
-  AppService: {
-    GetAppInfo: binding('GetAppInfo'),
-    SetUpdateCheckEnabled: binding('SetUpdateCheckEnabled'),
-    CheckForUpdate: binding('CheckForUpdate'),
-  },
-  ThreadService: { OpenExternal: binding('OpenExternal') },
-  MCPService: {
-    GetMCPStatus: binding('GetMCPStatus'),
-    SetMCPConfig: binding('SetMCPConfig'),
-    IssueMCPToken: binding('IssueMCPToken'),
-    RevokeMCPToken: binding('RevokeMCPToken'),
-  },
-  LogService: { OpenLogFolder: binding('OpenLogFolder'), ExportLogs: binding('ExportLogs') },
-}))
-
-mock.module('../src/lib/events', () => ({
-  ...realEvents,
-  onEvent: (name: string, h: Handler) => {
-    handlers.set(name, h)
-    return () => {
-      unsubscribed.push(name)
-      handlers.delete(name)
-    }
-  },
-}))
+installMocks()
+// 他のテストファイルへモックが漏れないよう、終了時に本物へ戻す。
+afterAll(restoreMocks)
 
 // mock.module を適用した後で読み込む必要があるため、静的 import にできない。
-// 他のテストファイルへモックが漏れないよう、終了時に本物へ戻す。
-afterAll(() => {
-  mock.module(BINDINGS, () => ({ ...realBindings }))
-  mock.module('../src/lib/events', () => ({ ...realEvents }))
-})
-
 const { useSettingsStore } = await import('../src/stores/settings')
 const { useUiStore } = await import('../src/stores/ui')
 
@@ -74,19 +30,18 @@ const baseMcp = {
   listening: false,
   endpoint: 'http://127.0.0.1:47650/mcp',
 }
-const baseInfo = { version: '0.1.0', updateCheckEnabled: true, dataDir: '/data' }
-
-function callsOf(name: string) {
-  return calls.filter((c) => c.name === name)
+const baseInfo = {
+  version: '0.1.0',
+  updateCheckEnabled: true,
+  autoUpdateSupported: false,
+  autoUpdateEnabled: false,
+  dataDir: '/data',
 }
 
 beforeEach(() => {
   setActivePinia(createPinia())
-  handlers.clear()
-  unsubscribed.length = 0
-  calls.length = 0
-  failures = {}
-  responses = {
+  resetKit()
+  Object.assign(responses, {
     GetAIConfig: baseAI,
     GetAppInfo: baseInfo,
     SetAIConfig: { ...baseAI, provider: 'openai', model: 'x', baseUrl: 'https://llm.example/v1' },
@@ -102,7 +57,7 @@ beforeEach(() => {
     RevokeMCPToken: baseMcp,
     OpenLogFolder: undefined,
     ExportLogs: { saved: true, path: '/tmp/logs.zip' },
-  }
+  })
 })
 
 describe('settingsStore', () => {
@@ -251,7 +206,7 @@ describe('settingsStore', () => {
     expect(callsOf('GetAIConfig')).toHaveLength(1)
     expect(callsOf('CheckForUpdate')).toHaveLength(1)
     s.stop()
-    expect(unsubscribed).toEqual(['update:available'])
+    expect(unsubscribed).toEqual(['update:available', 'update:status'])
   })
 
   test('openExternal の失敗はエラートーストにする', async () => {
@@ -296,5 +251,65 @@ describe('settingsStore', () => {
     await s.openLogFolder()
     expect(callsOf('OpenLogFolder')).toHaveLength(1)
     expect(await s.exportLogs()).toEqual({ saved: true, path: '/tmp/logs.zip' })
+  })
+})
+
+describe('settingsStore（自動アップデート。Windows 版）', () => {
+  const autoInfo = { ...baseInfo, autoUpdateSupported: true, autoUpdateEnabled: true }
+  const banner = () => useUiStore().banners.find((b) => b.key === 'update')
+
+  beforeEach(() => {
+    Object.assign(responses, {
+      GetAppInfo: autoInfo,
+      GetUpdateStatus: { stage: 'none' },
+      SetAutoUpdateEnabled: undefined,
+      RestartToUpdate: undefined,
+    })
+  })
+
+  test('update:status の ready で「再起動して更新」を出し、押すと RestartToUpdate を呼ぶ。拒否されたらトースト', async () => {
+    const s = useSettingsStore()
+    await s.start()
+    handlers.get('update:status')?.({ stage: 'ready', version: '0.2.0' })
+    expect(banner()?.action?.label).toBe('再起動して更新')
+    banner()?.action?.run()
+    await Promise.resolve()
+    expect(callsOf('RestartToUpdate')).toHaveLength(1)
+
+    failures.RestartToUpdate = {
+      cause: { code: 'VALIDATION', message: '送信中のため更新できません。', retryable: false },
+    }
+    await s.restartToUpdate()
+    expect(useUiStore().toasts.at(-1)?.message).toContain('送信中のため')
+  })
+
+  test('start は購読前に始まっていた進みを GetUpdateStatus で取り込む。使えない設定では呼ばない', async () => {
+    responses.GetUpdateStatus = { stage: 'ready', version: '0.2.0' }
+    const s = useSettingsStore()
+    await s.start()
+    expect(s.updateStatus.stage).toBe('ready')
+
+    s.stop()
+    calls.length = 0
+    responses.GetAppInfo = baseInfo
+    await s.start()
+    expect(callsOf('GetUpdateStatus')).toHaveLength(0)
+  })
+
+  test('setAutoUpdateEnabled(false) は保存してリンクのバナーに戻し、true は確認をやり直す', async () => {
+    const s = useSettingsStore()
+    await s.start()
+    handlers.get('update:status')?.({ stage: 'ready', version: '0.2.0' })
+
+    await s.setAutoUpdateEnabled(false)
+    expect(callsOf('SetAutoUpdateEnabled')[0]?.args).toEqual([false])
+    expect(s.appInfo?.autoUpdateEnabled).toBe(false)
+    expect(s.updateStatus.stage).toBe('none')
+    expect(banner()?.action?.label).toBe('ダウンロードページを開く')
+
+    const before = callsOf('CheckForUpdate').length
+    await s.setAutoUpdateEnabled(true)
+    expect(s.appInfo?.autoUpdateEnabled).toBe(true)
+    expect(callsOf('CheckForUpdate').length).toBe(before + 1)
   })
 })

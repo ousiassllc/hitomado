@@ -14,7 +14,7 @@ const props = defineProps<{
   /** 最後に取得した結果（未取得なら undefined）。 */
   models?: AIModelList
   loading: boolean
-  /** 「一覧を更新」を押せるか（保存済みの設定と編集中の設定が一致していて、処理中でないとき）。 */
+  /** 「一覧を更新」を押せるか（ほかの処理中でないとき。選んだ送信先は保存前でも取得できる）。 */
   canRefresh: boolean
   error?: string
 }>()
@@ -72,7 +72,6 @@ const note = computed(() => {
         {{ loading ? msg.ai.modelsRefreshing : msg.ai.modelsRefresh }}
       </BaseButton>
       <p v-if="note" class="note" role="status" data-testid="ai-models-note">{{ note }}</p>
-      <p v-else-if="!canRefresh" class="note">{{ msg.ai.modelsNeedSave }}</p>
     </div>
   </div>
 </template>

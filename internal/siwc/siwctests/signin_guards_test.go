@@ -53,34 +53,45 @@ func newHookEnv(t *testing.T) (*env, *hookSettings) {
 	return e, hs
 }
 
-// 新規登録のコールバックが既存の登録と同じ client_id を返しても、sub が違えば既存の登録・トークンを上書きしない。
-func TestNewRegistrationCollidingWithAnExistingClientIDOfAnotherSubjectIsRejected(t *testing.T) {
-	e := newEnv(t, nil, nil)
-	e.signIn(t)
-	before := e.reg(t)
+// 新規登録のコールバックが既存の登録と同じ client_id（または大文字小文字だけが違う client_id）を返しても、sub が違えば
+// 既存の登録・トークンを上書きしない。大文字小文字だけが違うときは、同じ sub でも拒否する（Windows の資格情報ストアでは
+// 同じキーになるので、キーの大文字小文字を区別しない Store で確かめる）。
+func TestNewRegistrationCollidingWithAnExistingClientIDIsRejected(t *testing.T) {
+	for _, tc := range []struct{ name, subject, issued string }{
+		{"同じ client_id・別の sub", "sub-someone-else", issuedClient},
+		{"大文字小文字だけ違う・別の sub", "sub-someone-else", strings.ToLower(issuedClient)},
+		{"大文字小文字だけ違う・同じ sub", subjectA, strings.ToUpper(issuedClient)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newEnv(t, secrets.FoldKeyCase(secrets.NewMemory()), nil)
+			e.signIn(t)
+			before := e.reg(t)
 
-	e.f.mu.Lock()
-	e.f.subject = "sub-someone-else"
-	e.f.accessToken = secondAccess
-	e.f.codeRefreshSuffix = "-intruder"
-	e.f.mu.Unlock() // 動的登録の発行は issuedClient のまま（既存と衝突する）
+			e.f.mu.Lock()
+			e.f.subject = tc.subject
+			e.f.accessToken = secondAccess
+			e.f.codeRefreshSuffix = "-intruder"
+			e.f.issueQueue = []string{tc.issued} // 既存の登録と衝突する client_id を発行させる
+			e.f.mu.Unlock()
 
-	_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
-	require.ErrorIs(t, err, siwc.ErrClientIDCollision)
-	assert.ErrorIs(t, err, siwc.ErrAccountMismatch)
+			_, err := e.m.SignIn(t.Context(), siwc.SignInOptions{})
+			require.ErrorIs(t, err, siwc.ErrClientIDCollision)
+			assert.ErrorIs(t, err, siwc.ErrAccountMismatch)
 
-	assert.Equal(t, before, e.reg(t), "登録（sub・メール・使用中）は変わらない")
-	for kind, want := range map[string]string{"access": secretAccess, "refresh": secretRefresh} {
-		got, err := e.sec.Get(tokenKey(kind))
-		require.NoError(t, err)
-		assert.Equal(t, want, got, "既存アカウントの %s トークンは上書きされない", kind)
+			assert.Equal(t, before, e.reg(t), "登録（sub・メール・使用中）は変わらない")
+			for kind, want := range map[string]string{"access": secretAccess, "refresh": secretRefresh} {
+				got, err := e.sec.Get(tokenKey(kind))
+				require.NoError(t, err)
+				assert.Equal(t, want, got, "既存アカウントの %s トークンは上書きされない", kind)
+			}
+			forms := e.f.revokeFormsCopy()
+			require.Len(t, forms, 1, "得たトークンは失効させる")
+			assert.Equal(t, refreshTokenFor(tc.issued)+"-intruder", forms[0].Get("token"))
+			tok, err := e.m.AccessToken(t.Context())
+			require.NoError(t, err)
+			assert.Equal(t, secretAccess, tok)
+		})
 	}
-	forms := e.f.revokeFormsCopy()
-	require.Len(t, forms, 1, "得たトークンは失効させる")
-	assert.Equal(t, secretRefresh+"-intruder", forms[0].Get("token"))
-	tok, err := e.m.AccessToken(t.Context())
-	require.NoError(t, err)
-	assert.Equal(t, secretAccess, tok)
 }
 
 // 同じ client_id・同じ sub なら同じアカウントなので、登録は 1 件のまま更新される。

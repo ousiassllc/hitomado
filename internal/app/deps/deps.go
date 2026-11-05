@@ -59,23 +59,30 @@ type Deps struct {
 	// OpenRequests は通知のタップで開くスレッドの受け渡し口（Android）。nil は常に「なし」。
 	OpenRequests *notify.OpenRequests
 	Update       update.Checker
-	Events       events.Emitter
-	Clock        clock.Clock
-	Files        FileDialog
-	Browser      URLOpener
-	Paths        PathOpener
-	AI           AIFactory
-	AIModels     AIModelsLister
-	ChatGPT      siwc.Auth // Sign in with ChatGPT（ログイン・更新・ログアウト）
-	Logger       *slog.Logger
-	DataDir      string // %APPDATA%\Hitomado
-	Version      string
+	// Updates は Windows 版の更新ファイルの用意・入れ替え（NF-D03）。nil は入れ替えを行わない OS（Android・開発用の Linux）。
+	Updates *update.Manager
+	// Busy は送信・下書きの保存の進行中を数える（入れ替えを安全なときだけ行うため。nil 可）。
+	Busy     *Busy
+	Events   events.Emitter
+	Clock    clock.Clock
+	Files    FileDialog
+	Browser  URLOpener
+	Paths    PathOpener
+	AI       AIFactory
+	AIModels AIModelsLister
+	ChatGPT  siwc.Auth // Sign in with ChatGPT（ログイン・更新・ログアウト）
+	Logger   *slog.Logger
+	DataDir  string // %APPDATA%\Hitomado
+	Version  string
 
 	// Capabilities はこの OS で提供する機能（MCP・自動更新など。Android では無効）。ゼロ値は全機能が無効。
 	Capabilities capability.Capabilities
 
 	// OAuthTracker は認可の途中でプロセスが止められたことを次の起動で検出する（Android のみ。nil＝検出しない）。
 	OAuthTracker *oauth.Tracker
+
+	// RequestQuit はアプリの終了を要求する（トレイの「終了」と同じ。未保存の下書きの保存を待ってから終了する。nil 可）。
+	RequestQuit func()
 
 	// QuitAck は AppService.AckBeforeQuit から呼ばれる（フロントの未保存下書き保存の完了通知。nil 可）。
 	QuitAck func()

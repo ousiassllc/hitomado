@@ -52,14 +52,14 @@ export function GetAIConfig(): $CancellablePromise<dto$0.AIConfig> {
 }
 
 /**
- * ListAIModels は provider のモデル一覧を取得する。取得できないときはエラーではなく Reason つきの空の一覧を返す（手入力へ切り替える）。
+ * ListAIModels は渡された送信先（openai は baseURL）のモデル一覧を、保存前でも取得する。取得できないときは Reason つきの空の一覧を返す。
  */
-export function ListAIModels(provider: string): $CancellablePromise<dto$0.AIModelList> {
-    return $Call.ByID(1674781123, provider);
+export function ListAIModels(provider: string, baseURL: string): $CancellablePromise<dto$0.AIModelList> {
+    return $Call.ByID(1674781123, provider, baseURL);
 }
 
-export function RecordAIConsent(provider: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(1816542130, provider);
+export function RecordAIConsent(provider: string, baseURL: string): $CancellablePromise<dto$0.AIConfig> {
+    return $Call.ByID(1816542130, provider, baseURL);
 }
 
 /**

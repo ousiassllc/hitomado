@@ -60,6 +60,7 @@ export const common = {
     label: 'スレッド一覧',
     empty: '表示するスレッドがありません。',
     emptyUnread: '未読のスレッドはありません。',
+    emptyCategory: 'このカテゴリのスレッドはありません。',
     emptySearch: '一致するスレッドがありません。',
     loadMore: 'さらに読み込む',
     loadingMore: '続きを読み込み中…',
@@ -69,6 +70,14 @@ export const common = {
     attachment: '添付ファイルあり',
     messageCount: (n: number) => `${n} 件のメッセージ`,
     needsReauthRow: '再接続が必要なアカウントです',
+  },
+  inboxTabs: {
+    label: '受信トレイの絞り込み',
+    all: 'すべて',
+    primary: 'メイン',
+    social: 'ソーシャル',
+    promotions: 'プロモーション',
+    new: '新着',
   },
   toolbar: {
     refresh: '更新',

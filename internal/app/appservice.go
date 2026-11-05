@@ -4,19 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"slices"
-	"strconv"
 
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
+	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/hitomado/internal/app/updatecore"
 	"github.com/ousiassllc/hitomado/internal/store"
-	"github.com/ousiassllc/hitomado/internal/update"
 )
 
 // AppService はアプリ設定（受信箱フィルタ等）・バージョン・更新確認（バインディング仕様 §7）。
-type AppService struct{ d *Deps }
+type AppService struct {
+	d       *Deps
+	updates *updatecore.Service
+}
 
 // NewAppService は AppService を作る。
-func NewAppService(d *Deps) *AppService { return &AppService{d: d} }
+func NewAppService(d *Deps) *AppService {
+	return &AppService{d: d, updates: updatecore.New((*deps.Deps)(d))}
+}
 
 // GetInboxFilter は保存済みフィルタを返す。存在しないアカウント ID は除く。
 func (s *AppService) GetInboxFilter(ctx context.Context) (dto.InboxFilter, error) {
@@ -68,69 +73,46 @@ func (s *AppService) SetInboxFilter(ctx context.Context, filter dto.InboxFilter)
 	return nil
 }
 
-// GetAppInfo はバージョン・更新確認の有効／無効・データ保存先を返す。
+// GetAppInfo はバージョン・更新確認と自動アップデートの有効／無効・データ保存先を返す。
 func (s *AppService) GetAppInfo(ctx context.Context) (dto.AppInfo, error) {
-	enabled, err := s.updateCheckEnabled(ctx)
+	check, err := s.updates.CheckEnabled(ctx)
 	if err != nil {
 		return dto.AppInfo{}, err
 	}
-	return dto.AppInfo{Version: s.d.Version, UpdateCheckEnabled: enabled, DataDir: s.d.DataDir}, nil
-}
-
-// updateCheckEnabled は更新確認の設定（未設定は有効）。アプリ内の更新確認を持たない OS（Android）では、保存値にかかわらず常に無効。
-func (s *AppService) updateCheckEnabled(ctx context.Context) (bool, error) {
-	if !s.d.Capabilities.SupportsAutoUpdate {
-		return false, nil
-	}
-	raw, ok, err := s.d.Store.GetSetting(ctx, store.SettingUpdateCheck)
+	auto, err := s.updates.AutoEnabled(ctx)
 	if err != nil {
-		return false, apperr.FromInfra(err, "")
+		return dto.AppInfo{}, err
 	}
-	if !ok {
-		return true, nil
-	}
-	enabled, perr := strconv.ParseBool(raw)
-	if perr != nil {
-		return true, nil // 壊れた値は既定（有効）
-	}
-	return enabled, nil
+	return dto.AppInfo{
+		Version: s.d.Version, UpdateCheckEnabled: check,
+		AutoUpdateSupported: s.updates.Supported(), AutoUpdateEnabled: auto, DataDir: s.d.DataDir,
+	}, nil
 }
 
-// SetUpdateCheckEnabled は更新確認のオン／オフを保存する。
+// SetUpdateCheckEnabled は更新確認のオン／オフを保存する。アプリ内の更新確認を持たない OS（Android）では UNSUPPORTED。
 func (s *AppService) SetUpdateCheckEnabled(ctx context.Context, enabled bool) error {
-	if !s.d.Capabilities.SupportsAutoUpdate {
-		return apperr.New(apperr.Unsupported, "この端末ではアプリ内の更新確認を使えません。")
-	}
-	if err := s.d.Store.SetSetting(ctx, store.SettingUpdateCheck, strconv.FormatBool(enabled)); err != nil {
-		return apperr.FromInfra(err, "")
-	}
-	return nil
+	return s.updates.SetCheckEnabled(ctx, enabled)
 }
 
-// CheckForUpdate は更新確認を今すぐ行う。無効のとき（アプリ内の更新確認を持たない OS を含む）、および dev・ローカルビルド（版 update.DevVersion）のときは通信せず {available:false}。
+// SetAutoUpdateEnabled は自動アップデートのオン／オフを保存する。オフにすると、用意済みの更新ファイルを捨て、
+// 以後は新しい版のリンクを出すだけになる。入れ替えを行わないビルドでは UNSUPPORTED。
+func (s *AppService) SetAutoUpdateEnabled(ctx context.Context, enabled bool) error {
+	return s.updates.SetAutoEnabled(ctx, enabled)
+}
+
+// GetUpdateStatus は自動アップデートの現在の状態（ダウンロード中・入れ替え待ち・失敗・なし）を返す。
+func (s *AppService) GetUpdateStatus(_ context.Context) (dto.UpdateStatus, error) {
+	return s.updates.Status(), nil
+}
+
+// RestartToUpdate は「再起動して更新」。ダウンロードと照合が済んだ更新があるときに、アプリを終了して入れ替え、
+// インストール後に起動し直す。送信中・下書きの保存中は VALIDATION（入れ替えない）。
+func (s *AppService) RestartToUpdate(_ context.Context) error { return s.updates.RestartToUpdate() }
+
+// CheckForUpdate は更新確認を今すぐ行う。新しい版があり自動アップデートが有効なら、更新ファイルのダウンロードと照合も始める（応答は待たない）。
+// 無効のとき（アプリ内の更新確認を持たない OS を含む）、および dev・ローカルビルド（版 update.DevVersion）のときは通信せず {available:false}。
 func (s *AppService) CheckForUpdate(ctx context.Context) (dto.UpdateInfo, error) {
-	if update.IsDev(s.d.Version) {
-		return dto.UpdateInfo{}, nil
-	}
-	enabled, err := s.updateCheckEnabled(ctx)
-	if err != nil || !enabled {
-		return dto.UpdateInfo{}, err
-	}
-	rel, err := s.d.Update.Latest(ctx)
-	if err != nil {
-		return dto.UpdateInfo{}, apperr.FromInfra(err, "")
-	}
-	if err := s.d.Store.SetSetting(ctx, store.SettingLastChecked, strconv.FormatInt(s.d.Clock.Now().UnixMilli(), 10)); err != nil {
-		logger(s.d).Warn("最終確認日時の保存に失敗", "err", err)
-	}
-	return updateInfo(s.d.Version, rel), nil
-}
-
-func updateInfo(current string, rel update.Release) dto.UpdateInfo {
-	if !update.IsNewer(current, rel.Version) {
-		return dto.UpdateInfo{}
-	}
-	return dto.UpdateInfo{Available: true, Version: rel.Version, URL: rel.URL}
+	return s.updates.Check(ctx)
 }
 
 // AckBeforeQuit は終了前の保存が済んだことをトレイの終了処理（platform.Quitter）へ知らせる。

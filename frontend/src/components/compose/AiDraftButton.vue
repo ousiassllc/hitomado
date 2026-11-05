@@ -6,6 +6,8 @@ import { hasUserBody } from '../../lib/signature'
 import { useComposeStore } from '../../stores/compose'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
+import AIConsentDialog from '../settings/ai/AIConsentDialog.vue'
+import AISetupDialog from '../settings/ai/AISetupDialog.vue'
 import { aiDestination } from '../settings/ai/aiDestination'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseDialog from '../ui/BaseDialog.vue'
@@ -26,9 +28,12 @@ onMounted(() => {
 const ai = useAiDraft({
   config: () => settings.aiConfig,
   hasBody: () => hasUserBody(compose.content.bodyHtml),
-  recordConsent: (provider) => settings.recordAIConsent(provider),
+  // 同意は、保存済みの設定の送信先（OpenAI 互換は Base URL も）に対して記録する。
+  recordConsent: (provider) => settings.recordAIConsent(provider, settings.aiConfig?.baseUrl ?? ''),
   generate: (requestId) => settings.generateReplyDraft(props.sessionId, requestId),
   cancel: (requestId) => settings.cancelGenerate(requestId),
+  // 初回の案内から、設定画面の AI の流れへ進む。ChatGPT は同意→ログイン→モデルの選択、別のプロバイダはプロバイダの選択から。
+  openSetup: (choice) => ui.openSettings('ai', choice === 'chatgpt' ? 'chatgpt-login' : undefined),
   onGenerated: (bodyHtml) => emit('generated', bodyHtml),
   newRequestId: () => crypto.randomUUID(),
 })
@@ -38,9 +43,11 @@ const destination = computed(() => {
   return c ? aiDestination(c.provider, c.baseUrl) : undefined
 })
 
-const usingChatGPT = computed(() => settings.aiConfig?.provider === 'chatgpt')
+// 設定が未保存のあいだは、既定の ChatGPT プランを「使用中」とは表示しない。
+const usingChatGPT = computed(() => settings.aiConfig?.configured === true && settings.aiConfig.provider === 'chatgpt')
 const needText = computed(() => (usingChatGPT.value ? msg.ai.needLogin : msg.ai.needKey))
 
+const setupOpen = computed(() => ai.step.value === 'setup')
 const consentOpen = computed(() => ai.step.value === 'consent')
 const replaceOpen = computed(() => ai.step.value === 'replace')
 const generating = computed(() => ai.step.value === 'generating')
@@ -83,20 +90,17 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
     />
     <p v-else-if="ai.error.value" class="ai-error" role="alert">{{ msg.ai.failed }}（{{ ai.error.value }}）</p>
 
-    <BaseDialog
+    <AISetupDialog :open="setupOpen" @choose="ai.answerSetup($event)" />
+
+    <AIConsentDialog
+      v-if="destination"
       :open="consentOpen"
-      :title="msg.ai.consentTitle"
-      size="sm"
-      :closable="false"
-    >
-      <p v-if="destination" class="dlg-text">
-        {{ msg.ai.consentBody(destination.providerLabel, destination.url) }}
-      </p>
-      <template #footer>
-        <BaseButton variant="secondary" @click="ai.answerConsent(false)">{{ msg.ai.consentCancel }}</BaseButton>
-        <BaseButton variant="primary" @click="ai.answerConsent(true)">{{ msg.ai.consentAgree }}</BaseButton>
-      </template>
-    </BaseDialog>
+      :provider-label="destination.providerLabel"
+      :url="destination.url"
+      :agree-label="msg.ai.consentAgree"
+      @agree="ai.answerConsent(true)"
+      @cancel="ai.answerConsent(false)"
+    />
 
     <BaseDialog :open="replaceOpen" :title="msg.ai.replaceTitle" size="sm" :closable="false">
       <p class="dlg-text">{{ msg.ai.replaceBody }}</p>

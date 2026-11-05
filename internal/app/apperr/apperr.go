@@ -6,7 +6,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
+	"strings"
 
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/gmail"
@@ -48,10 +50,15 @@ const (
 	Internal            = "INTERNAL"
 )
 
-// Details の reason（AppError の補足）。AI_FAILED のうち、画面が専用の案内を出すもの。
+// Details の reason（AppError の補足）。画面が専用の案内を出すもの。
 const (
-	DetailReason     = "reason"
-	ReasonUsageLimit = "usage_limit_exceeded" // ChatGPT プランの利用枠の超過（subscription_sharing_usage_limit_exceeded）
+	DetailReason            = "reason"
+	ReasonUsageLimit        = "usage_limit_exceeded" // AI_FAILED: ChatGPT プランの利用枠の超過（subscription_sharing_usage_limit_exceeded）
+	ReasonGmailAPIDisabled  = "gmail_api_disabled"   // GMAIL_ERROR: Google Cloud のプロジェクトで Gmail API が無効（SERVICE_DISABLED／accessNotConfigured）
+	ReasonScopeInsufficient = "scope_insufficient"   // NEEDS_REAUTH: 権限（スコープ）不足（ACCESS_TOKEN_SCOPE_INSUFFICIENT／insufficientPermissions）
+	// ReasonAccountSignedOut は AI_NOT_CONFIGURED: SelectChatGPTAccount で選んだ ChatGPT アカウントがログアウト済み。
+	// 画面は「再ログイン」を案内する文面（messages）に置き換える。
+	ReasonAccountSignedOut = "account_signed_out"
 )
 
 // Error は AppError。JSON は {code, message, retryable, accountId?, details?}。
@@ -131,8 +138,16 @@ func classify(err error) *Error {
 	case errors.Is(err, gmail.ErrSendUncertain):
 		// ErrOffline などより先に見る。OFFLINE のままだと再送へ誘導し、二重送信になり得る。
 		return Wrap(SendUncertain, "送信済みの可能性があります。送信済みを確認してから再送してください。", err)
+	case errors.Is(err, gmail.ErrScopeInsufficient):
+		// ErrNeedsReauth にも分類されるので先に見る。再接続して権限を許可し直すと直る。
+		return Wrap(NeedsReauth, "Gmail の権限（スコープ）が足りません。再接続して、すべての権限を許可してください。", err).
+			WithDetail(DetailReason, ReasonScopeInsufficient)
 	case errors.Is(err, gmail.ErrNeedsReauth):
 		return Wrap(NeedsReauth, "アカウントの接続が切れました。再接続してください。", err)
+	case errors.Is(err, gmail.ErrAPIDisabled):
+		// 利用者が自分の Google Cloud プロジェクトで直せる。再試行では直らない。
+		return Wrap(GmailError, "Google Cloud のプロジェクトで Gmail API が有効になっていません。Google Cloud コンソール（https://console.cloud.google.com/apis/library/gmail.googleapis.com）で有効にしてから、やり直してください。", err).
+			WithDetail(DetailReason, ReasonGmailAPIDisabled)
 	case errors.Is(err, gmail.ErrClientRejected), errors.Is(err, oauth.ErrClientRejected):
 		return Wrap(OAuthClientRejected, "OAuth クライアントの設定（Client ID／Secret）を確認してください。", err)
 	case errors.Is(err, oauth.ErrCancelled), errors.Is(err, context.Canceled):
@@ -167,10 +182,24 @@ func classify(err error) *Error {
 	case errors.Is(err, ai.ErrFailed):
 		return Wrap(AIFailed, "AI の生成に失敗しました。", err)
 	case errors.Is(err, gmail.ErrGeneric):
-		return Wrap(GmailError, "Gmail でエラーが発生しました。", err)
+		return Wrap(GmailError, gmailErrorMessage(err), err)
 	default:
 		return Wrap(Internal, "内部エラーが発生しました。", err)
 	}
+}
+
+// gmailErrorMessage は ErrGeneric の利用者向けメッセージ。Gmail API の応答を受け取っていれば、原因の切り分けに使えるよう
+// HTTP ステータスと Google の reason（文字種を制限済み）を添える。Google が返した message 本体は載せない。
+func gmailErrorMessage(err error) string {
+	const base = "Gmail でエラーが発生しました。"
+	ae, ok := gmail.AsAPIError(err)
+	if !ok {
+		return base
+	}
+	if len(ae.Reasons) == 0 {
+		return fmt.Sprintf("%s（HTTP %d）", base, ae.Status)
+	}
+	return fmt.Sprintf("%s（HTTP %d、理由: %s）", base, ae.Status, strings.Join(ae.Reasons, "、"))
 }
 
 // Marshal は Wails の MarshalError 用（UI 返却専用。details を含むためログに出さないこと）。AppError の JSON を返す（フロントでは error.cause として読める）。

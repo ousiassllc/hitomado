@@ -19,11 +19,17 @@ const usageLimitError = {
 
 function drafter(generate: () => Promise<{ bodyHtml: string }>) {
   return useAiDraft({
-    config: () => ({ provider: 'chatgpt', hasApiKey: true, consentedProviders: ['chatgpt'] }),
+    config: () => ({
+      provider: 'chatgpt',
+      configured: true,
+      hasApiKey: true,
+      consentedProviders: ['chatgpt'],
+    }),
     hasBody: () => false,
     recordConsent: async () => {},
     generate,
     cancel: async () => {},
+    openSetup: () => {},
     onGenerated: () => {},
     newRequestId: () => 'r1',
   })
@@ -73,7 +79,9 @@ describe('利用枠の超過（#80）', () => {
     store.aiConfig = {
       provider: 'chatgpt',
       model: 'gpt-plan',
+      configured: true,
       hasApiKey: true,
+      apiKeyProviders: [],
       consentedProviders: ['chatgpt'],
       chatgptSignedIn: true,
       chatgptAccounts: [],

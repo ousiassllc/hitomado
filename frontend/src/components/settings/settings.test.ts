@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import type { AIConfig } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import type { Capabilities } from '../../../bindings/github.com/ousiassllc/hitomado/internal/capability'
 import { useAccountsStore } from '../../stores/accounts'
 import { useNotificationsStore } from '../../stores/notifications'
@@ -14,6 +15,14 @@ import McpSettings from './McpSettings.vue'
 import OAuthClientsSettings from './oauth/OAuthClientsSettings.vue'
 import SettingsDialog from './SettingsDialog.vue'
 import { normalizeSignatureHtml } from './signatureHtml'
+
+const info = {
+  version: '1.2.3',
+  updateCheckEnabled: true,
+  autoUpdateSupported: false,
+  autoUpdateEnabled: false,
+  dataDir: '/data/Hitomado',
+}
 
 function setup() {
   const pinia = createPinia()
@@ -41,32 +50,40 @@ describe('OAuthClientsSettings', () => {
   })
 })
 
+/** 保存済み（configured）の AI 設定。 */
+function savedConfig(
+  provider: string,
+  model: string,
+  hasApiKey: boolean,
+  apiKeyProviders: string[],
+  extra: Partial<AIConfig> = {},
+): AIConfig {
+  return {
+    provider,
+    model,
+    configured: true,
+    hasApiKey,
+    apiKeyProviders,
+    consentedProviders: [],
+    chatgptSignedIn: false,
+    chatgptAccounts: [],
+    ...extra,
+  }
+}
+
 describe('AISettings', () => {
   test('保存済みの送信先（プロバイダ・Base URL）を常に表示する', async () => {
     const pinia = setup()
     const settings = useSettingsStore()
-    settings.aiConfig = {
-      provider: 'openai',
-      model: 'gpt-x',
+    settings.aiConfig = savedConfig('openai', 'gpt-x', true, ['openai'], {
       baseUrl: 'https://llm.example.com/v1',
-      hasApiKey: true,
-      consentedProviders: [],
-      chatgptSignedIn: false,
-      chatgptAccounts: [],
-    }
+    })
     const w = mount(AISettings, { global: { plugins: [pinia] } })
     const dest = w.get('[data-testid="ai-destination"]').text()
     expect(dest).toContain('OpenAI 互換')
     expect(dest).toContain('https://llm.example.com/v1')
 
-    settings.aiConfig = {
-      provider: 'anthropic',
-      model: 'm',
-      hasApiKey: false,
-      consentedProviders: [],
-      chatgptSignedIn: false,
-      chatgptAccounts: [],
-    }
+    settings.aiConfig = savedConfig('anthropic', 'm', false, [])
     await w.vm.$nextTick()
     expect(w.get('[data-testid="ai-destination"]').text()).toContain('https://api.anthropic.com')
   })
@@ -76,25 +93,11 @@ describe('AISettings モデル名', () => {
   test('モデル名が空なら入力を促す注記を表示し、入力済みなら出さない', async () => {
     const pinia = setup()
     const settings = useSettingsStore()
-    settings.aiConfig = {
-      provider: 'anthropic',
-      model: '',
-      hasApiKey: false,
-      consentedProviders: [],
-      chatgptSignedIn: false,
-      chatgptAccounts: [],
-    }
+    settings.aiConfig = savedConfig('anthropic', '', false, [])
     const w = mount(AISettings, { global: { plugins: [pinia] } })
     expect(w.text()).toContain('モデルを入力してください')
 
-    settings.aiConfig = {
-      provider: 'anthropic',
-      model: 'm',
-      hasApiKey: false,
-      consentedProviders: [],
-      chatgptSignedIn: false,
-      chatgptAccounts: [],
-    }
+    settings.aiConfig = savedConfig('anthropic', 'm', false, [])
     await w.vm.$nextTick()
     expect(w.text()).not.toContain('モデルを入力してください')
   })
@@ -174,8 +177,6 @@ describe('SettingsDialog（Android: 機能が無い OS）', () => {
 })
 
 describe('GeneralSettings', () => {
-  const info = { version: '1.2.3', updateCheckEnabled: true, dataDir: '/data/Hitomado' }
-
   test('アプリ内の更新確認がある OS では更新確認の項目を出す', () => {
     const pinia = setup()
     useSettingsStore().appInfo = info
@@ -199,8 +200,6 @@ describe('GeneralSettings', () => {
 })
 
 describe('GeneralSettings の通知の許可（Android）', () => {
-  const info = { version: '1.2.3', updateCheckEnabled: true, dataDir: '/data/Hitomado' }
-
   function mountWith(permission: 'granted' | 'denied' | 'unsupported') {
     const pinia = setup()
     useSettingsStore().appInfo = info

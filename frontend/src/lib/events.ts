@@ -7,6 +7,7 @@ export const EVENTS = {
   BEFORE_QUIT: 'app:before-quit',
   NOTIFY_OPEN_THREAD: 'notify:open-thread',
   UPDATE_AVAILABLE: 'update:available',
+  UPDATE_STATUS: 'update:status',
 } as const
 
 export type AccountStatus = 'active' | 'syncing' | 'needs_reauth' | 'error'
@@ -30,6 +31,13 @@ export interface NotifyOpenThreadPayload {
 export interface UpdateAvailablePayload {
   version: string
   url: string
+}
+
+/** 自動アップデートの進み（Windows 版）。ready は、ダウンロードと照合が済んで入れ替え待ちの状態。 */
+export interface UpdateStatusPayload {
+  stage: 'none' | 'downloading' | 'ready' | 'failed'
+  version?: string
+  message?: string
 }
 
 /**

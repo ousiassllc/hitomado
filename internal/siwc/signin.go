@@ -113,11 +113,11 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 	// OpenAI の認可エンドポイントにだけ送る。ほかの登録の ID トークンは送らない。
 	hintToken := ""
 	if target.ClientID != "" {
-		m.refreshMu.Lock() // 更新の途中の（新旧が混ざった）値を読まない
+		unlock := m.lockAccount(target.ClientID) // 更新の途中の（新旧が混ざった）値を読まない
 		if t, terr := m.loadTokens(target.ClientID); terr == nil {
 			hintToken = t.ID
 		}
-		m.refreshMu.Unlock()
+		unlock()
 	}
 	authURL := m.authorizeURL(prov.Endpoint().AuthURL, p, hostID, target, hintToken)
 	if err := m.opts.OpenBrowser(authURL); err != nil {
@@ -153,6 +153,7 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 		clientID = res.clientID
 	} else if res.clientID != "" && res.clientID != clientID {
 		// 再認可で別の client_id が返ったら、選んでいたアカウントの登録を置き換えずに拒否する。
+		// 完全一致で比べるので、大文字小文字だけ違う値（Windows の資格情報ストアでは同じキー）も、トークンの交換より前に拒否される。
 		return Status{}, fmt.Errorf("%w: クライアント ID が一致しません", ErrInvalidResponse)
 	}
 
@@ -200,20 +201,25 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 	}
 	granted := slices.Contains(strings.Fields(scope), scopePlan)
 
-	m.refreshMu.Lock()
-	defer m.refreshMu.Unlock()
+	defer m.lockAccount(clientID)() // このログインのアカウントだけを守る（別のアカウントの更新・ログアウトは待たない）
 	// 取得したトークンを保存し終えるまで、ログインの中止（ctx）で中断しない（トークンと登録が食い違わないように）。
 	ctx = context.WithoutCancel(ctx)
 
+	// 新規登録で発行された client_id が保存済みの登録と大文字小文字だけ違うなら、同じ資格情報キーを指す
+	// （Windows の資格情報ストアはキーの大文字小文字を区別しない）別の登録なので、上書きせず拒否する。
 	// 新規登録で発行された client_id が保存済みの登録と同じなら、同じアカウント（sub）であること。
-	// 異なるアカウントの登録・トークンを、sub を照合せずに上書きしない。sub が未記録の登録（旧形式の移行直後など）は
-	// 照合できないので、ここでは止めない。
+	// 異なるアカウントの登録・トークンを、sub を照合せずに上書きしない。sub が未記録の登録（旧形式の移行直後など）も
+	// 照合できないので、上書きせず拒否する（誤拒否の影響は小さい。再ログインなら選んだ登録の sub が記録される）。
 	if target.ClientID == "" {
 		reg, err := m.loadRegistry(ctx)
 		if err != nil {
 			return Status{}, err
 		}
-		if ex := reg.find(clientID); ex != nil && ex.Subject != "" && ex.Subject != idt.Subject {
+		if reg.collidesIgnoringCase(clientID) {
+			m.revokeQuietly(ctx, clientID, tr.RefreshToken)
+			return Status{}, ErrClientIDCollision
+		}
+		if ex := reg.find(clientID); ex != nil && ex.Subject != idt.Subject {
 			m.revokeQuietly(ctx, clientID, tr.RefreshToken)
 			return Status{}, ErrClientIDCollision
 		}
@@ -254,7 +260,7 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 	return m.Status(ctx)
 }
 
-// restoreTokens はアカウントのトークンを prev（ログイン前の値。無ければ空）に戻す（refreshMu を持って呼ぶ）。
+// restoreTokens はアカウントのトークンを prev（ログイン前の値。無ければ空）に戻す（そのアカウントのロックを持って呼ぶ）。
 // 戻せなかったときは、新旧が混ざったトークンを残さないよう消す。戻した旧トークンが OpenAI 側でまだ有効かは分からない
 // （無効なら次の更新で ErrReauthRequired になり、再ログインを案内する）。ログにトークンの値は出さない。
 func (m *Manager) restoreTokens(clientID string, prev tokens) {
@@ -269,7 +275,7 @@ func (m *Manager) restoreTokens(clientID string, prev tokens) {
 	}
 }
 
-// declinePlan は ChatGPT プランの利用が許可されなかったログインの後始末をして ErrPlanNotGranted を返す（refreshMu を持って呼ぶ）。
+// declinePlan は ChatGPT プランの利用が許可されなかったログインの後始末をして ErrPlanNotGranted を返す（そのアカウントのロックを持って呼ぶ）。
 // ログイン中のアカウント（このアカウントを含む）のセッションは変えない。ログイン中でないアカウントだけ、次のログインで
 // 同じクライアントを使い同意を求め直すため、登録を残す（ほかのアカウントの登録・使用中のアカウントは変えない）。
 func (m *Manager) declinePlan(ctx context.Context, clientID, subject, email string) error {

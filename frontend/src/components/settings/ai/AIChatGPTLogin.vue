@@ -62,6 +62,9 @@ async function login(accountId: string): Promise<void> {
   }
 }
 
+// 設定画面の流れ（同意のあと・初回の案内から）が、「Continue with ChatGPT」を押したのと同じ動作を始める。
+defineExpose({ login: () => login('') })
+
 async function cancel(): Promise<void> {
   try {
     await store.cancelSignInChatGPT()
@@ -83,7 +86,14 @@ async function select(a: ChatGPTAccount): Promise<void> {
     ui.pushToast('success', msg.ai.chatgpt.switched(label(a)))
     emit('accountChanged')
   } catch (e) {
-    error.value = parseBindingError(e).message
+    const err = parseBindingError(e)
+    if (err.details?.reason === 'account_signed_out') {
+      // 画面が古く、ログアウト済みのアカウントを選んだ。次にすることを伝え、一覧を最新にして「再ログイン」を出す。
+      error.value = msg.ai.chatgpt.selectSignedOut
+      await store.load()
+    } else {
+      error.value = err.message
+    }
     // 押したラジオが選択されたまま残らないよう、使用中のアカウントの表示へ戻す（要素は作り直さない）。
     resyncRadios()
   } finally {

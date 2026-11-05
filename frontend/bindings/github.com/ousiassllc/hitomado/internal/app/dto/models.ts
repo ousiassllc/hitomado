@@ -17,9 +17,19 @@ export interface AIConfig {
     "baseUrl"?: string;
 
     /**
+     * Configured は AI の設定（プロバイダ・モデル）を一度でも保存したか。false の間、provider は既定（chatgpt）で、画面は初めて使うときの案内を出す。
+     */
+    "configured": boolean;
+
+    /**
      * HasAPIKey は現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。
      */
     "hasApiKey": boolean;
+
+    /**
+     * APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai。chatgpt は ChatGPTSignedIn）。保存前に選んだプロバイダのキーの有無を出すのに使う。null にしない。
+     */
+    "apiKeyProviders": string[] | null;
     "consentedProviders": string[] | null;
 
     /**
@@ -99,6 +109,16 @@ export interface AccountPatch {
 export interface AppInfo {
     "version": string;
     "updateCheckEnabled": boolean;
+
+    /**
+     * AutoUpdateSupported はこのビルドが新しい版のダウンロードと入れ替えを行えるか（Windows 版。NF-D03）。
+     */
+    "autoUpdateSupported": boolean;
+
+    /**
+     * AutoUpdateEnabled は自動アップデートの設定（既定オン。AutoUpdateSupported が false のときは常に false）。
+     */
+    "autoUpdateEnabled": boolean;
     "dataDir": string;
 }
 
@@ -236,10 +256,13 @@ export interface InboxFilter {
 
 /**
  * InboxQuery は受信箱の取得条件。AccountIDs が空ならすべて。Limit は 1〜100（既定 50）。
+ * Tab は受信箱のタブ（"" または "all"＝すべて、"primary"＝メイン、"social"＝ソーシャル、"promotions"＝プロモーション、
+ * "new"＝新着＝未読だけ）。それ以外は VALIDATION。
  */
 export interface InboxQuery {
     "accountIds": string[] | null;
     "unreadOnly": boolean;
+    "tab"?: string;
     "limit": number;
     "cursor"?: string;
 }
@@ -519,4 +542,13 @@ export interface UpdateInfo {
     "available": boolean;
     "version"?: string;
     "url"?: string;
+}
+
+/**
+ * UpdateStatus は自動アップデートの状態。Stage は none／downloading／ready／failed。
+ */
+export interface UpdateStatus {
+    "stage": string;
+    "version"?: string;
+    "message"?: string;
 }

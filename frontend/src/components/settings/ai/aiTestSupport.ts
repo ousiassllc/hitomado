@@ -4,6 +4,7 @@ import type {
   AIConfig,
   AIModelList,
 } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { aiModelsKey } from '../../../lib/aiConfig'
 import { useSettingsStore } from '../../../stores/settings'
 import AISettings from './AISettings.vue'
 
@@ -12,28 +13,46 @@ export { flushPromises }
 export const base: AIConfig = {
   provider: 'openai',
   model: 'gpt-old',
+  configured: true,
   hasApiKey: true,
+  apiKeyProviders: ['openai'],
   consentedProviders: ['openai'],
   chatgptSignedIn: false,
   chatgptAccounts: [],
 }
 
-export function setup(cfg: Partial<AIConfig> = {}, models?: Record<string, AIModelList>) {
+/** 取得の結果を決める関数（provider・OpenAI 互換の baseUrl を受ける）。既定は、空の一覧（理由なし）。 */
+export type ModelsFn = (provider: string, baseUrl: string) => AIModelList
+
+export function setup(
+  cfg: Partial<AIConfig> = {},
+  models?: Record<string, AIModelList>,
+  load?: ModelsFn,
+) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const store = useSettingsStore()
   store.aiConfig = { ...base, ...cfg }
   if (models) store.aiModels = models
   const calls: string[] = []
-  store.loadAIModels = async (p: string) => {
+  /** 取得の呼び出し（provider と、そのとき渡した baseUrl）。 */
+  const loads: { provider: string; baseUrl: string }[] = []
+  store.loadAIModels = async (p: string, baseUrl = '') => {
     calls.push(`models:${p}`)
-    return { provider: p, models: [] }
+    loads.push({ provider: p, baseUrl })
+    const r = load?.(p, baseUrl) ?? { provider: p, models: [] }
+    store.aiModels = { ...store.aiModels, [aiModelsKey(p, baseUrl)]: r }
+    return r
   }
-  return { pinia, store, calls }
+  return { pinia, store, calls, loads }
 }
 
 export const mountAI = (pinia: ReturnType<typeof createPinia>) =>
-  mount(AISettings, { global: { plugins: [pinia] } })
+  mount(AISettings, { global: { plugins: [pinia] }, attachTo: document.body })
+
+/** 同意の画面（ダイアログは body 直下に出る）の要素。 */
+export const consentEl = (testid: string) =>
+  document.body.querySelector<HTMLElement>(`[data-testid="${testid}"]`)
 
 export function button(w: VueWrapper, text: string) {
   const b = w.findAll('button').find((x) => x.text().includes(text))

@@ -63,8 +63,14 @@ func (s *Service) CancelSignInChatGPT() error {
 }
 
 // SelectChatGPTAccount は下書きの生成に使う ChatGPT アカウントを切り替える（ログイン中のアカウントだけ）。
+// ログアウト済みのアカウントは AI_NOT_CONFIGURED（details.reason = "account_signed_out"。画面が「再ログイン」を案内する文面に置き換える）。
 func (s *Service) SelectChatGPTAccount(ctx context.Context, accountID string) (dto.AIConfig, error) {
 	if err := s.d.ChatGPT.SelectAccount(ctx, accountID); err != nil {
+		if errors.Is(err, siwc.ErrNotSignedIn) {
+			// 生成の前提の案内（mapChatGPTError）ではなく、選んだアカウントについて次の操作を伝える。
+			return dto.AIConfig{}, apperr.Wrap(apperr.AINotConfigured, "このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。", err).
+				WithDetail(apperr.DetailReason, apperr.ReasonAccountSignedOut)
+		}
 		return dto.AIConfig{}, mapChatGPTError(err)
 	}
 	return s.config(ctx)
@@ -118,7 +124,7 @@ func mapChatGPTError(err error) error {
 	case errors.Is(err, siwc.ErrBusy):
 		return apperr.Wrap(apperr.Validation, "別の ChatGPT ログインが進行中です。", err)
 	case errors.Is(err, siwc.ErrClientIDCollision): // ErrAccountMismatch より先に判定する
-		return apperr.Wrap(apperr.Validation, "OpenAI が発行した登録が、別の ChatGPT アカウントの既存の登録と重なったため、保存しませんでした。しばらくしてからもう一度お試しください。", err)
+		return apperr.Wrap(apperr.Validation, "OpenAI が発行した登録が、既存の ChatGPT アカウントの登録と重なり、同じアカウントか確認できなかったため、保存しませんでした。しばらくしてからもう一度お試しください。登録済みのアカウントは「再ログイン」からログインできます。", err)
 	case errors.Is(err, siwc.ErrAccountMismatch):
 		return apperr.Wrap(apperr.Validation, "選んだ登録とは別の ChatGPT アカウントでログインされました。同じアカウントでログインするか、「アカウントを追加」から別の登録として追加してください。", err)
 	case errors.Is(err, siwc.ErrUnknownAccount):

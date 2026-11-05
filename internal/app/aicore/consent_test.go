@@ -73,7 +73,7 @@ func TestConsentIsInvalidatedWhenBaseURLHostChanges(t *testing.T) {
 	assert.Empty(t, f.consented(t))
 	requireCode(t, "AI_CONSENT_REQUIRED", f.generate(t, s.SessionID))
 
-	cfg, err = f.ai.RecordAIConsent(t.Context(), "openai")
+	cfg, err = f.ai.RecordAIConsent(t.Context(), "openai", "https://llm.example/v1")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"openai"}, cfg.ConsentedProviders)
 	require.NoError(t, f.generate(t, s.SessionID))
@@ -85,7 +85,7 @@ func TestConsentIsInvalidatedWhenSchemeDowngradesToHTTP(t *testing.T) {
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
-	cfg, err := f.ai.RecordAIConsent(t.Context(), "openai")
+	cfg, err := f.ai.RecordAIConsent(t.Context(), "openai", "https://localhost:8443/v1")
 	require.NoError(t, err)
 	require.Equal(t, []string{"openai"}, cfg.ConsentedProviders)
 	s := f.open(t, "reply")
@@ -101,7 +101,7 @@ func TestConsentIsPerDestinationHost(t *testing.T) {
 	f := newAIFixture(t)
 	_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", "https://a.example/v1")
 	require.NoError(t, err)
-	cfg, err := f.ai.RecordAIConsent(t.Context(), "openai")
+	cfg, err := f.ai.RecordAIConsent(t.Context(), "openai", "https://a.example/v1")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"openai"}, cfg.ConsentedProviders)
 
@@ -126,9 +126,9 @@ func TestConsentDroppedWhenSwitchingProviderClearsBaseURL(t *testing.T) {
 	f := newAIFixture(t)
 	_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", "https://llm.example/v1")
 	require.NoError(t, err)
-	_, err = f.ai.RecordAIConsent(t.Context(), "openai")
+	_, err = f.ai.RecordAIConsent(t.Context(), "openai", "https://llm.example/v1")
 	require.NoError(t, err)
-	_, err = f.ai.RecordAIConsent(t.Context(), "anthropic")
+	_, err = f.ai.RecordAIConsent(t.Context(), "anthropic", "")
 	require.NoError(t, err)
 
 	cfg, err := f.ai.SetAIConfig(t.Context(), "anthropic", "claude", "https://ignored.example")
@@ -142,12 +142,12 @@ func TestConsentDroppedWhenSwitchingProviderClearsBaseURL(t *testing.T) {
 
 func TestConsentTimestampKeptOnRerecord(t *testing.T) {
 	f := newAIFixture(t)
-	_, err := f.ai.RecordAIConsent(t.Context(), "openai")
+	_, err := f.ai.RecordAIConsent(t.Context(), "openai", "")
 	require.NoError(t, err)
 	v1, _, err := f.Store.GetSetting(t.Context(), store.SettingAIConsent)
 	require.NoError(t, err)
 	f.Clock.Advance(3_600_000_000_000)
-	_, err = f.ai.RecordAIConsent(t.Context(), "openai")
+	_, err = f.ai.RecordAIConsent(t.Context(), "openai", "")
 	require.NoError(t, err)
 	v2, _, err := f.Store.GetSetting(t.Context(), store.SettingAIConsent)
 	require.NoError(t, err)

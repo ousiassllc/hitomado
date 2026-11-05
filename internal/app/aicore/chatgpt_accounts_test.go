@@ -31,7 +31,7 @@ func TestChatGPTTwoAccountsSwitchAndGenerate(t *testing.T) {
 
 	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "")
 	require.NoError(t, err)
-	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt")
+	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt", "")
 	require.NoError(t, err)
 	gen := func(id string) {
 		t.Helper()
@@ -61,7 +61,10 @@ func TestChatGPTTwoAccountsSwitchAndGenerate(t *testing.T) {
 
 	// ログアウト済みのアカウントは選べない。未登録の ID は NOT_FOUND。
 	_, err = f.ai.SelectChatGPTAccount(t.Context(), idB)
-	requireCode(t, "AI_NOT_CONFIGURED", err)
+	ae := requireError(t, "AI_NOT_CONFIGURED", err)
+	assert.Equal(t, "account_signed_out", ae.Details["reason"], "画面が文面を差し替える目印")
+	assert.Equal(t, "このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。", ae.Message)
+	assert.NotContains(t, ae.Message, "Continue with ChatGPT", "生成の前提の案内（未ログインのときのボタン名）ではない")
 	_, err = f.ai.SelectChatGPTAccount(t.Context(), "oaiapp_unknown")
 	requireCode(t, "NOT_FOUND", err)
 
