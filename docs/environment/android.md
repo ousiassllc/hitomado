@@ -646,11 +646,11 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 
 1. インストール → コールドスタート（`am start -W`。`TotalTime` 等を記録）→ プロセスが動いている。
 2. **一覧**: シードの件名 3 件が画面（`uiautomator dump` の text／content-desc）に出るまで待つ。起動から一覧までの秒を記録。
-3. **返信下書き**: 1 件目を開く → 「全員に返信」→ エディタ（`本文`）にタップして `hello e2e draft` を入力 → 自動保存（約 3 秒）後、`run-as` で `RecordingGmail` のファイルを読み、本文と `thread: e2e-thread-1`（スレッドに紐づく）を確認。
-4. **レンダラ落ち**（`E2E_KILL_RENDERER=1`、既定。`adb root` が要るのでエミュレーターの `google_apis`・`userdebug` イメージ向け。root が取れなければこの手順だけ SKIP）: `sandboxed_process` を `kill -9` → アプリのプロセス（pid）が変わらない・一覧が再び出る・`WailsActivity` のログに復旧が出る。
+3. **返信下書き**: 1 件目を開く → 「全員に返信」→ 返信の画面（「閉じる（下書きを保存）」）が出たら、本文の引用（「…が書きました」）をタップして `hello e2e draft` を入力 → 自動保存（約 3 秒）後、`run-as` で `RecordingGmail` のファイルを読み、本文と `thread: e2e-thread-1`（スレッドに紐づく）を確認。
+4. **レンダラ落ち**（`E2E_KILL_RENDERER=1`、既定。`adb root` が要るのでエミュレーターの `google_apis`・`userdebug` イメージ向け。root が取れなければこの手順だけ SKIP）: `sandboxed_process` を `kill -9` → アプリのプロセス（pid）が変わらない・`Page loaded`（読み込み直し）のログ・エラー画面が出ていない・スクリーンショットの一覧の領域が描かれている（`ui.py inked`。作り直した WebView の a11y ツリーが更新されない場合があり、画素でも確かめる。a11y に一覧が出るかも見るが必須にはしない）・`WailsActivity` のログに復旧が出る。
 5. `crash` バッファにアプリのクラッシュが無い・`Render process crash wasn't handled` が無い・最後までプロセスが動いている。
 
-画面のスクリーンショット・ダンプ・logcat は `E2E_OUT`（既定 `/tmp/hitomado-e2e-out`）に残る。
+待ちが切れたときは、最後の画面（スクリーンショット・ダンプ・`text`／`content-desc` の一覧）を残す。システムアプリの「応答なし」ダイアログ（Pixel Launcher）が出たら「待つ」を選ぶ。画面のスクリーンショット・ダンプ・logcat は `E2E_OUT`（既定 `/tmp/hitomado-e2e-out`）に残る。
 
 **回し方**:
 
@@ -670,7 +670,7 @@ wails3 task android:e2e:run                      # 接続中の端末（ANDROID_
 ### 17.4 CI
 
 - **`.github/workflows/android-e2e.yml`（`workflow_dispatch` のみ）**: x86_64・API 35 のエミュレーターを `reactivecircus/android-emulator-runner` で起動して `run.sh` を実行する。ubuntu-latest は KVM が使える（udev のルールで権限を付ける）。
-- **`ci.yml`（PR の CI）には入れていない**。このホストは KVM が使えず、ワークフローをローカルで動かして確かめられない。確認できないジョブを PR の必須の CI に入れると、赤くなって PR が止まるおそれがあるため。`actionlint` で構文だけ確認した。**Actions で実際に動かして緑になったことは未確認**。緑になったら `ci.yml` への組み込み（`pull_request` かつ変更パスの条件つき）を別 Issue で検討する。
+- **`ci.yml`（PR の CI）には入れていない**。Actions で通ることは確認した（17.6）が、エミュレーターの起動は数分かかり、不安定になりうる。必須の CI に入れて PR を止めるかは、数回の実行で安定することを見てから別 Issue で決める。
 
 ### 17.5 性能の計測
 
@@ -687,11 +687,28 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 | `BenchmarkInitialSyncHTTP` | 本物の `gmail.Client`（クォータ制御つき）を、`httptest` の偽 Gmail サーバー（`threads.list`・`threads.get`・`profile`・`labels` を実 API の形で返す）に向ける | **約 7.2 秒 / 200 スレッド** |
 | `BenchmarkInitialSyncStore` | ネットワーク・クォータ制御を除き、メモリ上のフェイクの Gmail から同期エンジン→実 SQLite に保存するまで | **約 0.15 秒 / 200 スレッド** |
 
-前者はクライアントの本番どおりの流量制限（ユーザーあたり 250 units/秒、`threads.get` は 10 units → 約 25 スレッド/秒）が支配的で、実 Gmail に対しても同じ上限が掛かる（ネットワークの遅延は含まない）。後者から、**エンジン＋SQLite の分は 200 スレッドで 0.15 秒（ホスト）**で、同期の時間はほぼ API の流量制限で決まる。**これはホスト（デスクトップ CPU）の数値で、Android の実機の値ではない**。実機の SQLite・CPU での数値は未計測。
+前者はクライアントの本番どおりの流量制限（ユーザーあたり 250 units/秒、`threads.get` は 10 units → 約 25 スレッド/秒）が支配的で、実 Gmail に対しても同じ上限が掛かる（ネットワークの遅延は含まない）。後者から、**エンジン＋SQLite の分は 200 スレッドで 0.15 秒（ホスト）**で、同期の時間はほぼ API の流量制限で決まる。**これはホスト（デスクトップ CPU）の数値で、Android の実機の値ではない**。実機の SQLite・CPU での数値は未計測。KVM つきのエミュレーター（x86_64・API 35。17.6）での起動時間は 17.6 の表。
 
 **起動時間（エミュレーター。ソフトウェアエミュレーションでの参考値であり、実機の数値ではない）**: `run.sh` が `adb shell am start -W` の `TotalTime`／`Status`（`METRIC am_start_total_ms`）と、起動から一覧の件名が画面に出るまでの秒（`METRIC start_to_list_s`）を出す。実機では `adb shell am start -W -n jp.ousias.hitomado/com.wails.app.MainActivity` の `TotalTime`（コールドスタート。`am force-stop` のあと）と、`adb logcat` の `Displayed` で測れる。
 
-### 17.6 確認の状況（2026-11-04）
+### 17.6 確認の状況
+
+#### 2026-11-06: GitHub Actions の KVM つきエミュレーター（x86_64・API 35・`google_apis`）
+
+`android-e2e.yml` を手動実行して、`run.sh` が**最後まで通った**（`E2E RESULT: PASS`。run 42130441782）。これが受け入れ基準のうち「エミュレーターでの起動・一覧表示・返信下書き」と「レンダラが落ちてもアプリ全体が終了しない」の確認になる。**実機（arm64）ではない**。
+
+| 項目 | 結果 |
+|------|------|
+| インストール・起動 | `am start -W` は `Status: ok`、`TotalTime` **4726 ms**（コールドスタート）。プロセスが動いている |
+| 一覧 | 起動から一覧にシードの 3 スレッドが出るまで **6 秒**（`start_to_list_s`） |
+| 返信下書き | スレッドを開く → 「全員に返信」→ 本文に `hello e2e draft` を入力 → 入力後 **約 4 秒**で `RecordingGmail` のファイルに出て、`thread: e2e-thread-1` に紐づいた |
+| レンダラ落ち | `sandboxed_process` を `kill -9` → `WebView renderer was killed by the system` → `Recreating the WebView and reloading the app` → `Page loaded`。**アプリのプロセスは同じ pid のまま**、エラー画面は出ず、スクリーンショットで一覧（3 スレッド）が描かれ、a11y ツリーにも一覧が出た。クラッシュのログ（`crash` バッファ）なし・`Render process crash wasn't handled` なし |
+
+この実行までに 2 回失敗し、**`run.sh` の判定の問題**だった（アプリの不具合ではない）: ① システムアプリの「応答なし」ダイアログが画面を隠してスレッドを開けなかった → 「待つ」を選ぶ・タップのやり直し。② 返信画面で `本文` の文字をタップ先にしていたが、エディタは a11y では引用の文章が `text` なので見つからなかった → 返信画面は「閉じる（下書きを保存）」で見分け、引用をタップ。③ 作り直した WebView で a11y に一覧が出ない回があったため、復帰の確認に画素の検査を足した（17.3）。
+
+**未確認**: **実機（arm64）**。GitHub のホステッドランナーは arm64 の Android エミュレーター（KVM）を動かせず、このホストにも実機が無いため、`android-e2e.yml` は x86_64 のエミュレーターだけで動く。受け入れ基準の「実機で起動・一覧表示・返信下書きまで通る」は、17.3 の「実機で回す手順」で実機を持つ人が確認する。実機でのレンダラの `kill` は、`adb root` が使えるデバッグ用端末でないとできない。
+
+#### 2026-11-04: KVM なしのエミュレーター（このホスト。参考）
 
 **エミュレーター**: x86_64・API 35・`google_apis`（WebView 124.0.6367.219）の自分用 AVD（`-accel off -no-window -gpu swiftshader_indirect`、RAM 3 GB、ポート 5592。確認後に停止・AVD を削除した）。このホストは KVM が使えず、ソフトウェアエミュレーション（TCG）。ホストは他の作業でも高負荷（load average 4〜29）で、システム自体が遅い。**以下の数値は実機の値ではなく、ソフトウェアエミュレーションでの参考値**。
 
@@ -713,11 +730,12 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 
 ### 17.7 残課題
 
-- **実機（arm64）・KVM つき環境で、E2E を最後まで通す**（一覧・返信下書き・レンダラ `kill` からの復帰）。Actions の `android-e2e.yml` を手動実行して緑になることも未確認。
-- このホストの KVM なしエミュレーターでレンダラが落ち続ける原因の特定（実機・KVM つきでも起きるかの確認。起きるなら、`onRenderProcessGone` の上限を超えてエラー画面になる＝アプリは終了しないが使えない）。
+- **実機（arm64）で E2E を通す**（17.3 の手順。一覧・返信下書き。レンダラ `kill` は `adb root` が使える端末のみ）。KVM つきのエミュレーター（x86_64）では通った（17.6）。
+- 17.6 の 2026-11-04 の KVM なしエミュレーターでレンダラが落ち続けた件は、KVM つきのエミュレーターでは再現しなかった（実行した 3 回とも、レンダラが自力で落ちることはなかった）。ソフトウェアエミュレーション（TCG）固有の問題と見ているが、原因は特定していない。
+- 初回の 10 秒タイムアウトからの読み直し（17.2）は、KVM つきのエミュレーターでは 10 秒のタイムアウト自体が起きず、実行して確認していない。
 - WebView を作り直したときの未保存の入力（約 3 秒分）と、Go に残る作成セッション（17.1）。
 - Activity が OS に破棄・再生成された場合（`configChanges` に含まれない変更）に、テンプレートの `onCreate` が新しい `WailsBridge` の `nativeInit` を再度呼ぶ点（Wails のテンプレートの挙動は変えていない）。Go 側は、実行中の 2 回目の `main` を無視して最初の実行を続ける（§14.3、#184）。新しい Activity の WebView が、残っている Go のアプリへ正しくつながり直すかは実機で未確認。
-- 実機での起動時間・同期時間の計測（17.5 はホストとエミュレーターのみ）。
+- 実機での起動時間・同期時間の計測（17.5 のホストの数値と、17.6 のエミュレーターの数値のみ）。
 
 ## 18. AI の既定のプロバイダと ChatGPT ログイン（#104）
 
