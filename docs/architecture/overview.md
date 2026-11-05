@@ -258,7 +258,7 @@ sequenceDiagram
     CS-->>FE: SENDER_MISMATCH（確認ダイアログも出さない）
   else 一致
     CS-->>FE: SendPreview（確認トークン・警告）
-    FE->>U: 送信確認ダイアログ（送信元を大きく表示）
+    FE->>U: 送信確認ダイアログ（送信元・宛先・本文を表示）
     U->>FE: 「<送信元> から送信」を確定
     FE->>CS: Send(sessionId, confirmToken, content)
     CS->>CS: トークン・内容ハッシュを検証

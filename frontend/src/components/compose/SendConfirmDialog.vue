@@ -149,7 +149,7 @@ function onOpen(open: boolean): void {
 }
 
 .confirm-body {
-  max-height: 6em;
+  max-height: min(16em, 40vh);
   overflow-y: auto;
   white-space: pre-wrap;
 }

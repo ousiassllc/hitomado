@@ -258,7 +258,7 @@ graph TD
 | コンポーネント | 責務 | Props／Emits | バインディング／ストア |
 |----------------|------|--------------|------------------------|
 | `AccountChip` | アカウントの色の帯＋名前（＋アドレス）。**色だけに依存せず名前を併記**（NF §11） | props: `account`, `showEmail?`, `size` | — |
-| `SenderBadge` | 送信元の大表示（アカウント色の帯・名前・アドレス）。確認ダイアログとエディタで共用 | props: `from`, `color` | — |
+| `SenderBadge` | 送信元の表示（左にアカウント色の帯・名前・アドレス。背景と文字はテーマの色）。確認ダイアログで使う | props: `from`, `color` | — |
 | `AccountList`／`AccountItem` | アカウント一覧、選択（単一／複数／すべて）、未読件数、`needs_reauth` の警告アイコン | emits: `select(ids)`、`reconnect(id)` | `accountsStore`、`inboxStore.unreadCounts` |
 | `FilterBar` | 未読のみ切替、フィルタのクリア | emits: `change` | `inboxStore.filter`（`AppService.SetInboxFilter`） |
 | `AppShell` | レイアウト（§5.1）。Windows は常に 3 ペイン（最小幅 960px）。Android は幅で 3 ペイン／2 ペイン／1 画面ずつ（サイドバーはドロワー）。ペイン幅のリサイズ（3 ペイン）。Android の戻るボタンの受け口（`window.hitomadoHandleBack`）を登録 | — | `layoutStore`、`uiStore`、`platformStore` |
@@ -301,7 +301,7 @@ graph TD
 | `AttachmentBar` | 添付の一覧・削除・追加ボタン・ドラッグ＆ドロップ。合計サイズ表示と上限エラー | | `ComposeService.AddAttachments／RemoveAttachment` |
 | `AiDraftButton` | 「AI で下書き」。AI の設定が未保存（`aiConfig.configured` が偽）→初回の案内（ChatGPT でログインする「Continue with ChatGPT」・「別のプロバイダを選ぶ」・「あとで」。[§3.9.1](#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）。保存済みでキー未設定（ChatGPT プランは未ログイン）→設定へ誘導。利用枠の超過（`AI_FAILED` の `details.reason`）は「Manage usage」を主なアクションにしたコンパクトな案内 `UsageLimitNotice`（ChatGPT の見出しを残す。失敗メッセージだけにしない）、未同意→同意ダイアログ（`AIConsentDialog`。設定画面と共通）、生成中→キャンセル可、本文入力済み→置換確認 | emits: `generated(bodyHtml)` | `AIService.GenerateReplyDraft／CancelGenerate／RecordAIConsent`（`settingsStore` 経由） |
 | `AiDraftInstruction` | 「AI への指示」（F-08。#109）。`AiDraftButton` の下に常に開いている複数行の入力欄（開閉はしない。2,000 文字の残り表示。空・空白だけなら指示なしの従来の下書き）。値は `composeStore` の作成セッションにだけ持つ（`localStorage` などには保存しない）。入力欄は内容に応じて 2〜6 行まで伸びる（超えたら内部スクロール） | props/emits: `v-model` | `composeStore.aiInstruction`（`AIService.GenerateReplyDraft` の `instruction`） |
-| `SendConfirmDialog` | `PrepareSend` の結果を表示。**送信元を最大文字で表示（`SenderBadge`）**、宛先・件名・添付数・本文冒頭、`warnings`（他の自アカウント宛・件名なし・本文なし）。確定ボタン「<アドレス> から送信」。ダイアログ表示中はエディタ操作不可 | props: `preview`, `busy` | `composeStore.confirmSend`（`ComposeService.Send`） |
+| `SendConfirmDialog` | `PrepareSend` の結果を表示。送信元（`SenderBadge`）、宛先・件名・添付数・本文（改行を保ち署名・引用を除いたプレビュー）、`warnings`（他の自アカウント宛・件名なし・本文なし。他の自アカウント宛は送信元より目立たせる）。確定ボタン「<アドレス> から送信」。ダイアログ表示中はエディタ操作不可 | props: `preview`, `busy` | `composeStore.confirmSend`（`ComposeService.Send`） |
 | `SignatureConflictDialog` | 新規作成で送信元を切り替えたとき、署名部分が編集済みなら差し替える前に確認する（F-07）。「編集した署名を残す」「差し替える」。`ComposePane` が配置する | — | `composeStore.signatureConflict`／`resolveSignatureConflict` |
 
 #### 署名の挿入・差し替え（`lib/signature`）
@@ -518,3 +518,4 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 1.28 | 2026-11-05 | §3.7 の `ComposePane` に本文エディタの最低高さ（240px）・縦スクロール・「広げる／元に戻す」を、`ThreadPane` に作成画面の高さの上限と「広げる」中の表示を追記 | #112 |
 | 1.29 | 2026-11-05 | §3.7 に `ComposeFields`（`ComposePane` の宛先・件名の入力部）を、§5 に `useAiSetupFlow`（設定画面の AI の流れの部分）を実装の分割に合わせて追記 | #111・#112 |
 | 1.30 | 2026-11-05 | §3.5 `ListToolbar` の一括操作を複数選択（2 件以上）のときだけに、§3.7 `AiDraftInstruction` を常時表示に、§3.9 `LogSettings` の保存場所・ローテーションを折りたたみに変更。`AIChatGPTLogin`・`ChatGPTPlanNotice` から「Using ChatGPT plan」「Manage usage」を外した | #106 の判断 |
+| 1.31 | 2026-11-05 | §3.7 `SenderBadge` をアカウント色の全面塗りから左の帯つきの落ち着いた枠に、`SendConfirmDialog` の本文プレビューを改行つき（署名・引用なし）に変更。`BaseButton` は送信中（loading）のとき薄くしない | #115 |

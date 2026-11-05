@@ -47,9 +47,14 @@ withDefaults(
   background: var(--color-selected);
 }
 
-.btn:disabled {
+/* 無効（押せない）ボタンだけを薄くする。送信中など loading のボタンは文字を読ませたいので、色はそのままにする。 */
+.btn:disabled:not([aria-busy='true']) {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.btn[aria-busy='true'] {
+  cursor: progress;
 }
 
 .btn-primary {

@@ -108,12 +108,27 @@ func tidy(s string) string {
 	return strings.TrimSpace(strings.Join(out, "\n"))
 }
 
-// Preview は HTML をテキスト化し、空白を畳んで先頭 maxRunes ルーンに切り詰める（超過時は末尾に … を付ける）。
+// Preview は HTML をテキスト化し、先頭 maxRunes ルーンに切り詰める（超過時は末尾に … を付ける）。
+// 改行と段落の空行は保ち、各行の中の空白だけを 1 つに畳む。
 func Preview(src string, maxRunes int) string {
-	t := strings.Join(strings.Fields(HTMLToText(src)), " ")
+	t := collapseLines(HTMLToText(src))
 	if maxRunes <= 0 || utf8.RuneCountInString(t) <= maxRunes {
 		return t
 	}
 	r := []rune(t)
-	return string(r[:maxRunes]) + "…"
+	return strings.TrimRight(string(r[:maxRunes]), "\n ") + "…"
+}
+
+// collapseLines は各行の連続する空白を 1 つにし、空白だけの行は空行として、連続する空行は 1 つに畳む。
+func collapseLines(s string) string {
+	lines := strings.Split(s, "\n")
+	out := make([]string, 0, len(lines))
+	for _, l := range lines {
+		l = strings.Join(strings.Fields(l), " ")
+		if l == "" && len(out) > 0 && out[len(out)-1] == "" {
+			continue
+		}
+		out = append(out, l)
+	}
+	return strings.TrimSpace(strings.Join(out, "\n"))
 }

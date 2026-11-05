@@ -177,7 +177,6 @@ export const settings = {
     chatgpt: settingsChatgpt,
     // プロバイダを選んだときの同意（F-08）と、同意のあとの取得。同意の画面の文言は compose.ai の consentTitle／consentBody と共通。
     consentDialogAgree: '同意して一覧を取得する',
-    consentAsk: '同意の画面を開く',
     consentUnknown: (provider: string) =>
       `${provider} への送信は、選んだ送信先で未確認です。一覧を取得するときに確認します。`,
     consentNeeded: (provider: string) =>
@@ -187,8 +186,6 @@ export const settings = {
     consentAgreeNow: (dest: string) => `${dest} への送信に同意する`,
     consentHeading: '送信への同意',
     consentGiven: (provider: string) => `${provider} への送信に同意済みです。`,
-    consentNone: (provider: string) =>
-      `${provider} への送信は未同意です。初めて「AI で下書き」を使うときに確認します。`,
   },
 
   general: {

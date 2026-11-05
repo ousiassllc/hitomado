@@ -78,7 +78,7 @@ type SendPreview struct {
 	Bcc             []model.Address `json:"bcc"`
 	Subject         string          `json:"subject"`
 	AttachmentCount int             `json:"attachmentCount"`
-	BodyPreview     string          `json:"bodyPreview"` // プレーンテキスト、約 200 文字
+	BodyPreview     string          `json:"bodyPreview"` // プレーンテキスト（改行を保つ）、約 600 文字。署名・引用は含めない
 	Warnings        []SendWarning   `json:"warnings"`
 }
 

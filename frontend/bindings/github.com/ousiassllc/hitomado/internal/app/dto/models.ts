@@ -469,7 +469,7 @@ export interface SendPreview {
     "attachmentCount": number;
 
     /**
-     * プレーンテキスト、約 200 文字
+     * プレーンテキスト（改行を保つ）、約 600 文字。署名・引用は含めない
      */
     "bodyPreview": string;
     "warnings": SendWarning[] | null;
