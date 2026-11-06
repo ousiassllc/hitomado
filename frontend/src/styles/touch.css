@@ -69,6 +69,11 @@
   min-height: var(--tap-min);
 }
 
+/* 検索の右端のクリアは 44px になるので、入力の右 padding もその分広げる */
+:root[data-touch-ui] .search .input {
+  padding-right: calc(var(--s-1) + var(--tap-min) + var(--s-1));
+}
+
 /* スイッチ: 見た目（36x20）は保ち、当たり判定だけ 44px 以上に広げる */
 :root[data-touch-ui] .sw::after {
   content: "";

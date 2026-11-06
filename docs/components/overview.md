@@ -281,7 +281,7 @@ graph TD
 
 | コンポーネント | 責務 | Props／Emits | バインディング／ストア |
 |----------------|------|--------------|------------------------|
-| `SearchBar` | 検索入力（Gmail クエリ）。Enter で実行、Esc でクリア。検索中はモード表示 | emits: `search(q)`、`clear` | `inboxStore.runSearch` |
+| `SearchBar` | 検索入力（Gmail クエリ）。Enter で実行、Esc でクリア。検索中はモード表示。クリアは入力欄の右端の中に重ね、入力があるあいだ出す（押すと入力を空にし、検索中なら検索も解除する。ガイド §7 P1「右クリア」） | emits: `search(q)`、`clear` | `inboxStore.runSearch` |
 | `InboxTabs` | 受信箱のタブ（すべて／メイン／ソーシャル／プロモーション／新着）。`reka-ui` の `TabsRoot`／`TabsList`／`TabsTrigger`（`tablist`／`tab`／`aria-selected`・矢印キー）。狭い画面では横スクロール。検索中は出さない | v-model: `InboxTab`（`all`／`primary`／`social`／`promotions`／`new`） | `inboxStore` |
 | `ListToolbar` | 更新ボタン（手動更新）、複数選択（2 件以上）のときだけの一括操作（既読／未読・アーカイブ・ゴミ箱・ラベル。1 件はスレッドのヘッダーの操作で足りるので出さない。1 画面ずつのレイアウトでは出さない）、「受信箱に戻る」（検索結果モード中のみ） | emits: `refresh`、`archive`、`trash`、`toggleRead`、`label` | `inboxStore` |
 | `ThreadList` | 仮想スクロール（`@tanstack/vue-virtual`）。続きがある間（`hasMore`）は末尾に「さらに読み込む」ボタン（`secondary`・`sm`）を出し、押すと `loadMore` を通知する（無限スクロールにしない。ガイド O7）。一覧が 0 件（未読のみで該当なし等）でも利用者が続きを読める。行選択・キーボード移動 | props: `items`, `selectedKey`, `loading`, `loadingMore`, `hasMore` | `inboxStore` |
