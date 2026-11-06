@@ -133,13 +133,15 @@ onBeforeUnmount(() => editor.value?.destroy())
         <List class="icon icon-sm" aria-hidden="true" />
       </BaseIconButton>
     </div>
-    <EditorLinkForm
-      v-if="linkOpen"
-      :initial="linkInitial"
-      @apply="applyLink"
-      @remove="removeLink"
-      @cancel="closeLink"
-    />
+    <Transition name="link-form">
+      <EditorLinkForm
+        v-if="linkOpen"
+        :initial="linkInitial"
+        @apply="applyLink"
+        @remove="removeLink"
+        @cancel="closeLink"
+      />
+    </Transition>
     <EditorContent :editor="editor" class="rte-body" />
   </div>
 </template>
@@ -232,5 +234,14 @@ onBeforeUnmount(() => editor.value?.destroy())
   padding-left: var(--s-3);
   border-left: 1px solid var(--mute);
   color: var(--ink);
+}
+
+/* 出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）（M5。RecipientField の `.suggest-*` と同じ。移動なしで opacity だけ） */
+.link-form-enter-active {
+  animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
+}
+
+.link-form-leave-active {
+  animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 </style>
