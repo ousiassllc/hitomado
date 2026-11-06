@@ -184,10 +184,12 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
     await w.get('[data-testid="ai-chatgpt-login"]').trigger('click')
     expect(ids).toEqual([''])
     expect(w.text()).toContain('ブラウザで ChatGPT のログインを完了してください')
+    expect(w.find('.waiting .spinner').exists()).toBe(true)
     expect(w.text()).toContain('ログインを中止')
     release()
     await flushPromises()
     expect(w.get('[data-testid="ai-chatgpt-status"]').text()).toContain('a@chatgpt.example')
+    expect(w.find('.waiting').exists()).toBe(false)
     expect(w.text()).not.toContain('Using ChatGPT plan')
     expect(w.text()).not.toContain('Manage usage')
     expect(calls).toEqual(['models:chatgpt'])
@@ -230,5 +232,19 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
     await w.get('[data-testid="ai-chatgpt-login"]').trigger('click')
     await flushPromises()
     expect(w.find('[role="alert"]').exists()).toBe(false)
+  })
+})
+
+describe('AISettings の見出しと説明文の組（#241）', () => {
+  test('見出しと直後の説明文・状態文は .group に束ね、組どうしは .group の外の親の間隔で離す', () => {
+    const { pinia } = setup({ provider: 'anthropic', hasApiKey: true })
+    const w = mountAI(pinia)
+    const groups = w.findAll('.group')
+    // AISettings の見出し＋intro、AIApiKey の見出し＋状態、AIConsentSection の見出し＋状態
+    expect(groups.length).toBeGreaterThanOrEqual(3)
+    for (const g of groups) {
+      expect(g.find('h3, h4').exists()).toBe(true)
+      expect(g.findAll('p').length).toBeGreaterThanOrEqual(1)
+    }
   })
 })

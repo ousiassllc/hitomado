@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'
 import BaseButton from '../../ui/BaseButton.vue'
 import ConfirmDialog from '../../ui/ConfirmDialog.vue'
+import Spinner from '../../ui/Spinner.vue'
 import ChatGPTAccountRow from './ChatGPTAccountRow.vue'
 import ChatGPTPlanNotice from './ChatGPTPlanNotice.vue'
 
@@ -161,9 +162,11 @@ async function remove(): Promise<void> {
 <template>
   <div class="chatgpt" data-testid="ai-chatgpt">
     <ChatGPTPlanNotice :accounts="props.accounts" />
-    <h4 class="sub">{{ msg.ai.chatgpt.heading }}</h4>
-    <p class="note">{{ msg.ai.chatgpt.intro }}</p>
-    <p class="note">{{ msg.ai.chatgpt.notOfficial }}</p>
+    <div class="group">
+      <h4 class="sub">{{ msg.ai.chatgpt.heading }}</h4>
+      <p class="note">{{ msg.ai.chatgpt.intro }}</p>
+      <p class="note">{{ msg.ai.chatgpt.notOfficial }}</p>
+    </div>
     <p class="status" role="status" data-testid="ai-chatgpt-status">
       <strong>{{ statusText }}</strong>
     </p>
@@ -191,7 +194,7 @@ async function remove(): Promise<void> {
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <div class="actions">
       <template v-if="busy === 'login'">
-        <span class="waiting" role="status">{{ msg.ai.chatgpt.loginWaiting }}</span>
+        <span class="waiting" role="status"><Spinner /> {{ msg.ai.chatgpt.loginWaiting }}</span>
         <BaseButton variant="secondary" @click="cancel">{{ msg.ai.chatgpt.loginCancel }}</BaseButton>
       </template>
       <BaseButton
@@ -240,6 +243,13 @@ async function remove(): Promise<void> {
   gap: var(--gap-field);
 }
 
+/* 見出しとその説明文の組。組の中は --s-2、組どうしは親の gap（--gap-field）。 */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+
 .sub {
   margin: 0;
   font-size: var(--font-size-sm);
@@ -254,6 +264,9 @@ async function remove(): Promise<void> {
 }
 
 .waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
   margin: 0;
   color: var(--mute);
   font-size: var(--font-size-sm);
