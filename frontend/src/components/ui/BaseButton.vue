@@ -24,7 +24,7 @@ withDefaults(
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
   >
-    <Spinner v-if="loading" size="sm" />
+    <Spinner v-if="loading" />
     <slot />
   </button>
 </template>

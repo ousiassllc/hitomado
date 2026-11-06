@@ -54,7 +54,7 @@ function ask(): void {
       <div class="block-head">
         <h3 class="heading">{{ msg.ai.summaryHeading }}</h3>
         <template v-if="summarizing">
-          <span class="progress" role="status"><Spinner size="sm" /> {{ msg.ai.summarizing }}</span>
+          <span class="progress" role="status"><Spinner /> {{ msg.ai.summarizing }}</span>
           <BaseButton size="sm" variant="secondary" data-testid="thread-ai-cancel" @click="store.cancel()">{{ msg.ai.cancel }}</BaseButton>
         </template>
         <BaseButton
@@ -90,7 +90,7 @@ function ask(): void {
         <p class="text">{{ t.text }}</p>
       </div>
       <div v-if="asking" class="block-head">
-        <span class="progress" role="status"><Spinner size="sm" /> {{ msg.ai.asking }}</span>
+        <span class="progress" role="status"><Spinner /> {{ msg.ai.asking }}</span>
         <BaseButton size="sm" variant="secondary" data-testid="thread-ai-cancel" @click="store.cancel()">{{ msg.ai.cancel }}</BaseButton>
       </div>
     </div>

@@ -18,6 +18,8 @@ import android.os.PowerManager;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Base64;
@@ -44,6 +46,7 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
+import androidx.core.content.ContextCompat;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -428,7 +431,20 @@ public class MainActivity extends AppCompatActivity {
         message.setText(R.string.render_error_message);
         message.setTextSize(16);
         message.setGravity(Gravity.CENTER);
+        // 日本語の本文は行間 1.8（ガイドの本文 16px の行間）。
+        message.setLineSpacing(0, 1.8f);
         Button quit = new Button(this);
+        // 主ボタン（ガイド O7）: accent 地・bone 字・太字・角丸 8dp・高さ 40dp。
+        float density = getResources().getDisplayMetrics().density;
+        GradientDrawable quitBackground = new GradientDrawable();
+        quitBackground.setColor(ContextCompat.getColor(this, R.color.app_accent));
+        quitBackground.setCornerRadius(8 * density);
+        quit.setBackground(quitBackground);
+        quit.setTextColor(ContextCompat.getColor(this, R.color.app_background));
+        quit.setTypeface(Typeface.DEFAULT_BOLD);
+        quit.setMinHeight((int) (40 * density));
+        quit.setMinimumHeight((int) (40 * density));
+        quit.setPadding((int) (16 * density), 0, (int) (16 * density), 0);
         quit.setText(R.string.render_error_quit);
         // 次の起動がきれいに始まるよう、Go のランタイムごとプロセスを終える（利用者が押したときだけ）。
         quit.setOnClickListener(v -> {

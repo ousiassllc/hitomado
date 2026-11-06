@@ -44,6 +44,6 @@ async function clear(): Promise<void> {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
 }
 </style>

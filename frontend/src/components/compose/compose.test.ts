@@ -108,6 +108,24 @@ describe('ComposePane', () => {
     reply.w.unmount()
   })
 
+  test('「破棄」は確認のモーダルを挟み、確認するまで discard を呼ばない', async () => {
+    const { w, store } = await mountPane(newSession('a1'))
+    let discards = 0
+    store.discard = async () => ++discards > 0
+    const click = async (label: string) => {
+      const b = Array.from(document.body.querySelectorAll('button'))
+      b.find((x) => x.textContent?.trim() === label)?.click()
+      await flushPromises()
+    }
+    await click('破棄')
+    await click('キャンセル')
+    expect(discards).toBe(0)
+    await click('破棄')
+    await click('破棄する')
+    expect(discards).toBe(1)
+    w.unmount()
+  })
+
   test('新規作成には「AI で下書き」を出さない', async () => {
     const { w } = await mountPane(newSession('a1'))
     expect(w.text()).not.toContain('AI で下書き')

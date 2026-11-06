@@ -95,6 +95,32 @@ describe('AISettings モデル一覧（#76）', () => {
     expect(w.html()).not.toContain('sk-secret-value')
   })
 
+  test('「キーを削除」は確認のモーダル（プロバイダ名つき）を経由し、確認するまで削除しない', async () => {
+    const { pinia, store } = setup()
+    const cleared: string[] = []
+    store.clearAIApiKey = async (p: string) => {
+      cleared.push(p)
+    }
+    const w = mountAI(pinia)
+    const click = (label: string) =>
+      [...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
+        .find((b) => b.textContent?.trim() === label)
+        ?.click()
+    await button(w, 'キーを削除').trigger('click')
+    await flushPromises()
+    expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain(
+      'の API キーを削除しますか？',
+    )
+    click('キャンセル')
+    await flushPromises()
+    expect(cleared).toEqual([])
+    await button(w, 'キーを削除').trigger('click')
+    await flushPromises()
+    click('削除する')
+    await flushPromises()
+    expect(cleared).toEqual(['openai'])
+  })
+
   test('Base URL は保存前でも、決めたとき（Enter）にその送信先で取得する。入力しただけでは取得しない', async () => {
     const { pinia, store, loads } = setup()
     store.setAIConfig = async () => {}

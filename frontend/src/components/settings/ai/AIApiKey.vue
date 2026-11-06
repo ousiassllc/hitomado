@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { settings as msg } from '../../../lib/messages'
 import BaseButton from '../../ui/BaseButton.vue'
+import ConfirmDialog from '../../ui/ConfirmDialog.vue'
 import SettingsInput from '../SettingsInput.vue'
 
 // API キーの登録・削除（anthropic／openai）。キーは入力欄にだけ置き、保存後は消す。再表示しない。
@@ -15,6 +16,13 @@ const emit = defineEmits<{ save: [apiKey: string]; clear: [] }>()
 
 const apiKey = ref('')
 const localError = ref<string>()
+/** キーの削除の確認（ガイド O2）。確認したら閉じ、失敗は `error` に出る。 */
+const clearOpen = ref(false)
+
+function clear(): void {
+  clearOpen.value = false
+  emit('clear')
+}
 
 function save(): void {
   localError.value = undefined
@@ -55,7 +63,7 @@ defineExpose({
         variant="danger"
         :disabled="!props.hasKey || props.busy !== undefined"
         :loading="props.busy === 'clear'"
-        @click="emit('clear')"
+        @click="clearOpen = true"
       >
         {{ msg.ai.apiKeyClear }}
       </BaseButton>
@@ -68,6 +76,13 @@ defineExpose({
         {{ msg.ai.apiKeySave }}
       </BaseButton>
     </div>
+    <ConfirmDialog
+      v-model:open="clearOpen"
+      :title="msg.ai.apiKeyClearTitle(props.providerLabel)"
+      :detail="msg.ai.apiKeyClearDetail"
+      :confirm-label="msg.ai.apiKeyClearConfirm"
+      @confirm="clear"
+    />
   </div>
 </template>
 

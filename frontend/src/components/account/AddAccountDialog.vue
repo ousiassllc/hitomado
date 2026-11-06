@@ -120,7 +120,7 @@ async function save(): Promise<void> {
 
     <!-- 2. ブラウザでの認可待ち -->
     <div v-else-if="step === 'waiting'" class="stack waiting" role="status">
-      <Spinner size="lg" />
+      <Spinner />
       <p>{{ t.waiting }}</p>
       <p class="muted">{{ t.waitingHint }}</p>
     </div>

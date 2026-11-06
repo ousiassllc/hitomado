@@ -8,6 +8,9 @@ export const compose = {
 
   close: '閉じる（下書きを保存）',
   discard: '破棄',
+  discardTitle: 'この下書きを破棄しますか？',
+  discardDetail: '編集中の内容と、Gmail に保存済みの下書きが削除されます。元に戻せません。',
+  discardConfirm: '破棄する',
   expand: '広げる',
   collapse: '元に戻す',
   send: '送信',
