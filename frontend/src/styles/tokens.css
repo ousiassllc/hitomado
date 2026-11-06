@@ -74,6 +74,8 @@
   --pad-card-sm: var(--s-4);
   --menu-item-h: 40px;
   --menu-pad-x: var(--s-3);
+  /* 作成画面の項目ラベル列（宛先・差出人・件名）の幅 */
+  --compose-label-w: 56px;
 
   /* 影はモーダルだけ。カード・パネル・ポップアップは 1px solid var(--border) で区切る */
   --shadow-modal: 0 1px 2px rgb(0 0 0 / 6%);

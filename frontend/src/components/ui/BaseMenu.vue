@@ -101,8 +101,14 @@ const emit = defineEmits<{ select: [key: string] }>()
   font-size: var(--font-size-xs);
 }
 
+/* 強調（data-highlighted）は reka がポインタの移動でも付けるので、ホバーは地だけにする（M1）。
+   reka は強調した項目に実際の DOM フォーカスも当てる（ポインタ移動でも .focus() する）ので、
+   キーボードの強調はブラウザの :focus-visible の判定でリングを足す。 */
 .menu-item[data-highlighted] {
   background: var(--accent-soft);
+}
+
+.menu-item[data-highlighted]:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }

@@ -30,15 +30,22 @@ describe('SettingsDialog の横スクロールするタブ', () => {
   })
 })
 
-// メニュー・セレクトの強調項目は outline:none のままだとキーボードの強調が地（--accent-soft）だけになる（#252）。
+// メニュー・セレクトの強調項目（data-highlighted）はポインタの移動でも付くので、ホバーは地だけにする（#258）。
+// キーボードの強調は reka が項目へ DOM フォーカスを当てるので、:focus-visible のときだけリングを描く（#252）。
 describe.each([
-  ['BaseMenu', './BaseMenu.vue', '\\.menu-item\\[data-highlighted\\]'],
-  ['BaseSelect', './BaseSelect.vue', '\\.sel-item\\[data-highlighted\\]'],
-])('%s の強調項目', (_name, file, selector) => {
-  test('地に加えて --focus のリングを内側（offset -2px）に描く', async () => {
+  ['BaseMenu', './BaseMenu.vue', '\\.menu-item'],
+  ['BaseSelect', './BaseSelect.vue', '\\.sel-item'],
+])('%s の強調項目', (_name, file, item) => {
+  test('ホバー（data-highlighted だけ）は地のみで、枠を描かない', async () => {
     const css = await styleOf(file)
-    const rule = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))?.[1] ?? ''
+    const rule = css.match(new RegExp(`${item}\\[data-highlighted\\]\\s*\\{([^}]*)\\}`))?.[1] ?? ''
     expect(rule).toMatch(/background:\s*var\(--accent-soft\);/)
+    expect(rule).not.toMatch(/outline/)
+  })
+
+  test('キーボード操作（:focus-visible）のときだけ --focus のリングを内側（offset -2px）に描く', async () => {
+    const css = await styleOf(file)
+    const rule = css.match(new RegExp(`${item}\\[data-highlighted\\]:focus-visible\\s*\\{([^}]*)\\}`))?.[1] ?? ''
     expect(rule).toMatch(/outline:\s*2px solid var\(--focus\);/)
     expect(rule).toMatch(/outline-offset:\s*-2px;/)
   })

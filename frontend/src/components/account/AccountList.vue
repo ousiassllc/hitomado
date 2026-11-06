@@ -82,7 +82,8 @@ function onSelect(id: string, multi: boolean): void {
   align-items: center;
   justify-content: space-between;
   width: 100%;
-  padding: var(--s-2) var(--s-3);
+  min-height: var(--menu-item-h);
+  padding: 0 var(--menu-pad-x);
   border: none;
   background: transparent;
   color: var(--ink);

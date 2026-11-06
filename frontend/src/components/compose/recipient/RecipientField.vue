@@ -187,7 +187,7 @@ function onKeydown(e: KeyboardEvent): void {
 }
 
 .recipient-label {
-  flex: 0 0 56px;
+  flex: 0 0 var(--compose-label-w);
   padding-top: var(--s-2);
   color: var(--mute);
   font-size: var(--font-size-sm);
@@ -222,7 +222,7 @@ function onKeydown(e: KeyboardEvent): void {
   align-items: center;
   gap: var(--s-1);
   margin: 0;
-  padding-left: calc(56px + var(--s-2));
+  padding-left: calc(var(--compose-label-w) + var(--s-2));
   color: var(--danger);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
@@ -274,7 +274,7 @@ function onKeydown(e: KeyboardEvent): void {
   color: var(--mute);
 }
 
-/* 出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）（M5。BaseMenu・BaseSelect と同じ値） */
+/* 出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）（M5。duration・easing は BaseMenu・BaseSelect と同じ。入力欄の直下に出るので移動なしで opacity だけ） */
 .suggest-enter-active {
   animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
 }
