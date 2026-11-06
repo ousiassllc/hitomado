@@ -83,7 +83,7 @@ function submit(): void {
 .rte-link-error {
   flex-basis: 100%;
   color: var(--danger);
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 </style>

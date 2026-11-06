@@ -224,8 +224,8 @@ function onKeydown(e: KeyboardEvent): void {
   margin: 0;
   padding-left: calc(56px + var(--s-2));
   color: var(--danger);
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .recipient-input {
