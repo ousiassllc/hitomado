@@ -221,6 +221,7 @@ function send(archive: boolean): void {
 .foot-hint {
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 /* 未保存の印（小さな点） */

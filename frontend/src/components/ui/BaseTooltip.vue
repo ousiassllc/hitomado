@@ -33,6 +33,7 @@ const platform = usePlatformStore()
   background: var(--ink);
   color: var(--bone);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
   z-index: var(--z-popup);
   animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
 }
