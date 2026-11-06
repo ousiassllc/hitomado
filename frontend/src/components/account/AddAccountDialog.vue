@@ -214,7 +214,7 @@ async function save(): Promise<void> {
 }
 
 .error {
-  margin: var(--s-3) 0 0;
+  margin: var(--gap-help) 0 0;
   color: var(--danger);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
