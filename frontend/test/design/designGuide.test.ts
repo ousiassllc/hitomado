@@ -228,6 +228,18 @@ describe('モーション（M）', () => {
     expect(style).not.toMatch(/--icon-(sm|lg)/)
   })
 
+  test('primary ボタンの loading のスピナーは、--accent 地で見えるよう --bone に反転する（O12）', () => {
+    const w = mount(BaseButton, { props: { variant: 'primary', loading: true }, slots: { default: '送信' } })
+    expect(w.find('.spinner').exists()).toBe(true)
+    const style = parse(
+      readFileSync(new URL('../../src/components/ui/BaseButton.vue', import.meta.url), 'utf8'),
+    ).descriptor.styles[0].content
+    const body = style.slice(style.indexOf('.btn-primary .spinner {')).match(/\{([^}]*)\}/)?.[1] ?? ''
+    expect(body).toContain('border-top-color: var(--bone)')
+    expect(body).toContain('color-mix(in srgb, var(--bone) 30%, transparent)')
+    expect(body).not.toMatch(/width|height/)
+  })
+
   test('ボタンの押下でリップルが出て、無効のときは出ない', async () => {
     const w = mount(BaseButton, { slots: { default: '送信' }, attachTo: document.body })
     await w.trigger('pointerdown', { clientX: 4, clientY: 4 })
