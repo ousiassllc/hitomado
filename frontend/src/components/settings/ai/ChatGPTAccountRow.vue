@@ -135,6 +135,7 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
   background: var(--badge-soft);
   color: var(--badge-color);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .badge-active {

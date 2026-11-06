@@ -55,4 +55,17 @@ describe('行間はスケールの値（T3・T4・#227）', () => {
     expect(r).toContain(`font-size: var(--font-size-${size})`)
     expect(r).toContain(`line-height: var(--line-height-${size})`)
   })
+
+  test.each([
+    ['settings/McpSettings.vue', '.state {'],
+    ['settings/accounts/AccountRow.vue', '.status {'],
+    ['settings/oauth/OAuthClientsSettings.vue', '.inuse {'],
+    ['settings/SignatureSettings.vue', '.dirty {'],
+    ['settings/ai/ChatGPTAccountRow.vue', '.badge {'],
+    ['thread/MessageCard.vue', '.unread-badge {'],
+  ])('1 行の状態ピル %s %s は font-size xs と対の line-height を持つ（#231）', (file, selector) => {
+    const r = rule(file, selector)
+    expect(r).toContain('font-size: var(--font-size-xs)')
+    expect(r).toContain('line-height: var(--line-height-xs)')
+  })
 })

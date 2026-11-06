@@ -191,6 +191,7 @@ function openGuide(): void {
   padding: 0 var(--s-2);
   border-radius: var(--r-full);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .ops {
