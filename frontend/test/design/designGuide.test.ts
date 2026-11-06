@@ -253,6 +253,16 @@ describe('モーション（M）', () => {
     await off.trigger('pointerdown')
     expect(off.element.querySelectorAll('.ripple')).toHaveLength(0)
   })
+
+  test('右ボタン・中ボタンの押下ではリップルが出ない（M4）', async () => {
+    const w = mount(BaseButton, { slots: { default: '送信' }, attachTo: document.body })
+    await w.trigger('pointerdown', { button: 2 })
+    await w.trigger('pointerdown', { button: 1 })
+    expect(w.element.querySelectorAll('.ripple')).toHaveLength(0)
+    await w.trigger('pointerdown', { button: 0 })
+    expect(w.element.querySelectorAll('.ripple')).toHaveLength(1)
+    w.unmount()
+  })
 })
 
 describe('危険ボタン（O7・#190）: 透明地・--danger の文字・--danger-border の枠', () => {
