@@ -198,8 +198,11 @@ function send(archive: boolean): void {
   max-height: none;
 }
 
-/* ドロップ領域: ドラッグ中は --accent-soft の地に --accent の破線（1px）。 */
+/* ドロップ領域: ドラッグ中は --accent-soft の地に --accent の破線（1px）。
+   --mute は --accent-soft 上で AA 4.5:1 に届かないため、ドロップ中だけ --ink に上書きする
+   （中の補助文字・ラベルは継承で追従する）。 */
 .compose-pane.file-drop-target-active {
+  --mute: var(--ink);
   background: var(--accent-soft);
   outline: 1px dashed var(--accent);
   outline-offset: -4px;
