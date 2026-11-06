@@ -233,6 +233,7 @@ async function copy(text: string): Promise<void> {
   border-radius: var(--r-full);
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .state.on {
