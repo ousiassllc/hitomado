@@ -17,7 +17,7 @@ defineProps<{
 
 <style scoped>
 .sender-badge {
-  padding: var(--s-2) var(--s-3);
+  padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-left: var(--s-2) solid transparent;
   border-radius: var(--r-md);
