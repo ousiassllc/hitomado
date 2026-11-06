@@ -113,9 +113,10 @@ const emit = defineEmits<{ select: [key: string] }>()
   color: var(--ink);
 }
 
+/* リングは外側（offset 2px + 幅 2px = 4px）に描く。スクロール領域（.menu-pop の overflow: auto）の縁で切れないよう、パネルの padding（--s-1 = 4px）で収める。 */
 .menu-item[data-highlighted]:focus-visible {
   outline: 2px solid var(--focus);
-  outline-offset: -2px;
+  outline-offset: 2px;
 }
 
 .menu-item[data-disabled] {
