@@ -1,17 +1,6 @@
 // Ousiass デザインガイド準拠の回帰テスト（#210）。色（C4・C6）の指定を各部品の <style> で確かめる。
 import { describe, expect, test } from 'bun:test'
-import { readFileSync } from 'node:fs'
-import { parse } from '@vue/compiler-sfc'
-
-/** コンポーネントの <style> から、セレクタ（`.x {` まで含めて指定）の宣言ブロックを返す。 */
-function rule(file: string, selector: string): string {
-  const style = parse(
-    readFileSync(new URL(`../../src/components/${file}`, import.meta.url), 'utf8'),
-  ).descriptor.styles[0].content
-  const at = style.indexOf(selector)
-  expect(at).toBeGreaterThanOrEqual(0)
-  return style.slice(at).match(/\{([^}]*)\}/)?.[1] ?? ''
-}
+import { rule } from './styleRule'
 
 describe('状態ピルと同じ色（C4・#210）', () => {
   test('無効な宛先チップは文字 --danger・枠 --danger-border・地 --danger-soft', () => {
