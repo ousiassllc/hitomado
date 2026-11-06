@@ -124,6 +124,8 @@ onBeforeUnmount(stop)
   font-weight: 600;
   cursor: pointer;
   text-decoration: underline;
+  text-decoration-color: var(--mute);
+  text-underline-offset: 2px;
   transition: background-color var(--motion-base) var(--ease-out);
 }
 

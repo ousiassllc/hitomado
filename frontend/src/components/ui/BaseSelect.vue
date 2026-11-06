@@ -74,7 +74,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 /* Reka UI の Popper は scoped 属性（data-v-*）を内側の本体ではなく外側のラッパーに付ける。本体は :global で当てる。 */
 :global(.sel-pop) {
-  min-width: var(--reka-select-trigger-width);
+  min-width: max(var(--reka-select-trigger-width), 180px);
   max-height: 280px;
   background: var(--surface);
   color: var(--ink);
