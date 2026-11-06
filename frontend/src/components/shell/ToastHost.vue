@@ -50,7 +50,6 @@ onBeforeUnmount(stop)
         :class="ui.toast.action ? 'snackbar' : 'toast'"
         role="status"
         aria-live="polite"
-        :title="ui.toast.message"
       >
         <CheckCircle v-if="ui.toast.kind === 'success'" class="icon icon-sm" aria-hidden="true" />
         <InfoCircle v-else class="icon icon-sm" aria-hidden="true" />
