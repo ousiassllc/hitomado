@@ -59,6 +59,6 @@ defineProps<{ summary: string }>()
 
 .disclosure-body {
   padding: 0 var(--s-4) var(--s-3);
-  color: var(--mute);
+  color: var(--ink);
 }
 </style>
