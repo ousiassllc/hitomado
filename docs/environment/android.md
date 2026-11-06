@@ -621,7 +621,7 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 |------|------|
 | 戻り値 | `true`（アプリのプロセスを落とさない） |
 | 復旧 | 落ちた `WebView` を親から外して `destroy()` し、新しい `WebView` を同じ位置に作る（`recreateWebView`）。`setupWebView()` が設定・`WebViewClient`・`WebChromeClient`・JS インターフェース（`window.wails`）・`WailsBridge` の WebView 参照を新しい WebView につなぎ直し、`loadApplication()` が同じ URL（アセットは Go から配信）を読み直す。`window.hitomadoHandleBack`（戻る）は読み込み直したフロントが登録し、Java→JS の同期イベントは `onPageFinished` の `emitSystemSnapshot` で再送される。`Activity.recreate()` ではなく WebView だけを作り直す（Go のランタイム・DB・同期は同じプロセスで動き続け、Activity の再生成で `bridge.initialize()` が二重に走るのを避ける） |
-| 上限 | 直近 **5 分に 3 回**まで（`RecoveryBudget`）。超えたら WebView を外し、「画面の表示を続けられませんでした。アプリを終了して、もう一度起動してください。」と「アプリを終了」ボタンのエラー画面（`showFatalError`）を出す。ボタンは `finishAndRemoveTask()` とプロセスの終了（次の起動で Go のランタイムもきれいに始める）。無限ループしない |
+| 上限 | 直近 **5 分に 3 回**まで（`RecoveryBudget`）。超えたら WebView を外し、「画面の表示を続けられませんでした。アプリを終了して、もう一度起動してください。」と「アプリを終了」ボタンのエラー画面（`showFatalError`）を出す（本文の色は `app_ink`＝`--ink`。ボタンは 16sp・大文字化なしで、押下は bone の約 20% のリップル）。ボタンは `finishAndRemoveTask()` とプロセスの終了（次の起動で Go のランタイムもきれいに始める）。無限ループしない |
 | ログ | `didCrash()` が真なら `WebView renderer crashed`、偽（OS が止めた＝ほとんどはメモリ不足）なら `WebView renderer was killed by the system (likely low memory)`（タグ `WailsActivity`。`RenderGoneReason`） |
 | 古い通知 | すでに作り直した WebView（`view != webView`）からの通知は何もしない |
 
