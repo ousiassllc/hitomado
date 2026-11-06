@@ -106,6 +106,7 @@ type Store interface {
 // internal/ai
 type Provider interface {
     GenerateReply(ctx context.Context, in ReplyInput) (text string, err error)
+    SummarizeThread(ctx context.Context, in ThreadInput) (text string, err error)  // スレッドの AI 要約（F-17）。ThreadInput は全メッセージのテキスト（呼び出し側が上限に収める）
 }
 // 実装は anthropic／openai（Chat Completions）／chatgpt（Responses API）。モデル一覧は
 // ListModels(ctx, provider, baseURL, credential, hc) ([]ModelInfo, error)（Models API が無いときは ErrModelsUnsupported）
@@ -152,7 +153,7 @@ type Launcher func(installer string, opts LaunchOptions) error // 起動だけ�
 | `InboxService` | `store`、`gmail.Client`、`sync.Scheduler` | ローカル優先で返し、末尾で `inbox_page_token` による追加取得。操作後に `threads` を再計算 |
 | `ThreadService` | `gmail.Client`、メモリ LRU | 本文は保存せず LRU のみ。`cid` 画像を `data:` に変換 |
 | `ComposeService` | `domain`（reply／quote／signature／senderpolicy／confirm）、`gmail.Client`、`store` | 作成セッションのマップ（排他制御つき）。`PrepareSend`→`Send` の確認トークン検証 |
-| `AIService` | `ai.Provider`、`ai.ListModels`、`siwc.Auth`、`secrets.Store`、`gmail.Client`、`ComposeService`（セッション参照） | 同意・キー（ChatGPT はログイン）確認後、直近 5 メッセージ・20,000 文字以内で生成。ChatGPT で 401 のときは 1 度だけトークンを更新してやり直す。モデル一覧は保存済みの設定の送信先から、同意後だけ取得し、取れなければ手入力へ |
+| `AIService` | `ai.Provider`、`ai.ListModels`、`siwc.Auth`、`secrets.Store`、`gmail.Client`、`ComposeService`（セッション参照） | 同意・キー（ChatGPT はログイン）確認後、直近 5 メッセージ・20,000 文字以内で生成。ChatGPT で 401 のときは 1 度だけトークンを更新してやり直す。モデル一覧は保存済みの設定の送信先から、同意後だけ取得し、取れなければ手入力へ。`SummarizeThread`（F-17）は `ThreadRef` のスレッドの全メッセージ（下書きを除く。合計 40,000 文字を目安に、超えたら古いものから外す）を同じ確認のあとで要約する（作成セッションは使わない。結果は保持しない） |
 | `AppService` | `store`、`update.Checker`、`update.Manager`、`capability.Capabilities` | 設定の読み書き、更新確認（更新確認を持たない OS では常に無効）、自動アップデート（Windows 版のリリース版だけ。`GetUpdateStatus`／`RestartToUpdate`／`SetAutoUpdateEnabled`）。実装は `internal/app/updatecore`（`Service`＝設定・確認・状態・「再起動して更新」、`Loop`＝起動時と 24 時間ごとの確認、`ApplyOnExit`＝終了処理からの入れ替え。送信・下書きの保存の進行中は `deps.Busy` で見る） |
 | `PlatformService`（`internal/capability`） | `capability.Capabilities` | 実行中の OS で提供する機能（MCP・トレイ・自動更新・ウィンドウ状態・多重起動の防止）をフロントへ返す。全 OS で同じシグネチャ・値だけが変わる |
 | `LogService` | `logging`、`FileDialog`（返す `exportfile.Target` に書いて `Commit`）、`PathOpener` | フロントのエラーを伏せてログへ記録（流量制限つき）、ログフォルダを開く、ログを zip で書き出す |
@@ -224,6 +225,7 @@ graph TD
   ThreadPane --> MessageCard --> MessageBody
   MessageCard --> AttachmentList
   ThreadPane --> ReplyBar
+  ThreadPane --> ThreadAiPanel
   ComposePane --> ComposeFields
   ComposeFields --> SenderField
   ComposeFields --> RecipientField
@@ -288,11 +290,12 @@ graph TD
 | コンポーネント | 責務 | Props／Emits | バインディング／ストア |
 |----------------|------|--------------|------------------------|
 | `ThreadPane` | 選択スレッドの詳細表示。表示後に未読なら `MarkRead`。未選択時は空状態。返信・転送の `ComposePane` を下部に埋め込み、占める高さは右ペインの 60% までだが本文エディタの最低高さ（240px）を優先する。「広げる」中（`expanded`。コンポーネント内のメモリだけ）は作成画面が右ペイン全体を使い、スレッド本文は隠す。スレッドの切り替え・作成画面を閉じる／送信／破棄で元に戻す（#112） | — | `threadStore`（`ThreadService.GetThread`、`InboxService.MarkRead`） |
-| `ThreadHeader` | 件名、**受信アカウント（色・名前・アドレス）を常時表示**、操作ボタン（アーカイブ・ゴミ箱・ラベル・未読にする） | | `threadStore`、`inboxStore` |
+| `ThreadHeader` | 件名、**受信アカウント（色・名前・アドレス）を常時表示**、操作ボタン（アーカイブ・ゴミ箱・ラベル・未読にする・**AI で要約**）。「AI で要約」は押したときだけ要約を始める（F-17。#206）。生成中は押せない（無効）。要約済みでも押せる（再生成） | emits: `summarize` | `threadStore`、`inboxStore` |
 | `MessageCard` | 1 メッセージ。最新と未読は展開、他は折りたたみ。ヘッダ（差出人・宛先・Cc・日時） | props: `message`, `expanded` | — |
 | `MessageBody` | 本文表示。§3.8 の方針でサニタイズ・iframe 表示・リモート画像ブロック・リンク捕捉 | props: `html?`, `text?`, `hasRemoteImages` | `lib/sanitize` |
 | `AttachmentList` | 添付の名前・サイズ・保存ボタン | emits: `save(attachment)` | `ThreadService.SaveAttachment` |
 | `ReplyBar` | 既定「全員に返信」の分割ボタン（メニュー: 返信／転送）。「AI で下書き」は返信エディタ内（`ComposePane`）。下書きがあれば「下書きを開く」 | emits: `open(mode)` | `composeStore.open` |
+| `ThreadAiPanel` | スレッドの AI パネル（F-17。#206）。`ThreadHeader` の下・メッセージ一覧の上。要約が無く、生成中でも失敗でもないときは何も出さない（空の枠を置かない）。生成中は `Spinner` と「中止」、完了後は要約（`text`。プレーンテキストのまま `white-space: pre-wrap` で表示し、Markdown・HTML は解釈しない）と「再生成」、長いスレッドで `includedCount < totalCount` のときは「長いスレッドのため、新しい N 件（全 M 件）を対象にしました」。失敗は `AlertStack` ではなくパネルの中に出し、直前の要約があれば消さない。パネルの中身は `ThreadPane` のスクロール領域の中で他のメッセージと一緒にスクロールする。カード（`1px --border`・`--r-lg`・`--surface`）で、`MessageCard` と見た目を揃える | props: `state`（`threadAiStore` の要約の状態） | `threadAiStore` |
 
 ### 3.7 エディタ・送信確認（`components/compose`）
 
@@ -381,6 +384,7 @@ AI の設定の入口は 2 つ（作成画面の「AI で下書き」と設定�
 | `accountsStore` | `accounts`、`oauthClients`、`statuses`（一時状態を含む）、`statusMessages`（アカウントごとの状態の理由。`account:status` の `message` と `Account.statusMessage` から取り込む） | `load`、`add`、`remove`、`update`、`setSignature`、`reorder` | `account:status` |
 | `inboxStore` | `filter`、`tab`（受信箱のタブ。セッション中だけ保持・保存しない。起動時は `all`）、`mode`（`inbox`／`search`）、`items`、`nextCursor`、`unreadCounts`、`selection`、`loading`、`failures` | `load`、`loadMore`、`refresh`、`runSearch`、`clearSearch`、`archive`／`trash`（**楽観的更新、失敗時は元に戻してエラーアラート。成功したら「元に戻す」つきのスナックバーを出し、押すと `Unarchive`／`Untrash` で Gmail 側も戻して一覧へ差し戻す。取り消しの失敗は「元に戻せませんでした。」＋理由のエラーアラート（再試行つき）。ただしスレッドが無い（`NOT_FOUND`）ときは「スレッドが見つかりません。一覧から除去しました。」だけを出す。ゴミ箱の取り消しは、受信箱にあったスレッドだけ `INBOX` も付け直す。アーカイブは `INBOX` を外すだけなので、受信箱に無かったスレッド（検索結果）は取り消す対象が無く、そのアーカイブには「元に戻す」を付けない（通常のトースト）**）／`markRead`（楽観的更新、失敗時は元に戻してエラーアラート）、`setFilter`、`setTab`（カーソルを捨てて先頭から取り直す。検索中は値だけ変える） | `sync:updated`（先頭ページと未読件数を再取得し、スクロール位置・選択を維持） |
 | `threadStore` | `current`（`ThreadDetail`）、`loading`、`error` | `open(ref)`、`close`、`reload` | `sync:updated`（開いているスレッドが `changedThreadIds` に含まれたら `reload`） |
+| `threadAiStore` | `summary`（`ThreadAIResult`／なし）、`status`（`idle`／`generating`／`error`）、`error`、`threadKey`（`accountId:threadId`。どのスレッドの結果か）。**すべてメモリのみ（`localStorage`・設定・ログに保存しない）** | `summarize(ref)`（`useThreadAi` の前提確認を通ったあと `AIService.SummarizeThread` を呼ぶ）、`cancel`、`reset`。**`threadStore.open`／`close`／アーカイブ・ゴミ箱などで開いているスレッドが一覧から除かれたときに `reset` を呼び、進行中の生成は `CancelGenerate` で中止する**。結果が返ったとき `threadKey` が今のスレッドと違えば捨てる（切り替え後に前のスレッドの要約が出ない）。`sync:updated` による同じスレッドの再読み込みでは `reset` しない | — |
 | `composeStore` | `session`、`content`、`attachments`、`preview`、`dirty`、`saving`、`sending` | `open`（新規作成は `withDefaultSender` で、受信箱のフィルタが単一アカウントならその送信元を初期値にして `OpenCompose` を呼ぶ）、`setSender`、`save`、`prepareSend`、`confirmSend`、`close`、`discard` | — |
 | `settingsStore` | `aiConfig`、`aiModels`（送信先＝プロバイダ（OpenAI 互換は Base URL も）ごとの最後に取得した一覧）、`appInfo`、`update`、`updateStatus`（自動アップデートの進み） | `load`、`setAIConfig`、`loadAIModels`、`signInChatGPT`／`cancelSignInChatGPT`／`selectChatGPTAccount`／`signOutChatGPT`／`removeChatGPTAccount`／`ackChatGPTPlanNotice`／`generateReplyDraft`／`cancelGenerate`、`checkUpdate`、`setAutoUpdateEnabled`、`restartToUpdate` | `update:available`、`update:status`（新しい版のバナーを `lib/updateBanner` で組む） |
 | `platformStore` | `capabilities`（`os`・`supportsMcp`・`supportsTray`・`supportsAutoUpdate`・`supportsWindowState`・`singleInstance`・`touchUi`）、`loaded`、`settled`（読み込みが終わった。成功・失敗とも。`App.vue` はこれが `true` になってから `AppShell` を描く）。読み込み前・失敗時はデスクトップ（全機能あり・`touchUi` なし） | `start`（`PlatformService.GetCapabilities` を 1 回だけ読む） | — |
@@ -415,6 +419,7 @@ AI の設定の入口は 2 つ（作成画面の「AI で下書き」と設定�
 | `composables/useAutosave` | §3.7 の自動保存 |
 | `composables/useQuitFlush` | `app:before-quit`（トレイの「終了」）で未保存の下書きを保存（`SaveDraft`）してから `AppService.AckBeforeQuit` を呼ぶ。保存に失敗しても必ず Ack する（F-12） |
 | `composables/useAiDraft` | 「AI で下書き」の状態遷移（AI の設定が未保存→初回の案内、キー未設定→設定へ誘導、未同意→同意、本文入力済み→置換確認、生成中→キャンセル可。F-08） |
+| `composables/useThreadAi` | スレッドの AI 要約（F-17）の状態遷移。`useAiDraft` と同じ前提確認（AI の設定が未保存→初回の案内、キー未設定→設定へ誘導、未同意→同意の画面。`AISetupDialog`／`AIConsentDialog` を共有）を、「本文入力済み→置換確認」を除いて行う。生成中→中止可。自動では呼ばない（`summarize` は「AI で要約」ボタンの操作からのみ）。`useAiDraft` と判定（`setupMissing`／`keyMissing`／`consentMissing`）を重複させず、共通の関数へ切り出して両方が使う |
 | `components/settings/ai/useAiSetupFlow` | 設定画面の AI の「プロバイダを選ぶ→同意→モデル一覧の取得」の流れ（`AISettings` の一部。§3.9.1） |
 | `composables/useContactSuggest` | 宛先オートコンプリート。入力が止まって 150ms で `SuggestContacts` を呼ぶ（F-13） |
 | `composables/useComposeLifecycle` | 作成セッションの保存・終了（`composeStore` の一部） |
@@ -552,6 +557,7 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | F-12 下書き保存 | `useAutosave`、`composeStore` | `ComposeService.SaveDraft`、`gmail.Client`（drafts） |
 | F-13 オートコンプリート | `RecipientField` | `ComposeService.SuggestContacts`、`domain/contacts`、`store` |
 | F-14 添付送信 | `AttachmentBar` | `ComposeService.AddAttachments`、`gmail/mime.go` |
+| F-17 スレッドの AI 要約 | `ThreadHeader`、`ThreadAiPanel`、`threadAiStore`、`useThreadAi` | `AIService.SummarizeThread`、`ai.Provider` |
 
 ## 改訂履歴
 
@@ -612,3 +618,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.52 | 2026-11-06 | §3.10 の `inboxStore` に、最後の 1 件のアーカイブ・ゴミ箱が失敗したとき空表示にしていた元のスレッドも開き直すことを追記 | #171 |
 | 1.53 | 2026-11-06 | §3.3 `BaseDialog` の本文に四辺 `--s-1` の余白（負の margin で位置は維持）を持たせ、本文の縁に接する要素のフォーカスリングが切れないようにした。§5.3 の内側 offset の逸脱表に、`SettingsDialog` の横スクロールするタブを (6) として追加（5 か所→6 か所）。ガイドへの提案は未提出 | #197 |
 | 1.54 | 2026-11-06 | §3.8 の「実装時に最初に検証する項目」を、実機の確認が未実施であることを明記した「実機での検証状況（未確認）」に改め、確認手順と結果の欄の置き場（`windows-verification.md` G）を追記。§5.3 の逸脱表「タッチ UI」の行で、チップの削除ボタンが「幅も 44px」の列挙と「疑似要素で当たり判定だけ広げる」の両方に出ていた食い違いを、後者（§5.1・`touch.test.ts` と同じ）に揃えた | #49・#173 |
+| 1.55 | 2026-11-06 | F-17（スレッドの AI 要約）: §2.3 の `ai.Provider` に `SummarizeThread`、§2.4 の `AIService` に要約の説明、§3.2 のツリーと §3.6 に `ThreadAiPanel`、`ThreadHeader` に「AI で要約」ボタンを追加。§3.10 に `threadAiStore`（メモリのみ・スレッドを切り替える／除かれるときに破棄）、§3.11 に `useThreadAi`、§6 に F-17 の対応を追加 | #206 |
