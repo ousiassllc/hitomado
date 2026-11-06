@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent } from 'vue'
-import type { Account, SendPreview } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type {
+  Account,
+  SendPreview,
+} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { useAccountsStore } from '../stores/accounts'
 import { useComposeStore } from '../stores/compose'
 import { useSettingsStore } from '../stores/settings'
@@ -17,8 +20,13 @@ import AlertStack from './shell/AlertStack.vue'
 // happy-dom は閉じた瞬間に中身を外すので、BaseDialog を「title・description・本文を常に出すスタブ」に差し替え、
 // 閉じたあとにも文言が残っているかを確かめる。
 const DialogStub = defineComponent({
-  props: { open: Boolean, title: { type: String, default: '' }, description: { type: String, default: '' } },
-  template: '<div class="dlg" :data-open="String(open)"><h2>{{ title }}</h2><p>{{ description }}</p><slot /><slot name="footer" /></div>',
+  props: {
+    open: Boolean,
+    title: { type: String, default: '' },
+    description: { type: String, default: '' },
+  },
+  template:
+    '<div class="dlg" :data-open="String(open)"><h2>{{ title }}</h2><p>{{ description }}</p><slot /><slot name="footer" /></div>',
 })
 const stubs = { BaseDialog: DialogStub }
 
@@ -47,7 +55,9 @@ describe('AccountsSettings の削除確認', () => {
     const w = mount(AccountsSettings, { global: { stubs } })
     const dlg = () => w.get('.dlg')
 
-    const removeBtn = w.findAll('button').find((b) => b.text().includes('仕事') && b.text().includes('削除'))
+    const removeBtn = w
+      .findAll('button')
+      .find((b) => b.text().includes('仕事') && b.text().includes('削除'))
     await removeBtn?.trigger('click')
     expect(dlg().attributes('data-open')).toBe('true')
     expect(dlg().text()).toContain('仕事 を削除しますか？')

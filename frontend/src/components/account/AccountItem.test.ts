@@ -22,7 +22,7 @@ describe('AccountItem の「要再接続」ボタン', () => {
     expect(btn.classes()).toContain('icon-btn')
     expect(btn.classes()).toContain('icon-btn-ghost')
     expect(btn.classes()).not.toContain('icon-btn-danger')
-    expect(btn.get('.warn-icon').exists()).toBe(true)
+    expect(btn.find('.warn-icon').exists()).toBe(true)
     expect(btn.attributes('aria-label')).toBe('仕事: 再接続が必要です（再接続）')
     await btn.trigger('click')
     expect(w.emitted('reconnect')).toHaveLength(1)
