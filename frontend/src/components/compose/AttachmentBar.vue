@@ -101,6 +101,10 @@ onBeforeUnmount(() => stopDrop?.())
   line-height: var(--line-height-xs);
 }
 
+.attach-total {
+  font-family: var(--font-mono);
+}
+
 .attach-error {
   margin: 0;
   color: var(--danger);

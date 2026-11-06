@@ -65,9 +65,10 @@ async function submit(): Promise<void> {
       :placeholder="msg.oauth.namePlaceholder"
       :error="errors.name"
     />
-    <SettingsInput v-model="clientId" :label="msg.oauth.clientId" :error="errors.clientId" />
+    <SettingsInput v-model="clientId" mono :label="msg.oauth.clientId" :error="errors.clientId" />
     <SettingsInput
       v-model="secret"
+      mono
       type="password"
       autocomplete="new-password"
       :label="msg.oauth.clientSecret"
