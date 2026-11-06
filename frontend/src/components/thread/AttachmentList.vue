@@ -55,6 +55,7 @@ ul {
 
 .attachment-size {
   color: var(--mute);
+  font-family: var(--font-mono);
   white-space: nowrap;
 }
 </style>

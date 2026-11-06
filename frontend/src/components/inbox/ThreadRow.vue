@@ -149,6 +149,7 @@ const label = computed(
 .date {
   flex: none;
   color: var(--mute);
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
 }
 
