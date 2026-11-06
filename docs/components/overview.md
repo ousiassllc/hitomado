@@ -664,3 +664,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.81 | 2026-11-07 | `AccountItem` の `.main` の右 padding を `--menu-pad-x`（12）にし、同じサイドバーの `AccountList` の「すべてのアカウント」行と右端の余白を揃えた | #261 |
 | 1.82 | 2026-11-07 | §3.4 `ToastHost` の表示時間を `@after-enter` から数える旨を追記。§3.3 `BaseTooltip` に、`BaseIconButton` がショートカットの有無によらず常にツールチップでラベルを出す（`title` を使わない）旨を追記 | #260 |
 | 1.83 | 2026-11-07 | 実装と食い違っていた記述を直した。§5.3 のタイポ行の利用者が付けた太字を 700 から 600 に、逸脱表のプレーンテキスト本文（`<pre>`）のサイズを `sm` から `base`（行間 `--line-height-base`）に訂正した（実装は変えていない）。`BaseDisclosure` の `.disclosure-summary`・`ThreadAiPanel` の `.progress`・`AiDraftButton` の `.ai-progress` に `line-height: var(--line-height-sm)` を対にした | #269 |
+| 1.84 | 2026-11-07 | `McpSettings` の中立ピル（停止中）を、状態色のピルと同じ作り（枠 `--mute` 40%・地 `--mute` 10%・文字 `--mute`）に揃えた。`AccountItem` の選択・ホバー（`--accent-soft` 地）の `.email` を、`--mute` が AA 4.5:1 に届かないため `--ink` にした | #267 |
