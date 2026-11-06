@@ -139,6 +139,11 @@ function openGuide(): void {
   line-height: var(--line-height-sm);
 }
 
+/* 連続する説明段落の間は --gap-para（S2）。縦マージンは相殺されるので、前後の 8px はそのまま。 */
+.intro + .intro {
+  margin-top: var(--gap-para);
+}
+
 .link {
   color: var(--ink);
   text-decoration: underline;
@@ -173,8 +178,8 @@ function openGuide(): void {
 
 .meta {
   color: var(--mute);
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   overflow-wrap: anywhere;
 }
 

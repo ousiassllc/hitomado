@@ -101,6 +101,10 @@ onBeforeUnmount(() => stopDrop?.())
   line-height: var(--line-height-xs);
 }
 
+.attach-total {
+  font-family: var(--font-mono), var(--font-sans);
+}
+
 .attach-error {
   margin: 0;
   color: var(--danger);
@@ -141,6 +145,10 @@ onBeforeUnmount(() => stopDrop?.())
 .attach-tag {
   color: var(--mute);
   font-size: var(--font-size-xs);
+}
+
+.attach-size {
+  font-family: var(--font-mono);
 }
 
 .attach-remove {

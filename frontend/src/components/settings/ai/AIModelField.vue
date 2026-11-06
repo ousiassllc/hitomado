@@ -59,6 +59,7 @@ const note = computed(() => {
     </div>
     <SettingsInput
       v-else
+      mono
       :model-value="modelValue"
       :label="msg.ai.model"
       :placeholder="msg.ai.modelPlaceholder"

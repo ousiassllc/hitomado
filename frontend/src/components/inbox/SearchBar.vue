@@ -33,6 +33,13 @@ function onEscape(): void {
     input.value?.blur()
   }
 }
+
+function onClear(): void {
+  // 入力欄の右端のクリア: 入力を空にし、検索中なら検索も解除する。続けて打てるようフォーカスは入力欄へ戻す
+  text.value = ''
+  if (props.active) emit('clear')
+  input.value?.focus()
+}
 </script>
 
 <template>
@@ -52,8 +59,10 @@ function onEscape(): void {
           spellcheck="false"
           @keydown.esc.stop.prevent="onEscape"
         />
+        <span v-if="text !== ''" class="field-clear">
+          <BaseIconButton :label="common.search.clear" @click="onClear"><Xmark class="icon" aria-hidden="true" /></BaseIconButton>
+        </span>
       </div>
-      <BaseIconButton v-if="active" :label="common.search.clear" @click="emit('clear')"><Xmark class="icon" aria-hidden="true" /></BaseIconButton>
     </form>
   </search>
 </template>
@@ -86,6 +95,15 @@ function onEscape(): void {
   transform: translateY(-50%);
 }
 
+/* 入力欄の右端の中に重ねる（§7 P1: 右クリア）。ボタンは 32px（タッチ UI では 44px）で、欄の縦中央に置く */
+.field-clear {
+  position: absolute;
+  top: 50%;
+  right: var(--s-1);
+  display: inline-flex;
+  transform: translateY(-50%);
+}
+
 .input {
   width: 100%;
   min-width: 0;
@@ -93,6 +111,8 @@ function onEscape(): void {
   padding: 0 var(--s-3);
   /* 左の検索アイコン（--icon-md）の分だけ空ける */
   padding-left: calc(var(--s-3) + var(--icon-md) + var(--s-2));
+  /* 右のクリア（--control-h-sm）の分だけ空けて、文字と重ならないようにする */
+  padding-right: calc(var(--s-1) + var(--control-h-sm) + var(--s-1));
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);

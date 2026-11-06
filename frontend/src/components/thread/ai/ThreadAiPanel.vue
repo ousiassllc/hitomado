@@ -106,10 +106,12 @@ function ask(): void {
       </div>
     </Transition>
 
-    <p v-if="flow.needsKey.value" class="notice notice-need-key" data-testid="thread-ai-need-key">
-      {{ needText }}
-      <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
-    </p>
+    <Transition name="alert">
+      <p v-if="flow.needsKey.value" class="notice notice-need-key" data-testid="thread-ai-need-key">
+        {{ needText }}
+        <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
+      </p>
+    </Transition>
 
     <ThreadAiQuestionForm v-model="store.draft" :disabled="store.busy || flow.needsKey.value" @submit="ask" />
     <div ref="end" />
@@ -193,6 +195,7 @@ function ask(): void {
   gap: var(--s-2);
   color: var(--mute);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .notice {
@@ -234,6 +237,7 @@ function ask(): void {
 .error-title {
   display: block;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: 600;
 }
 

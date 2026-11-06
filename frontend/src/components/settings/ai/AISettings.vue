@@ -161,6 +161,7 @@ watch(() => [saved.value !== undefined, ui.aiSetupIntent], startFromIntent, { im
       <SettingsInput
         v-if="provider === 'openai'"
         v-model="baseUrl"
+        mono
         type="url"
         :label="msg.ai.baseUrl"
         :placeholder="msg.ai.baseUrlPlaceholder"

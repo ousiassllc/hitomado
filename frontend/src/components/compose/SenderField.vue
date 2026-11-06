@@ -61,7 +61,7 @@ const options = computed(() =>
 }
 
 .sender-label {
-  flex: 0 0 56px;
+  flex: 0 0 var(--compose-label-w);
   color: var(--mute);
   font-size: var(--font-size-sm);
 }

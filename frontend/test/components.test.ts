@@ -131,9 +131,19 @@ describe('BaseTooltip / BaseIconButton の shortcut', () => {
     w.unmount()
   })
 
-  test('shortcut なしは従来どおり title のみで、BaseTooltip の text 未指定はスロットだけ描画する', () => {
-    const icon = mount(BaseIconButton, { props: { label: '更新' }, slots: { default: '⟳' } })
-    expect(icon.find('button').attributes('title')).toBe('更新')
+  test('shortcut なしでも title ではなく BaseTooltip で「ラベル」を表示し、BaseTooltip の text 未指定はスロットだけ描画する', async () => {
+    const icon = mount(BaseIconButton, {
+      attachTo: document.body,
+      props: { label: '更新' },
+      slots: { default: '⟳' },
+    })
+    const btn = icon.find('button')
+    expect(btn.attributes('title')).toBeUndefined()
+    expect(btn.attributes('aria-label')).toBe('更新')
+    await btn.trigger('focus')
+    await nextTick()
+    expect(document.querySelector('.tip-pop')?.textContent).toContain('更新')
+    icon.unmount()
     const tip = mount(BaseTooltip, { slots: { default: '<button id="plain">B</button>' } })
     expect(tip.html()).toBe('<button id="plain">B</button>')
   })

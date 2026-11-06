@@ -6,7 +6,6 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { h, nextTick } from 'vue'
 import AlertStack from '../../src/components/shell/AlertStack.vue'
-import ToastHost from '../../src/components/shell/ToastHost.vue'
 import BaseButton from '../../src/components/ui/BaseButton.vue'
 import BaseDialog from '../../src/components/ui/BaseDialog.vue'
 import BaseDisclosure from '../../src/components/ui/BaseDisclosure.vue'
@@ -18,56 +17,6 @@ import { useUiStore } from '../../src/stores/ui'
 afterEach(() => {
   jest.useRealTimers()
   document.body.innerHTML = ''
-})
-
-describe('トースト（O3）: 同時に 1 つ・3 秒・短い結果だけ', () => {
-  test('新しいトーストは前のものを置き換える（積まない）', () => {
-    setActivePinia(createPinia())
-    const ui = useUiStore()
-    ui.pushToast('success', 'A')
-    ui.pushToast('info', 'B')
-    expect(ui.toast).toMatchObject({ kind: 'info', message: 'B' })
-  })
-
-  test('3 秒で消える', async () => {
-    jest.useFakeTimers()
-    setActivePinia(createPinia())
-    const ui = useUiStore()
-    const w = mount(ToastHost, { attachTo: document.body })
-    ui.pushToast('success', '保存しました')
-    await nextTick()
-    expect(w.find('.toast').exists()).toBe(true)
-    jest.advanceTimersByTime(2999)
-    expect(ui.toast).toBeDefined()
-    jest.advanceTimersByTime(1)
-    expect(ui.toast).toBeUndefined()
-    w.unmount()
-  })
-
-  test('スナックバー（元に戻す）はトーストと別の見た目で、アクション付きの 5 秒で消える', async () => {
-    jest.useFakeTimers()
-    setActivePinia(createPinia())
-    const ui = useUiStore()
-    const w = mount(ToastHost, { attachTo: document.body })
-    ui.pushSnackbar('アーカイブしました。', { label: '元に戻す', run: () => {} })
-    await nextTick()
-    expect(w.find('.snackbar').exists()).toBe(true)
-    expect(w.find('.toast').exists()).toBe(false)
-    expect(w.find('[data-testid="snackbar-action"]').text()).toBe('元に戻す')
-    jest.advanceTimersByTime(4999)
-    expect(ui.toast).toBeDefined()
-    jest.advanceTimersByTime(1)
-    expect(ui.toast).toBeUndefined()
-    w.unmount()
-  })
-
-  test('失敗はトーストではなくアラートに出る（再試行つきでもトーストに載らない）', () => {
-    setActivePinia(createPinia())
-    const ui = useUiStore()
-    ui.pushAlert('読み込めませんでした', () => {})
-    expect(ui.toast).toBeUndefined()
-    expect(ui.alerts).toHaveLength(1)
-  })
 })
 
 describe('インラインアラート', () => {
@@ -252,6 +201,16 @@ describe('モーション（M）', () => {
     const off = mount(BaseButton, { props: { disabled: true }, slots: { default: '送信' } })
     await off.trigger('pointerdown')
     expect(off.element.querySelectorAll('.ripple')).toHaveLength(0)
+  })
+
+  test('右ボタン・中ボタンの押下ではリップルが出ない（M4）', async () => {
+    const w = mount(BaseButton, { slots: { default: '送信' }, attachTo: document.body })
+    await w.trigger('pointerdown', { button: 2 })
+    await w.trigger('pointerdown', { button: 1 })
+    expect(w.element.querySelectorAll('.ripple')).toHaveLength(0)
+    await w.trigger('pointerdown', { button: 0 })
+    expect(w.element.querySelectorAll('.ripple')).toHaveLength(1)
+    w.unmount()
   })
 })
 

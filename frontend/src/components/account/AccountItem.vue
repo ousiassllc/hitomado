@@ -60,7 +60,7 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   flex: 1;
   min-width: 0;
   gap: var(--s-2);
-  padding: var(--s-2) var(--s-2) var(--s-2) 0;
+  padding: var(--s-2) var(--menu-pad-x) var(--s-2) 0;
   border: none;
   background: transparent;
   color: var(--ink);
@@ -101,6 +101,12 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   white-space: nowrap;
   color: var(--mute);
   font-size: var(--font-size-xs);
+}
+
+/* --accent-soft 地（選択・ホバー）の上では --mute が AA 4.5:1 に届かないので --ink にする（名前とは文字サイズで区別が残る）。 */
+.item.selected .email,
+.main:hover .email {
+  color: var(--ink);
 }
 
 .badge {

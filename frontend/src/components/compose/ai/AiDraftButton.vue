@@ -84,11 +84,14 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
       </template>
     </div>
     <AiDraftInstruction v-model="compose.aiInstruction" :disabled="generating" />
-    <UsageLimitNotice
-      v-if="ai.usageLimit.value"
-      @manage="settings.openExternal(settingsMsg.ai.chatgpt.usageUrl)"
-      @dismiss="ai.usageLimit.value = false"
-    />
+    <!-- 利用枠の案内もアラートの仲間なので、出現・消去は .ai-error と同じフェード（ガイド M5） -->
+    <Transition name="alert">
+      <UsageLimitNotice
+        v-if="ai.usageLimit.value"
+        @manage="settings.openExternal(settingsMsg.ai.chatgpt.usageUrl)"
+        @dismiss="ai.usageLimit.value = false"
+      />
+    </Transition>
     <!-- インラインアラートの出現はフェードイン・消去はフェードアウト（ガイド M5） -->
     <Transition name="alert">
       <div v-if="!ai.usageLimit.value && ai.error.value" class="ai-error" role="alert">
@@ -142,6 +145,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
   gap: var(--s-2);
   color: var(--mute);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .ai-note {
@@ -175,6 +179,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
 .ai-error-title {
   display: block;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: 600;
 }
 

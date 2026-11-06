@@ -44,6 +44,8 @@ function onSelect(v: string | number): void {
 
 .tab:hover {
   background: var(--accent-soft);
+  /* --accent-soft 地の上では --mute が AA 4.5:1 に届かないので --ink にする（選択タブは下線 --accent で区別が残る）。 */
+  color: var(--ink);
 }
 
 .tab:focus-visible {

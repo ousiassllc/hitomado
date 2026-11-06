@@ -33,6 +33,7 @@ defineProps<{ summary: string }>()
   color: var(--ink);
   font-weight: 600;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   list-style: none;
   cursor: pointer;
 }
@@ -58,6 +59,6 @@ defineProps<{ summary: string }>()
 
 .disclosure-body {
   padding: 0 var(--s-4) var(--s-3);
-  color: var(--mute);
+  color: var(--ink);
 }
 </style>

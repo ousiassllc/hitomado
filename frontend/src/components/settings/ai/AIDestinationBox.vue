@@ -28,10 +28,12 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
     <p class="dest-note">
       {{ saved.note ?? (saved.custom ? msg.ai.destinationCustomNote : msg.ai.destinationDefaultNote) }}
     </p>
-    <p v-if="differs" class="dest-pending" role="status">
-      <WarningTriangle class="icon icon-sm icon-warning dest-pending-icon" aria-hidden="true" />
-      <span>{{ msg.ai.destinationPending(text(draft)) }}</span>
-    </p>
+    <Transition name="alert">
+      <p v-if="differs" class="dest-pending" role="status">
+        <WarningTriangle class="icon icon-sm icon-warning dest-pending-icon" aria-hidden="true" />
+        <span>{{ msg.ai.destinationPending(text(draft)) }}</span>
+      </p>
+    </Transition>
   </fieldset>
 </template>
 
@@ -79,5 +81,13 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
   color: var(--ink);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
+}
+
+.alert-enter-active {
+  animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
+}
+
+.alert-leave-active {
+  animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 </style>

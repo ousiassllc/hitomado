@@ -133,8 +133,8 @@ async function copy(text: string): Promise<void> {
       </div>
 
       <div class="addr">
-        <SettingsInput v-model="host" :label="msg.mcp.host" />
-        <SettingsInput v-model="port" :label="msg.mcp.port" :error="portError" />
+        <SettingsInput v-model="host" mono :label="msg.mcp.host" />
+        <SettingsInput v-model="port" mono :label="msg.mcp.port" :error="portError" />
       </div>
 
       <div class="group">
@@ -261,8 +261,9 @@ async function copy(text: string): Promise<void> {
 .state {
   margin-left: auto;
   padding: 0 var(--s-2);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--mute) 40%, transparent);
   border-radius: var(--r-full);
+  background: color-mix(in srgb, var(--mute) 10%, transparent);
   color: var(--mute);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
@@ -290,7 +291,7 @@ async function copy(text: string): Promise<void> {
 }
 
 .path {
-  font-family: var(--font-mono);
+  font-family: var(--font-mono), var(--font-sans);
   overflow-wrap: anywhere;
 }
 

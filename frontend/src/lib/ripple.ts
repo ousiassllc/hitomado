@@ -3,6 +3,7 @@
 import type { Directive } from 'vue'
 
 function spawn(el: HTMLElement, ev: PointerEvent): void {
+  if (ev.button !== 0) return // 右・中ボタンは click にならないので出さない（ペン・タッチは button=0）
   if (el instanceof HTMLButtonElement && el.disabled) return
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
   const rect = el.getBoundingClientRect()

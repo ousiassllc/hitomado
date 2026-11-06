@@ -34,7 +34,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
     </SelectTrigger>
     <SelectPortal>
       <SelectContent class="sel-pop" position="popper" :side-offset="4">
-        <SelectViewport>
+        <SelectViewport class="sel-viewport">
           <SelectItem v-for="o in options" :key="o.value" :value="o.value" class="sel-item">
             <SelectItemText>{{ o.label }}</SelectItemText>
             <SelectItemIndicator class="sel-check"><Check class="icon icon-sm" aria-hidden="true" /></SelectItemIndicator>
@@ -74,13 +74,13 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 /* Reka UI の Popper は scoped 属性（data-v-*）を内側の本体ではなく外側のラッパーに付ける。本体は :global で当てる。 */
 :global(.sel-pop) {
-  min-width: var(--reka-select-trigger-width);
+  min-width: max(var(--reka-select-trigger-width), 180px);
   max-height: 280px;
   background: var(--surface);
   color: var(--ink);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  padding: var(--s-1);
+  padding: 0;
   z-index: var(--z-popup);
 }
 
@@ -104,8 +104,23 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   outline: none;
 }
 
+/* 強調（data-highlighted）は reka がポインタの移動でも付けるので、ホバーは地だけにする（M1）。
+   reka は強調した項目に実際の DOM フォーカスも当てる（ポインタ移動でも .focus() する）ので、
+   キーボードの強調はブラウザの :focus-visible の判定でリングを足す。 */
 .sel-item[data-highlighted] {
   background: var(--accent-soft);
+}
+
+/* リングは外側（offset 2px + 幅 2px = 4px）に描く。スクロール領域は reka の SelectViewport（overflow: hidden auto）なので、
+   リングが切れないよう余白（--s-1 = 4px）はパネルではなくビューポートに持たせる。
+   SelectViewport は Fragment がルートで scoped 属性（data-v-*）が付かないので、.sel-pop と同じく :global で当てる。 */
+:global(.sel-viewport) {
+  padding: var(--s-1);
+}
+
+.sel-item[data-highlighted]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 .sel-check {

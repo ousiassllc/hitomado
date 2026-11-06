@@ -52,6 +52,7 @@ defineExpose({
     </div>
     <SettingsInput
       v-model="apiKey"
+      mono
       type="password"
       autocomplete="new-password"
       :label="msg.ai.apiKeyFor(props.providerLabel)"
@@ -105,6 +106,7 @@ defineExpose({
 .sub {
   margin: 0;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .status {
