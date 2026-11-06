@@ -274,7 +274,7 @@ function onKeydown(e: KeyboardEvent): void {
   color: var(--mute);
 }
 
-/* 出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）（M5。BaseMenu・BaseSelect と同じ値） */
+/* 出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）（M5。duration・easing は BaseMenu・BaseSelect と同じ。入力欄の直下に出るので移動なしで opacity だけ） */
 .suggest-enter-active {
   animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
 }
