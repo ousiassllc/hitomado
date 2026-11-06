@@ -8,7 +8,9 @@ describe('ToastHost.vue', () => {
     expect(sfc).toMatch(/\.undo\s*\{[^}]*border-radius:\s*var\(--r-md\);/)
   })
 
-  test('トーストの置き換えは前のものが消えてから出す（O3: 同時に 1 つ。退出中のものと並ばない）', () => {
-    expect(sfc).toMatch(/<Transition\s+name="toast"\s+mode="out-in">/)
+  test('トーストの置き換えは前のものが消えてから出し、表示時間は入場が終わってから数える（O3: 同時に 1 つ・3 秒の実表示）', () => {
+    expect(sfc).toMatch(
+      /<Transition\s+name="toast"\s+mode="out-in"\s+appear\s+@after-enter="startTimer">/,
+    )
   })
 })
