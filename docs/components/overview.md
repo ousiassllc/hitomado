@@ -651,3 +651,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.71 | 2026-11-06 | §5.3 の動きの行の「リップルを付けない」に、下線付きのテキストリンク型のボタン（`ListToolbar` の `.back`）を追記した（コードの変更なし） | #239 |
 | 1.72 | 2026-11-06 | §3.9 の `AIChatGPTLogin` のブラウザでのログイン待ちに `Spinner` を足した（`AiDraftButton` の `.ai-progress` と同じ並べ方）。§5.3 の案件固有部品に、モーダルの padding と幅（`BaseDialog`）の値を追記した | #240 |
 | 1.73 | 2026-11-06 | §5.3 の間隔のレシピを明記し（フォーム項目間 16・カード内のまとまり 24・ボタン列 8・見出し→説明文 8 の `.group`）、アイコンボタンのツールバーだけ項目間 4px（`--s-1`）を案件内の値として定めた。`SignatureSettings` のフォーム項目間を `--gap-field` に、`AccountRow` のまとまり同士を `--gap-card-section` に、AI 設定（`AISettings`・`AIChatGPTLogin`・`AIApiKey`・`AIConsentSection`）と `AddAccountDialog` の見出し→説明文を `.group` にした | #241 |
+| 1.74 | 2026-11-06 | §5.3 の間隔のレシピに `--gap-para`（本文の段落間・16px）を追加し、`RichTextEditor` の段落・箇条書きの下の余白に使った。`ThreadAiPanel` の `.turn`・`UsageLimitNotice` の `.limit-main`（見出し→本文）を 8px（`--s-2`）に、`SendConfirmDialog` の `.confirm-from`（ラベル→内容）を `--gap-label` に揃えた | #242 |
