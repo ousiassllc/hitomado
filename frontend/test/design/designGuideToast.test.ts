@@ -13,18 +13,41 @@ afterEach(() => {
 
 // @vue/test-utils は Transition を既定でスタブにし、after-enter を呼ばない。表示時間は入場が終わってから数えるので、
 // 入場の終わりをテストが決める Transition に差し替える（enterDone() が、今のトーストの after-enter になる）。
+// スタブは受け取った mode・appear・after-enter の有無も引けるようにする（テンプレートの書き方・属性順には依存しない）。
 let enterDone = (): void => {}
+let transition = { mode: undefined as string | undefined, appear: false, hasAfterEnter: false }
 const ControlledTransition = defineComponent({
   inheritAttrs: false,
-  setup(_, { slots, attrs }) {
+  props: { mode: String, appear: Boolean },
+  setup(props, { slots, attrs }) {
     enterDone = () => (attrs.onAfterEnter as () => void)()
-    return () => slots.default?.()
+    return () => {
+      transition = {
+        mode: props.mode,
+        appear: props.appear,
+        hasAfterEnter: typeof attrs.onAfterEnter === 'function',
+      }
+      return slots.default?.()
+    }
   },
 })
 const controlledTransition = {
   attachTo: document.body,
   global: { stubs: { transition: ControlledTransition } },
 }
+
+describe('トーストの出入り（O3）', () => {
+  test('置き換えは前のものの退出を待ち（out-in）、初回も入場を数える（appear）。表示時間は入場完了（after-enter）で数え始める', async () => {
+    setActivePinia(createPinia())
+    const ui = useUiStore()
+    const w = mount(ToastHost, controlledTransition)
+    ui.pushToast('success', '保存しました')
+    await nextTick()
+    expect(transition).toEqual({ mode: 'out-in', appear: true, hasAfterEnter: true })
+    expect(w.find('.msg').text()).toBe('保存しました')
+    w.unmount()
+  })
+})
 
 describe('トースト（O3）: 同時に 1 つ・3 秒・短い結果だけ', () => {
   test('新しいトーストは前のものを置き換える（積まない）', () => {
