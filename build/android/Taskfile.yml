@@ -143,7 +143,9 @@ tasks:
     vars:
       # E2E=true は debug ビルドにだけ e2e タグ（Gmail・資格情報をシード済みのフェイクに差し替える。internal/e2e）を足す。
       # production と一緒には使えない（e2e:apk が止め、Go 側も production タグでは e2e を無効にする）。
-      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,android -trimpath -buildvcs=false -ldflags="-w -s -X main.version={{.APP_VERSION}}"{{else}}-tags android,debug{{if eq .E2E "true"}},e2e{{end}} -buildvcs=false -gcflags=all="-l"{{end}}'
+      # -extldflags=-Wl,-z,max-page-size=16384: LOAD セグメントを 16KB 整列にする（16KB ページの端末で読み込めるように。
+      # 2027-02-01 以降は Play もこれを要求する。NDK 26.3 は既定が 4KB。android:verify が整列を検査する。docs/environment/android-play-distribution.md §6.1）。
+      BUILD_FLAGS: '{{if eq .PRODUCTION "true"}}-tags production,android -trimpath -buildvcs=false -ldflags="-w -s -X main.version={{.APP_VERSION}} -extldflags=-Wl,-z,max-page-size=16384"{{else}}-tags android,debug{{if eq .E2E "true"}},e2e{{end}} -buildvcs=false -gcflags=all="-l" -ldflags="-extldflags=-Wl,-z,max-page-size=16384"{{end}}'
 
   test:
     summary: Runs the Java unit tests (JVM only, no device) of build/android/app/src/test
