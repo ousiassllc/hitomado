@@ -3,9 +3,9 @@
 // message には種類のコード（TypeError・unknown・render-error:コンポーネント名 など）だけを入れ、stack は「関数名とファイル:行:列」のフレームだけにする。
 // binding はエラーコード（enum）とアカウント ID だけを送る。Go 側のログ出力（logging.Redact）の伏せ処理は 2 枚目の防御として残る。
 import type { App, ComponentPublicInstance } from 'vue'
-import { LogService } from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
-import type { ClientError } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { type AppError, isAppErrorLike, setBindingErrorReporter } from './api'
+import { LogService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import type { ClientError } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { type AppError, isAppErrorLike, setBindingErrorReporter } from '../api'
 
 /** 画面側で送る文字数の上限（Go 側でも切る）。 */
 const MAX_MESSAGE = 1000

@@ -251,7 +251,7 @@ String refreshToken = SecureStore.getInstance(getApplicationContext()).get("hito
 
 - Go: `Store` のエラーは `secrets: <操作> "<キー名>": <Java の失敗コード>` だけで、値を含まない（キー名は `hitomado/<種別>/<ID>` で秘密ではない）。`slog` に値を渡している箇所は無い（`internal/` を grep して確認）。
 - Java: `SecureStore`／`WailsBridge` の失敗コードは `key_lost`／`failed`／`empty key` だけで、例外のメッセージ（値を含みうる）は返さず、logcat にも例外のクラス名だけを出す。
-- **Wails のテンプレートが debug ビルドで logcat に出していた JS からの呼び出しの本文を、長さだけに変えた**（`WailsBridge.handleMessage`／`handleRuntimeCall`、`WailsJSBridge.invoke`／`invokeAsync`）。バインディング呼び出しの引数（`SetAIApiKey` の API キー、`AddOAuthClient` の Client Secret）が本文に入るため。release ビルド（`BuildConfig.DEBUG` が偽）は元から出さない。`MainActivity` の `Wails API call`（パスとクエリだけ）、WebView のコンソールのメッセージ（debug のみ）は、フロントが `console.error(err)` を出す 1 か所（`errorReporter.ts`。AppError のメッセージで、値は含まない）を除き、値を出す箇所が無い。
+- **Wails のテンプレートが debug ビルドで logcat に出していた JS からの呼び出しの本文を、長さだけに変えた**（`WailsBridge.handleMessage`／`handleRuntimeCall`、`WailsJSBridge.invoke`／`invokeAsync`）。バインディング呼び出しの引数（`SetAIApiKey` の API キー、`AddOAuthClient` の Client Secret）が本文に入るため。release ビルド（`BuildConfig.DEBUG` が偽）は元から出さない。`MainActivity` の `Wails API call`（パスとクエリだけ）、WebView のコンソールのメッセージ（debug のみ）は、フロントが `console.error(err)` を出す 1 か所（`errorReporter/index.ts`。AppError のメッセージで、値は含まない）を除き、値を出す箇所が無い。
 - Go 側の Wails のフレームワークのログ（`[JS message]`、`runtime call returned status`）は `production` タグで無効になる（release のビルドは `-tags production,android`）。debug ビルド（`android:run`）では `[JS message]`（ウィンドウのメッセージ）が logcat に出る。
 
 ### 11.6 確認の手順（実機・エミュレーター）
@@ -467,7 +467,7 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 
 ### 14.4 送信元の固定
 
-リダイレクト方式は認可コードを受け取る経路だけを変える。アカウントのアドレスは、認可後に Google の userinfo から取った値（小文字に正規化）で決まり、返信・転送の送信元は `accounts.email` から作る（変更できない。[バインディング仕様 §5](../api/endpoints.md)・[アーキテクチャ設計 §7.3](../architecture/overview.md)）。`Reconnect` は認可されたアドレスが既存のアカウントと違えば拒否する。テスト: `internal/app/composecore/compose_oauth_sender_test.go`（OAuth で追加したアカウントの返信が、Google が返したアドレスに固定され、`SENDER_LOCKED`／`SENDER_MISMATCH` で変えられず、`From` がそのアドレスになる）、`internal/app/apptests/account_test.go`（`TestReconnectRejectsDifferentAddress`）。
+リダイレクト方式は認可コードを受け取る経路だけを変える。アカウントのアドレスは、認可後に Google の userinfo から取った値（小文字に正規化）で決まり、返信・転送の送信元は `accounts.email` から作る（変更できない。[バインディング仕様 §5](../api/endpoints.md)・[アーキテクチャ設計 §7.3](../architecture/overview.md)）。`Reconnect` は認可されたアドレスが既存のアカウントと違えば拒否する。テスト: `internal/app/composecore/compose_oauth_sender_test.go`（OAuth で追加したアカウントの返信が、Google が返したアドレスに固定され、`SENDER_LOCKED`／`SENDER_MISMATCH` で変えられず、`From` がそのアドレスになる）、`internal/app/accounttests/account_test.go`（`TestReconnectRejectsDifferentAddress`）。
 
 ### 14.5 自動テスト
 
@@ -475,7 +475,7 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 |--------|------|
 | `internal/oauth/flow_test.go`・`callback`（既存） | 偽 IdP（httptest）で、ループバックの待受・PKCE・`state` の検証（不一致は無視）・`access_denied`・スコープ不足・トークン交換の失敗・タイムアウト・キャンセルを試す。Android でもこのコードがそのまま動く（ビルドタグなし） |
 | `internal/oauth/tracker_test.go` | 印がブラウザに出ている間だけ存在し、成功・拒否・タイムアウト・ブラウザ起動失敗・キャンセルのどれでも消える。印に `state`・verifier・コード・トークンを含まない。**プロセスが止められた（`End` が呼ばれない）ときに、次の起動の `Tracker` が一度だけ検出する**。検出の前に新しい認可を始めても完了でき、前回の中断も案内される。ストアの失敗が認可を壊さない。`nil` の `Tracker` は何もしない（Windows） |
-| `internal/app/apptests/account_interrupted_test.go` | `TakeInterruptedAuth` の一度だけの検出と、`nil`（Windows）での `false`。検出後のやり直しが完了する |
+| `internal/app/accounttests/account_interrupted_test.go` | `TakeInterruptedAuth` の一度だけの検出と、`nil`（Windows）での `false`。検出後のやり直しが完了する |
 | `frontend/test/accountsInterrupted.test.ts` | 検出時にやり直しのお知らせ（インラインアラート）を 1 回だけ出す。呼び出しの失敗で起動を止めない |
 
 ### 14.6 実機で確認する手順（未確認）

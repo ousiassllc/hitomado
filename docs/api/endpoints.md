@@ -577,7 +577,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.12 | 2026-11-03 | `LogService`（§7.1）・`MCPService`（§7.2）を追加 | #14 |
 | 1.13 | 2026-11-03 | `CheckForUpdate` に、版が `0.0.0`（dev・ローカルビルド）のときは通信せず `{ available: false }` を返す旨を追記 | #21 |
 | 1.14 | 2026-11-03 | `RemoveAccount` の手順を、同期ワーカーの停止（実行中の周期の終了待ち）→DB 削除に改め、DB 削除に失敗したときは同期を再開してエラーを返す旨を追記 | 実装（`internal/app/account.go`）との整合（#4） |
-| 1.15 | 2026-11-03 | `ReportClientError` の `message`・`stack` を、例外のメッセージ文ではなく種類のコード・位置だけのフレームにしたことを追記 | 実装（`frontend/src/lib/errorReporter.ts`）との整合（#24） |
+| 1.15 | 2026-11-03 | `ReportClientError` の `message`・`stack` を、例外のメッセージ文ではなく種類のコード・位置だけのフレームにしたことを追記 | 実装（`frontend/src/lib/errorReporter/index.ts`）との整合（#24） |
 | 1.16 | 2026-11-03 | `AIProvider` に `chatgpt` を追加し、`AIConfig` に `chatgptSignedIn`／`chatgptEmail` を追加。`SignInChatGPT`／`CancelSignInChatGPT`／`SignOutChatGPT`／`ListAIModels` と、§6.1 モデル一覧・§6.2 ChatGPT プランを追記。§1.2 の `AI_NOT_CONFIGURED`／`AI_FAILED` の説明を拡張 | Sign in with ChatGPT（#75）とモデル一覧からの選択（#76） |
 | 1.17 | 2026-11-03 | `PlatformService`（§7.3）と `UNSUPPORTED`（§1.2）を追加。§7 の `SetUpdateCheckEnabled` と §7.2 に、Android での扱いを追記 | Android 版で使わない機能の無効化（#89） |
 | 1.18 | 2026-11-03 | `SaveAttachment`・`ExportLogs` の保存先に Android（Storage Access Framework）の動作を、`OpenLogFolder` に Android で `UNSUPPORTED` となる旨を追記 | #85 |
