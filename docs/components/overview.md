@@ -231,6 +231,7 @@ graph TD
   ComposePane --> ComposeFields
   ComposeFields --> SenderField
   ComposeFields --> RecipientField
+  RecipientField --> RecipientChip
   ComposePane --> RichTextEditor
   ComposePane --> AttachmentBar
   ComposePane --> AiDraftButton
@@ -307,7 +308,8 @@ graph TD
 | `ComposePane` | 返信・転送・新規のエディタ全体。メインウィンドウ内のペイン。破棄・閉じる（閉じる時は自動保存してから閉じる）、「送信」「送信してアーカイブ」（返信・転送のみ）。**本文エディタ（`RichTextEditor`）の高さは 240px 以上を保証する**（#112）: 全体は縦スクロール可能にし、ヘッダ・宛先・AI・添付が増えてもエディタを縮めない。返信・転送（`ThreadPane` の中に埋め込むとき）は「広げる／元に戻す」ボタンを出す | props: `embedded`（スレッド内に埋め込むか）, `expanded`。emits: `toggle-expand` | `composeStore` |
 | `SenderField` | 送信元表示。`senderLocked` なら**表示のみ**（変更 UI なし）。`new` は選択式（未選択状態あり）。未選択時は送信ボタンを無効化 | props: `from`, `locked`, `accounts` | `ComposeService.SetComposeSender` |
 | `ComposeFields` | `ComposePane` の宛先・件名の入力部（送信元・To・Cc・Bcc・件名。`SenderField`／`RecipientField` を持つ）。入力途中の宛先の確定（`commitPending`）を `ComposePane` へ公開する | props: `frozen` | `composeStore` |
-| `RecipientField` | To／Cc／Bcc の入力（Cc／Bcc は開閉式）。チップ化、貼り付けの複数アドレス分割、オートコンプリート。形式が正しくないアドレスのチップは警告アイコンを付け、状態ピルと同じく文字 `--danger`・枠 `--danger-border`・地 `--danger-soft` にし、理由を入力欄の下に文言で出す | props: `modelValue`, `accountId` | `ComposeService.SuggestContacts`（デバウンス 150ms） |
+| `RecipientField` | To／Cc／Bcc の入力（Cc／Bcc は開閉式）。チップ化、貼り付けの複数アドレス分割、オートコンプリート。形式が正しくないアドレスのチップは警告アイコンを付け、状態ピルと同じく文字 `--danger`・枠 `--danger-border`・地 `--danger-soft` にし、理由を入力欄の下に文言で出す。候補一覧の出入りはフェード（出現 320ms・退出 240ms。`BaseMenu` と同じ値）。チップは `RecipientChip`。× のリップルはボタン内側の円（`.chip-remove-face`）だけに持たせ、ボタン本体は `overflow: hidden` にしない（`touch.css` の疑似要素による拡張タップ領域を切らないため） | props: `modelValue`, `accountId` | `ComposeService.SuggestContacts`（デバウンス 150ms） |
+| `RecipientChip` | 宛先 1 件のチップ（`RecipientField` が並べる）。表示名・アドレス、形式が正しくないときの警告アイコンと状態ピルの色、削除ボタン（× 。touch.css の `.chip-remove::after` で当たり判定だけ広げる） | props: `address`, `disabled`／emits: `remove` | — |
 | `RichTextEditor` | Tiptap。太字・リンク・箇条書き（ツールバーは Iconoir の `Bold`・`Link`・`List`。文字のアイコンは使わない）。署名ブロックを `data-hitomado-signature` として保持（署名・引用は長文になりうるので文字は `--ink`。引用の左線は `1px solid --mute`）。貼り付けは書式をクリーニング | props/emits: `v-model:html` | — |
 | `AttachmentBar` | 添付の一覧・削除・追加ボタン・ドラッグ＆ドロップ。合計サイズ表示と上限エラー | | `ComposeService.AddAttachments／RemoveAttachment` |
 | `AiDraftButton` | 「AI で下書き」。AI の設定が未保存（`aiConfig.configured` が偽）→初回の案内（ChatGPT でログインする「Continue with ChatGPT」・「別のプロバイダを選ぶ」・「あとで」。[§3.9.1](#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）。保存済みでキー未設定（ChatGPT プランは未ログイン）→設定へ誘導。利用枠の超過（`AI_FAILED` の `details.reason`）は「Manage usage」を主なアクションにしたコンパクトな案内 `UsageLimitNotice`（ChatGPT の見出しを残す。失敗メッセージだけにしない）、未同意→同意ダイアログ（`AIConsentDialog`。設定画面と共通）、生成中→キャンセル可、本文入力済み→置換確認 | emits: `generated(bodyHtml)` | `AIService.GenerateReplyDraft／CancelGenerate／RecordAIConsent`（`settingsStore` 経由） |

@@ -4,7 +4,7 @@ import { rule } from './styleRule'
 
 describe('状態ピルと同じ色（C4・#210）', () => {
   test('無効な宛先チップは文字 --danger・枠 --danger-border・地 --danger-soft', () => {
-    const body = rule('compose/RecipientField.vue', '.chip-invalid {')
+    const body = rule('compose/RecipientChip.vue', '.chip-invalid {')
     expect(body).toContain('border-color: var(--danger-border)')
     expect(body).toContain('background: var(--danger-soft)')
     expect(body).toContain('color: var(--danger)')
