@@ -17,7 +17,11 @@ const root = useTemplateRef<HTMLElement>('root')
 
 const accounts = computed(() => accountsStore.accounts)
 const busyId = ref<string>()
+// 退出のフェード中も文言が変わらないよう、閉じても removeTarget は保持する（開閉は removeOpen）。
 const removeTarget = ref<Account>()
+/** 削除の実行中。ダイアログの固定（busy）・キャンセルの無効・確認ボタンのスピナーで共有する。 */
+const removing = computed(() => busyId.value !== undefined && busyId.value === removeTarget.value?.id)
+const removeOpen = ref(false)
 const announcement = ref('')
 
 function statusOf(a: Account): string {
@@ -78,15 +82,13 @@ async function confirmRemove(): Promise<void> {
   const a = removeTarget.value
   if (!a) return
   const ok = await run(a.id, () => accountsStore.remove(a.id), msg.accounts.removed(a.displayName))
-  if (ok) removeTarget.value = undefined
+  if (ok) removeOpen.value = false
 }
 
-const removeOpen = computed({
-  get: () => removeTarget.value !== undefined,
-  set: (v: boolean) => {
-    if (!v) removeTarget.value = undefined
-  },
-})
+function askRemove(a: Account): void {
+  removeTarget.value = a
+  removeOpen.value = true
+}
 </script>
 
 <template>
@@ -117,7 +119,7 @@ const removeOpen = computed({
         @move="move(a, $event)"
         @reconnect="reconnect(a)"
         @check-client="ui.openSettings('oauth')"
-        @remove="removeTarget = a"
+        @remove="askRemove(a)"
       />
     </ul>
 
@@ -126,14 +128,14 @@ const removeOpen = computed({
     <BaseDialog
       v-model:open="removeOpen"
       size="sm"
-      :busy="busyId !== undefined && busyId === removeTarget?.id"
+      :busy="removing"
       :title="msg.accounts.removeTitle(removeTarget?.displayName ?? '')"
       :description="msg.accounts.removeDescription(removeTarget?.email ?? '')"
     >
       <p class="detail">{{ msg.accounts.removeDetail }}</p>
       <template #footer>
-        <BaseButton @click="removeOpen = false">{{ msg.cancel }}</BaseButton>
-        <BaseButton variant="danger" :loading="busyId === removeTarget?.id" @click="confirmRemove">
+        <BaseButton :disabled="removing" @click="removeOpen = false">{{ msg.cancel }}</BaseButton>
+        <BaseButton variant="danger" :loading="removing" @click="confirmRemove">
           {{ msg.accounts.removeConfirm }}
         </BaseButton>
       </template>

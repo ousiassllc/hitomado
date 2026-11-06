@@ -5,6 +5,9 @@
         <item name="colorPrimary">@color/app_accent</item>
         <item name="colorPrimaryVariant">@color/app_accent</item>
         <item name="colorOnPrimary">@color/app_background</item>
+        <!-- 副色（入力欄のカーソル・選択ハンドルなど）も Material 既定のティールにせず accent に揃える。 -->
+        <item name="colorSecondary">@color/app_accent</item>
+        <item name="colorOnSecondary">@color/app_background</item>
         <!-- システムバーと Window の背景はアプリの背景色に揃える（エッジ・ツー・エッジでは WebView の外側の余白に見える。#87）。 -->
         <item name="android:statusBarColor">@color/app_background</item>
         <item name="android:navigationBarColor">@color/app_background</item>

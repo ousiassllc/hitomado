@@ -4,7 +4,7 @@ import { compose as msg } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'
 import { useComposeStore } from '../../stores/compose'
 import BaseButton from '../ui/BaseButton.vue'
-import RecipientField from './RecipientField.vue'
+import RecipientField from './recipient/RecipientField.vue'
 import SenderField from './SenderField.vue'
 
 // 作成画面の宛先・件名の入力欄（送信元・To・Cc・Bcc・件名）。ComposePane の一部。
@@ -105,7 +105,7 @@ defineExpose({ commitPending })
 
 .toggles {
   display: flex;
-  gap: var(--s-1);
+  gap: var(--gap-inline);
   padding-top: var(--s-1);
 }
 

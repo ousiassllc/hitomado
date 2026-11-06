@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { WarningTriangle } from '@iconoir/vue'
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { compose as msg } from '../../lib/messages'
 import { addressLabel } from '../../lib/recipients'
 import { useComposeStore } from '../../stores/compose'
@@ -10,7 +10,18 @@ import BaseDialog from '../ui/BaseDialog.vue'
 
 const compose = useComposeStore()
 
-const preview = computed(() => compose.preview)
+// 開閉は compose.preview で決め、表示する中身は最後の preview を保持する。
+// キャンセル・送信完了で preview が消えても、退出のフェード（240ms）の間は中身を変えない（ガイド M5）。
+// previewArchive は clearSession で戻るので、preview と同時に控える。
+const isOpen = computed(() => compose.preview !== undefined)
+const shown = ref(compose.preview ? { preview: compose.preview, archive: compose.previewArchive } : undefined)
+watch(
+  () => compose.preview,
+  (p) => {
+    if (p) shown.value = { preview: p, archive: compose.previewArchive }
+  },
+)
+const preview = computed(() => shown.value?.preview)
 const warnings = computed(() => preview.value?.warnings ?? [])
 const recipients = computed(() => {
   const p = preview.value
@@ -23,7 +34,7 @@ const recipients = computed(() => {
 })
 const sendLabel = computed(() => {
   const email = preview.value?.from.email ?? ''
-  return compose.previewArchive ? msg.confirm.sendFromArchive(email) : msg.confirm.sendFrom(email)
+  return shown.value?.archive ? msg.confirm.sendFromArchive(email) : msg.confirm.sendFrom(email)
 })
 
 function onOpen(open: boolean): void {
@@ -33,7 +44,7 @@ function onOpen(open: boolean): void {
 
 <template>
   <BaseDialog
-    :open="preview !== undefined"
+    :open="isOpen"
     :title="msg.confirm.title"
     :description="msg.confirm.description"
     size="lg"
@@ -70,7 +81,7 @@ function onOpen(open: boolean): void {
         <dt>{{ msg.confirm.bodyPreview }}</dt>
         <dd class="confirm-body">{{ preview.bodyPreview || msg.confirm.emptyBody }}</dd>
       </dl>
-      <p v-if="compose.previewArchive" class="confirm-note">{{ msg.confirm.archiveNote }}</p>
+      <p v-if="shown?.archive" class="confirm-note">{{ msg.confirm.archiveNote }}</p>
       <p v-if="compose.error" class="confirm-error" role="alert">{{ compose.error }}</p>
     </div>
     <template #footer>
@@ -94,7 +105,7 @@ function onOpen(open: boolean): void {
 .confirm-from {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--gap-label);
 }
 
 .confirm-from-label {
@@ -105,7 +116,7 @@ function onOpen(open: boolean): void {
 .warnings {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--s-2);
   margin: 0;
   padding: 0;
   list-style: none;

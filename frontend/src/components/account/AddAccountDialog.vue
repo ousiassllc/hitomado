@@ -107,8 +107,10 @@ async function save(): Promise<void> {
     <!-- 1. OAuth クライアント選択（未登録なら設定へ誘導） -->
     <template v-if="step === 'choose'">
       <div v-if="options.length === 0" class="stack">
-        <h3 class="title">{{ t.noClientTitle }}</h3>
-        <p class="body">{{ t.noClientBody }}</p>
+        <div class="group">
+          <h3 class="title">{{ t.noClientTitle }}</h3>
+          <p class="body">{{ t.noClientBody }}</p>
+        </div>
         <BaseButton variant="primary" @click="openClientSettings">{{ t.openClientSettings }}</BaseButton>
       </div>
       <div v-else class="stack">
@@ -120,7 +122,7 @@ async function save(): Promise<void> {
 
     <!-- 2. ブラウザでの認可待ち -->
     <div v-else-if="step === 'waiting'" class="stack waiting" role="status">
-      <Spinner size="lg" />
+      <Spinner />
       <p>{{ t.waiting }}</p>
       <p class="muted">{{ t.waitingHint }}</p>
     </div>
@@ -151,6 +153,13 @@ async function save(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--gap-field);
+}
+
+/* 見出しとその説明文の組。組の中は --s-2、組どうしは親の gap（--gap-field）。 */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
 }
 
 .title {

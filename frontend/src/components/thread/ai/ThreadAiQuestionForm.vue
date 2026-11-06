@@ -66,7 +66,7 @@ watch(model, () => void nextTick(fit))
         role="status"
         data-testid="thread-ai-question-remaining"
       >
-        {{ msg.ai.question.remaining(remaining) }}
+        {{ msg.ai.question.remaining.before }}<span class="num">{{ remaining }}</span>{{ msg.ai.question.remaining.after }}
       </span>
       <BaseButton size="sm" variant="primary" type="submit" :disabled="!canSubmit" data-testid="thread-ai-ask">
         {{ msg.ai.question.submit }}
@@ -76,10 +76,11 @@ watch(model, () => void nextTick(fit))
 </template>
 
 <style scoped>
+/* ラベル→入力は --gap-label、入力→補足（フッタ）は --gap-help（S2）。 */
 .question {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--gap-label);
 }
 
 .question-label {
@@ -116,6 +117,7 @@ watch(model, () => void nextTick(fit))
   display: flex;
   align-items: center;
   gap: var(--s-2);
+  margin-top: calc(var(--gap-help) - var(--gap-label));
   color: var(--mute);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
@@ -124,6 +126,10 @@ watch(model, () => void nextTick(fit))
 .question-note {
   flex: 1;
   min-width: 0;
+}
+
+.question-count .num {
+  font-family: var(--font-mono);
 }
 
 .question-count.over {

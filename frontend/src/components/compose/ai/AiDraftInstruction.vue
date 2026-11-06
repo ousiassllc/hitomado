@@ -55,17 +55,18 @@ watch(model, () => void nextTick(fit))
         role="status"
         data-testid="ai-instruction-remaining"
       >
-        {{ msg.ai.instruction.remaining(remaining) }}
+        {{ msg.ai.instruction.remaining.before }}<span class="num">{{ remaining }}</span>{{ msg.ai.instruction.remaining.after }}
       </span>
     </div>
   </div>
 </template>
 
 <style scoped>
+/* ラベル→入力は --gap-label、入力→補足（フッタ）は --gap-help（S2）。 */
 .instruction {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--gap-label);
 }
 
 .instruction-label {
@@ -102,9 +103,14 @@ watch(model, () => void nextTick(fit))
   display: flex;
   justify-content: space-between;
   gap: var(--s-2);
+  margin-top: calc(var(--gap-help) - var(--gap-label));
   color: var(--mute);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
+}
+
+.instruction-count .num {
+  font-family: var(--font-mono);
 }
 
 .instruction-count.over {

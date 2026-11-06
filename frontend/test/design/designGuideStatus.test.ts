@@ -7,7 +7,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { ThreadSummary } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import UsageLimitNotice from '../../src/components/compose/ai/UsageLimitNotice.vue'
 import ComposePane from '../../src/components/compose/ComposePane.vue'
-import RecipientField from '../../src/components/compose/RecipientField.vue'
+import RecipientField from '../../src/components/compose/recipient/RecipientField.vue'
 import ThreadRow from '../../src/components/inbox/ThreadRow.vue'
 import AIDestinationBox from '../../src/components/settings/ai/AIDestinationBox.vue'
 import ChatGPTAccountRow from '../../src/components/settings/ai/ChatGPTAccountRow.vue'
@@ -235,5 +235,15 @@ describe('ChatGPT アカウント行のラジオはガイドの見た目（O8・
     expect(style).toContain('background: var(--accent)')
     expect(style).toContain('background: var(--bone)')
     expect(style).toContain('box-shadow: 0 0 0 3px var(--ring)')
+  })
+})
+
+describe('処理中のアイコンボタンは薄めない（O12・#234）', () => {
+  test('.icon-btn:disabled の opacity は aria-busy のボタンを除く（BaseButton の loading と同じ）', () => {
+    const style = parse(
+      readFileSync(new URL('../../src/components/ui/BaseIconButton.vue', import.meta.url), 'utf8'),
+    ).descriptor.styles[0].content
+    expect(style).toMatch(/\.icon-btn:disabled:not\(\[aria-busy='true'\]\)\s*\{[^}]*opacity: 0\.4/)
+    expect(style).not.toMatch(/\.icon-btn:disabled\s*\{/)
   })
 })

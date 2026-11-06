@@ -169,6 +169,10 @@ export const settings = {
     apiKeyStatusUnset: '未設定',
     apiKeySave: 'キーを保存',
     apiKeyClear: 'キーを削除',
+    apiKeyClearTitle: (provider: string) => `${provider} の API キーを削除しますか？`,
+    apiKeyClearDetail:
+      '保存済みの API キーが資格情報ストアから削除されます。登録し直すまで、この AI は使えなくなります。',
+    apiKeyClearConfirm: '削除する',
     apiKeySaved: 'API キーを保存しました。',
     apiKeyCleared: 'API キーを削除しました。',
     apiKeyRequired: 'API キーを入力してください。',

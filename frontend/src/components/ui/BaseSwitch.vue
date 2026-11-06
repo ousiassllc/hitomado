@@ -19,6 +19,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 <style scoped>
 .sw {
   position: relative;
+  flex: none;
   width: 36px;
   height: 20px;
   padding: 0;

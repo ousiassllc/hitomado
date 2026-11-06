@@ -46,8 +46,8 @@ function onLabelSelect(key: string): void {
 
 <template>
   <div class="toolbar" role="toolbar" :aria-label="common.list.label">
-    <BaseIconButton :label="common.toolbar.refresh" :disabled="refreshing" @click="emit('refresh')">
-      <Spinner v-if="refreshing" size="sm" />
+    <BaseIconButton :label="common.toolbar.refresh" :loading="refreshing" @click="emit('refresh')">
+      <Spinner v-if="refreshing" />
       <Refresh v-else class="icon" aria-hidden="true" />
     </BaseIconButton>
     <template v-if="bulk">

@@ -18,7 +18,8 @@ const host = ref('')
 const port = ref('')
 const allowNonLoopback = ref(false)
 const portError = ref<string>()
-const busy = ref(false)
+/** 走っている操作。スピナーはその操作のボタンだけに出し、ほかのボタンは無効にするだけにする。 */
+const busy = ref<'apply' | 'issue' | 'revoke'>()
 /** 発行直後の値。画面を離れる（このコンポーネントを閉じる）と捨てる。ストアには持たない。 */
 const shownToken = ref<string>()
 
@@ -45,9 +46,9 @@ function parsePort(): number | undefined {
 }
 
 /** 成功したら true。失敗は日本語メッセージのエラーアラートにして false を返す。 */
-async function run(fn: () => Promise<void>): Promise<boolean> {
+async function run(op: 'apply' | 'issue' | 'revoke', fn: () => Promise<void>): Promise<boolean> {
   if (busy.value) return false
-  busy.value = true
+  busy.value = op
   try {
     await fn()
     return true
@@ -55,7 +56,7 @@ async function run(fn: () => Promise<void>): Promise<boolean> {
     ui.pushAlert(parseBindingError(e).message)
     return false
   } finally {
-    busy.value = false
+    busy.value = undefined
   }
 }
 
@@ -67,7 +68,7 @@ async function apply(enabled: boolean): Promise<void> {
     return
   }
   portError.value = undefined
-  await run(async () => {
+  await run('apply', async () => {
     await store.setMcpConfig({
       enabled,
       host: host.value.trim(),
@@ -80,7 +81,7 @@ async function apply(enabled: boolean): Promise<void> {
 }
 
 async function issue(): Promise<void> {
-  await run(async () => {
+  await run('issue', async () => {
     shownToken.value = await store.issueMcpToken()
     ui.pushToast('success', msg.mcp.tokenIssuedToast)
   })
@@ -89,7 +90,7 @@ async function issue(): Promise<void> {
 const revokeOpen = ref(false)
 
 async function revoke(): Promise<void> {
-  const ok = await run(async () => {
+  const ok = await run('revoke', async () => {
     await store.revokeMcpToken()
     shownToken.value = undefined
     ui.pushToast('success', msg.mcp.revoked)
@@ -109,54 +110,78 @@ async function copy(text: string): Promise<void> {
 
 <template>
   <section class="mcp" :aria-label="msg.mcp.heading">
-    <h3 class="heading">{{ msg.mcp.heading }}</h3>
-    <p class="body">{{ msg.mcp.intro }}</p>
+    <div class="group">
+      <h3 class="heading">{{ msg.mcp.heading }}</h3>
+      <p class="body">{{ msg.mcp.intro }}</p>
+    </div>
 
     <div v-if="status" class="block">
-      <div class="toggle">
-        <BaseSwitch
-          :model-value="status.enabled"
-          :ariaLabel="msg.mcp.enableSwitch"
-          @update:model-value="apply"
-        />
-        <strong>{{ msg.mcp.enable }}</strong>
-        <span class="state" :class="{ on: status.listening }" role="status" data-testid="mcp-state">
-          {{ status.listening ? msg.mcp.statusListening : msg.mcp.statusStopped }}
-        </span>
+      <div class="group">
+        <div class="toggle">
+          <BaseSwitch
+            :model-value="status.enabled"
+            :ariaLabel="msg.mcp.enableSwitch"
+            @update:model-value="apply"
+          />
+          <strong>{{ msg.mcp.enable }}</strong>
+          <span class="state" :class="{ on: status.listening }" role="status" data-testid="mcp-state">
+            {{ status.listening ? msg.mcp.statusListening : msg.mcp.statusStopped }}
+          </span>
+        </div>
+        <p class="body">{{ msg.mcp.enableHint }}</p>
+        <p v-if="status.error" class="error" role="alert">{{ msg.mcp.listenError }}{{ status.error }}</p>
       </div>
-      <p class="body">{{ msg.mcp.enableHint }}</p>
-      <p v-if="status.error" class="error" role="alert">{{ msg.mcp.listenError }}{{ status.error }}</p>
 
       <div class="addr">
         <SettingsInput v-model="host" :label="msg.mcp.host" />
         <SettingsInput v-model="port" :label="msg.mcp.port" :error="portError" />
       </div>
-      <div class="toggle">
-        <BaseSwitch
-          :model-value="allowNonLoopback"
-          :ariaLabel="msg.mcp.allowNonLoopback"
-          @update:model-value="(v: boolean) => (allowNonLoopback = v)"
-        />
-        <strong>{{ msg.mcp.allowNonLoopback }}</strong>
-      </div>
-      <p class="body">{{ msg.mcp.allowNonLoopbackHint }}</p>
-      <div><BaseButton :loading="busy" @click="apply(status.enabled)">{{ msg.mcp.apply }}</BaseButton></div>
 
-      <dl class="info">
-        <dt>{{ msg.mcp.endpoint }}</dt>
-        <dd class="path" data-testid="mcp-endpoint">{{ status.endpoint }}</dd>
-        <dt>{{ msg.mcp.token }}</dt>
-        <dd data-testid="mcp-token-state">
-          {{ status.hasToken ? msg.mcp.tokenIssued : msg.mcp.tokenNone }}
-        </dd>
-      </dl>
-      <div class="actions">
-        <BaseButton variant="primary" :loading="busy" @click="issue">
-          {{ status.hasToken ? msg.mcp.reissue : msg.mcp.issue }}
-        </BaseButton>
-        <BaseButton v-if="status.hasToken" :loading="busy" @click="revokeOpen = true">{{ msg.mcp.revoke }}</BaseButton>
+      <div class="group">
+        <div class="toggle">
+          <BaseSwitch
+            :model-value="allowNonLoopback"
+            :ariaLabel="msg.mcp.allowNonLoopback"
+            @update:model-value="(v: boolean) => (allowNonLoopback = v)"
+          />
+          <strong>{{ msg.mcp.allowNonLoopback }}</strong>
+        </div>
+        <p class="body">{{ msg.mcp.allowNonLoopbackHint }}</p>
       </div>
-      <p v-if="status.hasToken" class="body">{{ msg.mcp.reissueHint }}</p>
+      <div>
+        <BaseButton :loading="busy === 'apply'" :disabled="busy !== undefined" @click="apply(status.enabled)">
+          {{ msg.mcp.apply }}
+        </BaseButton>
+      </div>
+
+      <div class="group">
+        <dl class="info">
+          <dt>{{ msg.mcp.endpoint }}</dt>
+          <dd class="path" data-testid="mcp-endpoint">{{ status.endpoint }}</dd>
+          <dt>{{ msg.mcp.token }}</dt>
+          <dd data-testid="mcp-token-state">
+            {{ status.hasToken ? msg.mcp.tokenIssued : msg.mcp.tokenNone }}
+          </dd>
+        </dl>
+        <div class="actions">
+          <BaseButton
+            variant="primary"
+            :loading="busy === 'issue'"
+            :disabled="busy !== undefined"
+            @click="issue"
+          >
+            {{ status.hasToken ? msg.mcp.reissue : msg.mcp.issue }}
+          </BaseButton>
+          <BaseButton
+            v-if="status.hasToken"
+            :disabled="busy !== undefined"
+            @click="revokeOpen = true"
+          >
+            {{ msg.mcp.revoke }}
+          </BaseButton>
+        </div>
+        <p v-if="status.hasToken" class="body">{{ msg.mcp.reissueHint }}</p>
+      </div>
 
       <div v-if="shownToken" class="token-box" role="status">
         <strong>{{ msg.mcp.tokenShown }}</strong>
@@ -173,7 +198,7 @@ async function copy(text: string): Promise<void> {
       :title="msg.mcp.revokeTitle"
       :detail="msg.mcp.revokeDetail"
       :confirm-label="msg.mcp.revokeConfirm"
-      :busy="busy"
+      :busy="busy === 'revoke'"
       @confirm="revoke"
     />
   </section>
@@ -184,7 +209,14 @@ async function copy(text: string): Promise<void> {
 .block {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--gap-field);
+}
+
+/* 組になるもの（スイッチ行と説明など）。組の中は --s-2、組どうしは --gap-field。 */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
 }
 
 .heading {
@@ -233,6 +265,7 @@ async function copy(text: string): Promise<void> {
   border-radius: var(--r-full);
   color: var(--mute);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .state.on {
@@ -265,7 +298,7 @@ async function copy(text: string): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
-  padding: var(--s-3);
+  padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--bone);

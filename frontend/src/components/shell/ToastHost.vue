@@ -37,7 +37,7 @@ onBeforeUnmount(stop)
 
 <template>
   <div class="toasts">
-    <Transition name="toast">
+    <Transition name="toast" mode="out-in">
       <div
         v-if="ui.toast"
         :key="ui.toast.id"
@@ -112,7 +112,7 @@ onBeforeUnmount(stop)
   margin-right: calc(var(--s-2) * -1);
   padding: 0 var(--s-3);
   border: 0;
-  border-radius: var(--r-full);
+  border-radius: var(--r-md);
   background: transparent;
   color: var(--ink);
   font: inherit;

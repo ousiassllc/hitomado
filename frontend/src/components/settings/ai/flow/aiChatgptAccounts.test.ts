@@ -1,5 +1,18 @@
-import { describe, expect, test } from 'bun:test'
-import { acctA, acctB, base, chatgptCfg, flushPromises, mountAI, setup } from '../aiTestSupport'
+import { beforeEach, describe, expect, test } from 'bun:test'
+import {
+  acctA,
+  acctB,
+  base,
+  chatgptCfg,
+  dialogButton,
+  flushPromises,
+  mountAI,
+  setup,
+} from '../aiTestSupport'
+
+beforeEach(() => {
+  document.body.innerHTML = ''
+})
 
 describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
   test('保存済みのアカウントを一覧に出し、使用中を示す。追加はアカウントを追加ボタン', () => {
@@ -74,6 +87,9 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     const row = w.get('[data-testid="ai-chatgpt-account-oaiapp_BBBB"]')
     await row.get('[data-testid="ai-chatgpt-logout"]').trigger('click')
     await flushPromises()
+    expect(out).toEqual([]) // 確認モーダルを経由する（押しただけではログアウトしない）
+    dialogButton('ログアウトする')?.click()
+    await flushPromises()
     expect(out).toEqual(['oaiapp_BBBB'])
     const rows = w.findAll('[data-testid^="ai-chatgpt-account-"]')
     expect(rows).toHaveLength(2)
@@ -94,6 +110,9 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     await w
       .get('[data-testid="ai-chatgpt-account-oaiapp_BBBB"] [data-testid="ai-chatgpt-logout"]')
       .trigger('click')
+    await flushPromises()
+    dialogButton('ログアウトする')?.click()
+    await flushPromises()
     expect(busyOf('oaiapp_BBBB')).toBe('true')
     expect(busyOf('oaiapp_AAAA')).toBeUndefined()
     finish(true)
@@ -132,9 +151,7 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     await w.get('[data-testid="ai-chatgpt-remove"]').trigger('click')
     await flushPromises()
     expect(removed).toEqual([]) // 確認モーダルを経由する（押しただけでは消さない）
-    const confirm = [
-      ...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button'),
-    ].find((b) => b.textContent?.trim() === '削除する')
+    const confirm = dialogButton('削除する')
     expect(confirm).toBeDefined()
     confirm?.click()
     await flushPromises()

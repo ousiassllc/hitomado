@@ -193,12 +193,16 @@ onBeforeUnmount(() => editor.value?.destroy())
 }
 
 .rte-body :deep(.editor-content p) {
-  margin: 0 0 var(--s-2);
+  margin: 0 0 var(--gap-para);
 }
 
 .rte-body :deep(.editor-content ul) {
-  margin: 0 0 var(--s-2);
+  margin: 0 0 var(--gap-para);
   padding-left: var(--s-6);
+}
+
+.rte-body :deep(.editor-content > :last-child) {
+  margin-bottom: 0;
 }
 
 .rte-body :deep(.editor-content li > p) {
@@ -219,13 +223,13 @@ onBeforeUnmount(() => editor.value?.destroy())
 
 .rte-body :deep([data-hitomado-signature]) {
   margin-top: var(--s-3);
-  color: var(--mute);
+  color: var(--ink);
 }
 
 .rte-body :deep([data-hitomado-quote]) {
   margin: var(--s-3) 0 0;
   padding-left: var(--s-3);
-  border-left: 3px solid var(--border);
-  color: var(--mute);
+  border-left: 1px solid var(--mute);
+  color: var(--ink);
 }
 </style>

@@ -24,7 +24,7 @@ withDefaults(
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
   >
-    <Spinner v-if="loading" size="sm" />
+    <Spinner v-if="loading" />
     <slot />
   </button>
 </template>
@@ -77,13 +77,19 @@ withDefaults(
   color: var(--bone);
 }
 
+/* 地が --accent なので、Spinner の既定の先端（--accent）は溶けて見えない。文字色 --bone に反転する（大きさは変えない）。 */
+.btn-primary .spinner {
+  border-color: color-mix(in srgb, var(--bone) 30%, transparent);
+  border-top-color: var(--bone);
+}
+
 .btn-primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 85%, var(--bone));
 }
 
 .btn-danger {
   background: transparent;
-  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  border-color: var(--danger-border);
   color: var(--danger);
 }
 

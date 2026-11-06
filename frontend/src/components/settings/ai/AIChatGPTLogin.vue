@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'
 import BaseButton from '../../ui/BaseButton.vue'
 import ConfirmDialog from '../../ui/ConfirmDialog.vue'
+import Spinner from '../../ui/Spinner.vue'
 import ChatGPTAccountRow from './ChatGPTAccountRow.vue'
 import ChatGPTPlanNotice from './ChatGPTPlanNotice.vue'
 
@@ -102,8 +103,18 @@ async function select(a: ChatGPTAccount): Promise<void> {
   }
 }
 
-async function logout(a: ChatGPTAccount): Promise<void> {
-  if (busy.value) return
+/** ログアウトの確認を出しているアカウント。removeTarget と同じく、閉じたあとも持ち続ける。 */
+const logoutTarget = ref<ChatGPTAccount>()
+const logoutOpen = ref(false)
+
+function askLogout(a: ChatGPTAccount): void {
+  logoutTarget.value = a
+  logoutOpen.value = true
+}
+
+async function logout(): Promise<void> {
+  const a = logoutTarget.value
+  if (!a || busy.value) return
   error.value = undefined
   busy.value = 'logout'
   busyId.value = a.id
@@ -116,6 +127,8 @@ async function logout(a: ChatGPTAccount): Promise<void> {
   } finally {
     busy.value = undefined
     busyId.value = undefined
+    // 失敗の理由はこの画面の中に出るので、確認は閉じて見えるようにする。
+    logoutOpen.value = false
   }
 }
 
@@ -149,9 +162,11 @@ async function remove(): Promise<void> {
 <template>
   <div class="chatgpt" data-testid="ai-chatgpt">
     <ChatGPTPlanNotice :accounts="props.accounts" />
-    <h4 class="sub">{{ msg.ai.chatgpt.heading }}</h4>
-    <p class="note">{{ msg.ai.chatgpt.intro }}</p>
-    <p class="note">{{ msg.ai.chatgpt.notOfficial }}</p>
+    <div class="group">
+      <h4 class="sub">{{ msg.ai.chatgpt.heading }}</h4>
+      <p class="note">{{ msg.ai.chatgpt.intro }}</p>
+      <p class="note">{{ msg.ai.chatgpt.notOfficial }}</p>
+    </div>
     <p class="status" role="status" data-testid="ai-chatgpt-status">
       <strong>{{ statusText }}</strong>
     </p>
@@ -168,7 +183,7 @@ async function remove(): Promise<void> {
           :radio-disabled="busy !== undefined && busy !== 'select'"
           :logging-out="busy === 'logout' && busyId === a.id"
           @select="select(a)"
-          @logout="logout(a)"
+          @logout="askLogout(a)"
           @relogin="login(a.id)"
           @remove="askRemove(a)"
         />
@@ -179,7 +194,7 @@ async function remove(): Promise<void> {
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <div class="actions">
       <template v-if="busy === 'login'">
-        <span class="waiting" role="status">{{ msg.ai.chatgpt.loginWaiting }}</span>
+        <span class="waiting" role="status"><Spinner /> {{ msg.ai.chatgpt.loginWaiting }}</span>
         <BaseButton variant="secondary" @click="cancel">{{ msg.ai.chatgpt.loginCancel }}</BaseButton>
       </template>
       <BaseButton
@@ -203,6 +218,14 @@ async function remove(): Promise<void> {
     </div>
 
     <ConfirmDialog
+      v-model:open="logoutOpen"
+      :title="msg.ai.chatgpt.logoutTitle(logoutTarget ? label(logoutTarget) : '')"
+      :detail="msg.ai.chatgpt.logoutDetail"
+      :confirm-label="msg.ai.chatgpt.logoutConfirm"
+      :busy="busy === 'logout'"
+      @confirm="logout"
+    />
+    <ConfirmDialog
       v-model:open="removeOpen"
       :title="msg.ai.chatgpt.removeTitle(removeTarget ? label(removeTarget) : '')"
       :detail="msg.ai.chatgpt.removeDetail"
@@ -217,7 +240,14 @@ async function remove(): Promise<void> {
 .chatgpt {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--gap-field);
+}
+
+/* 見出しとその説明文の組。組の中は --s-2、組どうしは親の gap（--gap-field）。 */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
 }
 
 .sub {
@@ -234,6 +264,9 @@ async function remove(): Promise<void> {
 }
 
 .waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
   margin: 0;
   color: var(--mute);
   font-size: var(--font-size-sm);
@@ -251,9 +284,10 @@ async function remove(): Promise<void> {
   flex-direction: column;
   gap: var(--s-2);
   margin: 0;
-  padding: var(--s-2) var(--s-3);
+  padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
+  background: var(--bone);
 }
 
 .legend {

@@ -24,7 +24,7 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
 <template>
   <fieldset class="dest">
     <legend class="dest-title">{{ msg.ai.destinationHeading }}</legend>
-    <p class="dest-value" data-testid="ai-destination">{{ text(saved) }}</p>
+    <p class="dest-value" data-testid="ai-destination">{{ saved.providerLabel }}（<span class="url">{{ saved.url }}</span>）</p>
     <p class="dest-note">
       {{ saved.note ?? (saved.custom ? msg.ai.destinationCustomNote : msg.ai.destinationDefaultNote) }}
     </p>
@@ -51,6 +51,10 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
 .dest-value {
   margin: var(--s-1) 0;
   overflow-wrap: anywhere;
+}
+
+.url {
+  font-family: var(--font-mono);
 }
 
 .dest-pending {

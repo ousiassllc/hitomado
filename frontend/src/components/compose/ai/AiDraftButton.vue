@@ -75,7 +75,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
         <MagicWand class="icon icon-sm" aria-hidden="true" /> {{ msg.ai.button }}
       </BaseButton>
       <template v-else>
-        <span class="ai-progress" role="status"><Spinner size="sm" /> {{ msg.ai.generating }}</span>
+        <span class="ai-progress" role="status"><Spinner /> {{ msg.ai.generating }}</span>
         <BaseButton size="sm" variant="secondary" @click="ai.cancel()">{{ msg.ai.cancel }}</BaseButton>
       </template>
       <template v-if="ai.needsKey.value">
@@ -89,13 +89,16 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
       @manage="settings.openExternal(settingsMsg.ai.chatgpt.usageUrl)"
       @dismiss="ai.usageLimit.value = false"
     />
-    <div v-else-if="ai.error.value" class="ai-error" role="alert">
-      <WarningCircle class="icon ai-error-icon" aria-hidden="true" />
-      <div class="ai-error-main">
-        <strong class="ai-error-title">{{ common.alertTitle }}</strong>
-        <p class="ai-error-body">{{ msg.ai.failed }}（{{ ai.error.value }}）</p>
+    <!-- インラインアラートの出現はフェードイン・消去はフェードアウト（ガイド M5） -->
+    <Transition name="alert">
+      <div v-if="!ai.usageLimit.value && ai.error.value" class="ai-error" role="alert">
+        <WarningCircle class="icon ai-error-icon" aria-hidden="true" />
+        <div class="ai-error-main">
+          <strong class="ai-error-title">{{ common.alertTitle }}</strong>
+          <p class="ai-error-body">{{ msg.ai.failed }}（{{ ai.error.value }}）</p>
+        </div>
       </div>
-    </div>
+    </Transition>
 
     <AISetupDialog :open="setupOpen" @choose="ai.answerSetup($event)" />
 
@@ -142,9 +145,9 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
 }
 
 .ai-note {
-  color: var(--mute);
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  color: var(--ink);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .ai-error {
@@ -186,5 +189,13 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
   margin: 0;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
+}
+
+.alert-enter-active {
+  animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
+}
+
+.alert-leave-active {
+  animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 </style>

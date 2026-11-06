@@ -149,7 +149,7 @@ function openGuide(): void {
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--s-2);
+  gap: var(--s-3);
   margin: var(--s-3) 0 0;
   padding: 0;
 }
@@ -191,6 +191,7 @@ function openGuide(): void {
   padding: 0 var(--s-2);
   border-radius: var(--r-full);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .ops {

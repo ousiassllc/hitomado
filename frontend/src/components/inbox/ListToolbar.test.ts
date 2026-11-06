@@ -18,6 +18,18 @@ function mountToolbar(searching: boolean, selectedCount = 0, compact = false) {
   })
 }
 
+describe('ListToolbar の更新ボタン（#234）', () => {
+  test('更新中は押せず、aria-busy でスピナーを出す（disabled の opacity は掛けない）', async () => {
+    const w = mountToolbar(false)
+    await w.setProps({ refreshing: true })
+    const btn = w.get('button[aria-label="更新"]')
+    expect(btn.attributes('disabled')).toBeDefined()
+    expect(btn.attributes('aria-busy')).toBe('true')
+    expect(btn.find('[role="status"]').exists()).toBe(true)
+    w.unmount()
+  })
+})
+
 describe('ListToolbar の検索結果モード', () => {
   test('検索語は繰り返さず、「受信箱に戻る」だけを出す（語は検索ボックスに残る）', async () => {
     const w = mountToolbar(true)

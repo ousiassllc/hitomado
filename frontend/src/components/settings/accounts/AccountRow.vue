@@ -137,8 +137,8 @@ const statusText = computed(() => {
 .row {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
-  padding: var(--s-3);
+  gap: var(--gap-card-section);
+  padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--bone);
@@ -168,6 +168,7 @@ const statusText = computed(() => {
   padding: 0 var(--s-2);
   border-radius: var(--r-full);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
 }
 
 .name {

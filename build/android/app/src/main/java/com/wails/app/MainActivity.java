@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.net.ConnectivityManager;
@@ -18,10 +19,16 @@ import android.os.PowerManager;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Base64;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.View;
 import android.webkit.ConsoleMessage;
 import android.webkit.ValueCallback;
@@ -44,6 +51,8 @@ import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
+import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -164,6 +173,8 @@ public class MainActivity extends AppCompatActivity {
     private void setupWebView() {
         webView = findViewById(R.id.webview);
         bridge.setWebView(webView);
+        // 読み込み前の下地（Chromium の WebView 既定は白）をライト／ダークのキャンバス色にする。復旧で作り直す WebView もここを通る。
+        webView.setBackgroundColor(ContextCompat.getColor(this, R.color.app_background));
 
         // Configure WebView settings
         WebSettings settings = webView.getSettings();
@@ -426,9 +437,36 @@ public class MainActivity extends AppCompatActivity {
         box.setPadding(pad, pad, pad, pad);
         TextView message = new TextView(this);
         message.setText(R.string.render_error_message);
+        message.setTextColor(ContextCompat.getColor(this, R.color.app_ink));
         message.setTextSize(16);
         message.setGravity(Gravity.CENTER);
+        // 日本語の本文は行間 1.8（ガイドの本文 16px の行間）。setLineSpacing の倍率はフォント自身の行の高さに掛かるため、
+        // 行の高さそのものを 16sp×1.8 で指定する（API 28 以上。minSdk は 31）。
+        message.setLineHeight((int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_SP, 16 * 1.8f, getResources().getDisplayMetrics()));
         Button quit = new Button(this);
+        // 主ボタン（ガイド O7）: accent 地・bone 字・太字・角丸 8dp・高さ 40dp。
+        float density = getResources().getDisplayMetrics().density;
+        GradientDrawable quitBackground = new GradientDrawable();
+        quitBackground.setColor(ContextCompat.getColor(this, R.color.app_accent));
+        quitBackground.setCornerRadius(8 * density);
+        // 押下はリップル（ガイド M4）。背景を差し替えると標準のリップルが消えるので、bone の約 20% の RippleDrawable で包み直す
+        // （マスクで角丸 8dp の内側に収める。長さはプラットフォームの既定）。
+        GradientDrawable quitMask = new GradientDrawable();
+        quitMask.setColor(Color.WHITE);
+        quitMask.setCornerRadius(8 * density);
+        int rippleColor = ColorUtils.setAlphaComponent(ContextCompat.getColor(this, R.color.app_background), 0x33);
+        quit.setBackground(new RippleDrawable(ColorStateList.valueOf(rippleColor), quitBackground, quitMask));
+        // ボタンは影なし（ガイド S3）。Material ボタン既定の elevation アニメ（StateListAnimator）を外す。
+        quit.setStateListAnimator(null);
+        quit.setTextColor(ContextCompat.getColor(this, R.color.app_background));
+        quit.setTypeface(Typeface.DEFAULT_BOLD);
+        // 文字はガイド T3 のボタン（base 16）。Button 既定の 14sp・全大文字化にしない。
+        quit.setTextSize(16);
+        quit.setAllCaps(false);
+        quit.setMinHeight((int) (40 * density));
+        quit.setMinimumHeight((int) (40 * density));
+        quit.setPadding((int) (16 * density), 0, (int) (16 * density), 0);
         quit.setText(R.string.render_error_quit);
         // 次の起動がきれいに始まるよう、Go のランタイムごとプロセスを終える（利用者が押したときだけ）。
         quit.setOnClickListener(v -> {
@@ -436,7 +474,11 @@ public class MainActivity extends AppCompatActivity {
             android.os.Process.killProcess(android.os.Process.myPid());
         });
         box.addView(message);
-        box.addView(quit);
+        // 本文とボタンの間はガイド S2 の部品間 16（--s-4）。
+        LinearLayout.LayoutParams quitParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        quitParams.topMargin = (int) (16 * density);
+        box.addView(quit, quitParams);
         parent.addView(box, index, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
@@ -1052,6 +1094,7 @@ public class MainActivity extends AppCompatActivity {
         // android:configChanges (otherwise the activity would be recreated).
         emitTheme();
         updateSystemBarIcons();
+        updateBackgrounds();
     }
 
     @Override
@@ -1167,5 +1210,17 @@ public class MainActivity extends AppCompatActivity {
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
         c.setAppearanceLightStatusBars(!night);
         c.setAppearanceLightNavigationBars(!night);
+    }
+
+    /**
+     * uiMode を configChanges に含めるため Activity は再生成されない。作成時に解決された下地色
+     * （windowBackground・バー色・WebView）をここで values／values-night の app_background に張り替える。
+     */
+    private void updateBackgrounds() {
+        int background = ContextCompat.getColor(this, R.color.app_background);
+        getWindow().setBackgroundDrawable(new ColorDrawable(background));
+        getWindow().setStatusBarColor(background);
+        getWindow().setNavigationBarColor(background);
+        if (webView != null) webView.setBackgroundColor(background);
     }
 }

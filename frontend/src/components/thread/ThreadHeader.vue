@@ -122,6 +122,7 @@ const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail
   align-items: center;
   gap: var(--s-2);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   color: var(--mute);
 }
 

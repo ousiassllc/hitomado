@@ -596,7 +596,8 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 
 - targetSdk 36 では、Activity のウィンドウがステータスバー・ナビゲーションバーの背後まで広がる（エッジ・ツー・エッジが強制される）。テンプレートの `MainActivity` は insets を扱っておらず、そのままでは WebView の上端・下端がバーに隠れる。
 - **Activity 側で insets を当てる方式を選んだ**（`MainActivity.applyWindowInsets()`）。system bars・display cutout・IME の insets を、WebView を入れた `main_container` の padding に当てる。CSS の `env(safe-area-inset-*)` と `viewport-fit=cover` は使わない: Android の WebView では `env()` の値が端末・WebView のバージョンで 0 のままになることがあり、信頼できないため。Java で 1 か所に当てれば、フロントの CSS は safe area を知らなくてよい（`index.html` の viewport も変えない）。IME の insets も同じ padding に含めるので、ソフトキーボードが出たときも入力欄が隠れない（`adjustResize` は 36 のエッジ・ツー・エッジでは効かないため）。
-- バーの背景色は `app_background`（`values`＝`#F5F5F4`、`values-night`＝`#050505`。フロントの `--bone` のライト／ダークと同じ値）。バーのアイコンの明暗は `updateSystemBarIcons()` が uiMode に合わせる。フロントの配色を変える（`tokens.css`）ときはここも合わせる。
+- バーの背景色は `app_background`（`values`＝`#F5F5F4`、`values-night`＝`#050505`。フロントの `--bone` のライト／ダークと同じ値）。バーのアイコンの明暗は `updateSystemBarIcons()` が、ウィンドウ背景・バー色・WebView の下地色は `updateBackgrounds()` が uiMode に合わせる（`onConfigurationChanged` から呼ぶ。uiMode を `configChanges` に含め Activity を再生成しないため、実行中のテーマ切替でも張り替わる。実機未確認 [INFERENCE]）。フロントの配色を変える（`tokens.css`）ときはここも合わせる。
+- WebView 自身の下地（読み込み前の背景。Chromium の既定は白）も `app_background` にする（`MainActivity.setupWebView` の `setBackgroundColor`。復旧で作り直す WebView も同じ経路）。ダークで読み込み前に白が出ないための設定で、**実機での確認は未了**。Windows 側は `wails.go` の `WindowBackground` で同じ扱い。
 
 ### 16.3 戻るボタン
 
@@ -621,7 +622,7 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 |------|------|
 | 戻り値 | `true`（アプリのプロセスを落とさない） |
 | 復旧 | 落ちた `WebView` を親から外して `destroy()` し、新しい `WebView` を同じ位置に作る（`recreateWebView`）。`setupWebView()` が設定・`WebViewClient`・`WebChromeClient`・JS インターフェース（`window.wails`）・`WailsBridge` の WebView 参照を新しい WebView につなぎ直し、`loadApplication()` が同じ URL（アセットは Go から配信）を読み直す。`window.hitomadoHandleBack`（戻る）は読み込み直したフロントが登録し、Java→JS の同期イベントは `onPageFinished` の `emitSystemSnapshot` で再送される。`Activity.recreate()` ではなく WebView だけを作り直す（Go のランタイム・DB・同期は同じプロセスで動き続け、Activity の再生成で `bridge.initialize()` が二重に走るのを避ける） |
-| 上限 | 直近 **5 分に 3 回**まで（`RecoveryBudget`）。超えたら WebView を外し、「画面の表示を続けられませんでした。アプリを終了して、もう一度起動してください。」と「アプリを終了」ボタンのエラー画面（`showFatalError`）を出す。ボタンは `finishAndRemoveTask()` とプロセスの終了（次の起動で Go のランタイムもきれいに始める）。無限ループしない |
+| 上限 | 直近 **5 分に 3 回**まで（`RecoveryBudget`）。超えたら WebView を外し、「画面の表示を続けられませんでした。アプリを終了して、もう一度起動してください。」と「アプリを終了」ボタンのエラー画面（`showFatalError`）を出す（本文の色は `app_ink`＝`--ink`。ボタンは 16sp・大文字化なしで、押下は bone の約 20% のリップル）。ボタンは `finishAndRemoveTask()` とプロセスの終了（次の起動で Go のランタイムもきれいに始める）。無限ループしない |
 | ログ | `didCrash()` が真なら `WebView renderer crashed`、偽（OS が止めた＝ほとんどはメモリ不足）なら `WebView renderer was killed by the system (likely low memory)`（タグ `WailsActivity`。`RenderGoneReason`） |
 | 古い通知 | すでに作り直した WebView（`view != webView`）からの通知は何もしない |
 

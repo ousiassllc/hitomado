@@ -77,7 +77,7 @@ export const thread = {
       placeholder: '例: 期限はいつ？／相手は何を求めている？',
       note: 'このスレッドを開いている間だけ保持し、保存しません。',
       submit: '質問する',
-      remaining: (n: number) => `残り ${n} 文字`,
+      remaining: { before: '残り ', after: ' 文字' },
     },
   },
 } as const

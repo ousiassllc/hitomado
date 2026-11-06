@@ -87,7 +87,7 @@ async function submit(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--gap-field);
-  padding: var(--s-3);
+  padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--bone);

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
  * 空状態（ガイド §4・S4）。破線の枠・アイコン（`icon` スロット。Iconoir に `icon icon-lg` を付ける）・文言（既定スロット）・
- * 次の操作（`action` スロット。任意）。サイドバーのような狭い場所は `compact`（padding を `--pad-card-sm` にする）。
+ * 次の操作（`action` スロット。任意）。サイドバーのような狭い場所は `compact`（padding を `--pad-card-sm` にする。docs/components/overview.md §5.3 の逸脱表に記録済み）。
  */
 defineProps<{ compact?: boolean }>()
 </script>

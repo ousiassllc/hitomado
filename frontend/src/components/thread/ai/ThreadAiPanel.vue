@@ -54,7 +54,7 @@ function ask(): void {
       <div class="block-head">
         <h3 class="heading">{{ msg.ai.summaryHeading }}</h3>
         <template v-if="summarizing">
-          <span class="progress" role="status"><Spinner size="sm" /> {{ msg.ai.summarizing }}</span>
+          <span class="progress" role="status"><Spinner /> {{ msg.ai.summarizing }}</span>
           <BaseButton size="sm" variant="secondary" data-testid="thread-ai-cancel" @click="store.cancel()">{{ msg.ai.cancel }}</BaseButton>
         </template>
         <BaseButton
@@ -71,7 +71,7 @@ function ask(): void {
       <p v-if="store.summary" class="text" data-testid="thread-ai-summary-text">{{ store.summary.text }}</p>
     </div>
 
-    <div v-if="store.turns.length > 0 || asking" class="block" data-testid="thread-ai-conversation">
+    <div v-if="store.turns.length > 0 || asking" class="block conversation" data-testid="thread-ai-conversation">
       <div class="block-head">
         <p v-if="store.droppedFromContext" class="notice" data-testid="thread-ai-dropped">{{ msg.ai.droppedFromContext }}</p>
         <BaseButton
@@ -90,20 +90,23 @@ function ask(): void {
         <p class="text">{{ t.text }}</p>
       </div>
       <div v-if="asking" class="block-head">
-        <span class="progress" role="status"><Spinner size="sm" /> {{ msg.ai.asking }}</span>
+        <span class="progress" role="status"><Spinner /> {{ msg.ai.asking }}</span>
         <BaseButton size="sm" variant="secondary" data-testid="thread-ai-cancel" @click="store.cancel()">{{ msg.ai.cancel }}</BaseButton>
       </div>
     </div>
 
-    <div v-if="errorText" class="error" role="alert" data-testid="thread-ai-error">
-      <WarningCircle class="icon error-icon" aria-hidden="true" />
-      <div class="error-main">
-        <strong class="error-title">{{ common.alertTitle }}</strong>
-        <p class="error-body">{{ msg.ai.failed }}（{{ errorText }}）</p>
+    <!-- インラインアラートの出現はフェードイン・消去はフェードアウト（ガイド M5） -->
+    <Transition name="alert">
+      <div v-if="errorText" class="error" role="alert" data-testid="thread-ai-error">
+        <WarningCircle class="icon error-icon" aria-hidden="true" />
+        <div class="error-main">
+          <strong class="error-title">{{ common.alertTitle }}</strong>
+          <p class="error-body">{{ msg.ai.failed }}（{{ errorText }}）</p>
+        </div>
       </div>
-    </div>
+    </Transition>
 
-    <p v-if="flow.needsKey.value" class="notice" data-testid="thread-ai-need-key">
+    <p v-if="flow.needsKey.value" class="notice notice-need-key" data-testid="thread-ai-need-key">
       {{ needText }}
       <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
     </p>
@@ -129,8 +132,8 @@ function ask(): void {
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: var(--s-3);
-  padding: var(--s-3);
+  gap: var(--gap-card-section);
+  padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--surface);
@@ -140,6 +143,11 @@ function ask(): void {
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
+}
+
+/* 質問/回答の組どうしは段落間（16）。組の中の見出し→本文（8）と区別する。 */
+.conversation {
+  gap: var(--gap-para);
 }
 
 .block-head {
@@ -167,7 +175,7 @@ function ask(): void {
 .turn {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--s-2);
 }
 
 .text {
@@ -192,6 +200,13 @@ function ask(): void {
   color: var(--mute);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
+}
+
+/* 2 文の案内（次の操作を伝える文）は --ink・sm（C6）。 */
+.notice-need-key {
+  color: var(--ink);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .error {
@@ -227,5 +242,13 @@ function ask(): void {
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   overflow-wrap: anywhere;
+}
+
+.alert-enter-active {
+  animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
+}
+
+.alert-leave-active {
+  animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 </style>
