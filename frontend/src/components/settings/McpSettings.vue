@@ -261,8 +261,9 @@ async function copy(text: string): Promise<void> {
 .state {
   margin-left: auto;
   padding: 0 var(--s-2);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--mute) 40%, transparent);
   border-radius: var(--r-full);
+  background: color-mix(in srgb, var(--mute) 10%, transparent);
   color: var(--mute);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
