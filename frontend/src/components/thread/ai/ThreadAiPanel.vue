@@ -103,7 +103,7 @@ function ask(): void {
       </div>
     </div>
 
-    <p v-if="flow.needsKey.value" class="notice" data-testid="thread-ai-need-key">
+    <p v-if="flow.needsKey.value" class="notice notice-need-key" data-testid="thread-ai-need-key">
       {{ needText }}
       <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
     </p>
@@ -192,6 +192,13 @@ function ask(): void {
   color: var(--mute);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
+}
+
+/* 2 文の案内（次の操作を伝える文）は --ink・sm（C6）。 */
+.notice-need-key {
+  color: var(--ink);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .error {

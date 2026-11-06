@@ -429,6 +429,7 @@ public class MainActivity extends AppCompatActivity {
         box.setPadding(pad, pad, pad, pad);
         TextView message = new TextView(this);
         message.setText(R.string.render_error_message);
+        message.setTextColor(ContextCompat.getColor(this, R.color.app_ink));
         message.setTextSize(16);
         message.setGravity(Gravity.CENTER);
         // 日本語の本文は行間 1.8（ガイドの本文 16px の行間）。

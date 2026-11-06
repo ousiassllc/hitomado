@@ -4,4 +4,6 @@
     <color name="app_background">#F5F5F4</color>
     <!-- フロントのトークン accent（ライト）と同じ値。Material テーマの主色に使う。ダークは values-night。 -->
     <color name="app_accent">#050505</color>
+    <!-- フロントのトークン ink（ライト）と同じ値。致命エラー画面の本文の文字色に使う。ダークは values-night。 -->
+    <color name="app_ink">#050505</color>
 </resources>

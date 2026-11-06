@@ -33,11 +33,11 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
     <BaseIconButton
       v-if="needsReauth"
       class="warn"
-      variant="danger"
+      variant="ghost"
       :label="`${account.displayName}: ${common.sidebar.needsReauth}（${common.reconnect}）`"
       @click="emit('reconnect')"
     >
-      <WarningTriangle class="icon icon-sm" aria-hidden="true" />
+      <WarningTriangle class="icon icon-sm warn-icon" aria-hidden="true" />
     </BaseIconButton>
   </li>
 </template>
@@ -118,6 +118,11 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   font-size: var(--font-size-xs);
   font-family: var(--font-mono);
   text-align: center;
+}
+
+/* 要再接続は他の箇所と同じく警告色（--danger は使わない）。 */
+.warn-icon {
+  color: var(--warning);
 }
 
 /* BaseIconButton の属性はボタンへ渡るので、scoped の属性が付かない。:deep で当てる。 */
