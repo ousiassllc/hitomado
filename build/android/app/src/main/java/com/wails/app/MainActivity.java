@@ -27,6 +27,7 @@ import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Base64;
 import android.util.Log;
+import android.util.TypedValue;
 import android.view.View;
 import android.webkit.ConsoleMessage;
 import android.webkit.ValueCallback;
@@ -436,8 +437,10 @@ public class MainActivity extends AppCompatActivity {
         message.setTextColor(ContextCompat.getColor(this, R.color.app_ink));
         message.setTextSize(16);
         message.setGravity(Gravity.CENTER);
-        // 日本語の本文は行間 1.8（ガイドの本文 16px の行間）。
-        message.setLineSpacing(0, 1.8f);
+        // 日本語の本文は行間 1.8（ガイドの本文 16px の行間）。setLineSpacing の倍率はフォント自身の行の高さに掛かるため、
+        // 行の高さそのものを 16sp×1.8 で指定する（API 28 以上。minSdk は 31）。
+        message.setLineHeight((int) TypedValue.applyDimension(
+                TypedValue.COMPLEX_UNIT_SP, 16 * 1.8f, getResources().getDisplayMetrics()));
         Button quit = new Button(this);
         // 主ボタン（ガイド O7）: accent 地・bone 字・太字・角丸 8dp・高さ 40dp。
         float density = getResources().getDisplayMetrics().density;
