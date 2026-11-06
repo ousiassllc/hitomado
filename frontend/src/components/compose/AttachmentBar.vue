@@ -143,6 +143,10 @@ onBeforeUnmount(() => stopDrop?.())
   font-size: var(--font-size-xs);
 }
 
+.attach-size {
+  font-family: var(--font-mono);
+}
+
 .attach-remove {
   width: 24px;
   height: 24px;
