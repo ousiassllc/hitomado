@@ -21,6 +21,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.provider.MediaStore;
@@ -456,6 +457,8 @@ public class MainActivity extends AppCompatActivity {
         quitMask.setCornerRadius(8 * density);
         int rippleColor = ColorUtils.setAlphaComponent(ContextCompat.getColor(this, R.color.app_background), 0x33);
         quit.setBackground(new RippleDrawable(ColorStateList.valueOf(rippleColor), quitBackground, quitMask));
+        // ボタンは影なし（ガイド S3）。Material ボタン既定の elevation アニメ（StateListAnimator）を外す。
+        quit.setStateListAnimator(null);
         quit.setTextColor(ContextCompat.getColor(this, R.color.app_background));
         quit.setTypeface(Typeface.DEFAULT_BOLD);
         // 文字はガイド T3 のボタン（base 16）。Button 既定の 14sp・全大文字化にしない。
@@ -1091,6 +1094,7 @@ public class MainActivity extends AppCompatActivity {
         // android:configChanges (otherwise the activity would be recreated).
         emitTheme();
         updateSystemBarIcons();
+        updateBackgrounds();
     }
 
     @Override
@@ -1206,5 +1210,17 @@ public class MainActivity extends AppCompatActivity {
                 WindowCompat.getInsetsController(getWindow(), getWindow().getDecorView());
         c.setAppearanceLightStatusBars(!night);
         c.setAppearanceLightNavigationBars(!night);
+    }
+
+    /**
+     * uiMode を configChanges に含めるため Activity は再生成されない。作成時に解決された下地色
+     * （windowBackground・バー色・WebView）をここで values／values-night の app_background に張り替える。
+     */
+    private void updateBackgrounds() {
+        int background = ContextCompat.getColor(this, R.color.app_background);
+        getWindow().setBackgroundDrawable(new ColorDrawable(background));
+        getWindow().setStatusBarColor(background);
+        getWindow().setNavigationBarColor(background);
+        if (webView != null) webView.setBackgroundColor(background);
     }
 }
