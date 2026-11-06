@@ -41,15 +41,42 @@ func systemPrompt(in ReplyInput) string {
 func userPrompt(in ReplyInput) string {
 	var b strings.Builder
 	b.WriteString("以下はメールスレッドです（古い順）。最後のメッセージへの返信本文を書いてください。\n")
-	for i, m := range in.Messages {
-		fmt.Fprintf(&b, "\n=== メッセージ %d/%d ===\n", i+1, len(in.Messages))
-		fmt.Fprintf(&b, "差出人: %s\n", m.From)
+	writeMessages(&b, in.Messages)
+	return b.String()
+}
+
+// writeMessages はスレッドのメッセージ（時系列昇順）を、差出人・日時・添付（あれば）・本文の順に書き出す。
+func writeMessages(b *strings.Builder, msgs []ContextMessage) {
+	for i, m := range msgs {
+		fmt.Fprintf(b, "\n=== メッセージ %d/%d ===\n", i+1, len(msgs))
+		fmt.Fprintf(b, "差出人: %s\n", m.From)
 		if !m.Date.IsZero() {
-			fmt.Fprintf(&b, "日時: %s\n", m.Date.Format("2006-01-02 15:04 MST"))
+			fmt.Fprintf(b, "日時: %s\n", m.Date.Format("2006-01-02 15:04 MST"))
+		}
+		if len(m.Attachments) > 0 {
+			b.WriteString("添付ファイル（中身は含まれない）: ")
+			for j, a := range m.Attachments {
+				if j > 0 {
+					b.WriteString("、")
+				}
+				fmt.Fprintf(b, "%s（%s）", a.Filename, formatSize(a.Size))
+			}
+			b.WriteString("\n")
 		}
 		b.WriteString("\n")
 		b.WriteString(m.Text)
 		b.WriteString("\n")
 	}
-	return b.String()
+}
+
+// formatSize はバイト数を B／KB／MB の表記にする。
+func formatSize(n int64) string {
+	switch {
+	case n < 1<<10:
+		return fmt.Sprintf("%d B", n)
+	case n < 1<<20:
+		return fmt.Sprintf("%.1f KB", float64(n)/(1<<10))
+	default:
+		return fmt.Sprintf("%.1f MB", float64(n)/(1<<20))
+	}
 }

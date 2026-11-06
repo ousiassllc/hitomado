@@ -8,7 +8,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 )
 
-// AIService は AI 設定・同意・下書き生成（バインディング仕様 §6）。
+// AIService は AI 設定・同意・下書き生成・スレッドの要約と質問（バインディング仕様 §6）。
 // Wails のバインディング面で、実装は aicore に委譲する。
 type AIService struct{ core *aicore.Service }
 
@@ -76,5 +76,15 @@ func (s *AIService) GenerateReplyDraft(ctx context.Context, sessionID, requestID
 	return s.core.GenerateReplyDraft(ctx, sessionID, requestID, instruction)
 }
 
-// CancelGenerate は実行中の生成を中止する（GenerateReplyDraft は CANCELLED で終わる）。
+// CancelGenerate は実行中の生成を中止する（GenerateReplyDraft・SummarizeThread・AskAboutThread は CANCELLED で終わる）。
 func (s *AIService) CancelGenerate(requestID string) error { return s.core.CancelGenerate(requestID) }
+
+// SummarizeThread は ref のスレッドの全メッセージ（下書きを除く。合計 40,000 文字を目安）を要約する（F-17）。保存しない。
+func (s *AIService) SummarizeThread(ctx context.Context, ref dto.ThreadRef, requestID string) (dto.ThreadAIResult, error) {
+	return s.core.SummarizeThread(ctx, ref, requestID)
+}
+
+// AskAboutThread は ref のスレッドの内容と history（それまでの質問と回答）を文脈に、question へ答える（F-18）。保存しない。
+func (s *AIService) AskAboutThread(ctx context.Context, ref dto.ThreadRef, requestID, question string, history []dto.ThreadAITurn) (dto.ThreadAIResult, error) {
+	return s.core.AskAboutThread(ctx, ref, requestID, question, history)
+}

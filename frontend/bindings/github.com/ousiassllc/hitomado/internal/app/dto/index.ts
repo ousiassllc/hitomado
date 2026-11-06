@@ -37,6 +37,8 @@ export type {
     SendPreview,
     SendResult,
     SendWarning,
+    ThreadAIResult,
+    ThreadAITurn,
     ThreadDetail,
     ThreadMessage,
     ThreadPage,
