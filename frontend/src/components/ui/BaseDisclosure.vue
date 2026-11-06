@@ -33,6 +33,7 @@ defineProps<{ summary: string }>()
   color: var(--ink);
   font-weight: 600;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   list-style: none;
   cursor: pointer;
 }

@@ -145,6 +145,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
   gap: var(--s-2);
   color: var(--mute);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .ai-note {
