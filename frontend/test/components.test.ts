@@ -100,6 +100,17 @@ describe('BaseButton / BaseIconButton', () => {
     const w = mount(BaseIconButton, { props: { label: '更新' }, slots: { default: '⟳' } })
     expect(w.find('button').attributes('aria-label')).toBe('更新')
   })
+
+  test('アイコンボタンの loading 中は無効化し aria-busy にする（opacity を外す CSS の目印・#234）', () => {
+    const w = mount(BaseIconButton, {
+      props: { label: '更新', loading: true },
+      slots: { default: '⟳' },
+    })
+    expect(w.find('button').attributes('disabled')).toBeDefined()
+    expect(w.find('button').attributes('aria-busy')).toBe('true')
+    const idle = mount(BaseIconButton, { props: { label: '更新' }, slots: { default: '⟳' } })
+    expect(idle.find('button').attributes('aria-busy')).toBeUndefined()
+  })
 })
 
 describe('BaseTooltip / BaseIconButton の shortcut', () => {

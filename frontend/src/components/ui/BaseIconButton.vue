@@ -13,8 +13,10 @@ withDefaults(
     shortcut?: string
     variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
     disabled?: boolean
+    /** 処理中。押せなくするが、中のスピナーを読ませるので opacity は掛けない（BaseButton の loading と同じ） */
+    loading?: boolean
   }>(),
-  { variant: 'ghost', disabled: false },
+  { variant: 'ghost', disabled: false, loading: false },
 )
 </script>
 
@@ -28,7 +30,8 @@ withDefaults(
       type="button"
       :aria-label="label"
       :title="shortcut ? undefined : label"
-      :disabled="disabled"
+      :disabled="disabled || loading"
+      :aria-busy="loading || undefined"
     >
       <slot />
     </button>
@@ -58,9 +61,13 @@ withDefaults(
   background: var(--accent-soft);
 }
 
-.icon-btn:disabled {
+.icon-btn:disabled:not([aria-busy='true']) {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+.icon-btn[aria-busy='true'] {
+  cursor: progress;
 }
 
 .icon-btn-secondary {
