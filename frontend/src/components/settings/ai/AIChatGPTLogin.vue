@@ -237,7 +237,7 @@ async function remove(): Promise<void> {
 .chatgpt {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--gap-field);
 }
 
 .sub {

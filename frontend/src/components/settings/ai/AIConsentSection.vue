@@ -45,7 +45,7 @@ const emit = defineEmits<{ ask: []; agree: []; decline: [] }>()
 .consent {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--gap-field);
 }
 
 .sub {

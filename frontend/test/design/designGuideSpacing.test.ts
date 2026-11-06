@@ -61,3 +61,28 @@ describe('部品間の間隔（S2・#228）', () => {
     expect(rule('compose/SendConfirmDialog.vue', '.warnings {')).toContain('gap: var(--s-2)')
   })
 })
+
+describe('グループ間・まとまり間の間隔（S2・#237）', () => {
+  test('カード内のまとまり同士は --gap-card-section（24）。AI パネルがそれを使う', () => {
+    expect(tokens).toMatch(/--gap-card-section:\s*var\(--s-6\);/)
+    expect(rule('thread/ai/ThreadAiPanel.vue', '.ai-panel {')).toContain(
+      'gap: var(--gap-card-section)',
+    )
+  })
+
+  test('設定画面のグループ間は --gap-field（16）以上、組の中は --s-2', () => {
+    expect(rule('settings/McpSettings.vue', '.mcp,')).toContain('gap: var(--gap-field)')
+    expect(rule('settings/McpSettings.vue', '.group {')).toContain('gap: var(--s-2)')
+    for (const [file, selector] of [
+      ['settings/LogSettings.vue', '.logs {'],
+      ['settings/ai/AIChatGPTLogin.vue', '.chatgpt {'],
+      ['settings/ai/AIConsentSection.vue', '.consent {'],
+    ]) {
+      expect(rule(file, selector)).toContain('gap: var(--gap-field)')
+    }
+  })
+
+  test('スイッチは flex の行で縮まない（36×20 を保つ）', () => {
+    expect(rule('ui/BaseSwitch.vue', '.sw {')).toContain('flex: none')
+  })
+})
