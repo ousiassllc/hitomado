@@ -9,6 +9,7 @@ import AlertStack from '../../src/components/shell/AlertStack.vue'
 import ToastHost from '../../src/components/shell/ToastHost.vue'
 import BaseButton from '../../src/components/ui/BaseButton.vue'
 import BaseDialog from '../../src/components/ui/BaseDialog.vue'
+import BaseDisclosure from '../../src/components/ui/BaseDisclosure.vue'
 import BaseMenu from '../../src/components/ui/BaseMenu.vue'
 import ConfirmDialog from '../../src/components/ui/ConfirmDialog.vue'
 import Spinner from '../../src/components/ui/Spinner.vue'
@@ -199,6 +200,19 @@ describe('アイコン（I）', () => {
     expect(items.map((i) => i.getAttribute('aria-checked'))).toEqual(['true', 'false'])
     expect(items.map((i) => i.querySelector('svg') !== null)).toEqual([true, false])
     w.unmount()
+  })
+})
+
+describe('アコーディオン（I1・I2）: シェブロンは Iconoir の 16px', () => {
+  test('summary 内に Iconoir の SVG（icon-sm・aria-hidden）を置き、::after の擬似要素で描かない', () => {
+    const w = mount(BaseDisclosure, { props: { summary: '接続方法' }, slots: { default: '本文' } })
+    const chevron = w.get('summary svg')
+    expect(chevron.classes()).toEqual(expect.arrayContaining(['icon', 'icon-sm']))
+    expect(chevron.attributes('aria-hidden')).toBe('true')
+    const style = parse(
+      readFileSync(new URL('../../src/components/ui/BaseDisclosure.vue', import.meta.url), 'utf8'),
+    ).descriptor.styles[0].content
+    expect(style).not.toContain('::after')
   })
 })
 
