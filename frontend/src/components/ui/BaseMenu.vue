@@ -108,6 +108,11 @@ const emit = defineEmits<{ select: [key: string] }>()
   background: var(--accent-soft);
 }
 
+/* --accent-soft 地の上では --mute が AA 4.5:1 に届かないので --ink にする（ラベルとは文字サイズで区別が残る）。 */
+.menu-item[data-highlighted] .menu-shortcut {
+  color: var(--ink);
+}
+
 .menu-item[data-highlighted]:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
