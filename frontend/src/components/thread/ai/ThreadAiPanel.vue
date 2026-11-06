@@ -170,7 +170,7 @@ function ask(): void {
 .turn {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--s-2);
 }
 
 .text {

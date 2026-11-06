@@ -105,7 +105,7 @@ function onOpen(open: boolean): void {
 .confirm-from {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--gap-label);
 }
 
 .confirm-from-label {

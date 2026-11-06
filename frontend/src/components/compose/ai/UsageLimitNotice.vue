@@ -48,7 +48,7 @@ defineEmits<{ manage: []; dismiss: [] }>()
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--s-2);
   min-width: 0;
 }
 
