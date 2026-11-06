@@ -32,7 +32,9 @@ func TestNeedsReauthStopsOnlyThatAccount(t *testing.T) {
 	tickA, tickB := h.syncTicker(0), h.syncTicker(1)
 	tickB.Tick(1)
 	h.waitActive("b", 2)
-	tickA.Tick(3) // a のワーカーが 1 回目の tick を処理し終えるまで進める
+	// バッファ 1 のため、3 回目の送信が返った時点で処理が終わっているのは 1 回目の tick だけ。
+	// 2・3 回目はまだ処理中・バッファ内で、再接続後に処理されうる。
+	tickA.Tick(3)
 	assert.Equal(t, 1, h.gm.Count("a", "ListHistory"), "needs_reauth は自動再試行しない")
 
 	// 再接続（Start）で再開する。
@@ -43,7 +45,8 @@ func TestNeedsReauthStopsOnlyThatAccount(t *testing.T) {
 	h.s.Start("a")
 	h.waitActive("a", 1)
 	assert.Equal(t, store.StatusActive, h.st.Account("a").Status)
-	assert.Equal(t, 2, h.gm.Count("a", "ListHistory"), "再開後に 1 回同期")
+	// 再接続前に送った tick が再接続後に処理されうるため、回数は下限だけ確かめる。
+	assert.GreaterOrEqual(t, h.gm.Count("a", "ListHistory"), 2, "再開後に同期する")
 }
 
 func TestMidwayFailureDoesNotAdvanceHistoryID(t *testing.T) {
@@ -185,7 +188,8 @@ func TestClientRejectedStopsRetryingWithConfigMessage(t *testing.T) {
 	assert.Equal(t, "OAuth クライアントの設定（Client ID／Secret）を確認してください", h.st.Account("a").StatusMessage)
 	assert.Equal(t, "OAuth クライアントの設定（Client ID／Secret）を確認してください", h.st.State("a").LastError)
 
-	h.syncTicker(0).Tick(3) // ワーカーが tick を処理し終えるまで進める
+	// 3 回目の送信が返った時点で処理が終わっているのは 1 回目の tick だけ（残りは再接続後に処理されうる）。
+	h.syncTicker(0).Tick(3)
 	assert.Equal(t, 1, h.gm.Count("a", "ListHistory"), "自動再試行しない")
 
 	h.gm.Edit("a", func(a *synctest.Script) {
@@ -194,5 +198,6 @@ func TestClientRejectedStopsRetryingWithConfigMessage(t *testing.T) {
 	})
 	h.s.Start("a")
 	h.waitActive("a", 1)
-	assert.Equal(t, 2, h.gm.Count("a", "ListHistory"), "再開後に 1 回同期")
+	// 再接続前に送った tick が再接続後に処理されうるため、回数は下限だけ確かめる。
+	assert.GreaterOrEqual(t, h.gm.Count("a", "ListHistory"), 2, "再開後に同期する")
 }
