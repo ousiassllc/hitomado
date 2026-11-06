@@ -84,11 +84,14 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
       </template>
     </div>
     <AiDraftInstruction v-model="compose.aiInstruction" :disabled="generating" />
-    <UsageLimitNotice
-      v-if="ai.usageLimit.value"
-      @manage="settings.openExternal(settingsMsg.ai.chatgpt.usageUrl)"
-      @dismiss="ai.usageLimit.value = false"
-    />
+    <!-- 利用枠の案内もアラートの仲間なので、出現・消去は .ai-error と同じフェード（ガイド M5） -->
+    <Transition name="alert">
+      <UsageLimitNotice
+        v-if="ai.usageLimit.value"
+        @manage="settings.openExternal(settingsMsg.ai.chatgpt.usageUrl)"
+        @dismiss="ai.usageLimit.value = false"
+      />
+    </Transition>
     <!-- インラインアラートの出現はフェードイン・消去はフェードアウト（ガイド M5） -->
     <Transition name="alert">
       <div v-if="!ai.usageLimit.value && ai.error.value" class="ai-error" role="alert">
