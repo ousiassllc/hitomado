@@ -21,8 +21,10 @@ const emit = defineEmits<{ ask: []; agree: []; decline: [] }>()
 
 <template>
   <div class="consent">
-    <h4 class="sub">{{ msg.ai.consentHeading }}</h4>
-    <p class="status" role="status">{{ text }}</p>
+    <div class="group">
+      <h4 class="sub">{{ msg.ai.consentHeading }}</h4>
+      <p class="status" role="status">{{ text }}</p>
+    </div>
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <div v-if="needed" class="actions">
       <BaseButton variant="secondary" :disabled="disabled" data-testid="ai-consent-now" @click="emit('ask')">
@@ -46,6 +48,13 @@ const emit = defineEmits<{ ask: []; agree: []; decline: [] }>()
   display: flex;
   flex-direction: column;
   gap: var(--gap-field);
+}
+
+/* 見出しとその状態文の組。組の中は --s-2、組どうしは親の gap（--gap-field）。 */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
 }
 
 .sub {

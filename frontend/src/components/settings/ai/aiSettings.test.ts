@@ -234,3 +234,17 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
     expect(w.find('[role="alert"]').exists()).toBe(false)
   })
 })
+
+describe('AISettings の見出しと説明文の組（#241）', () => {
+  test('見出しと直後の説明文・状態文は .group に束ね、組どうしは .group の外の親の間隔で離す', () => {
+    const { pinia } = setup({ provider: 'anthropic', hasApiKey: true })
+    const w = mountAI(pinia)
+    const groups = w.findAll('.group')
+    // AISettings の見出し＋intro、AIApiKey の見出し＋状態、AIConsentSection の見出し＋状態
+    expect(groups.length).toBeGreaterThanOrEqual(3)
+    for (const g of groups) {
+      expect(g.find('h3, h4').exists()).toBe(true)
+      expect(g.findAll('p').length).toBeGreaterThanOrEqual(1)
+    }
+  })
+})

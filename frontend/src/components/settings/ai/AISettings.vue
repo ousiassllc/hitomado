@@ -136,8 +136,10 @@ watch(() => [saved.value !== undefined, ui.aiSetupIntent], startFromIntent, { im
 
 <template>
   <section class="ai" :aria-label="msg.ai.heading">
-    <h3 class="heading">{{ msg.ai.heading }}</h3>
-    <p class="intro">{{ msg.ai.intro }}</p>
+    <div class="group">
+      <h3 class="heading">{{ msg.ai.heading }}</h3>
+      <p class="intro">{{ msg.ai.intro }}</p>
+    </div>
 
     <AIDestinationBox
       :provider="saved?.provider ?? provider"
@@ -229,7 +231,14 @@ watch(() => [saved.value !== undefined, ui.aiSetupIntent], startFromIntent, { im
 .ai {
   display: flex;
   flex-direction: column;
-  gap: var(--s-4);
+  gap: var(--gap-field);
+}
+
+/* 見出しとその説明文の組。組の中は --s-2、組どうしは親の gap（--gap-field）。 */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
 }
 
 .heading {

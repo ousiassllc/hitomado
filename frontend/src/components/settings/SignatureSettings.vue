@@ -186,23 +186,28 @@ async function save(): Promise<void> {
 </template>
 
 <style scoped>
+/* 項目→項目は --gap-field（フォームの間隔レシピ）。個別の margin では間隔を取らない。 */
+.sig {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-field);
+}
+
 .intro {
-  margin: var(--s-2) 0 var(--s-3);
+  margin: 0;
   color: var(--ink);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
 }
 
 .select {
-  margin-bottom: var(--s-3);
   max-width: 420px;
 }
 
 .actions {
   display: flex;
   align-items: center;
-  gap: var(--s-2);
-  margin-top: var(--s-3);
+  gap: var(--gap-inline);
 }
 
 .spacer {

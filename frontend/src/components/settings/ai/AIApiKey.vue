@@ -43,11 +43,13 @@ defineExpose({
 
 <template>
   <div ref="root" class="key">
-    <h4 class="sub">{{ msg.ai.apiKeyHeading }}</h4>
-    <p class="status">
-      {{ props.providerLabel }}：
-      <strong>{{ props.hasKey ? msg.ai.apiKeyStatusSet : msg.ai.apiKeyStatusUnset }}</strong>
-    </p>
+    <div class="group">
+      <h4 class="sub">{{ msg.ai.apiKeyHeading }}</h4>
+      <p class="status">
+        {{ props.providerLabel }}：
+        <strong>{{ props.hasKey ? msg.ai.apiKeyStatusSet : msg.ai.apiKeyStatusUnset }}</strong>
+      </p>
+    </div>
     <SettingsInput
       v-model="apiKey"
       type="password"
@@ -91,6 +93,13 @@ defineExpose({
   display: flex;
   flex-direction: column;
   gap: var(--gap-field);
+}
+
+/* 見出しとその状態文の組。組の中は --s-2、組どうしは親の gap（--gap-field）。 */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
 }
 
 .sub {

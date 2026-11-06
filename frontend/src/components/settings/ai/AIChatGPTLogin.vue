@@ -162,9 +162,11 @@ async function remove(): Promise<void> {
 <template>
   <div class="chatgpt" data-testid="ai-chatgpt">
     <ChatGPTPlanNotice :accounts="props.accounts" />
-    <h4 class="sub">{{ msg.ai.chatgpt.heading }}</h4>
-    <p class="note">{{ msg.ai.chatgpt.intro }}</p>
-    <p class="note">{{ msg.ai.chatgpt.notOfficial }}</p>
+    <div class="group">
+      <h4 class="sub">{{ msg.ai.chatgpt.heading }}</h4>
+      <p class="note">{{ msg.ai.chatgpt.intro }}</p>
+      <p class="note">{{ msg.ai.chatgpt.notOfficial }}</p>
+    </div>
     <p class="status" role="status" data-testid="ai-chatgpt-status">
       <strong>{{ statusText }}</strong>
     </p>
@@ -239,6 +241,13 @@ async function remove(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--gap-field);
+}
+
+/* 見出しとその説明文の組。組の中は --s-2、組どうしは親の gap（--gap-field）。 */
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
 }
 
 .sub {
