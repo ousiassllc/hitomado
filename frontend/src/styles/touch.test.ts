@@ -15,6 +15,6 @@ describe('touch.css', () => {
   })
 
   test('チップの削除ボタンの当たり判定は全周 11px 広げる', () => {
-    expect(css).toMatch(/\.chip-remove::after\s*\{[^}]*inset:\s*-11px;/)
+    expect(css).toMatch(/\.chip-remove::before\s*\{[^}]*inset:\s*-11px;/)
   })
 })

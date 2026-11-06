@@ -78,9 +78,8 @@ const invalid = computed(() => !isLikelyEmail(props.address.email))
 }
 
 /* リップル（.has-ripple の overflow: hidden）はこの内側の円だけに持たせる。ボタン本体に付けると、touch.css が疑似要素で広げた当たり判定を切ってしまう。
-   touch.css の ::after（位置指定）より前面に置いて、中央の押下でもリップルが出るようにする。 */
+   touch.css の ::before（位置指定。当たり判定）より DOM 順で後ろに置いて前面に出し、中央の押下でもリップルが出るようにする（.has-ripple の position: relative で、同じ層では後ろの要素が上）。 */
 .chip-remove-face {
-  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;

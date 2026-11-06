@@ -37,7 +37,7 @@ onBeforeUnmount(stop)
 
 <template>
   <div class="toasts">
-    <Transition name="toast">
+    <Transition name="toast" mode="out-in">
       <div
         v-if="ui.toast"
         :key="ui.toast.id"
