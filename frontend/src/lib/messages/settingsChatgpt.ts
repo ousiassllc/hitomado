@@ -21,6 +21,10 @@ export const settingsChatgpt = {
   relogin: '再ログイン',
   logout: 'ログアウト',
   logoutAccount: (label: string) => `${label} をログアウト`,
+  logoutTitle: (label: string) => `${label} をログアウトしますか？`,
+  logoutDetail:
+    'OpenAI 側のセッションを失効させ、このアプリに保存されているトークンを削除します。もう一度使うには、ブラウザでログインし直してください。',
+  logoutConfirm: 'ログアウトする',
   reloginAccount: (label: string) => `${label} に再ログイン`,
   remove: '削除',
   removeAccount: (label: string) => `${label} の登録を削除`,

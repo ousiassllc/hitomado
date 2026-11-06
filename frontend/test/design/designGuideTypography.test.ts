@@ -35,17 +35,21 @@ describe('行間はスケールの値（T3・T4・#227）', () => {
   test.each([
     ['account/AccountItem.vue', '.badge {'],
     ['account/AccountList.vue', '.badge {'],
-  ])('件数バッジ %s %s は line-height に xs を持ち、min-height 20px を超えない', (file, selector) => {
-    const badge = rule(file, selector)
-    expect(badge).toContain('line-height: var(--line-height-xs)')
-    expect(badge).toContain('min-height: 20px')
-  })
+  ])(
+    '件数バッジ %s %s は line-height に xs を持ち、min-height 20px を超えない',
+    (file, selector) => {
+      const badge = rule(file, selector)
+      expect(badge).toContain('line-height: var(--line-height-xs)')
+      expect(badge).toContain('min-height: 20px')
+    },
+  )
 
   test.each([
     ['ui/BaseTooltip.vue', ':global(.tip-pop) {', 'xs'],
     ['thread/ThreadHeader.vue', '.meta-row {', 'sm'],
     ['compose/AttachmentBar.vue', '.attach-hint {', 'xs'],
     ['compose/ComposePane.vue', '.foot-hint {', 'xs'],
+    ['settings/ai/ChatGPTAccountRow.vue', '.pick {', 'sm'],
   ])('折り返しうる %s %s は font-size と対の line-height を持つ', (file, selector, size) => {
     const r = rule(file, selector)
     expect(r).toContain(`font-size: var(--font-size-${size})`)

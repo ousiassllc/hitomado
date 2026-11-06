@@ -100,6 +100,11 @@ function onEscape(): void {
   font-size: var(--font-size-sm);
 }
 
+/* ブラウザ標準の✕は出さない（O8）。クリアは右の自前のボタンに一本化する。 */
+.input::-webkit-search-cancel-button {
+  appearance: none;
+}
+
 .input:focus {
   border-color: var(--focus);
   box-shadow: 0 0 0 2px var(--ring);
