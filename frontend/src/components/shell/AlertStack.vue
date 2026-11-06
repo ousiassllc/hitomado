@@ -23,7 +23,8 @@ function retry(id: number, run: (() => void) | undefined): void {
 </script>
 
 <template>
-  <TransitionGroup v-if="ui.alerts.length > 0" tag="div" name="alert" class="alerts" data-testid="alerts">
+  <!-- 0 件でも描画し続ける（v-if でマウントごと入れ替えると、最初の 1 件の出現と最後の 1 件の消去にフェードが付かない）。 -->
+  <TransitionGroup tag="div" name="alert" appear class="alerts" data-testid="alerts">
     <div
       v-for="a in ui.alerts"
       :key="a.id"
@@ -49,6 +50,11 @@ function retry(id: number, run: (() => void) | undefined): void {
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
+}
+
+/* アラートが無いときは場所を取らない（呼び出し側が付ける padding・border・margin も含めて消す）。 */
+.alerts:empty {
+  display: none;
 }
 
 .alert {

@@ -17,7 +17,9 @@ const root = useTemplateRef<HTMLElement>('root')
 
 const accounts = computed(() => accountsStore.accounts)
 const busyId = ref<string>()
+// 退出のフェード中も文言が変わらないよう、閉じても removeTarget は保持する（開閉は removeOpen）。
 const removeTarget = ref<Account>()
+const removeOpen = ref(false)
 const announcement = ref('')
 
 function statusOf(a: Account): string {
@@ -78,15 +80,13 @@ async function confirmRemove(): Promise<void> {
   const a = removeTarget.value
   if (!a) return
   const ok = await run(a.id, () => accountsStore.remove(a.id), msg.accounts.removed(a.displayName))
-  if (ok) removeTarget.value = undefined
+  if (ok) removeOpen.value = false
 }
 
-const removeOpen = computed({
-  get: () => removeTarget.value !== undefined,
-  set: (v: boolean) => {
-    if (!v) removeTarget.value = undefined
-  },
-})
+function askRemove(a: Account): void {
+  removeTarget.value = a
+  removeOpen.value = true
+}
 </script>
 
 <template>
@@ -117,7 +117,7 @@ const removeOpen = computed({
         @move="move(a, $event)"
         @reconnect="reconnect(a)"
         @check-client="ui.openSettings('oauth')"
-        @remove="removeTarget = a"
+        @remove="askRemove(a)"
       />
     </ul>
 

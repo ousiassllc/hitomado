@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.ColorStateList;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.net.ConnectivityManager;
@@ -18,8 +19,10 @@ import android.os.PowerManager;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.Base64;
@@ -47,6 +50,7 @@ import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.FileProvider;
 import androidx.core.content.ContextCompat;
+import androidx.core.graphics.ColorUtils;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
@@ -429,6 +433,7 @@ public class MainActivity extends AppCompatActivity {
         box.setPadding(pad, pad, pad, pad);
         TextView message = new TextView(this);
         message.setText(R.string.render_error_message);
+        message.setTextColor(ContextCompat.getColor(this, R.color.app_ink));
         message.setTextSize(16);
         message.setGravity(Gravity.CENTER);
         // 日本語の本文は行間 1.8（ガイドの本文 16px の行間）。
@@ -439,9 +444,18 @@ public class MainActivity extends AppCompatActivity {
         GradientDrawable quitBackground = new GradientDrawable();
         quitBackground.setColor(ContextCompat.getColor(this, R.color.app_accent));
         quitBackground.setCornerRadius(8 * density);
-        quit.setBackground(quitBackground);
+        // 押下はリップル（ガイド M4）。背景を差し替えると標準のリップルが消えるので、bone の約 20% の RippleDrawable で包み直す
+        // （マスクで角丸 8dp の内側に収める。長さはプラットフォームの既定）。
+        GradientDrawable quitMask = new GradientDrawable();
+        quitMask.setColor(Color.WHITE);
+        quitMask.setCornerRadius(8 * density);
+        int rippleColor = ColorUtils.setAlphaComponent(ContextCompat.getColor(this, R.color.app_background), 0x33);
+        quit.setBackground(new RippleDrawable(ColorStateList.valueOf(rippleColor), quitBackground, quitMask));
         quit.setTextColor(ContextCompat.getColor(this, R.color.app_background));
         quit.setTypeface(Typeface.DEFAULT_BOLD);
+        // 文字はガイド T3 のボタン（base 16）。Button 既定の 14sp・全大文字化にしない。
+        quit.setTextSize(16);
+        quit.setAllCaps(false);
         quit.setMinHeight((int) (40 * density));
         quit.setMinimumHeight((int) (40 * density));
         quit.setPadding((int) (16 * density), 0, (int) (16 * density), 0);
