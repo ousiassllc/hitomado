@@ -219,7 +219,7 @@ onBeforeUnmount(() => editor.value?.destroy())
 
 /* 利用者が付けた太字（<strong>）は reset.css の既定（400）に負けず、そのまま太字で見せる。 */
 .rte-body :deep(.editor-content strong) {
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .rte-body :deep([data-hitomado-signature]) {

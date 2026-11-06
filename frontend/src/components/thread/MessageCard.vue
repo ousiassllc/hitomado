@@ -123,6 +123,7 @@ watch(
 .date {
   margin-left: auto;
   color: var(--mute);
+  font-family: var(--font-mono), var(--font-sans);
   font-size: var(--font-size-sm);
   white-space: nowrap;
 }
