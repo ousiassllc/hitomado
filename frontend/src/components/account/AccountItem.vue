@@ -105,14 +105,18 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
 
 .badge {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   min-width: 20px;
+  min-height: 20px;
   padding: 0 var(--s-2);
   border-radius: var(--r-full);
   background: var(--accent);
   color: var(--bone);
   font-size: var(--font-size-xs);
   font-family: var(--font-mono);
-  line-height: 20px;
   text-align: center;
 }
 

@@ -55,7 +55,7 @@ watch(model, () => void nextTick(fit))
         role="status"
         data-testid="ai-instruction-remaining"
       >
-        {{ msg.ai.instruction.remaining(remaining) }}
+        {{ msg.ai.instruction.remaining.before }}<span class="num">{{ remaining }}</span>{{ msg.ai.instruction.remaining.after }}
       </span>
     </div>
   </div>
@@ -105,6 +105,10 @@ watch(model, () => void nextTick(fit))
   color: var(--mute);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
+}
+
+.instruction-count .num {
+  font-family: var(--font-mono);
 }
 
 .instruction-count.over {

@@ -87,7 +87,7 @@ export const compose = {
       label: 'AI への指示',
       placeholder: '例: 日程は来週以降で調整したい旨を丁寧に／断る／3 行で短く',
       note: '下書きの生成だけに使い、保存しません。',
-      remaining: (n: number) => `残り ${n} 文字`,
+      remaining: { before: '残り ', after: ' 文字' },
       tooLong: (max: number) => `AI への指示は ${max} 文字までです。`,
     },
     // AI の設定がまだ無いときに「AI で下書き」を押した場合の案内（#104）。ChatGPT のログインは設定画面の AI の流れへ進む。
