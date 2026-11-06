@@ -239,7 +239,8 @@ function onKeydown(e: KeyboardEvent): void {
 }
 
 .chip-invalid {
-  border-color: var(--danger);
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
   color: var(--danger);
 }
 

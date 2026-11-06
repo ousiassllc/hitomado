@@ -83,7 +83,7 @@ withDefaults(
 
 .btn-danger {
   background: transparent;
-  border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+  border-color: var(--danger-border);
   color: var(--danger);
 }
 

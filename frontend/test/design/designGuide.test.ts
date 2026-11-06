@@ -220,7 +220,7 @@ describe('モーション（M）', () => {
   })
 })
 
-describe('危険ボタン（O7・#190）: 透明地・--danger の文字・45% の枠', () => {
+describe('危険ボタン（O7・#190）: 透明地・--danger の文字・--danger-border の枠', () => {
   const style = parse(
     readFileSync(new URL('../../src/components/ui/BaseButton.vue', import.meta.url), 'utf8'),
   ).descriptor.styles[0].content
@@ -232,11 +232,11 @@ describe('危険ボタン（O7・#190）: 透明地・--danger の文字・45% �
     expect(w.classes()).toContain('btn-danger')
   })
 
-  test('塗りつぶさない（透明地・文字 --danger・枠は --danger の 45%）', () => {
+  test('塗りつぶさない（透明地・文字 --danger・枠は --danger-border）', () => {
     const body = rule('.btn-danger {')
     expect(body).toContain('background: transparent')
     expect(body).toContain('color: var(--danger)')
-    expect(body).toContain('border-color: color-mix(in srgb, var(--danger) 45%, transparent)')
+    expect(body).toContain('border-color: var(--danger-border)')
     expect(body).not.toContain('var(--bone)')
   })
 
