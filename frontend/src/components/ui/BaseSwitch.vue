@@ -44,18 +44,19 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 
 .sw-thumb {
   display: block;
+  box-sizing: border-box;
   width: 14px;
   height: 14px;
+  border: 1px solid var(--border);
   border-radius: var(--r-full);
   background: var(--surface);
-  box-shadow: 0 0 0 1px var(--border);
   transform: translateX(2px);
   transition: transform var(--motion-base) var(--ease-out);
 }
 
 .sw-thumb[data-state='checked'] {
   background: var(--bone);
-  box-shadow: none;
+  border-color: transparent;
   transform: translateX(18px);
 }
 </style>
