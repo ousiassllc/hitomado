@@ -112,6 +112,16 @@ MCP の呼び出しはログに残ります（いつ・どのツール・成否�
 
 件名と宛先をログに残さないのは、障害調査に必要な情報（アカウント ID・スレッド ID・エラーコード・件数・時間）で足り、残すと取引先の情報がログ経由で漏れる経路になるためです。panic の値に秘密が混ざっても、同じ処理を通ります。
 
+### Windows 実機での確認（未実施・#26）
+
+Linux の CI では確かめられない次の 3 点は、Windows 実機での確認が済んでいません。結果は環境・日付つきでこの表に記録します（記録がない項目は未確認）。
+
+| 項目 | 確認方法 | 結果 |
+|------|----------|------|
+| ローテーション中の読み取り | 書き込み中のログを `get_logs` で連続して読みながら、5MB を超えてローテーションさせ、ログの欠落・エラーが出ないか見る。Go の `os.Open` は `FILE_SHARE_DELETE` を付けないため、読み取り中は lumberjack の `rename` が失敗し得る（`internal/logging/reader.go` の `readFile`）。出るなら共有モードつきで開く | 未確認 |
+| 「ログフォルダを開く」 | 設定 → ログ →「ログフォルダを開く」で、エクスプローラーが実際に開くか（`internal/platform/wails.go` の `Paths.OpenPath`） | 未確認 |
+| MCP トークン | 発行・再発行・無効化で、資格情報マネージャーの `hitomado/mcp_token` が保存・置き換え・削除されるか（`internal/mcpserver/token.go`） | 未確認 |
+
 ## 実装の場所
 
 | 機能 | 場所 |
@@ -121,4 +131,4 @@ MCP の呼び出しはログに残ります（いつ・どのツール・成否�
 | 設定・トークンの操作（バインディング） | `internal/app/mcpservice.go`（`MCPService`） |
 | MCP を動かす OS の判定（Android では動かさない） | `internal/capability`（`Capabilities.SupportsMCP`）、`MCPService.Start`、`services_binding.go` |
 | MCP が使うアプリの機能（読み取り・下書き） | `internal/app/mcpbackend.go` |
-| フロントのエラー送信・ログ操作（バインディング） | `frontend/src/lib/errorReporter.ts`／`internal/app/logservice.go`（`LogService`。実装は `internal/app/logcore`） |
+| フロントのエラー送信・ログ操作（バインディング） | `frontend/src/lib/errorReporter/index.ts`／`internal/app/logservice.go`（`LogService`。実装は `internal/app/logcore`） |

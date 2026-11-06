@@ -1,8 +1,8 @@
 # Android ビルド
 
-> 関連: [環境構築](setup.md) / [プロジェクト概要](../overview.md) / [アーキテクチャ設計](../architecture/overview.md)
+> 関連: [環境構築](setup.md) / [プロジェクト概要](../overview.md) / [アーキテクチャ設計](../architecture/overview.md) / [Google Play での配布の準備](android-play-distribution.md)
 
-本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。以降の節で、Android で動かさない機能（§10・#89）、資格情報の保管（§11・#84）、`modernc.org/libc` の android/amd64 問題（§12・#83）、添付・ログの保存先（§13・#85）、Google OAuth のリダイレクト方式（§14・#86）、バックグラウンド同期と新着通知（§15・#88）、スマホ向けの画面（§16・#87）、E2E・WebView のクラッシュ対策・性能（§17・#90）、AI の既定のプロバイダと ChatGPT ログイン（§18・#104）を決めた。
+本書は Android 版（`jp.ousias.hitomado`）の APK／AAB をビルドする手順と、ビルド基盤の方針（SDK の版・署名・版番号・バインディング・manifest・CI）を定める（Issue #82）。Wails v3 の Android テンプレート（`build/android/`）をもとにしている。以降の節で、Android で動かさない機能（§10・#89）、資格情報の保管（§11・#84）、`modernc.org/libc` の android/amd64 問題（§12・#83）、添付・ログの保存先（§13・#85）、Google OAuth のリダイレクト方式（§14・#86）、バックグラウンド同期と新着通知（§15・#88）、スマホ向けの画面（§16・#87）、E2E・WebView のクラッシュ対策・性能（§17・#90）、AI の既定のプロバイダと ChatGPT ログイン（§18・#104）を決めた。 試作と調査（#81）の結果表・作業の一覧は [android-investigation.md](android-investigation.md) にまとめている。
 
 ## 1. 必要なもの
 
@@ -251,7 +251,7 @@ String refreshToken = SecureStore.getInstance(getApplicationContext()).get("hito
 
 - Go: `Store` のエラーは `secrets: <操作> "<キー名>": <Java の失敗コード>` だけで、値を含まない（キー名は `hitomado/<種別>/<ID>` で秘密ではない）。`slog` に値を渡している箇所は無い（`internal/` を grep して確認）。
 - Java: `SecureStore`／`WailsBridge` の失敗コードは `key_lost`／`failed`／`empty key` だけで、例外のメッセージ（値を含みうる）は返さず、logcat にも例外のクラス名だけを出す。
-- **Wails のテンプレートが debug ビルドで logcat に出していた JS からの呼び出しの本文を、長さだけに変えた**（`WailsBridge.handleMessage`／`handleRuntimeCall`、`WailsJSBridge.invoke`／`invokeAsync`）。バインディング呼び出しの引数（`SetAIApiKey` の API キー、`AddOAuthClient` の Client Secret）が本文に入るため。release ビルド（`BuildConfig.DEBUG` が偽）は元から出さない。`MainActivity` の `Wails API call`（パスとクエリだけ）、WebView のコンソールのメッセージ（debug のみ）は、フロントが `console.error(err)` を出す 1 か所（`errorReporter.ts`。AppError のメッセージで、値は含まない）を除き、値を出す箇所が無い。
+- **Wails のテンプレートが debug ビルドで logcat に出していた JS からの呼び出しの本文を、長さだけに変えた**（`WailsBridge.handleMessage`／`handleRuntimeCall`、`WailsJSBridge.invoke`／`invokeAsync`）。バインディング呼び出しの引数（`SetAIApiKey` の API キー、`AddOAuthClient` の Client Secret）が本文に入るため。release ビルド（`BuildConfig.DEBUG` が偽）は元から出さない。`MainActivity` の `Wails API call`（パスとクエリだけ）、WebView のコンソールのメッセージ（debug のみ）は、フロントが `console.error(err)` を出す 1 か所（`errorReporter/index.ts`。AppError のメッセージで、値は含まない）を除き、値を出す箇所が無い。
 - Go 側の Wails のフレームワークのログ（`[JS message]`、`runtime call returned status`）は `production` タグで無効になる（release のビルドは `-tags production,android`）。debug ビルド（`android:run`）では `[JS message]`（ウィンドウのメッセージ）が logcat に出る。
 
 ### 11.6 確認の手順（実機・エミュレーター）
@@ -463,9 +463,11 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 - 印は起動直後ではなく、最初に必要になったとき（フロントの `TakeInterruptedAuth`、または認可の開始）に読む。起動直後に Java へ JNI で問い合わせないため。
 - Windows（デスクトップ）は `Tracker` を作らない（`nil`。`oauthtracker_other.go`）。Windows の認可の動きは変わらない。バインディング `TakeInterruptedAuth` は常に `false` を返す。
 
+**Activity だけが作り直されたとき（プロセスは残る）は、認可を止めない**（#184・#185・#86）。ブラウザに出ている間に OS が Activity だけを破棄し、戻ったときに作り直すと、テンプレートの `onCreate` が `WailsBridge.nativeInit` を再び呼び、プロセスに残っている Go のランタイムで `main` が 2 回目に起動される。Wails の `App.Run` は 1 プロセスで 1 回しか呼べず、2 回目は `application is running or a previous run has failed` で失敗する。以前はこの失敗で `main` が `os.Exit(1)` を呼び、プロセスごと終えて、実行中の認可（127.0.0.1 の待受）まで道連れにしていた。`runguard.go` の `runExclusive` が、**実行中の 2 回目の `main` を Warn ログ（`main was called again while the app is already running; ignoring it`）だけ残して何もせず戻す**ので、最初の実行（待受・同期・DB）は続き、ブラウザからのコールバックを受けて認可を完了できる（新しい Activity の WebView は、同じ Go のアセット配信を読み込み直す）。最初の実行がすでに終わっていた場合の 2 回目は従来どおり Wails のエラーで終わる。この経路は **JVM・Go の単体テスト（`runguard_test.go`）でだけ確認していて、実機で Activity が作り直される状況は未確認**。
+
 ### 14.4 送信元の固定
 
-リダイレクト方式は認可コードを受け取る経路だけを変える。アカウントのアドレスは、認可後に Google の userinfo から取った値（小文字に正規化）で決まり、返信・転送の送信元は `accounts.email` から作る（変更できない。[バインディング仕様 §5](../api/endpoints.md)・[アーキテクチャ設計 §7.3](../architecture/overview.md)）。`Reconnect` は認可されたアドレスが既存のアカウントと違えば拒否する。テスト: `internal/app/composecore/compose_oauth_sender_test.go`（OAuth で追加したアカウントの返信が、Google が返したアドレスに固定され、`SENDER_LOCKED`／`SENDER_MISMATCH` で変えられず、`From` がそのアドレスになる）、`internal/app/apptests/account_test.go`（`TestReconnectRejectsDifferentAddress`）。
+リダイレクト方式は認可コードを受け取る経路だけを変える。アカウントのアドレスは、認可後に Google の userinfo から取った値（小文字に正規化）で決まり、返信・転送の送信元は `accounts.email` から作る（変更できない。[バインディング仕様 §5](../api/endpoints.md)・[アーキテクチャ設計 §7.3](../architecture/overview.md)）。`Reconnect` は認可されたアドレスが既存のアカウントと違えば拒否する。テスト: `internal/app/composecore/compose_oauth_sender_test.go`（OAuth で追加したアカウントの返信が、Google が返したアドレスに固定され、`SENDER_LOCKED`／`SENDER_MISMATCH` で変えられず、`From` がそのアドレスになる）、`internal/app/accounttests/account_test.go`（`TestReconnectRejectsDifferentAddress`）。
 
 ### 14.5 自動テスト
 
@@ -473,7 +475,7 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 |--------|------|
 | `internal/oauth/flow_test.go`・`callback`（既存） | 偽 IdP（httptest）で、ループバックの待受・PKCE・`state` の検証（不一致は無視）・`access_denied`・スコープ不足・トークン交換の失敗・タイムアウト・キャンセルを試す。Android でもこのコードがそのまま動く（ビルドタグなし） |
 | `internal/oauth/tracker_test.go` | 印がブラウザに出ている間だけ存在し、成功・拒否・タイムアウト・ブラウザ起動失敗・キャンセルのどれでも消える。印に `state`・verifier・コード・トークンを含まない。**プロセスが止められた（`End` が呼ばれない）ときに、次の起動の `Tracker` が一度だけ検出する**。検出の前に新しい認可を始めても完了でき、前回の中断も案内される。ストアの失敗が認可を壊さない。`nil` の `Tracker` は何もしない（Windows） |
-| `internal/app/apptests/account_interrupted_test.go` | `TakeInterruptedAuth` の一度だけの検出と、`nil`（Windows）での `false`。検出後のやり直しが完了する |
+| `internal/app/accounttests/account_interrupted_test.go` | `TakeInterruptedAuth` の一度だけの検出と、`nil`（Windows）での `false`。検出後のやり直しが完了する |
 | `frontend/test/accountsInterrupted.test.ts` | 検出時にやり直しのお知らせ（インラインアラート）を 1 回だけ出す。呼び出しの失敗で起動を止めない |
 
 ### 14.6 実機で確認する手順（未確認）
@@ -644,11 +646,11 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 
 1. インストール → コールドスタート（`am start -W`。`TotalTime` 等を記録）→ プロセスが動いている。
 2. **一覧**: シードの件名 3 件が画面（`uiautomator dump` の text／content-desc）に出るまで待つ。起動から一覧までの秒を記録。
-3. **返信下書き**: 1 件目を開く → 「全員に返信」→ エディタ（`本文`）にタップして `hello e2e draft` を入力 → 自動保存（約 3 秒）後、`run-as` で `RecordingGmail` のファイルを読み、本文と `thread: e2e-thread-1`（スレッドに紐づく）を確認。
-4. **レンダラ落ち**（`E2E_KILL_RENDERER=1`、既定。`adb root` が要るのでエミュレーターの `google_apis`・`userdebug` イメージ向け。root が取れなければこの手順だけ SKIP）: `sandboxed_process` を `kill -9` → アプリのプロセス（pid）が変わらない・一覧が再び出る・`WailsActivity` のログに復旧が出る。
+3. **返信下書き**: 1 件目を開く → 「全員に返信」→ 返信の画面（「閉じる（下書きを保存）」）が出たら、本文の引用（「…が書きました」）をタップして `hello e2e draft` を入力 → 自動保存（約 3 秒）後、`run-as` で `RecordingGmail` のファイルを読み、本文と `thread: e2e-thread-1`（スレッドに紐づく）を確認。
+4. **レンダラ落ち**（`E2E_KILL_RENDERER=1`、既定。`adb root` が要るのでエミュレーターの `google_apis`・`userdebug` イメージ向け。root が取れなければこの手順だけ SKIP）: `sandboxed_process` を `kill -9` → アプリのプロセス（pid）が変わらない・`Page loaded`（読み込み直し）のログ・エラー画面が出ていない・スクリーンショットの一覧の領域が描かれている（`ui.py inked`。作り直した WebView の a11y ツリーが更新されない場合があり、画素でも確かめる。a11y に一覧が出るかも見るが必須にはしない）・`WailsActivity` のログに復旧が出る。
 5. `crash` バッファにアプリのクラッシュが無い・`Render process crash wasn't handled` が無い・最後までプロセスが動いている。
 
-画面のスクリーンショット・ダンプ・logcat は `E2E_OUT`（既定 `/tmp/hitomado-e2e-out`）に残る。
+待ちが切れたときは、最後の画面（スクリーンショット・ダンプ・`text`／`content-desc` の一覧）を残す。システムアプリの「応答なし」ダイアログ（Pixel Launcher）が出たら「待つ」を選ぶ。画面のスクリーンショット・ダンプ・logcat は `E2E_OUT`（既定 `/tmp/hitomado-e2e-out`）に残る。
 
 **回し方**:
 
@@ -668,7 +670,7 @@ wails3 task android:e2e:run                      # 接続中の端末（ANDROID_
 ### 17.4 CI
 
 - **`.github/workflows/android-e2e.yml`（`workflow_dispatch` のみ）**: x86_64・API 35 のエミュレーターを `reactivecircus/android-emulator-runner` で起動して `run.sh` を実行する。ubuntu-latest は KVM が使える（udev のルールで権限を付ける）。
-- **`ci.yml`（PR の CI）には入れていない**。このホストは KVM が使えず、ワークフローをローカルで動かして確かめられない。確認できないジョブを PR の必須の CI に入れると、赤くなって PR が止まるおそれがあるため。`actionlint` で構文だけ確認した。**Actions で実際に動かして緑になったことは未確認**。緑になったら `ci.yml` への組み込み（`pull_request` かつ変更パスの条件つき）を別 Issue で検討する。
+- **`ci.yml`（PR の CI）には入れていない**。Actions で通ることは確認した（17.6）が、エミュレーターの起動は数分かかり、不安定になりうる。必須の CI に入れて PR を止めるかは、数回の実行で安定することを見てから別 Issue で決める。
 
 ### 17.5 性能の計測
 
@@ -685,11 +687,28 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 | `BenchmarkInitialSyncHTTP` | 本物の `gmail.Client`（クォータ制御つき）を、`httptest` の偽 Gmail サーバー（`threads.list`・`threads.get`・`profile`・`labels` を実 API の形で返す）に向ける | **約 7.2 秒 / 200 スレッド** |
 | `BenchmarkInitialSyncStore` | ネットワーク・クォータ制御を除き、メモリ上のフェイクの Gmail から同期エンジン→実 SQLite に保存するまで | **約 0.15 秒 / 200 スレッド** |
 
-前者はクライアントの本番どおりの流量制限（ユーザーあたり 250 units/秒、`threads.get` は 10 units → 約 25 スレッド/秒）が支配的で、実 Gmail に対しても同じ上限が掛かる（ネットワークの遅延は含まない）。後者から、**エンジン＋SQLite の分は 200 スレッドで 0.15 秒（ホスト）**で、同期の時間はほぼ API の流量制限で決まる。**これはホスト（デスクトップ CPU）の数値で、Android の実機の値ではない**。実機の SQLite・CPU での数値は未計測。
+前者はクライアントの本番どおりの流量制限（ユーザーあたり 250 units/秒、`threads.get` は 10 units → 約 25 スレッド/秒）が支配的で、実 Gmail に対しても同じ上限が掛かる（ネットワークの遅延は含まない）。後者から、**エンジン＋SQLite の分は 200 スレッドで 0.15 秒（ホスト）**で、同期の時間はほぼ API の流量制限で決まる。**これはホスト（デスクトップ CPU）の数値で、Android の実機の値ではない**。実機の SQLite・CPU での数値は未計測。KVM つきのエミュレーター（x86_64・API 35。17.6）での起動時間は 17.6 の表。
 
 **起動時間（エミュレーター。ソフトウェアエミュレーションでの参考値であり、実機の数値ではない）**: `run.sh` が `adb shell am start -W` の `TotalTime`／`Status`（`METRIC am_start_total_ms`）と、起動から一覧の件名が画面に出るまでの秒（`METRIC start_to_list_s`）を出す。実機では `adb shell am start -W -n jp.ousias.hitomado/com.wails.app.MainActivity` の `TotalTime`（コールドスタート。`am force-stop` のあと）と、`adb logcat` の `Displayed` で測れる。
 
-### 17.6 確認の状況（2026-11-04）
+### 17.6 確認の状況
+
+#### 2026-11-06: GitHub Actions の KVM つきエミュレーター（x86_64・API 35・`google_apis`）
+
+`android-e2e.yml` を手動実行して、`run.sh` が**最後まで通った**（`E2E RESULT: PASS`。run 42130441782）。これが受け入れ基準のうち「エミュレーターでの起動・一覧表示・返信下書き」と「レンダラが落ちてもアプリ全体が終了しない」の確認になる。**実機（arm64）ではない**。
+
+| 項目 | 結果 |
+|------|------|
+| インストール・起動 | `am start -W` は `Status: ok`、`TotalTime` **4726 ms**（コールドスタート）。プロセスが動いている |
+| 一覧 | 起動から一覧にシードの 3 スレッドが出るまで **6 秒**（`start_to_list_s`） |
+| 返信下書き | スレッドを開く → 「全員に返信」→ 本文に `hello e2e draft` を入力 → 入力後 **約 4 秒**で `RecordingGmail` のファイルに出て、`thread: e2e-thread-1` に紐づいた |
+| レンダラ落ち | `sandboxed_process` を `kill -9` → `WebView renderer was killed by the system` → `Recreating the WebView and reloading the app` → `Page loaded`。**アプリのプロセスは同じ pid のまま**、エラー画面は出ず、スクリーンショットで一覧（3 スレッド）が描かれ、a11y ツリーにも一覧が出た。クラッシュのログ（`crash` バッファ）なし・`Render process crash wasn't handled` なし |
+
+この実行までに 2 回失敗し、**`run.sh` の判定の問題**だった（アプリの不具合ではない）: ① システムアプリの「応答なし」ダイアログが画面を隠してスレッドを開けなかった → 「待つ」を選ぶ・タップのやり直し。② 返信画面で `本文` の文字をタップ先にしていたが、エディタは a11y では引用の文章が `text` なので見つからなかった → 返信画面は「閉じる（下書きを保存）」で見分け、引用をタップ。③ 作り直した WebView で a11y に一覧が出ない回があったため、復帰の確認に画素の検査を足した（17.3）。
+
+**未確認**: **実機（arm64）**。GitHub のホステッドランナーは arm64 の Android エミュレーター（KVM）を動かせず、このホストにも実機が無いため、`android-e2e.yml` は x86_64 のエミュレーターだけで動く。受け入れ基準の「実機で起動・一覧表示・返信下書きまで通る」は、17.3 の「実機で回す手順」で実機を持つ人が確認する。実機でのレンダラの `kill` は、`adb root` が使えるデバッグ用端末でないとできない。
+
+#### 2026-11-04: KVM なしのエミュレーター（このホスト。参考）
 
 **エミュレーター**: x86_64・API 35・`google_apis`（WebView 124.0.6367.219）の自分用 AVD（`-accel off -no-window -gpu swiftshader_indirect`、RAM 3 GB、ポート 5592。確認後に停止・AVD を削除した）。このホストは KVM が使えず、ソフトウェアエミュレーション（TCG）。ホストは他の作業でも高負荷（load average 4〜29）で、システム自体が遅い。**以下の数値は実機の値ではなく、ソフトウェアエミュレーションでの参考値**。
 
@@ -711,11 +730,12 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 
 ### 17.7 残課題
 
-- **実機（arm64）・KVM つき環境で、E2E を最後まで通す**（一覧・返信下書き・レンダラ `kill` からの復帰）。Actions の `android-e2e.yml` を手動実行して緑になることも未確認。
-- このホストの KVM なしエミュレーターでレンダラが落ち続ける原因の特定（実機・KVM つきでも起きるかの確認。起きるなら、`onRenderProcessGone` の上限を超えてエラー画面になる＝アプリは終了しないが使えない）。
+- **実機（arm64）で E2E を通す**（17.3 の手順。一覧・返信下書き。レンダラ `kill` は `adb root` が使える端末のみ）。KVM つきのエミュレーター（x86_64）では通った（17.6）。
+- 17.6 の 2026-11-04 の KVM なしエミュレーターでレンダラが落ち続けた件は、KVM つきのエミュレーターでは再現しなかった（実行した 3 回とも、レンダラが自力で落ちることはなかった）。ソフトウェアエミュレーション（TCG）固有の問題と見ているが、原因は特定していない。
+- 初回の 10 秒タイムアウトからの読み直し（17.2）は、KVM つきのエミュレーターでは 10 秒のタイムアウト自体が起きず、実行して確認していない。
 - WebView を作り直したときの未保存の入力（約 3 秒分）と、Go に残る作成セッション（17.1）。
-- Activity が OS に破棄・再生成された場合（`configChanges` に含まれない変更）に、テンプレートの `onCreate` が新しい `WailsBridge` の `nativeInit` を再度呼ぶ点（Wails のテンプレートの挙動で、この Issue では変えていない）。
-- 実機での起動時間・同期時間の計測（17.5 はホストとエミュレーターのみ）。
+- Activity が OS に破棄・再生成された場合（`configChanges` に含まれない変更）に、テンプレートの `onCreate` が新しい `WailsBridge` の `nativeInit` を再度呼ぶ点（Wails のテンプレートの挙動は変えていない）。Go 側は、実行中の 2 回目の `main` を無視して最初の実行を続ける（§14.3、#184）。新しい Activity の WebView が、残っている Go のアプリへ正しくつながり直すかは実機で未確認。
+- 実機での起動時間・同期時間の計測（17.5 のホストの数値と、17.6 のエミュレーターの数値のみ）。
 
 ## 18. AI の既定のプロバイダと ChatGPT ログイン（#104）
 
@@ -733,5 +753,33 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 したがって、Android でも ChatGPT ログインは**コード上は使える**ので、既定も案内も Windows と同じにする。
 
 - **未確認（実機）**: 実機の Chrome などで OpenAI のログイン画面が開き、`http://127.0.0.1:<ポート>/auth/callback` へ戻って完了するか（§14.1 と同じく、本物の OpenAI と実機のブラウザは使っていない）。ブラウザが前面に出ている間にアプリのプロセスが止められたときは、ログインの待受が消えて完了できず、時間切れかキャンセルとして終わる（§14.3 と同じ理由。Google OAuth のような「途中で止められた」印と案内は、ChatGPT ログインには無い。再度「Continue with ChatGPT」を押せば最初からやり直せる。トークン・登録は完了するまで書き込まれない）。
+- **v0.1.16 の実機で「予期しないエラーが発生しました。」で失敗した**（#185）。Android の転送路がエラーの `cause` を捨てるため、どのエラーもこの定型文になっていた可能性がある。失敗の段階と元のエラーはログに残るようにした（§19）。根本の原因は実機のログで確かめるまで未特定。
 - **ログインできないとき**: ログインのエラーを表示し、案内の「別のプロバイダを選ぶ」（設定画面の AI タブ）で Anthropic・OpenAI 互換の API キーを使える。既定が ChatGPT でも、保存済みのプロバイダ（anthropic・openai・chatgpt）の設定は変えない。
 - Android の画面（§16）でも、初回の案内・同意の画面は同じダイアログで、1 画面ずつの幅のときも中央のモーダル（幅は画面幅 − 32px）で出る（`BaseDialog`。外側のクリックで閉じる）。
+
+## 19. 失敗の原因をログで追う（#184・#185）
+
+Android の実機で Google・ChatGPT のログインが「内部エラー」「予期しないエラー」で失敗したとき、原因がログに残らず追えなかった。次のように、**画面の文言は変えずに**、ログと転送路を直した。
+
+### 19.1 何が起きていたか（コードを読んで確認した範囲）
+
+- **Android の Wails の転送路は、Go のエラーの `cause`（apperr の JSON）を捨てる。** Windows の転送路（HTTP）は `CallError` を JSON で返し、フロントの `parseBindingError` が `error.cause` から `AppError` を復元する。Android の転送路（`WailsJSBridge.invokeAsync` → `handleRuntimeCallForAndroid`）は `{"ok":false,"error":"<文字列>"}` だけを返し、JS は `new Error(文字列)` で reject する（Wails v3.1.0）。そのため `cause` が無く、**どのエラーも `INTERNAL`＋「予期しないエラーが発生しました。」の定型文になっていた**（ChatGPT ログインで出た文言と、Google の追加で出た `code=INTERNAL` の説明がつく）。文字列は `Binding call failed: Bound method returned an error: <CODE>: <利用者向けの文面>` の形。
+- 実行中に `main` が 2 回目に起動されると `fatal run: application is running or a previous run has failed` で `os.Exit(1)`。ブラウザに出ている間に Activity だけが作り直されるとき（§14.3）に起きうる。
+
+### 19.2 直したこと
+
+| 項目 | 内容 |
+|------|------|
+| `INTERNAL` の元のエラー | `apperr.FromInfra` が分類できずに `INTERNAL` にするとき、元のエラーの文面（`err`）と、`Unwrap` のつながりの型名（`chain`。`*fmt.wrapError > *url.Error > …`。`logging.ErrorChain`）を **Error ログ**（`internal error`）に残す。JSON・画面には出さない。`AccountService.authorize` も、失敗の分類（`code`）と元のエラーを Warn ログ（`account authorize failed`）に残す |
+| Google の認可（`internal/oauth`） | `Options.Logger`（`run.go` が渡す）に、段階（`stage`）ごとのログを出す。進み: `listening`（待受の開始）→ `browser_opened` → `callback_received` → `completed`（Info）。失敗: `oauth: failed at <stage>`。stage は `listen`（待受を始められない）・`open_browser`・`wait_callback`（時間切れ・中断。Warn）・`callback`（コールバックの OAuth `error` コードを `oauth_error` に。`access_denied` は Warn）・`token_exchange`・`userinfo`（HTTP ステータスを `status`、応答の `error` コードを `oauth_error` に）・`scope`・`refresh_token`。`oauth_error` は `^[a-z][a-z0-9_]{0,63}$` の形のものだけ（`error_description`・応答本文は載せない）。以前はトークンエンドポイントの `error` を `invalid_client`・`unauthorized_client` しか保持しなかったが、`invalid_grant`・`redirect_uri_mismatch` なども `oauth_error` に残す（クライアント拒否の判定は従来のまま） |
+| ChatGPT ログイン（`internal/siwc`） | 同じく進み（`listening`・`browser_opened`・`callback_received`・`completed`）と失敗（`chatgpt: failed at <stage>`）を、`Options.Logger`（既存）に出す。stage は `prepare`（登録・ホスト ID の読み書き）・`discover`・`listen`・`open_browser`・`wait_callback`・`callback`（`oauth_error`）・`token_exchange`（`status`・`oauth_error`）・`identity_check`（ID トークンの検証。詳細は戻り値のエラーに載せず、ログの `cause`・`cause_chain` にだけ、伏せ処理を通して残す）・`save`。以前は `listen`・`open_browser` の元のエラーを捨てていたので、`%w` で保持するようにした（画面の分類は `ErrFailed` のまま） |
+| 二重起動 | 実行中の 2 回目の `main` を Warn ログに残して無視する（`runguard.go`。§14.3） |
+| Android のエラーの復元 | `frontend/src/lib/api.ts` の `parseBindingError` が、`cause` が無いとき、メッセージの `Bound method returned an error: <CODE>: <文面>` から、**既知のコード**（`ERROR_CODES`）で始まるものだけ `AppError`（`code`・`message`・`retryable`）に戻す。未知のコード・形式の違う文字列は従来どおり `INTERNAL` の定型文。`details`（`reason` など）と `accountId` は転送路で失われるので復元できない（Android では、`reason` で切り替える案内〔使用枠の超過・ログアウト済みの再ログイン〕は一般のエラー文面になる） |
+
+ログには、トークン・認可コード・`state`・Client Secret・メール本文・API キーを載せない（#14。`logging` の伏せ処理が 2 枚目の防御）。
+
+### 19.3 未実施・未確認
+
+- **（任意）`INTERNAL` のときだけ Go 側の短いエラー要約を `ReportClientError` に付ける**は、やっていない。Go のログに元のエラーが残るので、画面側で重ねて送る必要はない（Android の転送路は `cause` を運べないため、フロントには元のエラーが無い）。
+- **実機で、失敗の根本原因を特定していない。** 実機のログはまだ見ていない。上の 19.1 の 2 点（`cause` が捨てられること・`main` の 2 回目で `os.Exit`）はコードの読み取りで確認したもので、実機の失敗がこれで全て説明できるかは、新しいログを取って確かめる必要がある。確かめ方: 失敗したあと、設定 → ログ →「ログを書き出す」で zip を保存し、`internal error`・`account authorize failed`・`oauth: failed at …`・`chatgpt: failed at …`・`main was called again…` を探す。
+- 実機（arm64）で、Google の追加・ChatGPT のログインが完了すること（Issue の完了条件）は未確認。

@@ -337,6 +337,19 @@ sequenceDiagram
 - 上記の確認で見つからなかった・確認自体に失敗したときは、**未送信とは決めつけず** `SEND_UNCERTAIN`（`OFFLINE` にしない）を返す。独自ヘッダが送信済みに残る保証も、検索インデックスが送信直後に追い付く保証も無く、「見つからない」は「送られていない」の根拠にならないため、再送を促さない（利用者が送信済みフォルダーを確認する）。`OFFLINE`（再送可）のままにするのは、リクエストを送れていないと言える接続前の失敗（名前解決失敗・接続拒否・アクセストークン更新の通信失敗）と、リクエストを送る前（レート制限の待ち中）に `ctx` の期限が切れた場合だけで、この場合は確認の検索もしない。リクエストを送る前に呼び出し側がキャンセルした場合は `OFFLINE` ではなく `CANCELLED`（`retryable: false`）を返す。リクエストを送った後のキャンセルは上記のとおり確認の対象で、確認は呼び出し側のキャンセルとは切り離して（最大 30 秒）行い、見つからなければ `SEND_UNCERTAIN` になる（`CANCELLED` にはならない）
 - MIME: `multipart/alternative`（`text/plain`＋`text/html`）。添付があれば `multipart/mixed`。ヘッダは `From`、`To`、`Cc`、`Bcc`、`Subject`（RFC 2047）、`In-Reply-To`、`References`、`Date`、`Message-ID`、`X-Hitomado-Send-Id`
 
+#### 5.2.1 送信済み確認の実 Gmail での確認結果（#72）
+
+リポジトリ内のテストは Gmail 互換の fake サーバーで、実 Gmail では確かめていない。実アカウントでの確認は未実施で、結果は下の表に環境・日付つきで記録する（記録がない項目は未確認として扱い、仕様の前提を「確認済み」と読まない）。
+
+| 項目 | 確認方法 | 結果（環境・日付） |
+|------|----------|--------------------|
+| 送信済みのコピーに `X-Hitomado-Send-Id` が残り、`get(format=metadata, metadataHeaders=X-Hitomado-Send-Id)` で読める | 実アカウントで送信し、送信済みのコピーをその形で取得する | 未確認 |
+| 送信直後の `in:sent after:<時刻>` に現れるまでの遅延（現れない間は `SEND_UNCERTAIN`） | 送信直後から数秒おきに `users.messages.list` を呼び、初めて現れるまでを測る | 未確認 |
+| `confirmSendCandidates`（20 件）・`confirmSendMargin`（10 分）（`internal/gmail/send_confirm.go`）の妥当さと list／get のクォータ消費 | 送信の多いアカウントで、確認 1 回の list 1 回＋get 最大 20 回が上限・クォータに収まるか | 未確認 |
+| Gmail が `Message-ID` を付け替える前提（Google Issue Tracker 446748944） | 送信前の `Message-ID` と、送信済みのコピーの `Message-ID` を比べる | 未確認 |
+
+動かない項目があれば、確認方法の見直しを別 Issue にする。メールアドレス・本文・トークンは記録に残さない。
+
 ## 6. AIService
 
 ```ts
@@ -424,6 +437,25 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 - **生成**: `POST https://api.openai.com/v1/responses`（`Authorization: Bearer <アクセストークン>`）。`store: false`・`stream: true`・`instructions`・`input`（配列）だけを送り、公式が未対応とする項目（`max_output_tokens`・`temperature`・`user`・`metadata` など）は送らない。`response.completed` を受けて初めて成功とし、`response.failed`／`response.incomplete`／途中で切れたストリームは失敗。`subscription_sharing_usage_limit_exceeded`（429）は `AI_FAILED`（`details.reason = "usage_limit_exceeded"`。画面は ChatGPT の使用状況の画面（`https://chatgpt.com/settings/usage`）を開く「Manage usage」を主なアクションにした案内を出す。更新も再送もしない）、`subscription_sharing_user_not_eligible`（403）は `AI_FAILED`（このアカウントでは使えない旨）。既存の Chat Completions の経路（`openai`）とは別の実装
 - **初めてのログインの確認**（[UI/UX ガイドライン](https://developers.openai.com/siwc/ui-ux-guidelines)）: 初めてログインして ChatGPT プランの利用が有効になったとき（付与された `scope` に `chatgpt.tokens.use.direct` があり、保存できたとき）だけ、そのアカウントの `planNoticePending` が立つ。画面は「You're using your ChatGPT plan」の確認（プランの範囲で使うことの説明・「Got it」）を出し、「Got it」で `AckChatGPTPlanNotice` を呼ぶ。状態は `app_settings.ai.chatgpt` のアカウントごと（`planNotice`。[ER §3.9](../architecture/er.md)）に持つので、同じアカウントの再ログイン・ログアウト・再起動では立たず、別のアカウントを初めて追加したときだけ、そのアカウントで 1 度出る。登録は `client_id` 単位なので、アカウントを `RemoveChatGPTAccount` で忘れてから同じアカウントを追加し直したとき、および同じアカウントを 2 回追加したときは、新しい `client_id` の登録として扱い、そのアカウントでもう一度出る。許可されなかったログイン（`OAUTH_DENIED`）では立たない（あとで初めて有効になったときに立つ）。v0.1.7 までの登録は、本人情報（`sub`）があり `consentNeeded` でなければ（ログアウト済みの登録も含め）確認済みとして移す
 - 使える対象: 公式ドキュメントが示すのは ChatGPT Plus／Pro。Business などほかのプランは、公式ドキュメントでは確認できていない（使えない場合は `subscription_sharing_user_not_eligible` で分かる）。使えるモデルは `ListAIModels('chatgpt')` が返す一覧による
+
+#### 6.2.1 実機・実アカウントでの確認結果（#78）
+
+偽の OpenAI サーバーでフロー全体はテストしたが、実際の ChatGPT アカウントでのログインは未実施。結果（成功・失敗・非対応）は下の表に環境・日付つきで記録する（記録がない項目は未確認）。トークン・メールアドレスは、ログ・Issue・PR・スクリーンショットに残さない。
+
+| 項目 | 結果（環境・日付） |
+|------|--------------------|
+| ChatGPT Plus／Pro で「Continue with ChatGPT」→ OpenAI の画面 → 動的登録（`agent_name_hint=Hitomado`）→ `127.0.0.1` の一時ポートの `/auth/callback` → ログイン完了まで通る | 未確認 |
+| 返るアクセストークン・ID トークンの実際の長さ（長さだけを記録する） | 未確認 |
+| 資格情報マネージャーの 1 件の上限（約 2.5KB）を超えたときの分割保存（`hitomado/chatgpt_token/<client_id>/<kind>#N`）が正しく読み書きできる | 未確認 |
+| 期限切れの自動更新（1 時間）・`id_token_hint` つきの再ログイン | 未確認 |
+| ログアウトの失効（OpenAI 側で連携が外れる） | 未確認 |
+| 「AIで下書き」で下書きが生成できる | 未確認 |
+| `ListAIModels('chatgpt')` が実際に返す内容 | 未確認 |
+| 利用枠を超えたときの応答（`subscription_sharing_usage_limit_exceeded`）と画面の表示 | 未確認 |
+| ChatGPT Business など Plus／Pro 以外のプランで使えるか | 未確認 |
+| 公式のサインイン画面・同意画面に表示される名前が `Hitomado` | 未確認 |
+
+分割保存が実トークンで動かなければ修正する。
 
 ## 7. AppService
 
@@ -545,7 +577,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.12 | 2026-11-03 | `LogService`（§7.1）・`MCPService`（§7.2）を追加 | #14 |
 | 1.13 | 2026-11-03 | `CheckForUpdate` に、版が `0.0.0`（dev・ローカルビルド）のときは通信せず `{ available: false }` を返す旨を追記 | #21 |
 | 1.14 | 2026-11-03 | `RemoveAccount` の手順を、同期ワーカーの停止（実行中の周期の終了待ち）→DB 削除に改め、DB 削除に失敗したときは同期を再開してエラーを返す旨を追記 | 実装（`internal/app/account.go`）との整合（#4） |
-| 1.15 | 2026-11-03 | `ReportClientError` の `message`・`stack` を、例外のメッセージ文ではなく種類のコード・位置だけのフレームにしたことを追記 | 実装（`frontend/src/lib/errorReporter.ts`）との整合（#24） |
+| 1.15 | 2026-11-03 | `ReportClientError` の `message`・`stack` を、例外のメッセージ文ではなく種類のコード・位置だけのフレームにしたことを追記 | 実装（`frontend/src/lib/errorReporter/index.ts`）との整合（#24） |
 | 1.16 | 2026-11-03 | `AIProvider` に `chatgpt` を追加し、`AIConfig` に `chatgptSignedIn`／`chatgptEmail` を追加。`SignInChatGPT`／`CancelSignInChatGPT`／`SignOutChatGPT`／`ListAIModels` と、§6.1 モデル一覧・§6.2 ChatGPT プランを追記。§1.2 の `AI_NOT_CONFIGURED`／`AI_FAILED` の説明を拡張 | Sign in with ChatGPT（#75）とモデル一覧からの選択（#76） |
 | 1.17 | 2026-11-03 | `PlatformService`（§7.3）と `UNSUPPORTED`（§1.2）を追加。§7 の `SetUpdateCheckEnabled` と §7.2 に、Android での扱いを追記 | Android 版で使わない機能の無効化（#89） |
 | 1.18 | 2026-11-03 | `SaveAttachment`・`ExportLogs` の保存先に Android（Storage Access Framework）の動作を、`OpenLogFolder` に Android で `UNSUPPORTED` となる旨を追記 | #85 |
@@ -567,3 +599,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.34 | 2026-11-05 | `AIConfig.effort`・`AIModel.efforts` を追加し、`SetAIConfig` に `effort?` を足した。§6 にプロバイダごとの渡し方（`output_config.effort`／`reasoning_effort`／`reasoning.effort`）、§6.1 に段階の取得（Anthropic は `capabilities.effort`。OpenAI 互換・ChatGPT は共通の 3 段階）を追記 | #111 |
 | 1.35 | 2026-11-05 | `SendPreview.bodyPreview` を、改行を保ち署名・引用を除いた約 600 文字（従来は空白を畳んだ約 200 文字）に変更 | #115 |
 | 1.36 | 2026-11-05 | `InboxService` に `Unarchive`・`Untrash` を追加し、§10 の Gmail API 一覧に `users.threads.untrash` を追記（アーカイブ・ゴミ箱のスナックバー「元に戻す」） | #156 |
+| 1.37 | 2026-11-06 | §5.2.1（送信済み確認の実 Gmail での確認）・§6.2.1（ChatGPT ログインの実機確認）の結果欄を追加（いずれも未確認として記録） | #72・#78 |

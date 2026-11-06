@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -46,6 +47,7 @@ type fakeGoogle struct {
 	revokeForms   []url.Values
 	revokeStatus  int
 	tracker       *oauth.Tracker // flow() が Flow へ渡す（nil＝なし）
+	logger        *slog.Logger   // flow() が Flow へ渡す（nil＝記録しない）
 }
 
 func newFakeGoogle(t *testing.T) *fakeGoogle {
@@ -76,6 +78,7 @@ func (g *fakeGoogle) flow(open func(string) error, timeout time.Duration) oauth.
 		HTTPClient:  g.srv.Client(),
 		Timeout:     timeout,
 		Tracker:     g.tracker,
+		Logger:      g.logger,
 	})
 }
 

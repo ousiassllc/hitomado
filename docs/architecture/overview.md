@@ -318,7 +318,7 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 ## 9. ビルド・CI
 
 - ローカル: `wails3 dev`（開発）、`wails3 package VERSION=X.Y.Z`（NSIS インストーラー `bin/hitomado-vX.Y.Z-windows-amd64-setup.exe` を作る。`task package` も同じ）。`sqlc generate` と `wails3 generate bindings` の生成物はコミットする（差分が出ていないことを CI で検査する）
-- GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 package` によりインストーラーを作り、インストール・上書き・アンインストールを検証する）。`main` への push（PR のマージ）ごとに CI を通したうえで patch を 1 つ上げたタグを自動で作り、インストーラーを Releases に添付する。詳細は [環境構築 §4](../environment/setup.md)
+- GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 package` によりインストーラーを作り、インストール・上書き・アンインストールを検証する）、installer-arm64（`windows-11-arm` で同じ x64 のインストーラーと exe を検証する）。`main` への push（PR のマージ）ごとに CI を通したうえで patch を 1 つ上げたタグを自動で作り、インストーラーを Releases に添付する。詳細は [環境構築 §4](../environment/setup.md)
 - マイグレーションは `internal/store/migrations/*.sql`（goose）を `embed` し、起動時に適用する。失敗時は起動中止（NF 可用性）
 
 ## 改訂履歴
@@ -347,3 +347,4 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 | 1.19 | 2026-11-04 | `internal/update` に Windows 版の自動アップデート（ダウンロード・`SHA256SUMS.txt` との照合・入れ替えの指示）を追加し、§5.1 に通信先（`github.com` とリダイレクト先）・安全条件・NSIS のサイレント実行（`/S /WAIT=60 /RELAUNCH`）・インストーラーの失敗の扱いを追記。通信先の図と発行イベント（`update:status`）を更新 | #103 |
 | 1.20 | 2026-11-05 | §7.4 の `GenerateReplyDraft` に任意の `instruction` を追加（プロバイダへはスレッド本文とは別枠の「利用者の指示」として渡す） | #109 |
 | 1.21 | 2026-11-05 | §7.4 に、`ai.Provider` が設定されたエフォートをプロバイダごとの項目（`output_config.effort`／`reasoning_effort`／`reasoning.effort`）で要求に載せることを追記（設定が無ければ従来の要求） | #111 |
+| 1.22 | 2026-11-06 | §9 の GitHub Actions に、ARM64 の Windows 11 実機（`windows-11-arm`）で x64 のインストーラーと exe を検証する `installer-arm64` を追記 | #13 |

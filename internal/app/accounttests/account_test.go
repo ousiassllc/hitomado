@@ -1,4 +1,4 @@
-package apptests
+package accounttests
 
 import (
 	"context"

@@ -28,7 +28,10 @@ activity="$app_id/com.wails.app.MainActivity"
 # 件名・ラベルは internal/e2e/seed.go とフロントの文言（frontend/src/lib/messages）に合わせる。
 subject="E2E seed thread 1"
 reply_all_label="全員に返信"
-editor_label="本文"
+# 返信の画面は、閉じるボタンの文言で見分ける（本文のエディタは contenteditable で、a11y では引用の文章が text になる）。
+editor_label="閉じる（下書きを保存）"
+# 本文のエディタには、返信では元のメールの引用が入っている。そこをタップして入力する。
+editor_body_hint="が書きました"
 typed_text="hello e2e draft"
 
 adb_bin="$(command -v adb || echo "${ANDROID_HOME:-${ANDROID_SDK_ROOT:-$HOME/Android/Sdk}}/platform-tools/adb")"
@@ -51,31 +54,56 @@ dump() { # 画面の XML を $out/ui.xml に取る（遷移中で失敗しても
   adb shell uiautomator dump /sdcard/hitomado-e2e-ui.xml >/dev/null 2>&1 || return 1
   adb exec-out cat /sdcard/hitomado-e2e-ui.xml >"$out/ui.xml" 2>/dev/null || return 1
 }
-# wait_for <説明> <上限の秒> <文字列>  … 画面に文字列（text か content-desc の部分一致）が出るまで待つ。経過秒を WAITED に入れる。
+# 前面に「応答なし」ダイアログ（システムアプリのもの。ソフトウェア描画のエミュレーターで出る）があれば、「待つ」を選んで閉じる。
+# 現在の $out/ui.xml を見る（ダンプは呼び出し側が取る）。閉じたら 0。
+dismiss_anr() {
+  local xy
+  "$ui" "$out/ui.xml" has "isn't responding" || return 1
+  echo "WARN ANR dialog on screen; choosing 'Wait'" >&2
+  xy="$("$ui" "$out/ui.xml" find "Wait")" || return 1
+  # shellcheck disable=SC2086
+  adb shell input tap $xy
+}
+# wait_for <説明> <上限の秒> <文字列>  … 画面に文字列（text か content-desc の部分一致）が出るまで待つ。
+# 上限を超えたら、最後の画面（スクリーンショット・ダンプ・要素の一覧）を残して 1 を返す。
 wait_for() {
-  local what="$1" limit="$2" needle="$3" t0
+  local what="$1" limit="$2" needle="$3" t0 dumps=0 dump_failures=0
   t0="$(now)"
   while :; do
     if dump; then
-      if "$ui" "$out/ui.xml" has "$needle"; then WAITED=$(($(now) - t0)); return 0; fi
-      # KVM なしのエミュレーターでは、システムアプリの「応答なし」ダイアログが前面に出て画面を隠す。待つを選んで続ける（記録は残す）。
-      if "$ui" "$out/ui.xml" has "isn't responding"; then
-        echo "WARN ANR dialog on screen; choosing 'Wait'" >&2
-        tap_text "Wait" || true
-      fi
+      dumps=$((dumps + 1))
+      if "$ui" "$out/ui.xml" has "$needle"; then return 0; fi
+      dismiss_anr || true
+    else
+      dump_failures=$((dump_failures + 1))
     fi
     if [ $(($(now) - t0)) -ge "$limit" ]; then
-      WAITED=$(($(now) - t0)); shot "timeout-${what// /_}"; return 1
+      shot "timeout-${what// /_}"
+      cp "$out/ui.xml" "$out/timeout-${what// /_}.xml" 2>/dev/null || true
+      echo "--- wait_for '$what' ('$needle') timed out after ${limit}s: $dumps dumps, $dump_failures dump failures; last screen:" >&2
+      "$ui" "$out/ui.xml" texts >&2 || true
+      return 1
     fi
     sleep 2
   done
 }
-tap_text() { # 画面から文字列を探して中心をタップする
+# 画面から文字列を探して中心をタップする。ダンプは遷移・負荷で失敗することがあるので数回やり直す。
+tap_text() {
   local xy
-  dump || return 1
-  xy="$("$ui" "$out/ui.xml" find "$1")" || return 1
-  # shellcheck disable=SC2086
-  adb shell input tap $xy
+  for _ in 1 2 3 4 5; do
+    if dump; then
+      if xy="$("$ui" "$out/ui.xml" find "$1")"; then
+        # shellcheck disable=SC2086
+        adb shell input tap $xy
+        return 0
+      fi
+      dismiss_anr || true
+    fi
+    sleep 2
+  done
+  echo "tap_text: '$1' was not found on screen:" >&2
+  "$ui" "$out/ui.xml" texts >&2 || true
+  return 1
 }
 app_pid() { adb shell pidof "$app_id" 2>/dev/null | tr -d '\r' | awk '{print $1}'; }
 
@@ -127,7 +155,7 @@ if tap_text "$subject" && wait_for "thread" "$step_timeout" "$reply_all_label"; 
   shot thread
   if tap_text "$reply_all_label" && wait_for "editor" "$step_timeout" "$editor_label"; then
     pass "reply editor opens"
-    tap_text "$editor_label" || true
+    tap_text "$editor_body_hint" || true
     sleep 2
     adb shell input text "${typed_text// /%s}"
     sleep 1
@@ -170,7 +198,26 @@ if [ "$kill_renderer" = 1 ]; then
       sleep 5
       after="$(app_pid)"
       if [ -n "$after" ] && [ "$after" = "$before" ]; then pass "app process survived the renderer kill (pid $after)"; else failed "app process survived the renderer kill (before=$before after=$after)"; fi
-      if wait_for "recovered-list" "$list_timeout" "$subject"; then pass "list is shown again after the renderer kill (${WAITED}s)"; shot recovered; else failed "list is shown again after the renderer kill"; fi
+      # 作り直した WebView の a11y ツリーは更新されないことがあり（画面には一覧が出ているのにダンプには行が無い）、
+      # 画面の確認は、「読み込み直した」ログとスクリーンショットの画素（空白の画面でない）で行う。a11y の一覧は参考に見る。
+      t0="$(now)"
+      until adb logcat -d -s WailsActivity:* | grep -q "Page loaded"; do
+        [ $(($(now) - t0)) -ge "$list_timeout" ] && break
+        sleep 2
+      done
+      if adb logcat -d -s WailsActivity:* | grep -q "Page loaded"; then pass "the app was loaded again after the renderer kill"; else failed "the app was loaded again after the renderer kill"; fi
+      if adb logcat -d -s WailsActivity:* | grep -q "showing the error screen"; then failed "the error screen was not shown (recovery limit not reached)"; else pass "the error screen was not shown"; fi
+      ratio=0
+      t0="$(now)"
+      while [ $(($(now) - t0)) -lt "$step_timeout" ]; do
+        shot recovered
+        ratio="$("$ui" "$out/recovered.png" inked 0.3 0.55 2>/dev/null || echo 0)"
+        awk -v r="$ratio" 'BEGIN { exit !(r >= 0.02) }' && break
+        sleep 3
+      done
+      metric recovered_list_ink_ratio "$ratio"
+      if awk -v r="$ratio" 'BEGIN { exit !(r >= 0.02) }'; then pass "the list area is drawn again after the renderer kill ($(($(now) - t0))s)"; else failed "the list area is drawn again after the renderer kill (ink ratio $ratio)"; fi
+      if wait_for "recovered-list" 20 "$subject"; then pass "a11y tree shows the list again too"; else echo "NOTE a11y tree of the recreated WebView does not show the list (screen pixels are checked instead)"; fi
       adb logcat -d -s WailsActivity:* | grep -E "renderer (crashed|was killed)|Recreating the WebView" || failed "recovery was logged"
     fi
   else

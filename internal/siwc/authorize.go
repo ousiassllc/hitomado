@@ -1,9 +1,31 @@
 package siwc
 
 import (
+	"crypto/sha256"
+	"encoding/base64"
 	"net/url"
 	"strings"
 )
+
+const (
+	// dynamicClientID は初回の動的登録の入口（発行された client_id ではないので保存しない）。
+	dynamicClientID = "dynamic_agent_client"
+
+	// 公式ドキュメントが定める scope。ChatGPT プランの利用は chatgpt.tokens.use.direct の許可で決まる。
+	scopePlan     = "chatgpt.tokens.use.direct"
+	requestScopes = "openid profile email offline_access resource.invoke " + scopePlan
+)
+
+// pendingAuth は 1 回のログインの state・nonce・PKCE。再ログインする登録は target（account）が持つ。
+type pendingAuth struct {
+	state, nonce, verifier string
+	redirectURI            string
+}
+
+func pkceChallenge(verifier string) string {
+	sum := sha256.Sum256([]byte(verifier))
+	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
 
 // authorizeURL は認可 URL。target は再ログインする登録（新規登録なら零値）。
 func (m *Manager) authorizeURL(authEndpoint string, p pendingAuth, hostID string, target account, idTokenHint string) string {

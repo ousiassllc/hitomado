@@ -2,9 +2,7 @@ package siwc
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/url"
@@ -13,21 +11,9 @@ import (
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
+
+	"github.com/ousiassllc/hitomado/internal/logging"
 )
-
-const (
-	// dynamicClientID は初回の動的登録の入口（発行された client_id ではないので保存しない）。
-	dynamicClientID = "dynamic_agent_client"
-
-	// 公式ドキュメントが定める scope。ChatGPT プランの利用は chatgpt.tokens.use.direct の許可で決まる。
-	scopePlan     = "chatgpt.tokens.use.direct"
-	requestScopes = "openid profile email offline_access resource.invoke " + scopePlan
-)
-
-func pkceChallenge(verifier string) string {
-	sum := sha256.Sum256([]byte(verifier))
-	return base64.RawURLEncoding.EncodeToString(sum[:])
-}
 
 // SignIn は Auth の実装。ブラウザでの OpenAI の公式画面（パスワード・Cookie は Hitomado が受け取らない）で
 // ログインさせ、コードをトークンに交換し、ID トークンと scope を検証してから保存する。
@@ -67,13 +53,19 @@ func mapSignInError(ctx context.Context, err error) error {
 	return err
 }
 
-// pendingAuth は 1 回のログインの state・nonce・PKCE。再ログインする登録は target（account）が持つ。
-type pendingAuth struct {
-	state, nonce, verifier string
-	redirectURI            string
-}
-
-func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error) {
+func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (_ Status, err error) {
+	// 失敗したとき、どの段階まで進んでいたかと元のエラーを 1 回だけ記録する（complete は自分の段階で記録する）。
+	stage, oauthError := "prepare", ""
+	defer func() {
+		if err == nil || stage == "complete" {
+			return
+		}
+		if oauthError != "" {
+			m.logFailure(stage, err, "oauth_error", oauthError)
+		} else {
+			m.logFailure(stage, err)
+		}
+	}()
 	hostID, err := m.ensureHostID(ctx)
 	if err != nil {
 		return Status{}, err
@@ -91,6 +83,7 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 		}
 		target = *a
 	}
+	stage = "discover"
 	prov, err := m.discover(ctx)
 	if err != nil {
 		return Status{}, err
@@ -102,12 +95,14 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 			return Status{}, fmt.Errorf("%w: 乱数を作れません", ErrFailed)
 		}
 	}
+	stage = "listen"
 	cb, err := startCallbackServer(p.state)
 	if err != nil {
 		return Status{}, err
 	}
 	defer cb.close()
 	p.redirectURI = cb.redirectURI()
+	m.logProgress("listening")
 
 	// 選んだ登録の保存済みの ID トークン（ログアウトで消えていれば無い）は同じアカウントを示すヒントとして
 	// OpenAI の認可エンドポイントにだけ送る。ほかの登録の ID トークンは送らない。
@@ -119,11 +114,15 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 		}
 		unlock()
 	}
+	stage = "open_browser"
 	authURL := m.authorizeURL(prov.Endpoint().AuthURL, p, hostID, target, hintToken)
 	if err := m.opts.OpenBrowser(authURL); err != nil {
-		return Status{}, fmt.Errorf("%w: ブラウザを開けません", ErrFailed)
+		// 元のエラーも保持して、ログで原因を追えるようにする（画面の分類は ErrFailed のまま）。
+		return Status{}, fmt.Errorf("%w: ブラウザを開けません（%w）", ErrFailed, err)
 	}
+	m.logProgress("browser_opened")
 
+	stage = "wait_callback"
 	timer := time.NewTimer(m.opts.Timeout)
 	defer timer.Stop()
 	var res callbackResult
@@ -135,14 +134,32 @@ func (m *Manager) signIn(ctx context.Context, opts SignInOptions) (Status, error
 		return Status{}, ErrTimeout
 	}
 	if res.err != nil {
+		stage, oauthError = "callback", res.oauthError
 		return Status{}, res.err
 	}
+	m.logProgress("callback_received")
+	stage = "complete"
 	return m.complete(ctx, prov, target, p, res)
 }
 
 // complete はコードの交換・ID トークンと scope の検証・保存を行う。target は再ログインした登録（新規登録なら零値）。
 // 検証に通るまで、保存済みの登録・トークン・使用中のアカウントは変えない。保存するのは、このログインのアカウントのトークンと登録だけ。
-func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target account, p pendingAuth, res callbackResult) (Status, error) {
+func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target account, p pendingAuth, res callbackResult) (_ Status, err error) {
+	// 失敗したとき、どの段階だったかと元のエラーを記録する。ID トークンの検証の詳細（detail）は、トークンの中身を含み得るので
+	// 戻り値のエラーには載せず、ログにだけ（伏せ処理を通して）残す。
+	stage := "register"
+	var detail error
+	defer func() {
+		if err == nil {
+			m.logProgress("completed")
+			return
+		}
+		if detail != nil {
+			m.logFailure(stage, err, "cause", detail, "cause_chain", logging.ErrorChain(detail))
+		} else {
+			m.logFailure(stage, err)
+		}
+	}()
 	clientID := target.ClientID
 	if clientID == "" {
 		// 新規登録: コールバックが発行された client_id を返す。無い・不正な値なら登録は未完了。
@@ -157,6 +174,7 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 		return Status{}, fmt.Errorf("%w: クライアント ID が一致しません", ErrInvalidResponse)
 	}
 
+	stage = "token_exchange"
 	tr, err := m.requestTokens(ctx, url.Values{
 		"grant_type":    {"authorization_code"},
 		"client_id":     {clientID},
@@ -168,16 +186,18 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 	if err != nil {
 		var se *serverError
 		if errors.As(err, &se) && se.Code == "invalid_grant" {
-			return Status{}, fmt.Errorf("%w: 認可コードが使えません。もう一度お試しください", ErrInvalidResponse)
+			return Status{}, fmt.Errorf("%w: 認可コードが使えません。もう一度お試しください（%w）", ErrInvalidResponse, se)
 		}
 		return Status{}, err
 	}
+	stage = "identity_check"
 	if tr.IDToken == "" {
 		return Status{}, fmt.Errorf("%w: ID トークンがありません", ErrInvalidResponse)
 	}
 	idt, err := prov.Verifier(&oidc.Config{ClientID: clientID, Now: m.clk.Now}).Verify(oidc.ClientContext(ctx, m.hc), tr.IDToken)
 	if err != nil {
-		// 検証の詳細（トークンの中身を含み得る）は載せない。
+		// 検証の詳細（トークンの中身を含み得る）は戻り値に載せない。
+		detail = err
 		return Status{}, fmt.Errorf("%w: ID トークンが不正です", ErrInvalidResponse)
 	}
 	if subtle.ConstantTimeCompare([]byte(idt.Nonce), []byte(p.nonce)) != 1 || idt.Subject == "" {
@@ -201,6 +221,7 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 	}
 	granted := slices.Contains(strings.Fields(scope), scopePlan)
 
+	stage = "save"
 	defer m.lockAccount(clientID)() // このログインのアカウントだけを守る（別のアカウントの更新・ログアウトは待たない）
 	// 取得したトークンを保存し終えるまで、ログインの中止（ctx）で中断しない（トークンと登録が食い違わないように）。
 	ctx = context.WithoutCancel(ctx)
@@ -258,49 +279,4 @@ func (m *Manager) complete(ctx context.Context, prov *oidc.Provider, target acco
 		return Status{}, err
 	}
 	return m.Status(ctx)
-}
-
-// restoreTokens はアカウントのトークンを prev（ログイン前の値。無ければ空）に戻す（そのアカウントのロックを持って呼ぶ）。
-// 戻せなかったときは、新旧が混ざったトークンを残さないよう消す。戻した旧トークンが OpenAI 側でまだ有効かは分からない
-// （無効なら次の更新で ErrReauthRequired になり、再ログインを案内する）。ログにトークンの値は出さない。
-func (m *Manager) restoreTokens(clientID string, prev tokens) {
-	if prev.Refresh != "" {
-		if err := m.saveTokens(clientID, prev); err == nil {
-			return
-		}
-		m.opts.Logger.Warn("chatgpt: could not restore the previous session tokens")
-	}
-	if err := m.clearTokens(clientID); err != nil {
-		m.opts.Logger.Warn("chatgpt: could not clear the tokens of a login that was not saved")
-	}
-}
-
-// declinePlan は ChatGPT プランの利用が許可されなかったログインの後始末をして ErrPlanNotGranted を返す（そのアカウントのロックを持って呼ぶ）。
-// ログイン中のアカウント（このアカウントを含む）のセッションは変えない。ログイン中でないアカウントだけ、次のログインで
-// 同じクライアントを使い同意を求め直すため、登録を残す（ほかのアカウントの登録・使用中のアカウントは変えない）。
-func (m *Manager) declinePlan(ctx context.Context, clientID, subject, email string) error {
-	if live, err := m.hasSession(clientID); err != nil {
-		return err
-	} else if live {
-		return ErrPlanNotGranted
-	}
-	if err := m.updateRegistry(ctx, func(r *registry) error {
-		a := r.upsert(clientID)
-		a.Subject, a.Email, a.ConsentNeeded, a.ExpiresAt = subject, email, true, 0
-		return nil
-	}); err != nil {
-		return err
-	}
-	return ErrPlanNotGranted
-}
-
-// revokeQuietly は失効を 1 度だけ試み、結果は問わない（検証に失敗した・不要になったトークンの後始末）。
-func (m *Manager) revokeQuietly(ctx context.Context, clientID, refreshToken string) {
-	if refreshToken == "" || clientID == "" {
-		return
-	}
-	// ctx が中断済みでも後始末は短時間だけ試す。
-	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
-	defer cancel()
-	_ = m.revoke(rctx, clientID, refreshToken)
 }

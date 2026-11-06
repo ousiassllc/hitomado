@@ -22,7 +22,13 @@ var appIcon []byte
 var version = update.DevVersion
 
 func main() {
-	if err := runRecovered(); err != nil {
+	ran, err := runExclusive(runRecovered)
+	if !ran {
+		// Android: Activity の再生成で nativeInit が main を再び起動した。最初の実行を止めない（runguard.go）。
+		slog.Warn("main was called again while the app is already running; ignoring it (the Android Activity was probably recreated)")
+		return
+	}
+	if err != nil {
 		slog.Error("fatal", "err", err.Error())
 		platform.ShowFatal("Hitomado を起動できません", err.Error())
 		os.Exit(1)

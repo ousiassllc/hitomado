@@ -141,6 +141,50 @@ jobs:
           name: hitomado-windows-amd64-setup
           path: bin/hitomado-v0.99.2-windows-amd64-setup.exe
           if-no-files-found: error
+      # ARM64 の Windows 11（x64 エミュレーション）で同じ検証を通すための入力（下の installer-arm64）。
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-lifecycle-inputs
+          path: |
+            old-setup.exe
+            old-hitomado.exe
+            bin/hitomado.exe
+            bin/hitomado-v0.99.2-windows-amd64-setup.exe
+          retention-days: 1
+          if-no-files-found: error
+
+  # ARM64 の Windows 11 の実機（windows-11-arm）で、x64 版のインストーラーと exe を通す（#13）。
+  # 同じ x64 の成果物を、build ジョブで作ったものから受け取って使う（ARM64 版のビルドは無い）。
+  installer-arm64:
+    needs: build
+    runs-on: windows-11-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer-lifecycle-inputs
+          path: in
+      - name: Installer lifecycle on ARM64 (install, refuse while running, overwrite, uninstall)
+        shell: pwsh
+        run: >-
+          .github/scripts/test-installer.ps1 -Force
+          -OldInstaller "$PWD\in\old-setup.exe" -OldVersion 0.99.1 -OldExe "$PWD\in\old-hitomado.exe"
+          -NewInstaller "$PWD\in\bin\hitomado-v0.99.2-windows-amd64-setup.exe" -NewVersion 0.99.2
+          -Exe "$PWD\in\bin\hitomado.exe"
+      - name: Smoke test (the x64 exe stays up for 15 seconds under emulation)
+        shell: pwsh
+        run: |
+          $p = Start-Process -FilePath "$PWD\in\bin\hitomado.exe" -PassThru
+          try {
+            for ($i = 0; $i -lt 15; $i++) {
+              Start-Sleep -Seconds 1
+              if ($p.HasExited) { throw "the app exited early (code $($p.ExitCode))" }
+            }
+            "alive after 15s; MainWindowTitle='$($p.MainWindowTitle)'"
+            if ($p.MainWindowTitle -ne 'Hitomado') { throw "no Hitomado window (title '$($p.MainWindowTitle)')" }
+          } finally {
+            if (-not $p.HasExited) { $p.Kill() }
+          }
 
   # Android の APK と AAB を作る。署名は使い捨ての鍵（実鍵は使わない）。
   # この CI を workflow_call で呼ぶ release.yml（push）では動かさない（release.yml が同じ action でリリース用の APK を作る。二重に動かさない）。

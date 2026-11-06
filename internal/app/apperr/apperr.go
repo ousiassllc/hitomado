@@ -7,11 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"strings"
 
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/oauth"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
@@ -118,6 +120,8 @@ func (e *Error) WithDetail(key string, value any) *Error {
 
 // FromInfra はインフラ層のエラーを AppError に写像する。*Error はそのまま返す。
 // 写像できないエラーは INTERNAL とし、元のエラーは Unwrap で保持する（メッセージには出さない）。
+// INTERNAL は画面からも原因を追えないので、元のエラーの文面と型のつながり（Unwrap の連鎖）をここで Error ログに残す
+// （JSON・画面には出さない。ログは logging の伏せ処理を通る）。
 func FromInfra(err error, accountID string) *Error {
 	if err == nil {
 		return nil
@@ -127,6 +131,9 @@ func FromInfra(err error, accountID string) *Error {
 		return ae
 	}
 	e := classify(err)
+	if e.Code == Internal {
+		slog.Error("internal error", "err", err, "chain", logging.ErrorChain(err), "accountId", accountID)
+	}
 	if accountID != "" {
 		e = e.ForAccount(accountID)
 	}
