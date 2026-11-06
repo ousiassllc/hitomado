@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { WarningTriangle, Xmark } from '@iconoir/vue'
 import { computed } from 'vue'
-import type { Address } from '../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
-import { compose as msg } from '../../lib/messages'
-import { addressLabel, isLikelyEmail } from '../../lib/recipients'
-import { vRipple } from '../../lib/ripple'
+import type { Address } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+import { compose as msg } from '../../../lib/messages'
+import { addressLabel, isLikelyEmail } from '../../../lib/recipients'
+import { vRipple } from '../../../lib/ripple'
 
 const props = defineProps<{
   address: Address

@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { WarningTriangle } from '@iconoir/vue'
 import { computed, ref, useId } from 'vue'
-import { ComposeService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
-import type { Address } from '../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
-import { useContactSuggest } from '../../composables/useContactSuggest'
-import { call } from '../../lib/api'
-import { compose as msg } from '../../lib/messages'
-import { isLikelyEmail, mergeAddresses, parseAddresses } from '../../lib/recipients'
+import { ComposeService } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import type { Address } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+import { useContactSuggest } from '../../../composables/useContactSuggest'
+import { call } from '../../../lib/api'
+import { compose as msg } from '../../../lib/messages'
+import { isLikelyEmail, mergeAddresses, parseAddresses } from '../../../lib/recipients'
 import RecipientChip from './RecipientChip.vue'
 
 const props = defineProps<{

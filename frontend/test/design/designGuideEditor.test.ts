@@ -5,8 +5,8 @@ import { createPinia, setActivePinia } from 'pinia'
 import AttachmentBar from '../../src/components/compose/AttachmentBar.vue'
 import ComposeFields from '../../src/components/compose/ComposeFields.vue'
 import EditorLinkForm from '../../src/components/compose/EditorLinkForm.vue'
-import RecipientField from '../../src/components/compose/RecipientField.vue'
 import RichTextEditor from '../../src/components/compose/RichTextEditor.vue'
+import RecipientField from '../../src/components/compose/recipient/RecipientField.vue'
 import { useComposeStore } from '../../src/stores/compose'
 import { rule } from './styleRule'
 
@@ -92,10 +92,10 @@ describe('チップ・添付の削除ボタン（M4・#133）', () => {
 
 describe('宛先の候補一覧の出入り（M5・#213）', () => {
   test('出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）', () => {
-    expect(rule('compose/RecipientField.vue', '.suggest-enter-active {')).toContain(
+    expect(rule('compose/recipient/RecipientField.vue', '.suggest-enter-active {')).toContain(
       'animation: ui-fade-in var(--motion-fade-in) var(--ease-out)',
     )
-    expect(rule('compose/RecipientField.vue', '.suggest-leave-active {')).toContain(
+    expect(rule('compose/recipient/RecipientField.vue', '.suggest-leave-active {')).toContain(
       'animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards',
     )
   })

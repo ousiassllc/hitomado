@@ -189,7 +189,7 @@ frontend/src/
 │  ├─ account/       # アカウント関連
 │  ├─ inbox/         # 受信箱リスト
 │  ├─ thread/        # スレッド表示
-│  ├─ compose/       # エディタ・送信確認
+│  ├─ compose/       # エディタ・送信確認（宛先は compose/recipient/、AI は compose/ai/）
 │  ├─ settings/      # 設定
 │  └─ shell/         # AppShell・バナー・アラート・トースト
 ├─ stores/           # Pinia
@@ -301,7 +301,7 @@ graph TD
 | `ThreadAiPanel` | スレッドの AI パネル（F-17・F-18。#206・#207）。`ThreadHeader` の下・メッセージ一覧の上。質問の入力欄（`ThreadAiQuestionForm`）は常に出す。要約も会話も無く、生成中でも失敗でもないときは、入力欄（2 行の高さから）だけをカードに入れて出す。要約: 生成中は `Spinner` と「中止」、完了後は要約（`text`。プレーンテキストのまま `white-space: pre-wrap` で表示し、Markdown・HTML は解釈しない）と「再生成」、長いスレッドで `includedCount < totalCount` のときは「長いスレッドのため、新しい N 件（全 M 件）を対象にしました」。会話: 質問は `--mute` の見出し「あなたの質問」＋本文、回答は「AI の回答」＋プレーンテキスト（`pre-wrap`）を順に並べ、古いやり取りを文脈から外しているときは先頭に「古いやり取りは文脈から外れています」、会話があるときは「新しい会話」（会話だけを消す。要約は残す）。回答待ちの位置に `Spinner` と「中止」。失敗は `AlertStack` ではなくパネルの中に出し、直前の要約・会話は消さない。パネルの中身は `ThreadPane` のスクロール領域の中で他のメッセージと一緒にスクロールする。カード（`1px --border`・`--r-lg`・`--surface`）で、`MessageCard` と見た目を揃える。新しい回答・要約が加わったら、パネルの末尾がすでに見えていれば動かさず、見えていなければ見える位置までスクロールする（`scrollIntoView({ block: 'nearest' })`）。タッチ UI は入力欄・ボタンを 44px 以上にする | props: `flow`（`useThreadAiFlow` の戻り値。前提確認の状態。生成の状態は `threadAiStore` を直接読む） | `threadAiStore` |
 | `ThreadAiQuestionForm` | 質問の入力欄（F-18。#207）。`ThreadAiPanel` の下部に常に出す。複数行（2〜6 行で伸びる）・2,000 文字の残り表示。「質問する」ボタンと `Ctrl+Enter`（Mac は `Cmd+Enter`）で送る。`Enter` は改行。空・空白だけ・生成中（要約も含む）は送れない。値（書きかけ）は `threadAiStore.draft` にだけ持つ | props/emits: `v-model`、`submit` | `threadAiStore` |
 
-### 3.7 エディタ・送信確認（`components/compose`）
+### 3.7 エディタ・送信確認（`components/compose`。`RecipientField`・`RecipientChip` は `components/compose/recipient/`）
 
 | コンポーネント | 責務 | Props／Emits | バインディング／ストア |
 |----------------|------|--------------|------------------------|
@@ -633,3 +633,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.57 | 2026-11-06 | F-18（スレッドへの AI 質問）: §2.3 の `ai.Provider` に `AskAboutThread`、§2.4 の `AIService` にステートレスな質問の説明、§3.6 に `ThreadAiQuestionForm` を追加し `ThreadAiPanel` に会話の表示・「新しい会話」・質問の入力欄を追記。§3.10 の `threadAiStore` に `turns`／`draft`／`ask`／`newConversation`（会話は最新 10 往復・20,000 文字に収めて渡す。メモリのみ。要約と質問は同時に 1 つだけ）、§3.11 の `useThreadAi` に質問を追記 | #207 |
 | 1.58 | 2026-11-06 | §5.3 の案件固有部品に件数バッジ（`.badge`。12px・min 20・999+）を追記し、逸脱表に Android の致命エラー画面のフォント（端末既定）を追加。入力中の「残り N 文字」の数値を `--font-mono` にした（`messages` の `remaining` を前後の文字列に分けた）。件数バッジの `line-height: 20px` を `min-height: 20px` に置き換え。致命エラー画面の本文の行間（1.8）と「アプリを終了」ボタンの見た目（accent 地・bone 字・角丸 8dp・高さ 40dp・太字）を揃えた | #211 |
 | 1.59 | 2026-11-06 | §3.3 の `Spinner` のサイズ指定（`sm`／`lg`）を廃止して常に 20px にし、`BaseSwitch` の横のラベルを 16px（`--font-size-base`）に揃える旨を追記。`ConfirmDialog` の使い手に API キーの削除（`AIApiKey`）と下書きの破棄（`ComposePane`）を追加し、`ComposePane`／`AIApiKey` に確認モーダルを挟んだ。§3.10 の `threadStore` に、`NOT_FOUND` を info トーストでなくエラーのアラートで出すことを追記。§5.3 の案件固有部品に添付チップの削除ボタン（24px）を、逸脱表に処理中の固定（`busy` で閉じない）を追加 | #214 |
+| 1.60 | 2026-11-06 | §3.7 の `RecipientField`・`RecipientChip` を `components/compose/recipient/` に移した旨をツリーと見出しに追記（`compose/` 直下の行数を減らすためのファイルの移動のみ。挙動の変更なし） | 実装との整合 |
