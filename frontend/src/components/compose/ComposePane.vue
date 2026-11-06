@@ -6,6 +6,7 @@ import { SEND_SHORTCUT_KEY } from '../../lib/shortcuts'
 import { useComposeStore } from '../../stores/compose'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseTooltip from '../ui/BaseTooltip.vue'
+import ConfirmDialog from '../ui/ConfirmDialog.vue'
 import AttachmentBar from './AttachmentBar.vue'
 import AiDraftButton from './ai/AiDraftButton.vue'
 import ComposeFields from './ComposeFields.vue'
@@ -57,6 +58,14 @@ function onKeydown(e: KeyboardEvent): void {
 
 const fields = ref<InstanceType<typeof ComposeFields>>()
 
+/** 下書きの破棄は Gmail の下書きも消すので、確認のモーダルを挟む（ガイド O2）。失敗は作成画面のエラー欄に出る。 */
+const discardOpen = ref(false)
+
+function discard(): void {
+  discardOpen.value = false
+  void compose.discard()
+}
+
 /** 入力途中の宛先を確定してから送信確認を開く（確定後の content を使う）。 */
 function send(archive: boolean): void {
   if (!compose.canSend || frozen.value) return
@@ -90,7 +99,7 @@ function send(archive: boolean): void {
         {{ props.expanded ? msg.collapse : msg.expand }}
       </BaseButton>
       <BaseButton size="sm" variant="ghost" :disabled="compose.sending" @click="compose.close()">{{ msg.close }}</BaseButton>
-      <BaseButton size="sm" variant="ghost" :disabled="compose.sending" @click="compose.discard()">{{ msg.discard }}</BaseButton>
+      <BaseButton size="sm" variant="ghost" :disabled="compose.sending" @click="discardOpen = true">{{ msg.discard }}</BaseButton>
     </header>
 
     <ComposeFields ref="fields" :frozen="frozen" />
@@ -144,6 +153,14 @@ function send(archive: boolean): void {
     </footer>
 
     <SignatureConflictDialog />
+
+    <ConfirmDialog
+      v-model:open="discardOpen"
+      :title="msg.discardTitle"
+      :detail="msg.discardDetail"
+      :confirm-label="msg.discardConfirm"
+      @confirm="discard"
+    />
   </section>
 </template>
 

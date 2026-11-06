@@ -60,7 +60,7 @@ describe('threadStore', () => {
     expect(callsOf('GetThread')).toHaveLength(1)
   })
 
-  test('NOT_FOUND はトーストを出して一覧から除去し、表示を閉じる', async () => {
+  test('NOT_FOUND はアラートを出して一覧から除去し、表示を閉じる', async () => {
     const inbox = useInboxStore()
     inbox.items = [
       {
@@ -81,7 +81,8 @@ describe('threadStore', () => {
     ctl.failures.GetThread = appError('NOT_FOUND')
     const s = useThreadStore()
     await s.open(REF)
-    expect(useUiStore().toast?.message).toBe('スレッドが見つかりません')
+    expect(useUiStore().alerts.map((a) => a.message)).toEqual(['スレッドが見つかりません'])
+    expect(useUiStore().toast).toBeUndefined()
     expect(inbox.items).toHaveLength(0)
     expect(inbox.selectedRef).toBeUndefined()
     expect(s.current).toBeUndefined()

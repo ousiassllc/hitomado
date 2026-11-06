@@ -75,7 +75,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
         <MagicWand class="icon icon-sm" aria-hidden="true" /> {{ msg.ai.button }}
       </BaseButton>
       <template v-else>
-        <span class="ai-progress" role="status"><Spinner size="sm" /> {{ msg.ai.generating }}</span>
+        <span class="ai-progress" role="status"><Spinner /> {{ msg.ai.generating }}</span>
         <BaseButton size="sm" variant="secondary" @click="ai.cancel()">{{ msg.ai.cancel }}</BaseButton>
       </template>
       <template v-if="ai.needsKey.value">

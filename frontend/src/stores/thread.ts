@@ -166,7 +166,7 @@ export const useThreadStore = defineStore('thread', () => {
       if (my !== seq) return
       const err = e as AppError
       if (err.code === 'NOT_FOUND') {
-        ui.pushToast('info', msg.notFound)
+        ui.pushAlert(msg.notFound)
         reset()
         inbox.removeThread({ accountId: ref.accountId, threadId: ref.threadId })
         return

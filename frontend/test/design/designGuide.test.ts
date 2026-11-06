@@ -203,10 +203,15 @@ describe('アイコン（I）', () => {
 })
 
 describe('モーション（M）', () => {
-  test('スピナーの大きさは --icon-sm/md/lg（既定 20px）', () => {
+  test('スピナーの大きさは 20px（--icon-md）だけで、サイズの指定は無い（O12）', () => {
     const w = mount(Spinner)
-    expect(w.classes()).toContain('spinner-md')
-    expect(mount(Spinner, { props: { size: 'lg' } }).classes()).toContain('spinner-lg')
+    expect(w.classes()).toEqual(['spinner'])
+    const style = parse(
+      readFileSync(new URL('../../src/components/ui/Spinner.vue', import.meta.url), 'utf8'),
+    ).descriptor.styles[0].content
+    expect(style).toContain('width: var(--icon-md)')
+    expect(style).toContain('height: var(--icon-md)')
+    expect(style).not.toMatch(/--icon-(sm|lg)/)
   })
 
   test('ボタンの押下でリップルが出て、無効のときは出ない', async () => {

@@ -66,7 +66,7 @@ watch(model, () => void nextTick(fit))
         role="status"
         data-testid="thread-ai-question-remaining"
       >
-        {{ msg.ai.question.remaining(remaining) }}
+        {{ msg.ai.question.remaining.before }}<span class="num">{{ remaining }}</span>{{ msg.ai.question.remaining.after }}
       </span>
       <BaseButton size="sm" variant="primary" type="submit" :disabled="!canSubmit" data-testid="thread-ai-ask">
         {{ msg.ai.question.submit }}
@@ -124,6 +124,10 @@ watch(model, () => void nextTick(fit))
 .question-note {
   flex: 1;
   min-width: 0;
+}
+
+.question-count .num {
+  font-family: var(--font-mono);
 }
 
 .question-count.over {

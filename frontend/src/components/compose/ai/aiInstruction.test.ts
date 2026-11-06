@@ -60,9 +60,7 @@ describe('AiDraftInstruction（入力欄）', () => {
         'onUpdate:modelValue': (v: string) => w.setProps({ modelValue: v }),
       },
     })
-    expect(w.get('[data-testid="ai-instruction-remaining"]').text()).toBe(
-      msg.ai.instruction.remaining(2000),
-    )
+    expect(w.get('[data-testid="ai-instruction-remaining"]').text()).toBe('残り 2000 文字')
     await w.get('textarea').setValue('あ'.repeat(30))
     expect(w.props('modelValue')).toBe('あ'.repeat(30))
     expect(w.get('[data-testid="ai-instruction-remaining"]').text()).toBe('残り 1970 文字')
