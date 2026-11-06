@@ -596,7 +596,7 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 
 - targetSdk 36 では、Activity のウィンドウがステータスバー・ナビゲーションバーの背後まで広がる（エッジ・ツー・エッジが強制される）。テンプレートの `MainActivity` は insets を扱っておらず、そのままでは WebView の上端・下端がバーに隠れる。
 - **Activity 側で insets を当てる方式を選んだ**（`MainActivity.applyWindowInsets()`）。system bars・display cutout・IME の insets を、WebView を入れた `main_container` の padding に当てる。CSS の `env(safe-area-inset-*)` と `viewport-fit=cover` は使わない: Android の WebView では `env()` の値が端末・WebView のバージョンで 0 のままになることがあり、信頼できないため。Java で 1 か所に当てれば、フロントの CSS は safe area を知らなくてよい（`index.html` の viewport も変えない）。IME の insets も同じ padding に含めるので、ソフトキーボードが出たときも入力欄が隠れない（`adjustResize` は 36 のエッジ・ツー・エッジでは効かないため）。
-- バーの背景色は `app_background`（`values`＝`#F5F5F4`、`values-night`＝`#050505`。フロントの `--bone` のライト／ダークと同じ値）。バーのアイコンの明暗は `updateSystemBarIcons()` が uiMode に合わせる。フロントの配色を変える（`tokens.css`）ときはここも合わせる。
+- バーの背景色は `app_background`（`values`＝`#F5F5F4`、`values-night`＝`#050505`。フロントの `--bone` のライト／ダークと同じ値）。バーのアイコンの明暗は `updateSystemBarIcons()` が、ウィンドウ背景・バー色・WebView の下地色は `updateBackgrounds()` が uiMode に合わせる（`onConfigurationChanged` から呼ぶ。uiMode を `configChanges` に含め Activity を再生成しないため、実行中のテーマ切替でも張り替わる。実機未確認 [INFERENCE]）。フロントの配色を変える（`tokens.css`）ときはここも合わせる。
 - WebView 自身の下地（読み込み前の背景。Chromium の既定は白）も `app_background` にする（`MainActivity.setupWebView` の `setBackgroundColor`。復旧で作り直す WebView も同じ経路）。ダークで読み込み前に白が出ないための設定で、**実機での確認は未了**。Windows 側は `wails.go` の `WindowBackground` で同じ扱い。
 
 ### 16.3 戻るボタン

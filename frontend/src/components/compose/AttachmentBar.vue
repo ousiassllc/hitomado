@@ -127,6 +127,7 @@ onBeforeUnmount(() => stopDrop?.())
   border-radius: var(--r-sm);
   background: var(--bone);
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .attach-name {
