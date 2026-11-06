@@ -201,7 +201,8 @@ onBeforeUnmount(() => editor.value?.destroy())
   padding-left: var(--s-6);
 }
 
-.rte-body :deep(.editor-content > :last-child) {
+/* 末尾の段落・箇条書きは下の余白を持たない。署名・引用（div / blockquote）の中の最後の p も含める（外へ突き抜けて本文末尾に 16px 残るため）。 */
+.rte-body :deep(.editor-content :is(p, ul):last-child) {
   margin-bottom: 0;
 }
 
@@ -222,12 +223,12 @@ onBeforeUnmount(() => editor.value?.destroy())
 }
 
 .rte-body :deep([data-hitomado-signature]) {
-  margin-top: var(--s-3);
+  margin-top: var(--gap-para);
   color: var(--ink);
 }
 
 .rte-body :deep([data-hitomado-quote]) {
-  margin: var(--s-3) 0 0;
+  margin: var(--gap-para) 0 0;
   padding-left: var(--s-3);
   border-left: 1px solid var(--mute);
   color: var(--ink);

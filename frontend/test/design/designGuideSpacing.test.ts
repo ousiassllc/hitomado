@@ -117,9 +117,19 @@ describe('入れ子パネルの地・末尾の余白・組どうしの間隔（S
     )
   })
 
-  test('本文エディタの末尾の段落・箇条書きは下の余白を持たない（padding の内側に 16 を残さない）', () => {
-    expect(rule('compose/RichTextEditor.vue', '.editor-content > :last-child)')).toContain(
+  test('本文エディタの末尾の段落・箇条書きは、署名・引用の中の最後の p も含めて下の余白を持たない（#244）', () => {
+    // 直下の子（> :last-child）だけでは、署名・引用（div / blockquote）の中の p の 16 が外へ突き抜けて末尾に残る
+    expect(rule('compose/RichTextEditor.vue', '.editor-content :is(p, ul):last-child)')).toContain(
       'margin-bottom: 0',
+    )
+  })
+
+  test('署名・引用の上の間隔は段落間（--gap-para）と同じ（#244）', () => {
+    expect(rule('compose/RichTextEditor.vue', '[data-hitomado-signature])')).toContain(
+      'margin-top: var(--gap-para)',
+    )
+    expect(rule('compose/RichTextEditor.vue', '[data-hitomado-quote])')).toContain(
+      'margin: var(--gap-para) 0 0',
     )
   })
 
