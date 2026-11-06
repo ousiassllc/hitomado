@@ -120,13 +120,16 @@ function send(archive: boolean): void {
 
     <AttachmentBar />
 
-    <div v-for="e in errors" :key="e" class="compose-error" role="alert">
-      <WarningCircle class="icon compose-error-icon" aria-hidden="true" />
-      <div class="compose-error-main">
-        <strong class="compose-error-title">{{ common.alertTitle }}</strong>
-        <p class="compose-error-body">{{ e }}</p>
+    <!-- インラインアラートの出現はフェードイン・消去はフェードアウト（ガイド M5）。tag を省くのでラッパー要素は増えない。 -->
+    <TransitionGroup name="alert">
+      <div v-for="e in errors" :key="e" class="compose-error" role="alert">
+        <WarningCircle class="icon compose-error-icon" aria-hidden="true" />
+        <div class="compose-error-main">
+          <strong class="compose-error-title">{{ common.alertTitle }}</strong>
+          <p class="compose-error-body">{{ e }}</p>
+        </div>
       </div>
-    </div>
+    </TransitionGroup>
 
     <footer class="compose-foot">
       <span v-if="session.accountId === undefined" class="foot-hint" role="note">{{ msg.senderRequiredHint }}</span>
@@ -272,5 +275,13 @@ function send(archive: boolean): void {
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   overflow-wrap: anywhere;
+}
+
+.alert-enter-active {
+  animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
+}
+
+.alert-leave-active {
+  animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 </style>

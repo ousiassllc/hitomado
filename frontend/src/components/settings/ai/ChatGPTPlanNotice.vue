@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { ChatGPTAccount } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { settings as msg } from '../../../lib/messages'
 import { useSettingsStore } from '../../../stores/settings'
@@ -17,6 +17,11 @@ const ui = useUiStore()
 // 記録に失敗しても、押したあとに出し続けない（記録できていなければ、次の読み込みでもう一度出る）。
 const dismissed = ref(new Set<string>())
 const target = computed(() => props.accounts.find((a) => a.planNoticePending && a.signedIn && !dismissed.value.has(a.id)))
+// 確認済みで target が無くなっても、退出のフェード中はメールアドレスの行を残す（ダイアログが縮まないように、最後の対象を保持する）。
+const shown = ref(target.value)
+watch(target, (a) => {
+  if (a) shown.value = a
+})
 
 async function gotIt(): Promise<void> {
   const a = target.value
@@ -34,7 +39,7 @@ async function gotIt(): Promise<void> {
   <BaseDialog :open="target !== undefined" :title="msg.ai.chatgpt.planNotice.title" size="sm" :closable="false">
     <div class="notice" data-testid="ai-chatgpt-plan-notice">
       <p class="text">{{ msg.ai.chatgpt.planNotice.body }}</p>
-      <p v-if="target?.email" class="note">{{ msg.ai.chatgpt.planNotice.account(target.email) }}</p>
+      <p v-if="shown?.email" class="note">{{ msg.ai.chatgpt.planNotice.account(shown.email) }}</p>
       <p class="text">{{ msg.ai.chatgpt.planNotice.note }}</p>
     </div>
     <template #footer>

@@ -95,13 +95,16 @@ function ask(): void {
       </div>
     </div>
 
-    <div v-if="errorText" class="error" role="alert" data-testid="thread-ai-error">
-      <WarningCircle class="icon error-icon" aria-hidden="true" />
-      <div class="error-main">
-        <strong class="error-title">{{ common.alertTitle }}</strong>
-        <p class="error-body">{{ msg.ai.failed }}（{{ errorText }}）</p>
+    <!-- インラインアラートの出現はフェードイン・消去はフェードアウト（ガイド M5） -->
+    <Transition name="alert">
+      <div v-if="errorText" class="error" role="alert" data-testid="thread-ai-error">
+        <WarningCircle class="icon error-icon" aria-hidden="true" />
+        <div class="error-main">
+          <strong class="error-title">{{ common.alertTitle }}</strong>
+          <p class="error-body">{{ msg.ai.failed }}（{{ errorText }}）</p>
+        </div>
       </div>
-    </div>
+    </Transition>
 
     <p v-if="flow.needsKey.value" class="notice notice-need-key" data-testid="thread-ai-need-key">
       {{ needText }}
@@ -234,5 +237,13 @@ function ask(): void {
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   overflow-wrap: anywhere;
+}
+
+.alert-enter-active {
+  animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
+}
+
+.alert-leave-active {
+  animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 </style>
