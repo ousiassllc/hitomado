@@ -19,6 +19,8 @@ describe('桁を揃える文字の Mono（T5・#222）', () => {
       },
     })
     expect(w.get('[data-testid="ai-destination"] .url').text()).toBe('https://llm.example.com/v1')
-    expect(rule('settings/ai/AIDestinationBox.vue', '.url {')).toContain('font-family: var(--font-mono)')
+    expect(rule('settings/ai/AIDestinationBox.vue', '.url {')).toContain(
+      'font-family: var(--font-mono)',
+    )
   })
 })
