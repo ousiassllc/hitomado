@@ -103,7 +103,7 @@ const note = computed(() => {
 
 .note {
   margin: 0;
-  color: var(--mute);
+  color: var(--ink);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
 }

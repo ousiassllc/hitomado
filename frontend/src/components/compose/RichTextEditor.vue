@@ -219,13 +219,13 @@ onBeforeUnmount(() => editor.value?.destroy())
 
 .rte-body :deep([data-hitomado-signature]) {
   margin-top: var(--s-3);
-  color: var(--mute);
+  color: var(--ink);
 }
 
 .rte-body :deep([data-hitomado-quote]) {
   margin: var(--s-3) 0 0;
   padding-left: var(--s-3);
-  border-left: 3px solid var(--border);
-  color: var(--mute);
+  border-left: 1px solid var(--mute);
+  color: var(--ink);
 }
 </style>

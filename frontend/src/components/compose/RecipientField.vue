@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { WarningTriangle, Xmark } from '@iconoir/vue'
+import { WarningTriangle } from '@iconoir/vue'
 import { computed, ref, useId } from 'vue'
 import { ComposeService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
 import type { Address } from '../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
 import { useContactSuggest } from '../../composables/useContactSuggest'
 import { call } from '../../lib/api'
 import { compose as msg } from '../../lib/messages'
-import { addressLabel, isLikelyEmail, mergeAddresses, parseAddresses } from '../../lib/recipients'
-import { vRipple } from '../../lib/ripple'
+import { isLikelyEmail, mergeAddresses, parseAddresses } from '../../lib/recipients'
+import RecipientChip from './RecipientChip.vue'
 
 const props = defineProps<{
   modelValue: Address[]
@@ -126,26 +126,13 @@ function onKeydown(e: KeyboardEvent): void {
   <div class="recipient-field">
     <span class="recipient-label">{{ label }}</span>
     <label class="recipient-box" :class="{ 'recipient-disabled': disabled }">
-      <span
+      <RecipientChip
         v-for="(a, i) in modelValue"
         :key="a.email"
-        class="chip"
-        :class="{ 'chip-invalid': !isLikelyEmail(a.email) }"
-        :title="isLikelyEmail(a.email) ? undefined : msg.fields.invalidAddress"
-      >
-        <WarningTriangle v-if="!isLikelyEmail(a.email)" class="icon icon-sm chip-icon" aria-hidden="true" />
-        <span class="chip-text">{{ addressLabel(a) }}</span>
-        <button
-          v-ripple
-          type="button"
-          class="chip-remove"
-          :aria-label="msg.fields.removeRecipient(a.email)"
-          :disabled="disabled"
-          @click.stop="remove(i)"
-        >
-          <Xmark class="icon icon-sm" aria-hidden="true" />
-        </button>
-      </span>
+        :address="a"
+        :disabled="disabled"
+        @remove="remove(i)"
+      />
       <input
         ref="input"
         v-model="text"
@@ -166,22 +153,24 @@ function onKeydown(e: KeyboardEvent): void {
         @paste="onPaste"
         @blur="commit"
       />
-      <div v-show="open" :id="listId" class="suggest" role="listbox" :aria-label="msg.fields.suggestions">
-        <div
-          v-for="(s, i) in shown"
-          :id="`${listId}-${i}`"
-          :key="s.email"
-          class="suggest-item"
-          :class="{ 'suggest-active': i === active }"
-          role="option"
-          tabindex="-1"
-          :aria-selected="i === active"
-          @mousedown.prevent="pick(s)"
-        >
-          <span class="suggest-email">{{ s.email }}</span>
-          <span v-if="s.name" class="suggest-name">{{ s.name }}</span>
+      <Transition name="suggest">
+        <div v-show="open" :id="listId" class="suggest" role="listbox" :aria-label="msg.fields.suggestions">
+          <div
+            v-for="(s, i) in shown"
+            :id="`${listId}-${i}`"
+            :key="s.email"
+            class="suggest-item"
+            :class="{ 'suggest-active': i === active }"
+            role="option"
+            tabindex="-1"
+            :aria-selected="i === active"
+            @mousedown.prevent="pick(s)"
+          >
+            <span class="suggest-email">{{ s.email }}</span>
+            <span v-if="s.name" class="suggest-name">{{ s.name }}</span>
+          </div>
         </div>
-      </div>
+      </Transition>
     </label>
     <p v-if="hasInvalid" :id="invalidId" class="recipient-invalid">
       <WarningTriangle class="icon icon-sm" aria-hidden="true" />{{ msg.fields.invalidAddress }}
@@ -227,27 +216,6 @@ function onKeydown(e: KeyboardEvent): void {
   opacity: 0.5;
 }
 
-.chip {
-  display: inline-flex;
-  align-items: center;
-  max-width: 100%;
-  border: 1px solid var(--border);
-  border-radius: var(--r-full);
-  background: var(--accent-soft);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
-}
-
-.chip-invalid {
-  border-color: var(--danger);
-  color: var(--danger);
-}
-
-.chip-icon {
-  flex: none;
-  margin-left: var(--s-2);
-}
-
 .recipient-invalid {
   display: flex;
   flex: 0 0 100%;
@@ -258,28 +226,6 @@ function onKeydown(e: KeyboardEvent): void {
   color: var(--danger);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
-}
-
-.chip-text {
-  overflow: hidden;
-  padding: 0 var(--s-1) 0 var(--s-2);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.chip-remove {
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: none;
-  border-radius: var(--r-full);
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
-}
-
-.chip-remove:hover {
-  background: var(--surface);
 }
 
 .recipient-input {
@@ -326,5 +272,14 @@ function onKeydown(e: KeyboardEvent): void {
 
 .suggest-name {
   color: var(--mute);
+}
+
+/* 出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）（M5。BaseMenu・BaseSelect と同じ値） */
+.suggest-enter-active {
+  animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
+}
+
+.suggest-leave-active {
+  animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 </style>

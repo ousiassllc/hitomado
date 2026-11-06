@@ -63,7 +63,7 @@ function onSelect(id: string, multi: boolean): void {
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--gap-menu);
   margin: 0;
   padding: 0;
 }

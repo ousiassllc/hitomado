@@ -8,6 +8,7 @@ import EditorLinkForm from '../../src/components/compose/EditorLinkForm.vue'
 import RecipientField from '../../src/components/compose/RecipientField.vue'
 import RichTextEditor from '../../src/components/compose/RichTextEditor.vue'
 import { useComposeStore } from '../../src/stores/compose'
+import { rule } from './styleRule'
 
 beforeEach(() => {
   document.body.innerHTML = ''
@@ -70,7 +71,15 @@ describe('チップ・添付の削除ボタン（M4・#133）', () => {
     const w = mount(RecipientField, {
       props: { label: '宛先', modelValue: [{ email: 'ok@example.com' }] },
     })
-    expect(w.get('.chip-remove').classes()).toContain('has-ripple')
+    expect(w.get('.chip-remove-face').classes()).toContain('has-ripple')
+  })
+
+  test('宛先チップの × のボタン本体は overflow: hidden にしない（touch.css の拡張タップ領域を切らない・#213）', () => {
+    const w = mount(RecipientField, {
+      props: { label: '宛先', modelValue: [{ email: 'ok@example.com' }] },
+    })
+    expect(w.get('.chip-remove').classes()).not.toContain('has-ripple')
+    expect(w.find('.chip-remove > .chip-remove-face').exists()).toBe(true)
   })
 
   test('添付の × にリップルがある', () => {
@@ -78,5 +87,16 @@ describe('チップ・添付の削除ボタン（M4・#133）', () => {
     store.attachments = [{ id: 'f1', filename: 'a.pdf', size: 10, source: 'local' }]
     const w = mount(AttachmentBar)
     expect(w.get('.attach-remove').classes()).toContain('has-ripple')
+  })
+})
+
+describe('宛先の候補一覧の出入り（M5・#213）', () => {
+  test('出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）', () => {
+    expect(rule('compose/RecipientField.vue', '.suggest-enter-active {')).toContain(
+      'animation: ui-fade-in var(--motion-fade-in) var(--ease-out)',
+    )
+    expect(rule('compose/RecipientField.vue', '.suggest-leave-active {')).toContain(
+      'animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards',
+    )
   })
 })
