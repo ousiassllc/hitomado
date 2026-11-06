@@ -287,6 +287,7 @@ async function remove(): Promise<void> {
   padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
+  background: var(--bone);
 }
 
 .legend {
