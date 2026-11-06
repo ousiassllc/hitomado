@@ -41,7 +41,7 @@ function onSelect(key: string): void {
 .reply-bar {
   display: flex;
   align-items: center;
-  gap: var(--s-3);
+  gap: var(--gap-inline);
   padding: var(--s-3) var(--s-4);
   border-top: 1px solid var(--border);
   background: var(--surface);

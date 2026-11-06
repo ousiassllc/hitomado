@@ -36,3 +36,28 @@ describe('入れ子パネルの padding（S2・#223）', () => {
     )
   })
 })
+
+describe('部品間の間隔（S2・#228）', () => {
+  test('ラベル→入力は --gap-label、入力→補足（フッタ）は --gap-help', () => {
+    for (const [file, root, foot] of [
+      ['compose/ai/AiDraftInstruction.vue', '.instruction {', '.instruction-foot {'],
+      ['thread/ai/ThreadAiQuestionForm.vue', '.question {', '.question-foot {'],
+    ]) {
+      expect(rule(file, root)).toContain('gap: var(--gap-label)')
+      expect(rule(file, foot)).toContain('margin-top: calc(var(--gap-help) - var(--gap-label))')
+    }
+  })
+
+  test('枠付きカードの並び（OAuth クライアント一覧）は --s-3（AccountsSettings と同じ）', () => {
+    expect(rule('settings/oauth/OAuthClientsSettings.vue', '.list {')).toContain('gap: var(--s-3)')
+  })
+
+  test('ボタン列・インラインの間隔は --gap-inline（ReplyBar・Cc/Bcc 切り替え）', () => {
+    expect(rule('thread/ReplyBar.vue', '.reply-bar {')).toContain('gap: var(--gap-inline)')
+    expect(rule('compose/ComposeFields.vue', '.toggles {')).toContain('gap: var(--gap-inline)')
+  })
+
+  test('送信確認の警告パネルの積みは --s-2（AlertStack と同じ）', () => {
+    expect(rule('compose/SendConfirmDialog.vue', '.warnings {')).toContain('gap: var(--s-2)')
+  })
+})

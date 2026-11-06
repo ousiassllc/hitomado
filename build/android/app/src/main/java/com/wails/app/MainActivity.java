@@ -172,6 +172,8 @@ public class MainActivity extends AppCompatActivity {
     private void setupWebView() {
         webView = findViewById(R.id.webview);
         bridge.setWebView(webView);
+        // 読み込み前の下地（Chromium の WebView 既定は白）をライト／ダークのキャンバス色にする。復旧で作り直す WebView もここを通る。
+        webView.setBackgroundColor(ContextCompat.getColor(this, R.color.app_background));
 
         // Configure WebView settings
         WebSettings settings = webView.getSettings();
@@ -469,7 +471,11 @@ public class MainActivity extends AppCompatActivity {
             android.os.Process.killProcess(android.os.Process.myPid());
         });
         box.addView(message);
-        box.addView(quit);
+        // 本文とボタンの間はガイド S2 の部品間 16（--s-4）。
+        LinearLayout.LayoutParams quitParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        quitParams.topMargin = (int) (16 * density);
+        box.addView(quit, quitParams);
         parent.addView(box, index, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     }
