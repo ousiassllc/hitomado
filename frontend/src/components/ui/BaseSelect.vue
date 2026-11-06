@@ -112,8 +112,9 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 }
 
 /* リングは外側（offset 2px + 幅 2px = 4px）に描く。スクロール領域は reka の SelectViewport（overflow: hidden auto）なので、
-   リングが切れないよう余白（--s-1 = 4px）はパネルではなくビューポートに持たせる。 */
-.sel-viewport {
+   リングが切れないよう余白（--s-1 = 4px）はパネルではなくビューポートに持たせる。
+   SelectViewport は Fragment がルートで scoped 属性（data-v-*）が付かないので、.sel-pop と同じく :global で当てる。 */
+:global(.sel-viewport) {
   padding: var(--s-1);
 }
 
