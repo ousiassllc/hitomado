@@ -52,7 +52,7 @@ async function exportLogs(): Promise<void> {
 .logs {
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--gap-field);
 }
 
 .body {

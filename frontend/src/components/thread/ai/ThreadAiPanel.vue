@@ -132,7 +132,7 @@ function ask(): void {
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: var(--gap-card-section);
   padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
