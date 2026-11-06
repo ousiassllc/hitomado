@@ -116,7 +116,7 @@ function onOpen(open: boolean): void {
 .warnings {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--s-2);
   margin: 0;
   padding: 0;
   list-style: none;

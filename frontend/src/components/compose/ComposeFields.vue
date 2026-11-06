@@ -105,7 +105,7 @@ defineExpose({ commitPending })
 
 .toggles {
   display: flex;
-  gap: var(--s-1);
+  gap: var(--gap-inline);
   padding-top: var(--s-1);
 }
 

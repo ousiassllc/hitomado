@@ -76,10 +76,11 @@ watch(model, () => void nextTick(fit))
 </template>
 
 <style scoped>
+/* ラベル→入力は --gap-label、入力→補足（フッタ）は --gap-help（S2）。 */
 .question {
   display: flex;
   flex-direction: column;
-  gap: var(--s-1);
+  gap: var(--gap-label);
 }
 
 .question-label {
@@ -116,6 +117,7 @@ watch(model, () => void nextTick(fit))
   display: flex;
   align-items: center;
   gap: var(--s-2);
+  margin-top: calc(var(--gap-help) - var(--gap-label));
   color: var(--mute);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);

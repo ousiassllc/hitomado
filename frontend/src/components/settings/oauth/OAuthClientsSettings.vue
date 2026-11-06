@@ -149,7 +149,7 @@ function openGuide(): void {
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--s-2);
+  gap: var(--s-3);
   margin: var(--s-3) 0 0;
   padding: 0;
 }
