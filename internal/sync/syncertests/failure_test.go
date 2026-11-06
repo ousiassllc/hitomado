@@ -32,7 +32,9 @@ func TestNeedsReauthStopsOnlyThatAccount(t *testing.T) {
 	tickA, tickB := h.syncTicker(0), h.syncTicker(1)
 	tickB.Tick(1)
 	h.waitActive("b", 2)
-	tickA.Tick(3) // a のワーカーが 1 回目の tick を処理し終えるまで進める
+	h.tickWhilePaused("a", tickA) // 1 tick ずつ、ワーカーが見送り終えてから次へ進む
+	h.tickWhilePaused("a", tickA)
+	h.tickWhilePaused("a", tickA)
 	assert.Equal(t, 1, h.gm.Count("a", "ListHistory"), "needs_reauth は自動再試行しない")
 
 	// 再接続（Start）で再開する。
@@ -185,7 +187,10 @@ func TestClientRejectedStopsRetryingWithConfigMessage(t *testing.T) {
 	assert.Equal(t, "OAuth クライアントの設定（Client ID／Secret）を確認してください", h.st.Account("a").StatusMessage)
 	assert.Equal(t, "OAuth クライアントの設定（Client ID／Secret）を確認してください", h.st.State("a").LastError)
 
-	h.syncTicker(0).Tick(3) // ワーカーが tick を処理し終えるまで進める
+	tk := h.syncTicker(0)
+	h.tickWhilePaused("a", tk) // 1 tick ずつ、ワーカーが見送り終えてから次へ進む
+	h.tickWhilePaused("a", tk)
+	h.tickWhilePaused("a", tk)
 	assert.Equal(t, 1, h.gm.Count("a", "ListHistory"), "自動再試行しない")
 
 	h.gm.Edit("a", func(a *synctest.Script) {
