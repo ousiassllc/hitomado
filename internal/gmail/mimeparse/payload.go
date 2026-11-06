@@ -5,6 +5,7 @@ import (
 	"io"
 	"mime"
 	"strings"
+	"unicode/utf8"
 
 	"golang.org/x/net/html/charset"
 	gmailapi "google.golang.org/api/gmail/v1"
@@ -135,10 +136,16 @@ func DecodeBase64URL(s string) ([]byte, error) {
 }
 
 // DecodeText はバイト列を宣言された文字コードから UTF-8 の文字列にする。
+// Gmail API（format=full）は本文を UTF-8 に正規化し、Content-Type の charset は元のまま返す。
+// 非 ASCII を含み UTF-8 として妥当なバイト列は変換済みとみなし、charset で再変換しない（再変換すると U+FFFD になる）。
+// 7bit の ISO-2022-JP は ESC 列を含む ASCII だけで UTF-8 としても妥当なため、非 ASCII を含むことを条件にして区別する。
 func DecodeText(b []byte, label string) string {
 	switch strings.ToLower(strings.TrimSpace(label)) {
 	case "", "utf-8", "utf8", "us-ascii", "ascii":
 		return strings.ToValidUTF8(string(b), "\uFFFD")
+	}
+	if hasNonASCII(b) && utf8.Valid(b) {
+		return string(b)
 	}
 	r, err := charset.NewReaderLabel(label, strings.NewReader(string(b)))
 	if err != nil {
@@ -149,4 +156,14 @@ func DecodeText(b []byte, label string) string {
 		return strings.ToValidUTF8(string(b), "\uFFFD")
 	}
 	return strings.ToValidUTF8(string(converted), "\uFFFD")
+}
+
+// hasNonASCII は b に 0x80 以上のバイトが含まれるかを返す。
+func hasNonASCII(b []byte) bool {
+	for _, c := range b {
+		if c >= 0x80 {
+			return true
+		}
+	}
+	return false
 }
