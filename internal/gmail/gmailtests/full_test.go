@@ -133,6 +133,35 @@ func TestGetThreadFullConvertsLegacyCharset(t *testing.T) {
 	assert.Equal(t, "日本語", got.Messages[0].BodyText)
 }
 
+// ISO-2022-JP／7bit の multipart/alternative。Gmail API は本文を UTF-8 に正規化して返し、ヘッダの charset は元のまま残る。
+func TestGetThreadFullKeepsUTF8BodyWithStaleISO2022JPCharset(t *testing.T) {
+	e := newTestEnv(t)
+	isoHeaders := []map[string]any{hdr("Content-Type", "text/plain; charset=ISO-2022-JP"), hdr("Content-Transfer-Encoding", "7bit")}
+	htmlHeaders := []map[string]any{hdr("Content-Type", "text/html; charset=ISO-2022-JP"), hdr("Content-Transfer-Encoding", "7bit")}
+	e.f.HandleJSON("GET "+apiBase+"/threads/t1", 200, map[string]any{
+		"id": "t1",
+		"messages": []map[string]any{
+			fullMessage("m1", map[string]any{
+				"mimeType": "multipart/alternative",
+				"parts": []map[string]any{
+					{"mimeType": "text/plain", "headers": isoHeaders, "body": map[string]any{"data": b64("こんにちは https://example.com/a")}},
+					{"mimeType": "text/html", "headers": htmlHeaders, "body": map[string]any{"data": b64(`<p>こんにちは <a href="https://example.com/a">リンク</a></p>`)}},
+				},
+			}),
+			// UTF-8 に正規化されずに届いた生の ISO-2022-JP（7bit）も変換する。
+			fullMessage("m2", map[string]any{
+				"mimeType": "text/plain", "headers": isoHeaders,
+				"body": map[string]any{"data": b64("\x1b$BF|K\\8l\x1b(B")},
+			}),
+		},
+	})
+	got, err := e.c.GetThreadFull(context.Background(), testAccount, "t1")
+	require.NoError(t, err)
+	assert.Equal(t, "<p>こんにちは <a href=\"https://example.com/a\">リンク</a></p>", got.Messages[0].BodyHTML)
+	assert.Equal(t, "こんにちは https://example.com/a", got.Messages[0].BodyText)
+	assert.Equal(t, "日本語", got.Messages[1].BodyText)
+}
+
 func TestGetThreadFullKeepsDraftsAndAttachmentDispositionImages(t *testing.T) {
 	e := newTestEnv(t)
 	img := []byte("imgdata")

@@ -96,3 +96,18 @@ func TestCIDReferences(t *testing.T) {
 	assert.False(t, refs["a"], "部分一致しない")
 	assert.Empty(t, CIDReferences("<p>no refs</p>"))
 }
+
+// Gmail API（format=full）は本文を UTF-8 に正規化したうえで、元の Content-Type（charset）をそのまま残す。
+// 既に UTF-8 の本文をヘッダの charset で再変換すると、非 ASCII が U+FFFD になる。
+func TestDecodeTextKeepsBodyAlreadyNormalizedToUTF8(t *testing.T) {
+	for _, label := range []string{"iso-2022-jp", "ISO-2022-JP", "Shift_JIS", "euc-jp"} {
+		assert.Equal(t, "日本語 https://example.com/a", DecodeText([]byte("日本語 https://example.com/a"), label), label)
+	}
+}
+
+func TestDecodeTextISO2022JPWithoutNonASCIIStillConverts(t *testing.T) {
+	// 実際の ISO-2022-JP は 7 ビットで、バイト列としては UTF-8 としても妥当（ESC 列を含む ASCII だけ）。非 ASCII の有無で見分ける。
+	assert.Equal(t, "日本語 abc", DecodeText([]byte("\x1b$BF|K\\8l\x1b(B abc"), "iso-2022-jp"))
+	assert.Equal(t, "ascii only", DecodeText([]byte("ascii only"), "iso-2022-jp"))
+	assert.Empty(t, DecodeText(nil, "iso-2022-jp"))
+}
