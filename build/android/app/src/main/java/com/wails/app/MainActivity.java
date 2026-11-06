@@ -172,6 +172,8 @@ public class MainActivity extends AppCompatActivity {
     private void setupWebView() {
         webView = findViewById(R.id.webview);
         bridge.setWebView(webView);
+        // 読み込み前の下地（Chromium の WebView 既定は白）をライト／ダークのキャンバス色にする。復旧で作り直す WebView もここを通る。
+        webView.setBackgroundColor(ContextCompat.getColor(this, R.color.app_background));
 
         // Configure WebView settings
         WebSettings settings = webView.getSettings();
