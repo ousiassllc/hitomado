@@ -443,6 +443,9 @@ public class MainActivity extends AppCompatActivity {
         quit.setBackground(quitBackground);
         quit.setTextColor(ContextCompat.getColor(this, R.color.app_background));
         quit.setTypeface(Typeface.DEFAULT_BOLD);
+        // 文字はガイド T3 のボタン（base 16）。Button 既定の 14sp・全大文字化にしない。
+        quit.setTextSize(16);
+        quit.setAllCaps(false);
         quit.setMinHeight((int) (40 * density));
         quit.setMinimumHeight((int) (40 * density));
         quit.setPadding((int) (16 * density), 0, (int) (16 * density), 0);
