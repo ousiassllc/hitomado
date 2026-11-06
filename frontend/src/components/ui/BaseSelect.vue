@@ -34,7 +34,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
     </SelectTrigger>
     <SelectPortal>
       <SelectContent class="sel-pop" position="popper" :side-offset="4">
-        <SelectViewport>
+        <SelectViewport class="sel-viewport">
           <SelectItem v-for="o in options" :key="o.value" :value="o.value" class="sel-item">
             <SelectItemText>{{ o.label }}</SelectItemText>
             <SelectItemIndicator class="sel-check"><Check class="icon icon-sm" aria-hidden="true" /></SelectItemIndicator>
@@ -80,7 +80,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   color: var(--ink);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
-  padding: var(--s-1);
+  padding: 0;
   z-index: var(--z-popup);
 }
 
@@ -111,9 +111,15 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   background: var(--accent-soft);
 }
 
+/* リングは外側（offset 2px + 幅 2px = 4px）に描く。スクロール領域は reka の SelectViewport（overflow: hidden auto）なので、
+   リングが切れないよう余白（--s-1 = 4px）はパネルではなくビューポートに持たせる。 */
+.sel-viewport {
+  padding: var(--s-1);
+}
+
 .sel-item[data-highlighted]:focus-visible {
   outline: 2px solid var(--focus);
-  outline-offset: -2px;
+  outline-offset: 2px;
 }
 
 .sel-check {
