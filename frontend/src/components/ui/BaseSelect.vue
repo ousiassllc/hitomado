@@ -106,6 +106,8 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 .sel-item[data-highlighted] {
   background: var(--accent-soft);
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 
 .sel-check {
