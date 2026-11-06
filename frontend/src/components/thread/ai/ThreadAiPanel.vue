@@ -234,6 +234,7 @@ function ask(): void {
 .error-title {
   display: block;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: 600;
 }
 

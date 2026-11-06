@@ -102,7 +102,7 @@ onBeforeUnmount(() => stopDrop?.())
 }
 
 .attach-total {
-  font-family: var(--font-mono);
+  font-family: var(--font-mono), var(--font-sans);
 }
 
 .attach-error {

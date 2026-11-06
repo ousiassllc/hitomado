@@ -45,7 +45,9 @@ describe.each([
 
   test('キーボード操作（:focus-visible）のときだけ --focus のリングを内側（offset -2px）に描く', async () => {
     const css = await styleOf(file)
-    const rule = css.match(new RegExp(`${item}\\[data-highlighted\\]:focus-visible\\s*\\{([^}]*)\\}`))?.[1] ?? ''
+    const rule =
+      css.match(new RegExp(`${item}\\[data-highlighted\\]:focus-visible\\s*\\{([^}]*)\\}`))?.[1] ??
+      ''
     expect(rule).toMatch(/outline:\s*2px solid var\(--focus\);/)
     expect(rule).toMatch(/outline-offset:\s*-2px;/)
   })
