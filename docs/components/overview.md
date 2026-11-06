@@ -642,3 +642,5 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.63 | 2026-11-06 | §5.3 の逸脱表に空状態の `compact`（サイドバー用の padding 16）を追記。ラベル→入力（`AiDraftInstruction`・`ThreadAiQuestionForm`）を `--gap-label`、ボタン列（`ReplyBar`・`ComposeFields` の Cc/Bcc 切り替え）を `--gap-inline`、`OAuthClientsSettings` のカード間を `--s-3`、`SendConfirmDialog` の警告の積みを `--s-2` に揃えた。Android の致命エラー画面の本文とボタンの間に 16dp を足した | #228 |
 | 1.64 | 2026-11-06 | §5.3 の件数バッジの `line-height` を `--line-height-xs` に定めた（`button` の `font: inherit` で本文の 1.8 を継承して `min-height` 20px を超えるのを防ぐ）。プレーンテキスト本文（`MessageBody` の `.body-text`）を 16px/1.8 にし、折り返しうる小さな文字（`BaseTooltip` ほか）に font-size と対の `line-height` を付けた | #227 |
 | 1.65 | 2026-11-06 | §5.3 の案件固有部品に宛先チップの削除ボタン（`.chip-remove`。22×22・`--r-full`・無効は親の opacity .5 に従う）を追記。ChatGPT アカウントのログアウトを `ConfirmDialog` 経由にし（§3.3 の使い手に追記）、検索欄のブラウザ標準の✕を消して自前のクリアボタンに一本化した | #229 |
+| 1.66 | 2026-11-06 | 入力欄の placeholder の色を `--mute` に定めた（`reset.css`）。Android テーマの `colorSecondary`／`colorOnSecondary` を `app_accent`／`app_background` に揃えた（実機未確認 [INFERENCE]） | #230 |
+| 1.67 | 2026-11-06 | Android の致命エラー画面の「アプリを終了」ボタンから標準の elevation アニメ（`StateListAnimator`）を外し、影を出さない（実機未確認 [INFERENCE]） | #232 |

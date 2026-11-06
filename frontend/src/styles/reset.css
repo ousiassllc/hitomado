@@ -41,6 +41,12 @@ textarea {
   color: inherit;
 }
 
+/* placeholder はブラウザ既定の灰ではなく --mute（補助テキスト）。Firefox の既定の opacity も消す。 */
+::placeholder {
+  color: var(--mute);
+  opacity: 1;
+}
+
 :focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
