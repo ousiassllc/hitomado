@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'
 import BaseButton from '../../ui/BaseButton.vue'
 import ConfirmDialog from '../../ui/ConfirmDialog.vue'
+import Spinner from '../../ui/Spinner.vue'
 import ChatGPTAccountRow from './ChatGPTAccountRow.vue'
 import ChatGPTPlanNotice from './ChatGPTPlanNotice.vue'
 
@@ -191,7 +192,7 @@ async function remove(): Promise<void> {
     <p v-if="error" class="error" role="alert">{{ error }}</p>
     <div class="actions">
       <template v-if="busy === 'login'">
-        <span class="waiting" role="status">{{ msg.ai.chatgpt.loginWaiting }}</span>
+        <span class="waiting" role="status"><Spinner /> {{ msg.ai.chatgpt.loginWaiting }}</span>
         <BaseButton variant="secondary" @click="cancel">{{ msg.ai.chatgpt.loginCancel }}</BaseButton>
       </template>
       <BaseButton
@@ -254,6 +255,9 @@ async function remove(): Promise<void> {
 }
 
 .waiting {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
   margin: 0;
   color: var(--mute);
   font-size: var(--font-size-sm);
