@@ -201,6 +201,10 @@ onBeforeUnmount(() => editor.value?.destroy())
   padding-left: var(--s-6);
 }
 
+.rte-body :deep(.editor-content > :last-child) {
+  margin-bottom: 0;
+}
+
 .rte-body :deep(.editor-content li > p) {
   margin: 0;
 }

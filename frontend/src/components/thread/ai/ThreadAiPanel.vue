@@ -71,7 +71,7 @@ function ask(): void {
       <p v-if="store.summary" class="text" data-testid="thread-ai-summary-text">{{ store.summary.text }}</p>
     </div>
 
-    <div v-if="store.turns.length > 0 || asking" class="block" data-testid="thread-ai-conversation">
+    <div v-if="store.turns.length > 0 || asking" class="block conversation" data-testid="thread-ai-conversation">
       <div class="block-head">
         <p v-if="store.droppedFromContext" class="notice" data-testid="thread-ai-dropped">{{ msg.ai.droppedFromContext }}</p>
         <BaseButton
@@ -143,6 +143,11 @@ function ask(): void {
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
+}
+
+/* 質問/回答の組どうしは段落間（16）。組の中の見出し→本文（8）と区別する。 */
+.conversation {
+  gap: var(--gap-para);
 }
 
 .block-head {

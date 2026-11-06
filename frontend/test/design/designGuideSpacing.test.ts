@@ -109,3 +109,22 @@ describe('段落間・見出し→本文・ラベル→内容の間隔（S2・#2
     )
   })
 })
+
+describe('入れ子パネルの地・末尾の余白・組どうしの間隔（S1・S2・#243）', () => {
+  test('ChatGPT アカウント一覧の枠（入れ子パネル）は --bone の地', () => {
+    expect(rule('settings/ai/AIChatGPTLogin.vue', '.accounts {')).toContain(
+      'background: var(--bone)',
+    )
+  })
+
+  test('本文エディタの末尾の段落・箇条書きは下の余白を持たない（padding の内側に 16 を残さない）', () => {
+    expect(rule('compose/RichTextEditor.vue', '.editor-content > :last-child)')).toContain(
+      'margin-bottom: 0',
+    )
+  })
+
+  test('会話の質問/回答の組どうしは --gap-para。組の中の見出し→本文（.turn）は --s-2 のまま', () => {
+    expect(rule('thread/ai/ThreadAiPanel.vue', '.conversation {')).toContain('gap: var(--gap-para)')
+    expect(rule('thread/ai/ThreadAiPanel.vue', '.turn {')).toContain('gap: var(--s-2)')
+  })
+})
