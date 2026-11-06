@@ -9,12 +9,12 @@ import {
   resetState,
   restoreMocks,
   until,
-} from './threadTestKit'
+} from '../threadTestKit'
 
 installMocks()
 afterAll(restoreMocks)
 
-const { useThreadStore } = await import('../../stores/thread')
+const { useThreadStore } = await import('../../../stores/thread')
 
 beforeEach(() => {
   setActivePinia(createPinia())

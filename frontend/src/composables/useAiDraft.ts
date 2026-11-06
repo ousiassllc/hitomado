@@ -2,6 +2,12 @@
 // 未同意→同意、本文入力済み→置換確認、生成中→キャンセル可。
 // 自動生成はしない: start() は利用者のボタン操作からのみ呼ぶ。結果は onGenerated に渡すだけで、失敗時は本文を変えない。
 import { computed, ref } from 'vue'
+import {
+  type AiPrecheckConfig,
+  aiConsentMissing,
+  aiKeyMissing,
+  aiSetupMissing,
+} from '../lib/aiPrecheck'
 import { type AppError, parseBindingError } from '../lib/api'
 
 export type AiStep = 'idle' | 'setup' | 'consent' | 'replace' | 'generating'
@@ -11,14 +17,7 @@ export type AiSetupChoice = 'chatgpt' | 'other'
 
 export interface AiDraftDeps {
   /** 現在の AI 設定（未ロードなら undefined）。 */
-  config: () =>
-    | {
-        provider: string
-        configured: boolean
-        hasApiKey: boolean
-        consentedProviders: string[] | null
-      }
-    | undefined
+  config: () => AiPrecheckConfig | undefined
   /** 初回の案内から設定画面の AI の流れへ進む（ChatGPT のログイン、または別のプロバイダの選択）。 */
   openSetup: (choice: AiSetupChoice) => void
   /** 署名・引用を除いた本文が入力済みか。 */
@@ -47,16 +46,14 @@ export function useAiDraft(deps: AiDraftDeps) {
   let cancelled = false
 
   // 判定は呼び出し時点の設定で行う（computed のキャッシュに頼らない）。テンプレート用は computed で公開する。
-  /** AI の設定をまだ保存していない（初めて使う）。保存前の既定のプロバイダではモデルも決まっていないので、先に初回の案内へ進める。 */
   function setupMissing(): boolean {
-    return deps.config()?.configured === false
+    return aiSetupMissing(deps.config())
   }
   function keyMissing(): boolean {
-    return !setupMissing() && deps.config()?.hasApiKey !== true
+    return aiKeyMissing(deps.config())
   }
   function consentMissing(): boolean {
-    const c = deps.config()
-    return c !== undefined && !(c.consentedProviders ?? []).includes(c.provider)
+    return aiConsentMissing(deps.config())
   }
   const needsSetup = computed(setupMissing)
   const needsKey = computed(keyMissing)

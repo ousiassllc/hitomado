@@ -9,6 +9,8 @@ import ComposePane from '../compose/ComposePane.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import EmptyState from '../ui/EmptyState.vue'
 import Spinner from '../ui/Spinner.vue'
+import ThreadAiPanel from './ai/ThreadAiPanel.vue'
+import { useThreadAiFlow } from './ai/useThreadAiFlow'
 import MessageCard from './MessageCard.vue'
 import ReplyBar, { type ReplyMode } from './ReplyBar.vue'
 import ThreadHeader from './ThreadHeader.vue'
@@ -17,6 +19,7 @@ import { nextExpanded } from './threadView'
 const store = useThreadStore()
 const compose = useComposeStore()
 const layout = useLayoutStore()
+const ai = useThreadAiFlow()
 
 const detail = computed(() => store.current)
 const messages = computed(() => detail.value?.messages ?? [])
@@ -91,8 +94,15 @@ function openDraft(): void {
     </div>
 
     <template v-else>
-      <ThreadHeader v-show="!composeExpanded" :detail="detail" />
+      <ThreadHeader
+        v-show="!composeExpanded"
+        :detail="detail"
+        :summarize-disabled="ai.summarizeDisabled.value"
+        :summarize-hint="ai.summarizeHint.value"
+        @summarize="ai.start('summarize')"
+      />
       <div v-show="!composeExpanded" ref="scrollEl" class="scroll" data-testid="thread-scroll">
+        <ThreadAiPanel :flow="ai" />
         <MessageCard
           v-for="m in messages"
           :key="m.id"

@@ -18,6 +18,7 @@ export const thread = {
   label: 'ラベル',
   markUnread: '未読にする',
   markRead: '既読にする',
+  aiSummarize: 'AI で要約',
   receivedAt: '受信アカウント',
   messageCount: (n: number) => `${n} 件のメッセージ`,
 
@@ -51,4 +52,32 @@ export const thread = {
   forward: '転送',
   openDraft: '下書きを開く',
   openFailed: 'リンクを開けませんでした。',
+
+  // AI パネル（F-17 要約・F-18 質問。#206・#207）
+  ai: {
+    panelLabel: 'AI パネル',
+    summaryHeading: 'AI の要約',
+    summarizing: 'AI が要約を作成中…',
+    resummarize: '再生成',
+    cancel: '中止',
+    asking: 'AI が回答を作成中…',
+    // 長いスレッドで古いメッセージを外したとき
+    truncated: (included: number, total: number) =>
+      `長いスレッドのため、新しい ${included} 件（全 ${total} 件）を対象にしました`,
+    needKey: 'AI の API キーが未設定です。設定画面で登録してください',
+    needLogin: 'ChatGPT にログインしていません。設定画面でログインしてください',
+    openSettings: '設定を開く',
+    failed: 'AI の処理に失敗しました',
+    questionHeading: 'あなたの質問',
+    answerHeading: 'AI の回答',
+    droppedFromContext: '古いやり取りは文脈から外れています',
+    newConversation: '新しい会話',
+    question: {
+      label: 'このスレッドについて質問する',
+      placeholder: '例: 期限はいつ？／相手は何を求めている？',
+      note: 'このスレッドを開いている間だけ保持し、保存しません。',
+      submit: '質問する',
+      remaining: (n: number) => `残り ${n} 文字`,
+    },
+  },
 } as const

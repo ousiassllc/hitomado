@@ -301,6 +301,47 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 
 生成中の中止はフロントが `CancelGenerate(requestId)` を呼び、`GenerateReplyDraft` は `CANCELLED` で reject される。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
 
+### 7.5 スレッドの AI 要約
+
+```mermaid
+sequenceDiagram
+  participant FE as フロント
+  participant AI as AIService
+  participant GM as gmail.Client
+  participant PV as ai.Provider
+  FE->>AI: SummarizeThread(ref, requestId)
+  AI->>AI: 同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認
+  AI->>GM: threads.get(format=full)（メモリ LRU を優先）
+  AI->>AI: 下書きを除き、全メッセージを古い順にテキスト化（合計 40,000 文字を目安。超えたら古いものから外す）
+  AI->>PV: 要約の要求（本文は信頼しない入力の枠。エフォートは設定にあれば載せる）
+  PV-->>AI: 要約テキスト
+  AI-->>FE: ThreadAIResult（text・includedCount・totalCount）
+  Note over FE: フロントがメモリにだけ保持して AI パネルに表示する。Go・DB・ログには残さない
+```
+
+スレッドは `ref` だけで指定する（作成セッションを使わない）ので、返信を開いていなくても呼べる。AI の設定・同意・トークンの更新・3xx を追従しない扱い・中止（`CancelGenerate`）は §7.4 と同じ。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
+
+### 7.6 スレッドへの AI 質問
+
+```mermaid
+sequenceDiagram
+  participant FE as フロント
+  participant AI as AIService
+  participant GM as gmail.Client
+  participant PV as ai.Provider
+  FE->>AI: AskAboutThread(ref, requestId, question, history)
+  AI->>AI: question・history を検証（空・2,000 文字超・会話の形・20 件／20,000 文字超は VALIDATION。通信しない）
+  AI->>AI: 同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認
+  AI->>GM: threads.get(format=full)（メモリ LRU を優先）
+  AI->>AI: 下書きを除き、全メッセージを古い順にテキスト化（§7.5 と同じ。合計 40,000 文字を目安）
+  AI->>PV: 役割の指示（system）＋スレッド（信頼しない先頭の user）＋history（user／assistant）＋question（最後の user）
+  PV-->>AI: 回答テキスト
+  AI-->>FE: ThreadAIResult（text・includedCount・totalCount）
+  Note over FE: 質問と回答をメモリの会話に加える。Go は会話を持たない（毎回 history を受け取る）
+```
+
+会話はフロントの `threadAiStore` だけが持ち、Go はリクエストの間しか持たない（ステートレス）。会話の長さ（最新 10 往復・20,000 文字）に収めるのはフロントで、Go は超えたものを黙って切り詰めず `VALIDATION` にする。入力の組み立て・同意・中止は §7.5 と共通。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
+
 ## 8. 主要な設計判断
 
 | 判断 | 採用 | 理由・トレードオフ |
@@ -348,3 +389,5 @@ ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークン
 | 1.20 | 2026-11-05 | §7.4 の `GenerateReplyDraft` に任意の `instruction` を追加（プロバイダへはスレッド本文とは別枠の「利用者の指示」として渡す） | #109 |
 | 1.21 | 2026-11-05 | §7.4 に、`ai.Provider` が設定されたエフォートをプロバイダごとの項目（`output_config.effort`／`reasoning_effort`／`reasoning.effort`）で要求に載せることを追記（設定が無ければ従来の要求） | #111 |
 | 1.22 | 2026-11-06 | §9 の GitHub Actions に、ARM64 の Windows 11 実機（`windows-11-arm`）で x64 のインストーラーと exe を検証する `installer-arm64` を追記 | #13 |
+| 1.23 | 2026-11-06 | §7.5（スレッドの AI 要約: `SummarizeThread` の通信フロー。スレッドは `ThreadRef` で指定し、全メッセージ・合計 40,000 文字を目安に渡す。保存しない）を追加 | #206 |
+| 1.24 | 2026-11-06 | §7.6（スレッドへの AI 質問: `AskAboutThread` の通信フロー。Go はステートレスで、会話はフロントが `history` として毎回渡す。検証は Go、会話の長さの制限はフロント）を追加 | #207 |
