@@ -9,6 +9,7 @@ import AlertStack from '../../src/components/shell/AlertStack.vue'
 import ToastHost from '../../src/components/shell/ToastHost.vue'
 import BaseButton from '../../src/components/ui/BaseButton.vue'
 import BaseDialog from '../../src/components/ui/BaseDialog.vue'
+import BaseDisclosure from '../../src/components/ui/BaseDisclosure.vue'
 import BaseMenu from '../../src/components/ui/BaseMenu.vue'
 import ConfirmDialog from '../../src/components/ui/ConfirmDialog.vue'
 import Spinner from '../../src/components/ui/Spinner.vue'
@@ -202,6 +203,19 @@ describe('アイコン（I）', () => {
   })
 })
 
+describe('アコーディオン（I1・I2）: シェブロンは Iconoir の 16px', () => {
+  test('summary 内に Iconoir の SVG（icon-sm・aria-hidden）を置き、::after の擬似要素で描かない', () => {
+    const w = mount(BaseDisclosure, { props: { summary: '接続方法' }, slots: { default: '本文' } })
+    const chevron = w.get('summary svg')
+    expect(chevron.classes()).toEqual(expect.arrayContaining(['icon', 'icon-sm']))
+    expect(chevron.attributes('aria-hidden')).toBe('true')
+    const style = parse(
+      readFileSync(new URL('../../src/components/ui/BaseDisclosure.vue', import.meta.url), 'utf8'),
+    ).descriptor.styles[0].content
+    expect(style).not.toContain('::after')
+  })
+})
+
 describe('モーション（M）', () => {
   test('スピナーの大きさは 20px（--icon-md）だけで、サイズの指定は無い（O12）', () => {
     const w = mount(Spinner)
@@ -212,6 +226,22 @@ describe('モーション（M）', () => {
     expect(style).toContain('width: var(--icon-md)')
     expect(style).toContain('height: var(--icon-md)')
     expect(style).not.toMatch(/--icon-(sm|lg)/)
+  })
+
+  test('primary ボタンの loading のスピナーは、--accent 地で見えるよう --bone に反転する（O12）', () => {
+    const w = mount(BaseButton, {
+      props: { variant: 'primary', loading: true },
+      slots: { default: '送信' },
+    })
+    expect(w.find('.spinner').exists()).toBe(true)
+    const style = parse(
+      readFileSync(new URL('../../src/components/ui/BaseButton.vue', import.meta.url), 'utf8'),
+    ).descriptor.styles[0].content
+    const body =
+      style.slice(style.indexOf('.btn-primary .spinner {')).match(/\{([^}]*)\}/)?.[1] ?? ''
+    expect(body).toContain('border-top-color: var(--bone)')
+    expect(body).toContain('color-mix(in srgb, var(--bone) 30%, transparent)')
+    expect(body).not.toMatch(/width|height/)
   })
 
   test('ボタンの押下でリップルが出て、無効のときは出ない', async () => {

@@ -77,6 +77,12 @@ withDefaults(
   color: var(--bone);
 }
 
+/* 地が --accent なので、Spinner の既定の先端（--accent）は溶けて見えない。文字色 --bone に反転する（大きさは変えない）。 */
+.btn-primary .spinner {
+  border-color: color-mix(in srgb, var(--bone) 30%, transparent);
+  border-top-color: var(--bone);
+}
+
 .btn-primary:hover:not(:disabled) {
   background: color-mix(in srgb, var(--accent) 85%, var(--bone));
 }
