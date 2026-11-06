@@ -60,7 +60,7 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   flex: 1;
   min-width: 0;
   gap: var(--s-2);
-  padding: var(--s-2) var(--s-2) var(--s-2) 0;
+  padding: var(--s-2) var(--menu-pad-x) var(--s-2) 0;
   border: none;
   background: transparent;
   color: var(--ink);
