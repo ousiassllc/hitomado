@@ -58,10 +58,12 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
 
 <template>
   <div class="message-body">
-    <div v-if="html && hasRemoteImages && !showImages" class="image-bar" data-testid="image-bar">
-      <WarningTriangle class="icon icon-sm icon-warning" aria-hidden="true" /><span>{{ msg.imagesBlocked }}</span>
-      <BaseButton size="sm" data-testid="show-images" @click="showImages = true">{{ msg.showImages }}</BaseButton>
-    </div>
+    <Transition name="alert">
+      <div v-if="html && hasRemoteImages && !showImages" class="image-bar" data-testid="image-bar">
+        <WarningTriangle class="icon icon-sm icon-warning" aria-hidden="true" /><span>{{ msg.imagesBlocked }}</span>
+        <BaseButton size="sm" data-testid="show-images" @click="showImages = true">{{ msg.showImages }}</BaseButton>
+      </div>
+    </Transition>
     <iframe
       v-if="html"
       ref="frame"
@@ -120,5 +122,13 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
 .body-empty {
   margin: 0;
   color: var(--mute);
+}
+
+.alert-enter-active {
+  animation: ui-fade-in var(--motion-fade-in) var(--ease-out);
+}
+
+.alert-leave-active {
+  animation: ui-fade-out var(--motion-fade-out) var(--ease-in) forwards;
 }
 </style>
