@@ -193,11 +193,11 @@ onBeforeUnmount(() => editor.value?.destroy())
 }
 
 .rte-body :deep(.editor-content p) {
-  margin: 0 0 var(--s-2);
+  margin: 0 0 var(--gap-para);
 }
 
 .rte-body :deep(.editor-content ul) {
-  margin: 0 0 var(--s-2);
+  margin: 0 0 var(--gap-para);
   padding-left: var(--s-6);
 }
 

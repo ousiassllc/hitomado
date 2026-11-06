@@ -86,3 +86,26 @@ describe('グループ間・まとまり間の間隔（S2・#237）', () => {
     expect(rule('ui/BaseSwitch.vue', '.sw {')).toContain('flex: none')
   })
 })
+
+describe('段落間・見出し→本文・ラベル→内容の間隔（S2・#242）', () => {
+  test('--gap-para（本文の段落間）は 16px。本文エディタの段落・箇条書きがそれを使う', () => {
+    expect(tokens).toMatch(/--gap-para:\s*var\(--s-4\);/)
+    expect(rule('compose/RichTextEditor.vue', '.editor-content p)')).toContain(
+      'margin: 0 0 var(--gap-para)',
+    )
+    expect(rule('compose/RichTextEditor.vue', '.editor-content ul)')).toContain(
+      'margin: 0 0 var(--gap-para)',
+    )
+  })
+
+  test('見出し→本文は 8px（--s-2）: 質問/回答（.turn）と利用枠超過の注意（.limit-main）', () => {
+    expect(rule('thread/ai/ThreadAiPanel.vue', '.turn {')).toContain('gap: var(--s-2)')
+    expect(rule('compose/ai/UsageLimitNotice.vue', '.limit-main {')).toContain('gap: var(--s-2)')
+  })
+
+  test('送信確認の送信元のラベル→内容は --gap-label', () => {
+    expect(rule('compose/SendConfirmDialog.vue', '.confirm-from {')).toContain(
+      'gap: var(--gap-label)',
+    )
+  })
+})
