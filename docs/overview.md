@@ -68,7 +68,7 @@ flowchart LR
 
 | ドキュメント | パス | 概要 |
 |------------|------|------|
-| 機能要件 | [`docs/requirements/functional.md`](requirements/functional.md) | F-01〜F-15 のユースケース・機能詳細・画面遷移・エラー動作 |
+| 機能要件 | [`docs/requirements/functional.md`](requirements/functional.md) | F-01〜F-18 のユースケース・機能詳細・画面遷移・エラー動作 |
 | 非機能要件 | [`docs/requirements/non-functional.md`](requirements/non-functional.md) | セキュリティ・外部通信・性能・同期・配布・テスト方針 |
 | アーキテクチャ設計 | [`docs/architecture/overview.md`](architecture/overview.md) | Wails v3＋Go＋Vue の構成、レイヤー、実行モデル、通信フロー |
 | ER / データモデル | [`docs/architecture/er.md`](architecture/er.md) | SQLite のテーブル定義（メタデータ・スニペットのみ）、インデックス、保持ルール |
@@ -102,3 +102,4 @@ flowchart LR
 | 1.2 | 2026-11-03 | ドキュメントマップに MCP 連携とログを追加 | #14 |
 | 1.3 | 2026-11-03 | AI 下書きに ChatGPT プラン（Sign in with ChatGPT）とモデル一覧からの選択を追記（詳細は各設計書の履歴） | #75、#76 |
 | 1.4 | 2026-11-06 | スコープに、スレッドの AI 要約と AI への質問を追記（詳細は各設計書の履歴） | #206・#207 |
+| 1.5 | 2026-11-06 | ドキュメントマップの機能要件の範囲を F-01〜F-15 から F-01〜F-18 に直した（F-16 の漏れの補正を含む） | #206・#207 |
