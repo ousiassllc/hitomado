@@ -106,10 +106,12 @@ function ask(): void {
       </div>
     </Transition>
 
-    <p v-if="flow.needsKey.value" class="notice notice-need-key" data-testid="thread-ai-need-key">
-      {{ needText }}
-      <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
-    </p>
+    <Transition name="alert">
+      <p v-if="flow.needsKey.value" class="notice notice-need-key" data-testid="thread-ai-need-key">
+        {{ needText }}
+        <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
+      </p>
+    </Transition>
 
     <ThreadAiQuestionForm v-model="store.draft" :disabled="store.busy || flow.needsKey.value" @submit="ask" />
     <div ref="end" />
