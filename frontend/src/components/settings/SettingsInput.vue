@@ -11,6 +11,7 @@ withDefaults(
     error?: string
     disabled?: boolean
     autocomplete?: string
+    mono?: boolean
   }>(),
   {
     type: 'text',
@@ -19,6 +20,7 @@ withDefaults(
     error: undefined,
     disabled: false,
     autocomplete: 'off',
+    mono: false,
   },
 )
 
@@ -33,6 +35,7 @@ const id = useId()
     <input
       :id="id"
       class="field-input"
+      :class="{ mono }"
       :type="type"
       :value="modelValue"
       :placeholder="placeholder"
@@ -69,6 +72,15 @@ const id = useId()
   background: var(--surface);
   color: var(--ink);
   font-size: var(--font-size-sm);
+}
+
+.field-input.mono {
+  font-family: var(--font-mono);
+}
+
+/* 識別子欄でも説明文の placeholder は文章なので sans に戻す */
+.field-input.mono::placeholder {
+  font-family: var(--font-sans);
 }
 
 .field-input:focus {

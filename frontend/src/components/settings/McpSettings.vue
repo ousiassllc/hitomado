@@ -133,8 +133,8 @@ async function copy(text: string): Promise<void> {
       </div>
 
       <div class="addr">
-        <SettingsInput v-model="host" :label="msg.mcp.host" />
-        <SettingsInput v-model="port" :label="msg.mcp.port" :error="portError" />
+        <SettingsInput v-model="host" mono :label="msg.mcp.host" />
+        <SettingsInput v-model="port" mono :label="msg.mcp.port" :error="portError" />
       </div>
 
       <div class="group">

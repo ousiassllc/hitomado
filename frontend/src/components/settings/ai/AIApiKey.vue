@@ -52,6 +52,7 @@ defineExpose({
     </div>
     <SettingsInput
       v-model="apiKey"
+      mono
       type="password"
       autocomplete="new-password"
       :label="msg.ai.apiKeyFor(props.providerLabel)"
