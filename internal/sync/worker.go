@@ -35,6 +35,7 @@ func (s *Scheduler) runWorker(a *account) {
 func (s *Scheduler) cycle(a *account) {
 	defer logging.Recover(s.log, "sync cycle") // 1 周期の panic でワーカーを止めない（スタックを記録して次の周期へ）
 	if a.paused.Load() {
+		s.log.Debug("sync cycle skipped: paused", "account", a.id) // テストが「tick を処理し終えた」ことを待つ目印にも使う
 		return
 	}
 	if err := s.runCycle(a.ctx, a); err != nil && a.ctx.Err() == nil {
