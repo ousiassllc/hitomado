@@ -123,7 +123,7 @@ function onOpen(open: boolean): void {
 }
 
 .warning {
-  padding: var(--s-2) var(--s-3);
+  padding: var(--s-3) var(--s-4);
   border-radius: var(--r-md);
   border: 1px solid var(--warning-border);
   background: var(--warning-soft);
