@@ -251,7 +251,7 @@ async function remove(): Promise<void> {
   flex-direction: column;
   gap: var(--s-2);
   margin: 0;
-  padding: var(--s-2) var(--s-3);
+  padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
 }

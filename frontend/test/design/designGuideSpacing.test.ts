@@ -28,3 +28,11 @@ describe('線（S4・#212）', () => {
     )
   })
 })
+
+describe('入れ子パネルの padding（S2・#223）', () => {
+  test('ChatGPT アカウント一覧の枠は --pad-card-sm', () => {
+    expect(rule('settings/ai/AIChatGPTLogin.vue', '.accounts {')).toContain(
+      'padding: var(--pad-card-sm)',
+    )
+  })
+})
