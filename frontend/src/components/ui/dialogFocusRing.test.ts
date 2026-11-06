@@ -34,7 +34,7 @@ describe('SettingsDialog の横スクロールするタブ', () => {
 // キーボードの強調は reka が項目へ DOM フォーカスを当てるので、:focus-visible のときだけリングを描く（#252）。
 describe.each([
   ['BaseMenu', './BaseMenu.vue', '\\.menu-item', ':global\\(\\.menu-pop\\)'],
-  ['BaseSelect', './BaseSelect.vue', '\\.sel-item', '\\.sel-viewport'],
+  ['BaseSelect', './BaseSelect.vue', '\\.sel-item', ':global\\(\\.sel-viewport\\)'],
 ])('%s の強調項目', (_name, file, item, scroller) => {
   test('ホバー（data-highlighted だけ）は地のみで、枠を描かない', async () => {
     const css = await styleOf(file)

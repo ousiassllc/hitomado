@@ -134,6 +134,45 @@ describe('ダイアログ内のポップアップ（#98）', () => {
   })
 })
 
+// reka の Fragment / Portal 配下の要素（SelectViewport・Popper 本体）には scoped 属性（data-v-*）が付かない。
+// 実際に描画して、scope 属性が無い要素にも余白（リングが収まる --s-1 = 4px）が当たることを確かめる（#252）。
+describe('スクロール領域の余白（外側リングが収まる 4px）', () => {
+  test('BaseSelect: SelectViewport は scope 属性が無くても padding が当たる', async () => {
+    wrapper = mount(BaseSelect, {
+      props: { modelValue: 'a', options, ariaLabel: 'provider' },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    const trigger = document.querySelector<HTMLElement>('[aria-label="provider"]')
+    trigger?.focus()
+    trigger?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await flushPromises()
+
+    const viewport = document.querySelector('.sel-viewport') as Element
+    expect(viewport).not.toBeNull()
+    expect(viewport.hasAttribute('data-v-select')).toBe(false) // scoped セレクタでは当たらない要素であることの確認
+    expect(getComputedStyle(viewport).padding).toBe('4px')
+  })
+
+  test('BaseMenu: .menu-pop は scope 属性が無くても padding が当たる', async () => {
+    wrapper = mount(BaseMenu, {
+      props: { items: [{ key: 'x', label: 'X' }] },
+      slots: { trigger: () => h('button', { id: 't' }, 'menu') },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    const trigger = document.querySelector<HTMLElement>('#t')
+    trigger?.focus()
+    trigger?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))
+    await flushPromises()
+
+    const pop = document.querySelector('.menu-pop') as Element
+    expect(pop).not.toBeNull()
+    expect(pop.hasAttribute('data-v-menu')).toBe(false)
+    expect(getComputedStyle(pop).padding).toBe('4px')
+  })
+})
+
 test('BaseTooltip: 出したツールチップがダイアログより前面', async () => {
   wrapper = mountInDialog(() =>
     h(BaseTooltip, { text: 'ヒント' }, () => h('button', { id: 't' }, 'b')),
