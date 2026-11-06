@@ -667,3 +667,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.84 | 2026-11-07 | `McpSettings` の中立ピル（停止中）を、状態色のピルと同じ作り（枠 `--mute` 40%・地 `--mute` 10%・文字 `--mute`）に揃えた。`AccountItem` の選択・ホバー（`--accent-soft` 地）の `.email` を、`--mute` が AA 4.5:1 に届かないため `--ink` にした | #267 |
 | 1.85 | 2026-11-07 | `RichTextEditor` のリンク入力欄（`EditorLinkForm`）の出現・消去に、`RecipientField` の候補と同じフェード（出現 320ms・退出 240ms、opacity のみ）を付けた | #268 |
 | 1.86 | 2026-11-07 | `InboxTabs`・`SettingsDialog` のタブのホバーと `BaseMenu` の強調行の `.menu-shortcut` を、`--accent-soft` 地の上で `--mute` が AA 4.5:1 に届かないため `--ink` にした（選択タブは下線 `--accent`、ショートカットはラベルと文字サイズで区別が残る） | #271 |
+| 1.87 | 2026-11-07 | ドロワーを開く `ThreadListPane` の上部バー（`.head`）に最小高さ `--topbar-h`（52。ガイド §6 のトップバー高さ 52–56 の下限）を付け、非タッチの medium でも 52 に届くようにした（タッチ UI は 44px のタップ領域で約 53 のまま。wide にこのバーは出ない） | #273（ガイド O2） |

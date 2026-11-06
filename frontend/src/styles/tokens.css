@@ -84,6 +84,9 @@
   --control-h: 40px;
   --control-h-sm: 32px;
 
+  /* モバイルナビの上部バー（ドロワーを開く ThreadListPane の .head）の最小高さ。ガイド §6 のトップバー高さ 52–56 の下限 */
+  --topbar-h: 52px;
+
   /* アイコン（Iconoir。ストローク 1.5・currentColor） */
   --icon-sm: 16px;
   --icon-md: 20px;
