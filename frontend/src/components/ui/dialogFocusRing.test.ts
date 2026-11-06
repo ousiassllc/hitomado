@@ -29,3 +29,17 @@ describe('SettingsDialog の横スクロールするタブ', () => {
     expect(rule).toMatch(/outline-offset:\s*-2px;/)
   })
 })
+
+// メニュー・セレクトの強調項目は outline:none のままだとキーボードの強調が地（--accent-soft）だけになる（#252）。
+describe.each([
+  ['BaseMenu', './BaseMenu.vue', '\\.menu-item\\[data-highlighted\\]'],
+  ['BaseSelect', './BaseSelect.vue', '\\.sel-item\\[data-highlighted\\]'],
+])('%s の強調項目', (_name, file, selector) => {
+  test('地に加えて --focus のリングを内側（offset -2px）に描く', async () => {
+    const css = await styleOf(file)
+    const rule = css.match(new RegExp(`${selector}\\s*\\{([^}]*)\\}`))?.[1] ?? ''
+    expect(rule).toMatch(/background:\s*var\(--accent-soft\);/)
+    expect(rule).toMatch(/outline:\s*2px solid var\(--focus\);/)
+    expect(rule).toMatch(/outline-offset:\s*-2px;/)
+  })
+})
