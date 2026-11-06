@@ -9,14 +9,14 @@ import {
   resetKit,
   responses,
   restoreMocks,
-} from './inboxKit'
+} from '../inboxKit'
 
 installMocks()
 afterAll(restoreMocks)
 
-const { useInboxStore } = await import('../src/stores/inbox')
-const { useUiStore } = await import('../src/stores/ui')
-const { useAccountsStore } = await import('../src/stores/accounts')
+const { useInboxStore } = await import('../../src/stores/inbox')
+const { useUiStore } = await import('../../src/stores/ui')
+const { useAccountsStore } = await import('../../src/stores/accounts')
 
 beforeEach(resetKit)
 

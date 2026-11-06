@@ -108,6 +108,9 @@ jobs:
       - if: matrix.os == 'ubuntu-latest'
         name: Release version script
         run: bash .github/scripts/next-version_test.sh
+      - if: matrix.os == 'ubuntu-latest'
+        name: Android ELF alignment check script
+        run: bash build/android/scripts/check-elf-align_test.sh
 
   # インストーラーまで作り、旧版 → 上書き → アンインストールを実機（windows-latest）で通す。
   # 版は 0.99.1（旧）と 0.99.2（新）の固定値で、リリースの版とは無関係。exe に埋め込まれた版を

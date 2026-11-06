@@ -11,7 +11,13 @@ import BaseButton from '../ui/BaseButton.vue'
 import BaseMenu from '../ui/BaseMenu.vue'
 import BaseTooltip from '../ui/BaseTooltip.vue'
 
-const props = defineProps<{ detail: ThreadDetail }>()
+const props = defineProps<{
+  detail: ThreadDetail
+  /** 「AI で要約」を押せない（生成中・API キー未設定）。 */
+  summarizeDisabled?: boolean
+  summarizeHint?: string
+}>()
+const emit = defineEmits<{ summarize: [] }>()
 const store = useThreadStore()
 
 const labelItems = computed(() => {
@@ -40,6 +46,11 @@ const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail
         </BaseTooltip>
         <BaseTooltip :text="common.shortcutHint(msg.trash, SHORTCUT_KEYS.trash)">
           <BaseButton size="sm" data-testid="act-trash" @click="store.trash()">{{ msg.trash }}</BaseButton>
+        </BaseTooltip>
+        <BaseTooltip :text="summarizeHint ?? msg.aiSummarize">
+          <BaseButton size="sm" :disabled="summarizeDisabled" data-testid="act-ai-summarize" @click="emit('summarize')">
+            {{ msg.aiSummarize }}
+          </BaseButton>
         </BaseTooltip>
         <BaseMenu :items="labelItems" @select="onLabel">
           <template #trigger>

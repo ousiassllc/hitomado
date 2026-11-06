@@ -44,12 +44,27 @@ type anthropicResponse struct {
 
 // GenerateReply は Provider の実装。
 func (a *anthropic) GenerateReply(ctx context.Context, in ReplyInput) (string, error) {
+	return a.complete(ctx, systemPrompt(in), []chatMessage{{Role: RoleUser, Content: userPrompt(in)}}, in.Effort)
+}
+
+// SummarizeThread は Provider の実装。
+func (a *anthropic) SummarizeThread(ctx context.Context, in ThreadInput) (string, error) {
+	return a.complete(ctx, summarizeSystemPrompt(in), summarizeMessages(in), in.Effort)
+}
+
+// AskAboutThread は Provider の実装。
+func (a *anthropic) AskAboutThread(ctx context.Context, in ThreadQuestionInput) (string, error) {
+	return a.complete(ctx, askSystemPrompt(in.ThreadInput), askMessages(in), in.Effort)
+}
+
+// complete は system 指示とメッセージ列を Messages API へ送り、応答のテキストを返す。
+func (a *anthropic) complete(ctx context.Context, system string, messages []chatMessage, effort string) (string, error) {
 	req := anthropicRequest{
 		Model:        a.model,
 		MaxTokens:    anthropicMaxTokens,
-		System:       systemPrompt(in),
-		Messages:     []chatMessage{{Role: "user", Content: userPrompt(in)}},
-		OutputConfig: effortConfigOf(in.Effort),
+		System:       system,
+		Messages:     messages,
+		OutputConfig: effortConfigOf(effort),
 	}
 	headers := map[string]string{"x-api-key": a.apiKey, "anthropic-version": anthropicVersion}
 	var resp anthropicResponse
@@ -84,13 +99,25 @@ type openAIResponse struct {
 
 // GenerateReply は Provider の実装。
 func (o *openAI) GenerateReply(ctx context.Context, in ReplyInput) (string, error) {
+	return o.complete(ctx, systemPrompt(in), []chatMessage{{Role: RoleUser, Content: userPrompt(in)}}, in.Effort)
+}
+
+// SummarizeThread は Provider の実装。
+func (o *openAI) SummarizeThread(ctx context.Context, in ThreadInput) (string, error) {
+	return o.complete(ctx, summarizeSystemPrompt(in), summarizeMessages(in), in.Effort)
+}
+
+// AskAboutThread は Provider の実装。
+func (o *openAI) AskAboutThread(ctx context.Context, in ThreadQuestionInput) (string, error) {
+	return o.complete(ctx, askSystemPrompt(in.ThreadInput), askMessages(in), in.Effort)
+}
+
+// complete は system 指示とメッセージ列を Chat Completions へ送り、応答のテキストを返す。
+func (o *openAI) complete(ctx context.Context, system string, messages []chatMessage, effort string) (string, error) {
 	req := openAIRequest{
-		Model: o.model,
-		Messages: []chatMessage{
-			{Role: "system", Content: systemPrompt(in)},
-			{Role: "user", Content: userPrompt(in)},
-		},
-		ReasoningEffort: in.Effort,
+		Model:           o.model,
+		Messages:        append([]chatMessage{{Role: "system", Content: system}}, messages...),
+		ReasoningEffort: effort,
 	}
 	headers := map[string]string{"Authorization": "Bearer " + o.apiKey}
 	var resp openAIResponse

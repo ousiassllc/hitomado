@@ -32,6 +32,10 @@ type fakeProvider struct {
 	inputs  []ai.ReplyInput
 	entered chan struct{}
 	fn      func(ctx context.Context, in ai.ReplyInput) (string, error)
+	// スレッドの要約・質問（F-17・F-18）。既定は固定の文字列を返す。
+	summaries []ai.ThreadInput
+	questions []ai.ThreadQuestionInput
+	threadFn  func(ctx context.Context) (string, error)
 }
 
 func (p *fakeProvider) GenerateReply(ctx context.Context, in ai.ReplyInput) (string, error) {

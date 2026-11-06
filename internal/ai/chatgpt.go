@@ -87,15 +87,35 @@ type responsesEvent struct {
 	} `json:"response"`
 }
 
-// GenerateReply は Provider の実装。ストリームを response.completed まで読み、delta を連結して返す。
+// GenerateReply は Provider の実装。
 func (g *chatGPT) GenerateReply(ctx context.Context, in ReplyInput) (string, error) {
+	return g.complete(ctx, systemPrompt(in), []chatMessage{{Role: RoleUser, Content: userPrompt(in)}}, in.Effort)
+}
+
+// SummarizeThread は Provider の実装。
+func (g *chatGPT) SummarizeThread(ctx context.Context, in ThreadInput) (string, error) {
+	return g.complete(ctx, summarizeSystemPrompt(in), summarizeMessages(in), in.Effort)
+}
+
+// AskAboutThread は Provider の実装。
+func (g *chatGPT) AskAboutThread(ctx context.Context, in ThreadQuestionInput) (string, error) {
+	return g.complete(ctx, askSystemPrompt(in.ThreadInput), askMessages(in), in.Effort)
+}
+
+// complete は instructions とメッセージ列を Responses API へ送り、ストリームを response.completed まで読み、
+// delta を連結して返す。
+func (g *chatGPT) complete(ctx context.Context, instructions string, messages []chatMessage, effort string) (string, error) {
+	input := make([]responseItem, len(messages))
+	for i, m := range messages {
+		input[i] = responseItem(m)
+	}
 	payload, err := json.Marshal(responsesRequest{
 		Model:        g.model,
-		Instructions: systemPrompt(in),
-		Input:        []responseItem{{Role: "user", Content: userPrompt(in)}},
+		Instructions: instructions,
+		Input:        input,
 		Store:        false,
 		Stream:       true,
-		Reasoning:    effortConfigOf(in.Effort),
+		Reasoning:    effortConfigOf(effort),
 	})
 	if err != nil {
 		return "", fmt.Errorf("%w: 要求を組み立てられません", ErrFailed)

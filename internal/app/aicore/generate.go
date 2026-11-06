@@ -67,7 +67,9 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID, 
 	}
 	in.Instruction = instruction
 	in.Effort = cfg.Effort
-	text, err := s.generate(runCtx, cfg, key, in)
+	text, err := s.generate(runCtx, cfg, key, in.Effort, func(ctx context.Context, p ai.Provider) (string, error) {
+		return p.GenerateReply(ctx, in)
+	})
 	if err != nil {
 		return dto.ReplyDraft{}, err
 	}
@@ -77,12 +79,15 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID, 
 	return dto.ReplyDraft{BodyHTML: bodyhtml.TextToHTML(text)}, nil
 }
 
-// generate はプロバイダを作って 1 回呼ぶ。ChatGPT で 401 を受けたときだけ、トークンを更新して 1 度だけやり直す
-// （更新できなければ再ログインを案内する）。返すエラーは AppError。
-func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key string, in ai.ReplyInput) (string, error) {
-	text, err := s.callProvider(ctx, cfg, key, in)
+// providerCall はプロバイダの 1 回の呼び出し（GenerateReply／SummarizeThread／AskAboutThread のどれか）。
+type providerCall func(ctx context.Context, p ai.Provider) (string, error)
+
+// generate はプロバイダを作って call を 1 回呼ぶ。ChatGPT で 401 を受けたときだけ、トークンを更新して 1 度だけやり直す
+// （更新できなければ再ログインを案内する）。effort は要求に載せたエフォート（拒否されたときの案内用）。返すエラーは AppError。
+func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key, effort string, call providerCall) (string, error) {
+	text, err := s.callProvider(ctx, cfg, key, call)
 	if err == nil || cfg.Provider != providerChatGPT || !errors.Is(err, ai.ErrUnauthorized) || ctx.Err() != nil {
-		return text, s.mapProviderError(cfg.Provider, in.Effort, err)
+		return text, s.mapProviderError(cfg.Provider, effort, err)
 	}
 	key, rerr := s.d.ChatGPT.ForceRefresh(ctx)
 	if rerr != nil {
@@ -91,13 +96,13 @@ func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key string, 
 		}
 		return "", mapChatGPTError(rerr)
 	}
-	text, err = s.callProvider(ctx, cfg, key, in)
-	return text, s.mapProviderError(cfg.Provider, in.Effort, err)
+	text, err = s.callProvider(ctx, cfg, key, call)
+	return text, s.mapProviderError(cfg.Provider, effort, err)
 }
 
-// callProvider はプロバイダを作って GenerateReply を呼ぶ。プロバイダのエラーは生のまま返す（呼び出し側が分類する）。
+// callProvider はプロバイダを作って call を呼ぶ。プロバイダのエラーは生のまま返す（呼び出し側が分類する）。
 // 中止・期限切れ（ctx の終了）と、プロバイダを作れないエラーだけは、ここで AppError にする。
-func (s *Service) callProvider(ctx context.Context, cfg storedAIConfig, key string, in ai.ReplyInput) (string, error) {
+func (s *Service) callProvider(ctx context.Context, cfg storedAIConfig, key string, call providerCall) (string, error) {
 	provider, err := s.d.AI(cfg.Provider, cfg.Model, cfg.BaseURL, key)
 	if err != nil {
 		if errors.Is(err, ai.ErrInvalidBaseURL) {
@@ -107,7 +112,7 @@ func (s *Service) callProvider(ctx context.Context, cfg storedAIConfig, key stri
 	}
 	callCtx, stop := context.WithTimeout(ctx, s.timeout)
 	defer stop()
-	text, err := provider.GenerateReply(callCtx, in)
+	text, err := call(callCtx, provider)
 	if err != nil {
 		if context.Cause(callCtx) != nil {
 			return "", s.mapError(callCtx, err, "")
@@ -199,18 +204,32 @@ func (s *Service) buildInput(ctx context.Context, ref dto.ThreadRef) (ai.ReplyIn
 	if err != nil {
 		return ai.ReplyInput{}, err
 	}
-	msgs := make([]ai.ContextMessage, 0, len(thread.Messages))
-	for _, m := range thread.Messages {
-		if slices.Contains(m.LabelIDs, labelDraft) {
-			continue
-		}
-		msgs = append(msgs, ai.ContextMessage{From: senderLabel(m), Date: m.InternalDate, Text: messageText(m)})
-	}
+	msgs := contextMessages(thread)
 	return ai.ReplyInput{
 		AccountDisplayName: acct.DisplayName,
 		SignatureText:      strings.TrimSpace(textconv.HTMLToText(acct.SignatureHTML)),
 		Messages:           ai.Truncate(msgs, aiContextMessages, aiContextChars),
 	}, nil
+}
+
+// contextMessages はスレッドの DRAFT でないメッセージを、古い順のままプレーンテキスト化して返す（添付はファイル名とサイズだけ）。
+func contextMessages(thread gmail.ThreadFull) []ai.ContextMessage {
+	msgs := make([]ai.ContextMessage, 0, len(thread.Messages))
+	for _, m := range thread.Messages {
+		if slices.Contains(m.LabelIDs, labelDraft) {
+			continue
+		}
+		msgs = append(msgs, ai.ContextMessage{From: senderLabel(m), Date: m.InternalDate, Text: messageText(m), Attachments: attachmentRefs(m.Attachments)})
+	}
+	return msgs
+}
+
+func attachmentRefs(atts []model.AttachmentInfo) []ai.AttachmentRef {
+	refs := make([]ai.AttachmentRef, len(atts))
+	for i, a := range atts {
+		refs[i] = ai.AttachmentRef{Filename: a.Filename, Size: a.Size}
+	}
+	return refs
 }
 
 func senderLabel(m gmail.MessageFull) string {
@@ -232,7 +251,7 @@ func (s *Service) mapError(ctx context.Context, err error, accountID string) err
 	cause := context.Cause(ctx)
 	switch {
 	case errors.Is(cause, errCancelledByUser), errors.Is(cause, context.Canceled):
-		return apperr.Wrap(apperr.Cancelled, "AI 下書きの生成を中止しました。", err)
+		return apperr.Wrap(apperr.Cancelled, "AI の生成を中止しました。", err)
 	case errors.Is(cause, context.DeadlineExceeded) && !errors.Is(err, ai.ErrUnauthorized):
 		ae := apperr.Wrap(apperr.AIFailed, "AI の応答が時間内に返りませんでした。", err)
 		ae.Retryable = true
@@ -257,7 +276,7 @@ func (s *Service) unregister(requestID string) {
 	s.mu.Unlock()
 }
 
-// CancelGenerate は実行中の生成を中止する（GenerateReplyDraft は CANCELLED で終わる）。未知の ID は何もしない。
+// CancelGenerate は実行中の生成を中止する（GenerateReplyDraft・SummarizeThread・AskAboutThread は CANCELLED で終わる）。未知の ID は何もしない。
 func (s *Service) CancelGenerate(requestID string) error {
 	s.mu.Lock()
 	cancel := s.inflight[requestID]

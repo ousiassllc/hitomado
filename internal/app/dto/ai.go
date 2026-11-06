@@ -75,3 +75,17 @@ type AIModelList struct {
 type ReplyDraft struct {
 	BodyHTML string `json:"bodyHtml"`
 }
+
+// ThreadAIResult はスレッドの AI 要約・質問の結果（F-17・F-18）。Text は日本語のプレーンテキスト。
+// IncludedCount は入力に含めたメッセージ数、TotalCount はスレッドの（下書きを除く）メッセージ数（長いスレッドで古いものを外すと IncludedCount < TotalCount）。
+type ThreadAIResult struct {
+	Text          string `json:"text"`
+	IncludedCount int    `json:"includedCount"`
+	TotalCount    int    `json:"totalCount"`
+}
+
+// ThreadAITurn はスレッドへの AI 質問の会話 1 件（F-18）。Role は user（利用者の質問）か assistant（AI の回答）。
+type ThreadAITurn struct {
+	Role string `json:"role"`
+	Text string `json:"text"`
+}

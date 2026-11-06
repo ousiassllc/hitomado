@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 作った APK の中身を検査する（android:verify）。CI でも同じものを使う。
 # 使い方: verify-apk.sh <apk> <applicationId> <X.Y.Z> [<SDK のパス>]
-# 検査: packageName・versionName・versionCode・targetSdk・権限（許可リスト）・allowBackup=false・extractNativeLibs=true・.so／dex の圧縮・署名。
+# 検査: packageName・versionName・versionCode・targetSdk・権限（許可リスト）・allowBackup=false・extractNativeLibs=true・.so／dex の圧縮・libwails.so の 16KB 整列・署名。
 # 署名の種類（デバッグ鍵か）は表示する。EXPECT_SIGNING=debug|release を付けると、その種類でなければ失敗にする。
 set -euo pipefail
 
@@ -72,6 +72,21 @@ check "classes.dex is compressed (Defl)" grep -Eq 'Defl:[A-Za-z]+ .* classes\.de
 e2e_marker="hitomado-e2e-backend-v1"
 e2e_hits="$(unzip -p "$apk" 'lib/*/libwails.so' | grep -ac "$e2e_marker" || true)"
 check "no E2E backend in libwails.so" test "${e2e_hits:-0}" = 0
+
+# libwails.so の LOAD セグメントがすべて 16KB 以上で整列していること（16KB ページ対応。#205、docs/environment/android-play-distribution.md §6.1）。
+# 4KB 整列（Align 0x1000）のままだと、16KB ページの端末で読み込めず、2027-02-01 以降は Play にも出せない。
+so_dir="$(mktemp -d)"
+trap 'rm -rf "$so_dir"' EXIT
+so_files=()
+while IFS= read -r entry; do
+  out="$so_dir/$(tr / _ <<<"$entry")"
+  unzip -p "$apk" "$entry" >"$out"
+  so_files+=("$out")
+done < <(unzip -Z1 "$apk" | grep -E '^lib/[^/]+/libwails\.so$' || true)
+check "libwails.so is in the APK" test "${#so_files[@]}" -gt 0
+if [ "${#so_files[@]}" -gt 0 ]; then
+  check "libwails.so LOAD segments are 16KB aligned" env SDK_ROOT="$sdk_root" bash "$(dirname "${BASH_SOURCE[0]}")/check-elf-align.sh" "${so_files[@]}"
+fi
 
 # 署名: 検証して証明書の持ち主を表示する。デバッグ鍵は "CN=Android Debug"。
 certs="$("$apksigner" verify --print-certs "$apk")"
