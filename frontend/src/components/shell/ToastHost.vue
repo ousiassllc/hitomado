@@ -22,22 +22,28 @@ function undo(id: number, run: () => void): void {
   run()
 }
 
+// 表示時間は「出きってから」数える。置き換えでは、前のものの退出（out-in）と新しいものの入場を待ってから始める（watch で始めると実表示が 3 秒を割る）。
+// 新しいものが来た時点で前のタイマーは止める（入場前に次が来ても、古いタイマーが新しいものを消さない）。
 watch(
   () => ui.toast?.id,
-  (id) => {
-    stop()
-    if (id === undefined) return
-    timer = setTimeout(() => ui.dismissToast(id), ui.toast?.action ? SNACKBAR_MS : TOAST_MS)
-  },
+  stop,
   { immediate: true },
 )
+
+// 入場が終わった（または appear で初回に出た）トーストだけ、数え始める。id は今の toast のもの（退出・入場の取り消しでは after-enter は来ない）。
+function startTimer(): void {
+  const current = ui.toast
+  if (!current) return
+  stop()
+  timer = setTimeout(() => ui.dismissToast(current.id), current.action ? SNACKBAR_MS : TOAST_MS)
+}
 
 onBeforeUnmount(stop)
 </script>
 
 <template>
   <div class="toasts">
-    <Transition name="toast" mode="out-in">
+    <Transition name="toast" mode="out-in" appear @after-enter="startTimer">
       <div
         v-if="ui.toast"
         :key="ui.toast.id"

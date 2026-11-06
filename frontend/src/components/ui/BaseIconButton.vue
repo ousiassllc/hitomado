@@ -9,7 +9,7 @@ defineOptions({ inheritAttrs: false })
 withDefaults(
   defineProps<{
     label: string
-    /** 指定するとツールチップに「ラベル (キー)」を表示する（`title` は出さない） */
+    /** 指定するとツールチップを「ラベル (キー)」にする（無ければラベルだけ。どちらも `title` は出さない） */
     shortcut?: string
     variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
     disabled?: boolean
@@ -21,7 +21,7 @@ withDefaults(
 </script>
 
 <template>
-  <BaseTooltip :text="shortcut ? common.shortcutHint(label, shortcut) : undefined">
+  <BaseTooltip :text="shortcut ? common.shortcutHint(label, shortcut) : label">
     <button
       v-bind="$attrs"
       v-ripple
@@ -29,7 +29,6 @@ withDefaults(
       :class="`icon-btn-${variant}`"
       type="button"
       :aria-label="label"
-      :title="shortcut ? undefined : label"
       :disabled="disabled || loading"
       :aria-busy="loading || undefined"
     >
