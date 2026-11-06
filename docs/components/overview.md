@@ -666,3 +666,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.83 | 2026-11-07 | 実装と食い違っていた記述を直した。§5.3 のタイポ行の利用者が付けた太字を 700 から 600 に、逸脱表のプレーンテキスト本文（`<pre>`）のサイズを `sm` から `base`（行間 `--line-height-base`）に訂正した（実装は変えていない）。`BaseDisclosure` の `.disclosure-summary`・`ThreadAiPanel` の `.progress`・`AiDraftButton` の `.ai-progress` に `line-height: var(--line-height-sm)` を対にした | #269 |
 | 1.84 | 2026-11-07 | `McpSettings` の中立ピル（停止中）を、状態色のピルと同じ作り（枠 `--mute` 40%・地 `--mute` 10%・文字 `--mute`）に揃えた。`AccountItem` の選択・ホバー（`--accent-soft` 地）の `.email` を、`--mute` が AA 4.5:1 に届かないため `--ink` にした | #267 |
 | 1.85 | 2026-11-07 | `RichTextEditor` のリンク入力欄（`EditorLinkForm`）の出現・消去に、`RecipientField` の候補と同じフェード（出現 320ms・退出 240ms、opacity のみ）を付けた | #268 |
+| 1.86 | 2026-11-07 | `InboxTabs`・`SettingsDialog` のタブのホバーと `BaseMenu` の強調行の `.menu-shortcut` を、`--accent-soft` 地の上で `--mute` が AA 4.5:1 に届かないため `--ink` にした（選択タブは下線 `--accent`、ショートカットはラベルと文字サイズで区別が残る） | #271 |
