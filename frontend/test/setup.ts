@@ -1,3 +1,4 @@
+import { afterEach } from 'bun:test'
 import { GlobalRegistrator } from '@happy-dom/global-registrator'
 import { compileScript, parse } from '@vue/compiler-sfc'
 import { plugin } from 'bun'
@@ -7,6 +8,7 @@ GlobalRegistrator.register()
 // アイコン（Iconoir）は App.vue の IconoirProvider から既定値を受ける。単体でマウントするテストでは無い（なくても描ける）ので、その警告だけ出さない。
 // Vue（runtime-dom）は読み込み時に document を見るので、DOM を登録したあとで読み込む。
 const { config } = await import('@vue/test-utils')
+const { createPinia, getActivePinia, setActivePinia } = await import('pinia') // 静的 import は DOM の登録より前に評価されるため動的に読む
 config.global.config.warnHandler = (msg, _instance, trace) => {
   if (msg.includes('IconoirProvider')) return
   console.warn(`[Vue warn]: ${msg}${trace}`)
@@ -32,4 +34,13 @@ plugin({
       return { contents: transpiler.transformSync(script.content), loader: 'js' }
     })
   },
+})
+
+// 各テストの終わりに、そのテストの Pinia（ストア）の effectScope を止める。止めないと、テスト中に張った
+// 3 秒の下書き自動保存タイマー（useAutosave は onScopeDispose で解除する）が残り、後から走るテスト（別ファイルも）の
+// 最中に発火して、差し替え済みのバインディング（モジュールモックはプロセス全体で共有）を呼んでしまう。
+// 発火時刻はファイルの実行順と速度で変わるので、環境により落ちる（ubuntu の CI だけ threadExpand.test.ts が落ちた）。
+afterEach(() => {
+  getActivePinia()?._e.stop()
+  setActivePinia(createPinia()) // Pinia を暗黙に使うテストのために、空の Pinia を有効にしておく
 })
