@@ -670,3 +670,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.87 | 2026-11-07 | ドロワーを開く `ThreadListPane` の上部バー（`.head`）に最小高さ `--topbar-h`（52。ガイド §6 のトップバー高さ 52–56 の下限）を付け、非タッチの medium でも 52 に届くようにした（タッチ UI は 44px のタップ領域で約 53 のまま。wide にこのバーは出ない） | #273（ガイド O2） |
 | 1.88 | 2026-11-07 | `SenderBadge` の padding を入れ子パネルの `--pad-card-sm`（16）に、`SendConfirmDialog` の警告枠の padding を他のインラインアラート（`AlertStack` ほか）と同じ `--s-3` `--s-4` に揃えた。§5.3 の角丸・余白の入れ子パネルの例に `SenderBadge` を追記（逸脱表・部品表は変更なし） | #274 |
 | 1.89 | 2026-11-07 | `BaseDisclosure` の `.disclosure-body` の既定色を `--mute` から `--ink` にした（複数文の補足を入れる容器で、呼び出し側が色を上書きし忘れても `--mute` の長文にならないため。`LogSettings`・`McpSettings` は子要素で色を指定済みで見た目は変わらない）。§3.3 の説明を実装に揃えた（逸脱表・部品表は変更なし） | #275 |
+| 1.90 | 2026-11-07 | `ComposePane` のファイルドロップ中（`--accent-soft` 地）だけ、`--mute` を `--ink` に上書きした。`--mute` は `--accent-soft` 上で AA 4.5:1 に届かないため（中の補助文字・ラベルが継承で追従する。地と破線 `--accent` の 1px は変えない。逸脱表・部品表は変更なし） | #278 |
