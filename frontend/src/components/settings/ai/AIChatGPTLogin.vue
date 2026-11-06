@@ -102,8 +102,18 @@ async function select(a: ChatGPTAccount): Promise<void> {
   }
 }
 
-async function logout(a: ChatGPTAccount): Promise<void> {
-  if (busy.value) return
+/** ログアウトの確認を出しているアカウント。removeTarget と同じく、閉じたあとも持ち続ける。 */
+const logoutTarget = ref<ChatGPTAccount>()
+const logoutOpen = ref(false)
+
+function askLogout(a: ChatGPTAccount): void {
+  logoutTarget.value = a
+  logoutOpen.value = true
+}
+
+async function logout(): Promise<void> {
+  const a = logoutTarget.value
+  if (!a || busy.value) return
   error.value = undefined
   busy.value = 'logout'
   busyId.value = a.id
@@ -116,6 +126,8 @@ async function logout(a: ChatGPTAccount): Promise<void> {
   } finally {
     busy.value = undefined
     busyId.value = undefined
+    // 失敗の理由はこの画面の中に出るので、確認は閉じて見えるようにする。
+    logoutOpen.value = false
   }
 }
 
@@ -168,7 +180,7 @@ async function remove(): Promise<void> {
           :radio-disabled="busy !== undefined && busy !== 'select'"
           :logging-out="busy === 'logout' && busyId === a.id"
           @select="select(a)"
-          @logout="logout(a)"
+          @logout="askLogout(a)"
           @relogin="login(a.id)"
           @remove="askRemove(a)"
         />
@@ -202,6 +214,14 @@ async function remove(): Promise<void> {
       </BaseButton>
     </div>
 
+    <ConfirmDialog
+      v-model:open="logoutOpen"
+      :title="msg.ai.chatgpt.logoutTitle(logoutTarget ? label(logoutTarget) : '')"
+      :detail="msg.ai.chatgpt.logoutDetail"
+      :confirm-label="msg.ai.chatgpt.logoutConfirm"
+      :busy="busy === 'logout'"
+      @confirm="logout"
+    />
     <ConfirmDialog
       v-model:open="removeOpen"
       :title="msg.ai.chatgpt.removeTitle(removeTarget ? label(removeTarget) : '')"

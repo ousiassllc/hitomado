@@ -112,6 +112,8 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   color: var(--ink);
 }
 

@@ -7,6 +7,7 @@ import {
   button,
   chatgptCfg,
   consentEl,
+  dialogButton,
   flushPromises,
   mountAI,
   setup,
@@ -202,6 +203,8 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
     }
     const w = mountAI(pinia)
     await w.get('[data-testid="ai-chatgpt-logout"]').trigger('click')
+    await flushPromises()
+    dialogButton('ログアウトする')?.click()
     await flushPromises()
     expect(ids).toEqual(['oaiapp_AAAA'])
     expect(w.get('[data-testid="ai-chatgpt-status"]').text()).toContain('未ログイン')

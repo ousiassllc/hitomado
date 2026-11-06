@@ -108,6 +108,7 @@ function onSelect(id: string, multi: boolean): void {
   background: var(--accent);
   color: var(--bone);
   font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
   font-family: var(--font-mono);
   text-align: center;
 }

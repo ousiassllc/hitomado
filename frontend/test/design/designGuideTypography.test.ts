@@ -24,3 +24,35 @@ describe('桁を揃える文字の Mono（T5・#222）', () => {
     )
   })
 })
+
+describe('行間はスケールの値（T3・T4・#227）', () => {
+  test('プレーンテキスト本文は 16px・1.8（sandbox iframe の逸脱とは別）', () => {
+    const body = rule('thread/MessageBody.vue', '.body-text {')
+    expect(body).toContain('font-size: var(--font-size-base)')
+    expect(body).toContain('line-height: var(--line-height-base)')
+  })
+
+  test.each([
+    ['account/AccountItem.vue', '.badge {'],
+    ['account/AccountList.vue', '.badge {'],
+  ])(
+    '件数バッジ %s %s は line-height に xs を持ち、min-height 20px を超えない',
+    (file, selector) => {
+      const badge = rule(file, selector)
+      expect(badge).toContain('line-height: var(--line-height-xs)')
+      expect(badge).toContain('min-height: 20px')
+    },
+  )
+
+  test.each([
+    ['ui/BaseTooltip.vue', ':global(.tip-pop) {', 'xs'],
+    ['thread/ThreadHeader.vue', '.meta-row {', 'sm'],
+    ['compose/AttachmentBar.vue', '.attach-hint {', 'xs'],
+    ['compose/ComposePane.vue', '.foot-hint {', 'xs'],
+    ['settings/ai/ChatGPTAccountRow.vue', '.pick {', 'sm'],
+  ])('折り返しうる %s %s は font-size と対の line-height を持つ', (file, selector, size) => {
+    const r = rule(file, selector)
+    expect(r).toContain(`font-size: var(--font-size-${size})`)
+    expect(r).toContain(`line-height: var(--line-height-${size})`)
+  })
+})

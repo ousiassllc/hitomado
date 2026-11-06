@@ -60,6 +60,13 @@ export function button(w: VueWrapper, text: string) {
   return b
 }
 
+/** 確認モーダル（ボディへテレポートされる）の中のボタンを文言で探す。 */
+export function dialogButton(text: string): HTMLButtonElement | undefined {
+  return [...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')].find(
+    (b) => b.textContent?.trim() === text,
+  )
+}
+
 export const acctA = {
   id: 'oaiapp_AAAA',
   email: 'a@chatgpt.example',

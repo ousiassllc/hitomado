@@ -79,6 +79,7 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
   gap: var(--s-2);
   min-width: 0;
   font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 /* ガイドのラジオ（O8）。ブラウザ標準にせず、外枠 --mute・18px・選択時は --accent 地に --bone の点・フォーカスは --ring。無効は opacity .5（フォームの無効の値）。 */
