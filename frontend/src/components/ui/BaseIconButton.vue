@@ -71,7 +71,7 @@ withDefaults(
 
 .icon-btn-secondary {
   border-color: var(--border);
-  background: var(--surface);
+  background: transparent;
 }
 
 .icon-btn-primary {

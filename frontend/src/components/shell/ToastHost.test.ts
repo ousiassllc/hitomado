@@ -13,4 +13,9 @@ describe('ToastHost.vue', () => {
       /<Transition\s+name="toast"\s+mode="out-in"\s+appear\s+@after-enter="startTimer">/,
     )
   })
+
+  test('本文は .msg に出し、効かない title 属性で二重に読ませない（O3）', () => {
+    expect(sfc).toContain('<span class="msg">{{ ui.toast.message }}</span>')
+    expect(sfc).not.toMatch(/:title=/)
+  })
 })
