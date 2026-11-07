@@ -58,6 +58,13 @@
   align-items: center;
 }
 
+/* 設定の本文中のリンク（新しい版のダウンロードページ）。文字の見た目は保ち、行の高さだけ広げる */
+:root[data-touch-ui] .general .link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap-min);
+}
+
 /* 入力欄 */
 :root[data-touch-ui] .subject-input,
 :root[data-touch-ui] .field-input,

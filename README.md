@@ -137,7 +137,7 @@ OAuth 同意画面の公開ステータスが **外部かつ「テスト」** �
   - Gmail（`gmail.googleapis.com`。メールの取得・操作・送信）
   - AI プロバイダ（設定したもの。「AI で下書き」を押したときだけ、スレッド本文の一部・表示名・署名を送信）
   - ChatGPT のログイン（`auth.openai.com`。設定で「ChatGPT プラン」を選んでログインしたときだけ。認可・トークン更新・失効）。ChatGPT プランで下書きを作るときの送信先は `api.openai.com` です
-  - GitHub Releases（`api.github.com` で新バージョンの確認、`github.com` と配信元の `release-assets.githubusercontent.com` で Windows 版の自動アップデートのダウンロード。設定でオフにできます。macOS 版は新しい版の確認と案内のリンクだけで、自動では入れ替えません。Android 版は更新確認をしません）
+  - GitHub Releases（`api.github.com` で新バージョンの確認、`github.com` と配信元の `release-assets.githubusercontent.com` で Windows 版の自動アップデートのダウンロード。設定でオフにできます。macOS 版と Android 版は新しい版の確認と案内のリンクだけで、自動では入れ替えません）
 - 例外: メールのリモート画像は既定でブロックします。メッセージごとに「画像を表示」を押したときだけ、そのメールが参照する画像を WebView が直接取得します（取得先はメールの送信者が指定したホストです）。
 
 ## AI 返信下書きの設定

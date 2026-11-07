@@ -17,4 +17,8 @@ describe('touch.css', () => {
   test('チップの削除ボタンの当たり判定は全周 11px 広げる', () => {
     expect(css).toMatch(/\.chip-remove::before\s*\{[^}]*inset:\s*-11px;/)
   })
+
+  test('設定の本文中のリンクは 44px のタップ領域にする', () => {
+    expect(css).toMatch(/\.general \.link\s*\{[^}]*min-height:\s*var\(--tap-min\);/)
+  })
 })

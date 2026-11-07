@@ -56,7 +56,7 @@ func (s *Service) writeBool(ctx context.Context, key string, v bool) error {
 	return nil
 }
 
-// CheckEnabled は更新確認の設定（未設定は有効）。アプリ内の更新確認を持たない OS（Android）では、保存値にかかわらず常に無効。
+// CheckEnabled は更新確認の設定（未設定は有効）。アプリ内の更新確認を持たない機能構成では、保存値にかかわらず常に無効。
 func (s *Service) CheckEnabled(ctx context.Context) (bool, error) {
 	if !s.d.Capabilities.SupportsAutoUpdate {
 		return false, nil

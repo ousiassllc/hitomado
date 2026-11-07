@@ -17,8 +17,8 @@ func TestDesktopEnablesEverythingButTouchUI(t *testing.T) {
 	assert.False(t, capability.Desktop("windows").TouchUI, "デスクトップは 3 ペイン固定（タッチ UI なし）")
 }
 
-func TestAndroidDisablesDesktopFeaturesAndEnablesTouchUI(t *testing.T) {
-	assert.Equal(t, capability.Capabilities{OS: "android", TouchUI: true}, capability.Android())
+func TestAndroidKeepsUpdateCheckAndTouchUIOnly(t *testing.T) {
+	assert.Equal(t, capability.Capabilities{OS: "android", SupportsAutoUpdate: true, TouchUI: true}, capability.Android())
 }
 
 func TestZeroValueDisablesEverything(t *testing.T) {
@@ -40,5 +40,5 @@ func TestPlatformServiceReturnsGivenCapabilities(t *testing.T) {
 func TestCapabilitiesJSONKeys(t *testing.T) {
 	b, err := json.Marshal(capability.Android())
 	require.NoError(t, err)
-	assert.JSONEq(t, `{"os":"android","supportsMcp":false,"supportsTray":false,"supportsAutoUpdate":false,"supportsWindowState":false,"singleInstance":false,"touchUi":true}`, string(b))
+	assert.JSONEq(t, `{"os":"android","supportsMcp":false,"supportsTray":false,"supportsAutoUpdate":true,"supportsWindowState":false,"singleInstance":false,"touchUi":true}`, string(b))
 }

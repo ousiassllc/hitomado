@@ -88,7 +88,7 @@ function openUpdate(): void {
 
 <template>
   <section class="general" :aria-label="msg.tabs.general">
-    <!-- アプリ内の更新確認を持たない OS（Android。配布は Google Play）では出さない。 -->
+    <!-- アプリ内の更新確認を持たない機能構成では出さない。Android は確認と新しい版のリンクだけ（自動アップデートは下の別ブロック）。 -->
     <div v-if="platform.supportsAutoUpdate" class="block">
       <div class="toggle">
         <BaseSwitch

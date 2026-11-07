@@ -69,7 +69,7 @@ type AppError = {
 | `AI_CONSENT_REQUIRED` | 当該プロバイダへの送信に未同意 | false | AIService |
 | `AI_FAILED` | AI プロバイダのエラー（キー不正・タイムアウト・リダイレクト応答（3xx。追従しない）等）。ChatGPT プランでは、利用枠の超過（`subscription_sharing_usage_limit_exceeded`。`details.reason = "usage_limit_exceeded"` を持ち、画面は「Manage usage」を主なアクションにした案内を出す。ほかの `AI_FAILED` は `details.reason` を持たない）・このアカウントでは使えない（`subscription_sharing_user_not_eligible`）・ログインの検証失敗も含む | 状況による | AIService |
 | `CANCELLED` | 呼び出し側がキャンセルした | false | AIService |
-| `UNSUPPORTED` | この OS では提供しない機能の呼び出し（Android での更新確認・自動アップデートの設定） | false | AppService |
+| `UNSUPPORTED` | この OS では提供しない機能の呼び出し（Android での自動アップデートの設定。更新確認を持たない機能構成での更新確認の設定） | false | AppService |
 | `INTERNAL` | 想定外の内部エラー | false | 全般 |
 
 ### 1.3 共通型
@@ -478,7 +478,7 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 | `GetInboxFilter()` | — | `{ accountIds: string[]; unreadOnly: boolean }` | 保存済みフィルタ（`app_settings.inbox.filter`）。存在しないアカウント ID は除いて返す |
 | `SetInboxFilter(filter)` | 同上 | — | 保存 |
 | `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; autoUpdateSupported: boolean; autoUpdateEnabled: boolean; dataDir: string }` | `autoUpdateSupported` は新しい版の自動ダウンロードと入れ替えを行えるビルド（Windows のリリース版。Android・dev ビルド・開発用の Linux は `false`）。`autoUpdateEnabled` は自動アップデートの設定（既定 `true`。`autoUpdateSupported` が偽なら常に `false`） |
-| `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03。アプリ内の更新確認を持たない OS（Android）では `UNSUPPORTED` |
+| `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03。アプリ内の更新確認を持たない機能構成（`supportsAutoUpdate` が偽）では `UNSUPPORTED`。Android は更新確認を持つ（新しい版のお知らせとリンクだけ） |
 | `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時、および版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは通信せず `{ available: false }`。新しい版があり自動アップデートが有効（`autoUpdateEnabled`）なら、更新ファイルのダウンロードと照合をバックグラウンドで始める（応答は待たない。進みは `update:status`） |
 | `SetAutoUpdateEnabled(enabled)` | boolean | — | NF-D03。自動アップデートのオン／オフ（`app_settings.update.auto_enabled`）。オフにするとダウンロード済みのファイルを捨てる。入れ替えを行えないビルド（`autoUpdateSupported` が偽）では `UNSUPPORTED` |
 | `GetUpdateStatus()` | — | `{ stage: 'none' \| 'downloading' \| 'ready' \| 'failed'; version?: string; message?: string }` | 自動アップデートの現在の進み（`update:status` と同じ形）。`ready` はダウンロードと `SHA256SUMS.txt` との照合が済んだ入れ替え待ち。`message` は失敗・注意の日本語の文面（URL・パスを含めない） |
@@ -514,7 +514,7 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
-| `GetCapabilities()` | — | `{ os: string; supportsMcp: boolean; supportsTray: boolean; supportsAutoUpdate: boolean; supportsWindowState: boolean; singleInstance: boolean; touchUi: boolean }` | `os` は `runtime.GOOS` と同じ表記（表示・ログ用）。Windows は `touchUi` 以外が `true`、Android は `touchUi` だけが `true`（MCP サーバー・トレイ・アプリ内の自動更新・ウィンドウ状態の保存復元・多重起動の防止を持たない）。`touchUi` はタッチ操作中心の画面（幅による 1 画面ずつ・2 ペインの表示、44px のタップ領域）を使うか。`true` の OS は最小ウィンドウ幅の制限も外す |
+| `GetCapabilities()` | — | `{ os: string; supportsMcp: boolean; supportsTray: boolean; supportsAutoUpdate: boolean; supportsWindowState: boolean; singleInstance: boolean; touchUi: boolean }` | `os` は `runtime.GOOS` と同じ表記（表示・ログ用）。Windows は `touchUi` 以外が `true`、Android は `touchUi` と `supportsAutoUpdate`（アプリ内の更新確認。新しい版のお知らせとダウンロードページのリンクだけで、ダウンロード・入れ替えは `AppInfo.autoUpdateSupported` が別に決め、Android では偽）だけが `true`（MCP サーバー・トレイ・ウィンドウ状態の保存復元・多重起動の防止を持たない）。`touchUi` はタッチ操作中心の画面（幅による 1 画面ずつ・2 ペインの表示、44px のタップ領域）を使うか。`true` の OS は最小ウィンドウ幅の制限も外す |
 
 ### 7.4 NotifyService
 
@@ -617,3 +617,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.37 | 2026-11-06 | §5.2.1（送信済み確認の実 Gmail での確認）・§6.2.1（ChatGPT ログインの実機確認）の結果欄を追加（いずれも未確認として記録） | #72・#78 |
 | 1.38 | 2026-11-06 | `AIService` に `SummarizeThread`（スレッドの AI 要約）と型 `ThreadAIResult` を追加。「スレッド AI の入力」（全メッセージ・合計 40,000 文字・下書きと添付の中身を送らない）、プロンプトでの本文の扱い、保存しないこと、要約の寿命（§9）、`CancelGenerate` の対象を追記 | #206 |
 | 1.39 | 2026-11-06 | `AIService` に `AskAboutThread`（スレッドの内容を文脈にした AI への質問）と型 `ThreadAITurn` を追加。`history`・`question` の検証（`VALIDATION`）、プロンプトの構成（スレッド本文は信頼しない先頭の user メッセージ・要約は文脈に入れない）、分からないことは失敗にしないこと、会話の寿命（§9）、`CancelGenerate` の対象を追記 | #207 |
+| 1.40 | 2026-11-07 | Android でも更新確認（`CheckForUpdate`・`SetUpdateCheckEnabled`・`update:available`）を有効にした。`GetCapabilities` の Android は `supportsAutoUpdate` が `true`。新しい版のバナー・設定の項目はダウンロードページのリンクを出すだけで、ダウンロード・入れ替え（`SetAutoUpdateEnabled` など）は Android では `UNSUPPORTED` のまま | Android の新バージョンのお知らせ |

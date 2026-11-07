@@ -164,7 +164,7 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 
 ## 10. Android で動かさない機能
 
-Android 版はタッチ前提の画面で、Releases の APK は検証用（Google Play では配布しない。§8）のため、Android では次の機能を**コード上も動かさず、設定画面にも出さない**（Issue #89。Windows 版の動きは変えない）。
+Android 版はタッチ前提の画面で、Releases の APK は検証用（Google Play では配布しない。§8）のため、Android では次の機能を**コード上も動かさず、設定画面にも出さない**（Issue #89。Windows 版の動きは変えない）。アプリ内の更新は、**新しい版のお知らせとダウンロードページのリンクだけ**を Android でも行う（下の表の最後の行）。
 
 | 機能 | Android | どう止めるか |
 |------|---------|--------------|
@@ -172,7 +172,7 @@ Android 版はタッチ前提の画面で、Releases の APK は検証用（Goog
 | システムトレイ・× でトレイへ格納 | 作らない | `run.go` が `platform.NewTray` を呼ばない。ウィンドウの閉じるフックも付けない（`platform.NewMainWindow`）。通知のバッジ更新は何もしない（`Notifier` のトレイは `nil`） |
 | 多重起動の防止 | 設定しない | `application.Options.SingleInstance` を `nil` にする（`singleInstanceOptions`）。Android の起動は OS が管理する |
 | ウィンドウの位置・サイズ・最大化の保存復元 | 保存も復元もしない | `WindowKeeper` を作らない（`window.state` を読まず、書かない） |
-| アプリ内の自動更新（定期確認・手動確認・自動アップデート） | 動かさない | 更新確認ループを起動しない。`update.Manager`（自動アップデート）も作らない。`AppService` は保存値にかかわらず無効を返し、`CheckForUpdate` は通信しない。`SetUpdateCheckEnabled` は `UNSUPPORTED`。設定画面の更新確認の項目を出さない |
+| アプリ内の自動アップデート（新しい版のダウンロード・照合・入れ替え） | 動かさない（更新確認とリンクのお知らせは行う） | 更新確認ループ（起動時・24 時間ごと）・「今すぐ確認」・`update:available` のバナー・設定画面の更新確認の項目は **Windows と同じに動く**（`SupportsAutoUpdate` は Android で `true`）。`update.Manager`（自動アップデート）は作らない（`update.AutoInstallSupported` が Windows だけ）ので、`AppInfo.autoUpdateSupported` は偽で、自動アップデートの項目は出ず、`SetAutoUpdateEnabled` は `UNSUPPORTED`。バナー・設定のリンクは Release のページを外部ブラウザで開く（APK はそこから取得し、署名が版ごとに変わるため `adb uninstall` のうえ入れ直す。§8）。dev ビルド（版 `0.0.0`）は確認しない |
 
 ### 仕組み（機能ベース）
 

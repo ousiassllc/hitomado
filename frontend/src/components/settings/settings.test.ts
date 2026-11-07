@@ -150,7 +150,7 @@ const ANDROID_CAPS: Capabilities = {
   os: 'android',
   supportsMcp: false,
   supportsTray: false,
-  supportsAutoUpdate: false,
+  supportsAutoUpdate: true,
   supportsWindowState: false,
   singleInstance: false,
   touchUi: true,
@@ -183,18 +183,6 @@ describe('GeneralSettings', () => {
     const w = mount(GeneralSettings, { global: { plugins: [pinia] } })
     expect(w.text()).toContain('更新を確認する')
     expect(w.findAll('button').some((b) => b.text() === '今すぐ確認')).toBe(true)
-    w.unmount()
-  })
-
-  test('更新確認を持たない OS（Android）では更新確認の項目を出さず、バージョンと保存先は出す', () => {
-    const pinia = setup()
-    useSettingsStore().appInfo = info
-    usePlatformStore().capabilities = { ...ANDROID_CAPS }
-    const w = mount(GeneralSettings, { global: { plugins: [pinia] } })
-    expect(w.text()).not.toContain('更新を確認する')
-    expect(w.findAll('button').some((b) => b.text() === '今すぐ確認')).toBe(false)
-    expect(w.get('[data-testid="app-version"]').text()).toBe('1.2.3')
-    expect(w.get('[data-testid="app-datadir"]').text()).toBe('/data/Hitomado')
     w.unmount()
   })
 })

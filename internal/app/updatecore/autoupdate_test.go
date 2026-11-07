@@ -192,7 +192,7 @@ func TestAutoUpdateDoesNothingWhenNotApplicable(t *testing.T) {
 			require.NoError(t, a.Svc.SetAutoUpdateEnabled(t.Context(), false))
 		}},
 		{"dev ビルド（0.0.0）", false, func(_ *testing.T, a *autoUpdateEnv) { a.Deps.Version = update.DevVersion }},
-		{"Android（更新の仕組みが無い）", false, func(_ *testing.T, a *autoUpdateEnv) {
+		{"Android（リンクを出すだけ。入れ替えの仕組みが無い）", true, func(_ *testing.T, a *autoUpdateEnv) {
 			a.Deps.Capabilities = capability.Android()
 			a.Deps.Updates = nil
 		}},

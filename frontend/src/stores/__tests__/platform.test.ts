@@ -9,7 +9,7 @@ const ANDROID = {
   os: 'android',
   supportsMcp: false,
   supportsTray: false,
-  supportsAutoUpdate: false,
+  supportsAutoUpdate: true,
   supportsWindowState: false,
   singleInstance: false,
   touchUi: true,
@@ -49,7 +49,7 @@ describe('usePlatformStore', () => {
     expect(p.settled).toBe(false)
   })
 
-  test('start は Go の機能を読み、Android では各機能が無効になる。2 回呼んでも読むのは 1 回', async () => {
+  test('start は Go の機能を読み、Android では MCP・トレイなどが無効で更新確認とタッチ UI が有効になる。2 回呼んでも読むのは 1 回', async () => {
     const p = usePlatformStore()
     await p.start()
     await p.start()
@@ -58,7 +58,7 @@ describe('usePlatformStore', () => {
     expect(p.capabilities.os).toBe('android')
     expect(p.supportsMcp).toBe(false)
     expect(p.supportsTray).toBe(false)
-    expect(p.supportsAutoUpdate).toBe(false)
+    expect(p.supportsAutoUpdate).toBe(true)
     expect(p.supportsWindowState).toBe(false)
     expect(p.singleInstance).toBe(false)
     expect(p.touchUi).toBe(true)
