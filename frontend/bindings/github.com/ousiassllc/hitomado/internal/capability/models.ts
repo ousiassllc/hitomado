@@ -22,7 +22,7 @@ export interface Capabilities {
     "supportsTray": boolean;
 
     /**
-     * アプリ内の更新確認（定期確認・手動確認）
+     * アプリ内の更新確認（定期確認・手動確認・新しい版のお知らせ）。ダウンロードと入れ替えは別（AppInfo.autoUpdateSupported）
      */
     "supportsAutoUpdate": boolean;
 
