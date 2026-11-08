@@ -61,7 +61,7 @@ async function gotIt(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--s-2);
+  gap: var(--gap-para);
 }
 
 .text {
@@ -75,5 +75,7 @@ async function gotIt(): Promise<void> {
   color: var(--mute);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
+  /* 本文の段落間は --gap-para（S2）。アカウント行は直前の本文に寄せる（部品内 8） */
+  margin-top: calc(var(--s-2) - var(--gap-para));
 }
 </style>
