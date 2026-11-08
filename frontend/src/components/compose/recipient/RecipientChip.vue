@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { WarningTriangle, Xmark } from '@iconoir/vue'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Address } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
 import { compose as msg } from '../../../lib/messages'
 import { addressLabel, isLikelyEmail } from '../../../lib/recipients'
-import { vRipple } from '../../../lib/ripple'
+import { spawn, vRipple } from '../../../lib/ripple'
 
 const props = defineProps<{
   address: Address
@@ -14,6 +14,13 @@ const props = defineProps<{
 defineEmits<{ remove: [] }>()
 
 const invalid = computed(() => !isLikelyEmail(props.address.email))
+const face = ref<HTMLElement | null>(null)
+
+// touch.css の ::before で広げた当たり判定（button 本体が pointerdown の対象になる外周）を押したときも、内側の面にリップルを出す。
+// 面の上の押下は v-ripple が受けるので、本体が直接の対象のときだけここで出す。
+function rippleFromHitArea(ev: PointerEvent): void {
+  if (!props.disabled && face.value) spawn(face.value, ev)
+}
 </script>
 
 <template>
@@ -25,9 +32,10 @@ const invalid = computed(() => !isLikelyEmail(props.address.email))
       class="chip-remove"
       :aria-label="msg.fields.removeRecipient(address.email)"
       :disabled="disabled"
+      @pointerdown.self="rippleFromHitArea"
       @click.stop="$emit('remove')"
     >
-      <span v-ripple class="chip-remove-face"><Xmark class="icon icon-sm" aria-hidden="true" /></span>
+      <span ref="face" v-ripple class="chip-remove-face"><Xmark class="icon icon-sm" aria-hidden="true" /></span>
     </button>
   </span>
 </template>
@@ -78,6 +86,7 @@ const invalid = computed(() => !isLikelyEmail(props.address.email))
 }
 
 /* リップル（.has-ripple の overflow: hidden）はこの内側の円だけに持たせる。ボタン本体に付けると、touch.css が疑似要素で広げた当たり判定を切ってしまう。
+   当たり判定の外周の押下は button 本体が受けるので、@pointerdown.self でこの円に出す。
    touch.css の ::before（位置指定。当たり判定）より DOM 順で後ろに置いて前面に出し、中央の押下でもリップルが出るようにする（.has-ripple の position: relative で、同じ層では後ろの要素が上）。 */
 .chip-remove-face {
   display: flex;
