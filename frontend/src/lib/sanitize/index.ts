@@ -132,12 +132,61 @@ const BASE_STYLE =
   ':root{color-scheme:light}html{height:auto}body{margin:0;padding:0;background:Canvas;color:CanvasText;' +
   'font:14px/1.5 sans-serif;overflow-wrap:anywhere}img{max-width:100%;height:auto}a{cursor:pointer}'
 
+// iframe は別文書で、親の scrollbar.css もトークン（CSS 変数）も受けない。そこで本文のバーは、親のトークンの値を
+// :root の変数として注入し、scrollbar.css と同じ構造の CSS で描く（#291）。iframe は color-scheme: light 固定で地が
+// Canvas（白）なので、値は親のテーマ（ダーク）ではなく Light のトークンを使う。
+const SCROLLBAR_TOKENS = ['--mute', '--ink'] as const
+/** CSS の色として注入してよい値（style を壊す文字を含まないもの）。 */
+const SAFE_TOKEN_VALUE = /^[#\w(),.%\s/-]+$/
+
+/** tokens.css の既定（Light）の値。@media の外の `:root` から読み、取れなければ親の現在の計算値にする。 */
+function lightToken(name: string): string | undefined {
+  if (typeof document === 'undefined') return undefined
+  let value = ''
+  for (const sheet of Array.from(document.styleSheets)) {
+    try {
+      for (const rule of Array.from(sheet.cssRules)) {
+        if (!('selectorText' in rule) || (rule as CSSStyleRule).selectorText !== ':root') continue
+        value = (rule as CSSStyleRule).style.getPropertyValue(name).trim() || value
+      }
+    } catch {
+      // 別オリジンのシートは cssRules に触れない。読めたものだけで決める。
+    }
+  }
+  value ||= getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  return SAFE_TOKEN_VALUE.test(value) ? value : undefined
+}
+
+/** 本文 iframe のスクロールバー用 CSS。scrollbar.css と同じ構造（forced-colors: none の中・標準指定→@supports で擬似要素）。 */
+function scrollbarStyle(): string {
+  const vars = SCROLLBAR_TOKENS.flatMap((name) => {
+    const value = lightToken(name)
+    return value ? [`${name}:${value}`] : []
+  })
+  const mute = 'var(--mute,GrayText)'
+  const ink = 'var(--ink,CanvasText)'
+  return (
+    (vars.length ? `:root{${vars.join(';')}}` : '') +
+    '@media (forced-colors:none){' +
+    `*{scrollbar-width:thin;scrollbar-color:${mute} transparent}` +
+    '@supports selector(::-webkit-scrollbar){' +
+    '*{scrollbar-width:auto;scrollbar-color:auto}' +
+    '::-webkit-scrollbar{width:8px;height:8px}' +
+    '::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent}' +
+    '::-webkit-scrollbar-button{display:none}' +
+    `::-webkit-scrollbar-thumb{background:${mute};border-radius:999px}` +
+    `::-webkit-scrollbar-thumb:hover{background:color-mix(in srgb,${ink} 35%,${mute})}` +
+    `::-webkit-scrollbar-thumb:active{background:color-mix(in srgb,${ink} 65%,${mute})}` +
+    '}}'
+  )
+}
+
 /** サニタイズ済み HTML を sandbox iframe の srcdoc 用の完全な文書にする。CSP の meta を先頭に置く。 */
 export function buildSrcdoc(sanitizedHtml: string, opts: { allowImages: boolean }): string {
   return (
     '<!doctype html><html><head>' +
     `<meta http-equiv="Content-Security-Policy" content="${buildCsp(opts.allowImages)}">` +
-    `<meta charset="utf-8"><style>${BASE_STYLE}</style></head><body>${sanitizedHtml}</body></html>`
+    `<meta charset="utf-8"><style>${BASE_STYLE}${scrollbarStyle()}</style></head><body>${sanitizedHtml}</body></html>`
   )
 }
 

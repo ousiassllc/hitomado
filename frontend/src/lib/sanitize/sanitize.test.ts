@@ -223,6 +223,53 @@ describe('buildSrcdoc / buildCsp', () => {
   })
 })
 
+describe('buildSrcdoc のスクロールバー（#291）', () => {
+  function withRootTokens<T>(css: string, run: () => T): T {
+    const style = document.createElement('style')
+    style.textContent = css
+    document.head.appendChild(style)
+    try {
+      return run()
+    } finally {
+      style.remove()
+    }
+  }
+
+  test('scrollbar.css と同じ構造（forced-colors: none・標準指定→@supports で擬似要素・8px・矢印なし・つまみ --mute）', () => {
+    const doc = buildSrcdoc('', { allowImages: false })
+    expect(doc).toContain('@media (forced-colors:none){')
+    expect(doc).toContain(
+      '*{scrollbar-width:thin;scrollbar-color:var(--mute,GrayText) transparent}',
+    )
+    expect(doc).toContain(
+      '@supports selector(::-webkit-scrollbar){*{scrollbar-width:auto;scrollbar-color:auto}',
+    )
+    expect(doc).toContain('::-webkit-scrollbar{width:8px;height:8px}')
+    expect(doc).toContain('::-webkit-scrollbar-button{display:none}')
+    expect(doc).toContain(
+      '::-webkit-scrollbar-thumb{background:var(--mute,GrayText);border-radius:999px}',
+    )
+    expect(doc).toContain('color-mix(in srgb,var(--ink,CanvasText) 35%,var(--mute,GrayText))')
+    expect(doc).toContain('color-mix(in srgb,var(--ink,CanvasText) 65%,var(--mute,GrayText))')
+  })
+
+  test('親のトークン（Light の --mute・--ink）を :root の変数として注入する。ダークの値は使わない', () => {
+    const doc = withRootTokens(
+      ':root{--mute:#6b6b6e;--ink:#050505}@media (prefers-color-scheme: dark){:root{--mute:#8b8b8e;--ink:#ffffff}}',
+      () => buildSrcdoc('', { allowImages: false }),
+    )
+    expect(doc).toContain(':root{--mute:#6b6b6e;--ink:#050505}')
+    expect(doc).not.toContain('#8b8b8e')
+  })
+
+  test('style を壊す値は注入しない', () => {
+    const doc = withRootTokens(':root{--mute:red;}</style>', () =>
+      buildSrcdoc('', { allowImages: false }),
+    )
+    expect(doc.match(/<\/style>/g)).toHaveLength(1)
+  })
+})
+
 describe('isOpenableUrl', () => {
   test('http／https／mailto のみ true', () => {
     for (const u of [
