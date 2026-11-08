@@ -96,6 +96,7 @@ async function submit(): Promise<void> {
 
 .title {
   margin: 0;
+  font-weight: 600;
   font-size: var(--font-size-sm);
 }
 

@@ -217,6 +217,7 @@ function send(archive: boolean): void {
 
 .compose-title {
   margin: 0;
+  font-weight: 600;
   font-size: var(--font-size-base);
 }
 
