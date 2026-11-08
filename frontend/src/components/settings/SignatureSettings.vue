@@ -169,6 +169,7 @@ async function save(): Promise<void> {
     <BaseDialog
       :open="pendingReplace !== undefined"
       :title="msg.signature.replaceTitle"
+      :body-label="msg.signature.replaceTitle"
       size="sm"
       @update:open="(v) => !v && cancelReplace()"
     >

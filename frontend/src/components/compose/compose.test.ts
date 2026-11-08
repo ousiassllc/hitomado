@@ -270,6 +270,15 @@ describe('SendConfirmDialog', () => {
     w.unmount()
   })
 
+  test('本文プレビュー（スクロール領域）は Tab で入れる名前付きの region（ガイド B6）', async () => {
+    const { w } = await open(preview())
+    const body = document.body.querySelector('.confirm-body')
+    expect(body?.getAttribute('tabindex')).toBe('0')
+    expect(body?.getAttribute('role')).toBe('region')
+    expect(body?.getAttribute('aria-label')).toBe('本文')
+    w.unmount()
+  })
+
   test('アーカイブ付きの送信は確定ボタンにそれを示す', async () => {
     const { w } = await open(preview(), true)
     expect(document.body.textContent).toContain('work@example.com から送信してアーカイブ')

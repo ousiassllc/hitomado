@@ -115,7 +115,13 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
       @cancel="ai.answerConsent(false)"
     />
 
-    <BaseDialog :open="replaceOpen" :title="msg.ai.replaceTitle" size="sm" @update:open="(v) => !v && ai.answerReplace(false)">
+    <BaseDialog
+      :open="replaceOpen"
+      :title="msg.ai.replaceTitle"
+      :body-label="msg.ai.replaceTitle"
+      size="sm"
+      @update:open="(v) => !v && ai.answerReplace(false)"
+    >
       <p class="dlg-text">{{ msg.ai.replaceBody }}</p>
       <template #footer>
         <BaseButton variant="secondary" @click="ai.answerReplace(false)">{{ msg.ai.replaceCancel }}</BaseButton>

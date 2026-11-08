@@ -13,6 +13,7 @@ const compose = useComposeStore()
     :open="compose.signatureConflict !== undefined"
     :title="msg.signature.conflictTitle"
     size="sm"
+    :body-label="msg.signature.conflictTitle"
     @update:open="(v) => !v && compose.resolveSignatureConflict(false)"
   >
     <p class="text">{{ msg.signature.conflictBody }}</p>

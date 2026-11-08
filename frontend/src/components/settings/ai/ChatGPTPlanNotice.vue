@@ -36,7 +36,13 @@ async function gotIt(): Promise<void> {
 </script>
 
 <template>
-  <BaseDialog :open="target !== undefined" :title="msg.ai.chatgpt.planNotice.title" size="sm" :closable="false">
+  <BaseDialog
+    :open="target !== undefined"
+    :title="msg.ai.chatgpt.planNotice.title"
+    :body-label="msg.ai.chatgpt.planNotice.title"
+    size="sm"
+    :closable="false"
+  >
     <div class="notice" data-testid="ai-chatgpt-plan-notice">
       <p class="text">{{ msg.ai.chatgpt.planNotice.body }}</p>
       <p v-if="shown?.email" class="note">{{ msg.ai.chatgpt.planNotice.account(shown.email) }}</p>
