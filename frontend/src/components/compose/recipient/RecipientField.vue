@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { WarningTriangle } from '@iconoir/vue'
-import { computed, ref, useId } from 'vue'
+import { computed, nextTick, ref, useId, watch } from 'vue'
 import { ComposeService } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app'
 import type { Address } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
 import { useContactSuggest } from '../../../composables/useContactSuggest'
@@ -22,6 +22,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: Address[]] }>()
 const text = ref('')
 const input = ref<HTMLInputElement>()
 const active = ref(-1)
+const list = ref<HTMLElement>()
 const listId = useId()
 const invalidId = useId()
 
@@ -36,6 +37,12 @@ const shown = computed(() => {
 })
 const open = computed(() => shown.value.length > 0 && text.value.trim() !== '')
 const hasInvalid = computed(() => props.modelValue.some((a) => !isLikelyEmail(a.email)))
+
+// ↑↓ で選んだ候補が一覧（max-height でスクロールする）の外にあれば、見える位置までスクロールする（すでに見えていれば動かさない）。
+watch(active, (i) => {
+  if (i < 0) return
+  void nextTick(() => (list.value?.children[i] as HTMLElement | undefined)?.scrollIntoView?.({ block: 'nearest' }))
+})
 
 function add(addrs: Address[]): void {
   if (addrs.length === 0) return
@@ -154,7 +161,7 @@ function onKeydown(e: KeyboardEvent): void {
         @blur="commit"
       />
       <Transition name="suggest">
-        <div v-show="open" :id="listId" class="suggest" role="listbox" :aria-label="msg.fields.suggestions">
+        <div v-show="open" :id="listId" ref="list" class="suggest" role="listbox" :aria-label="msg.fields.suggestions">
           <div
             v-for="(s, i) in shown"
             :id="`${listId}-${i}`"
