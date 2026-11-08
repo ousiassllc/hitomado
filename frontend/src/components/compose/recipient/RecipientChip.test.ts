@@ -7,4 +7,11 @@ describe('RecipientChip.vue', () => {
   test('z-index の数値を直書きしない', () => {
     expect(sfc).not.toMatch(/z-index/)
   })
+
+  // M4: touch.css の ::before（拡張した当たり判定）の押下は button 本体が受けるので、内側の円（v-ripple の面）へ転送する。
+  test('当たり判定の外周（button 本体）の押下でも内側の面にリップルを出す', () => {
+    expect(sfc).toMatch(/<button[^>]*@pointerdown\.self="rippleFromHitArea"/s)
+    expect(sfc).toMatch(/ref="face"\s+v-ripple/)
+    expect(sfc).toMatch(/spawn\(face\.value,\s*ev\)/)
+  })
 })
