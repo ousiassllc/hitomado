@@ -114,6 +114,17 @@ describe('ThreadPane の AI パネル（F-17・F-18）', () => {
     expect((input.element as HTMLTextAreaElement).value).toBe('')
   })
 
+  test('要約が無く質問だけのときも、会話の見出しは h3（h2 の直下。h4 で h3 を飛ばさない）', async () => {
+    const w = await open()
+    await w.get(tid('thread-ai-question-input')).setValue('期限はいつ？')
+    await w.get(tid('thread-ai-ask')).trigger('click')
+    await flushPromises()
+    const conv = w.get(tid('thread-ai-conversation'))
+    expect(w.find(tid('thread-ai-summary')).exists()).toBe(false)
+    expect(conv.findAll('h3.mute-heading')).toHaveLength(2)
+    expect(conv.find('h4').exists()).toBe(false)
+  })
+
   test('失敗した質問は会話に加わらず、入力欄に残って再送できる', async () => {
     const w = await open()
     const input = w.get(tid('thread-ai-question-input'))
