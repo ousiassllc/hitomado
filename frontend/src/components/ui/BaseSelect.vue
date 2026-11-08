@@ -118,6 +118,36 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   padding: var(--s-1);
 }
 
+/* SelectViewport は reka が描画時に [data-reka-select-viewport] へ scrollbar-width: none と ::-webkit-scrollbar { display: none } を注入する。
+   これだと max-height（280px）を超えてもバーが出ない（§10・B6）。属性を足して詳細度を上げ、scrollbar.css と同じ構造で戻す。 */
+@media (forced-colors: none) {
+  :global(.sel-viewport[data-reka-select-viewport]) {
+    scrollbar-width: thin;
+    scrollbar-color: var(--mute) transparent;
+  }
+
+  @supports selector(::-webkit-scrollbar) {
+    :global(.sel-viewport[data-reka-select-viewport]) {
+      scrollbar-width: auto;
+      scrollbar-color: auto;
+    }
+
+    :global(.sel-viewport[data-reka-select-viewport]::-webkit-scrollbar) {
+      display: block;
+    }
+  }
+}
+
+@media (forced-colors: active) {
+  :global(.sel-viewport[data-reka-select-viewport]) {
+    scrollbar-width: auto;
+  }
+
+  :global(.sel-viewport[data-reka-select-viewport]::-webkit-scrollbar) {
+    display: block;
+  }
+}
+
 .sel-item[data-highlighted]:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
