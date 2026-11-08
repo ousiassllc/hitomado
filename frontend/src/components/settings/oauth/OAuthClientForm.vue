@@ -58,7 +58,7 @@ async function submit(): Promise<void> {
 
 <template>
   <form class="form" novalidate @submit.prevent="submit">
-    <h4 class="title">{{ client ? msg.oauth.formEdit : msg.oauth.formAdd }}</h4>
+    <h3 class="title">{{ client ? msg.oauth.formEdit : msg.oauth.formAdd }}</h3>
     <SettingsInput
       v-model="name"
       :label="msg.oauth.name"
