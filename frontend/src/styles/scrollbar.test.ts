@@ -31,19 +31,17 @@ describe('scrollbar.css', () => {
     ).toBe('')
   })
 
-  test(':root に細いスクロールバーを指定する（継承で全スクロール領域に効く）', () => {
-    expect(outsideSupports).toMatch(/:root\s*\{[^}]*scrollbar-width:\s*thin;/)
+  test('* に細いスクロールバーを指定する（scrollbar-width は継承されないので :root だけでは非ルートの領域に効かない）', () => {
+    expect(outsideSupports).toMatch(/\*\s*\{[^}]*scrollbar-width:\s*thin;/)
   })
 
   test('つまみ・溝の色はトークンで指定し、色値は直書きしない（ライト／ダークはトークン側が切り替える）', () => {
-    expect(outsideSupports).toMatch(
-      /:root\s*\{[^}]*scrollbar-color:\s*var\(--mute\)\s+transparent;/,
-    )
+    expect(outsideSupports).toMatch(/\*\s*\{[^}]*scrollbar-color:\s*var\(--mute\)\s+transparent;/)
     expect(css).not.toMatch(/#[0-9a-fA-F]{3,6}\b/)
   })
 
   test('::-webkit-scrollbar 対応エンジンでは標準の 2 プロパティを auto に戻す（Chromium 121+ は auto 以外だと擬似要素を無視する）', () => {
-    expect(supports).toMatch(/:root\s*\{[^}]*scrollbar-width:\s*auto;[^}]*scrollbar-color:\s*auto;/)
+    expect(supports).toMatch(/\*\s*\{[^}]*scrollbar-width:\s*auto;[^}]*scrollbar-color:\s*auto;/)
   })
 
   test('::-webkit-scrollbar は幅・高さ 8px、矢印なし、透明な track・corner', () => {

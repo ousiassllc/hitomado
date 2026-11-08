@@ -98,16 +98,18 @@ describe('bindFrameDocument', () => {
 })
 
 describe('高さの上限', () => {
-  test('上限以内はそのままの高さで、スクロールバーを出さない（overflow: hidden）', () => {
+  test('上限以内はそのままの高さで、縦のスクロールバーを出さない。横は auto のまま残す（あふれた本文を切らない）', () => {
     const { doc, heights } = setup('<p>x</p>', MAX_HEIGHT)
     expect(heights).toEqual([MAX_HEIGHT])
-    expect(doc.documentElement.style.overflow).toBe('hidden')
+    expect(doc.documentElement.style.overflowY).toBe('hidden')
+    expect(doc.documentElement.style.overflowX).toBe('auto')
   })
 
   test('上限を超えたら上限で止め、iframe 内部のスクロール（overflow: auto）にする', () => {
     const { doc, heights, binding } = setup('<p>x</p>', 50000)
     expect(heights).toEqual([MAX_HEIGHT])
-    expect(doc.documentElement.style.overflow).toBe('auto')
+    expect(doc.documentElement.style.overflowY).toBe('auto')
+    expect(doc.documentElement.style.overflowX).toBe('auto')
     expect(binding?.measured).toBe(true)
   })
 
@@ -119,6 +121,34 @@ describe('高さの上限', () => {
     }
     expect(Math.max(...heights)).toBe(MAX_HEIGHT)
     expect(heights.at(-1)).toBe(4000)
-    expect(doc.documentElement.style.overflow).toBe('hidden')
+    expect(doc.documentElement.style.overflowY).toBe('hidden')
+    expect(doc.documentElement.style.overflowX).toBe('auto')
+  })
+})
+
+describe('横スクロールバー', () => {
+  function frameWithView(inner: number, client: number): Document {
+    const doc = frameDoc('<p>x</p>', 321)
+    Object.defineProperty(doc, 'defaultView', { value: { innerHeight: inner } })
+    Object.defineProperty(doc.documentElement, 'clientHeight', { value: client })
+    return doc
+  }
+
+  test('横バーが出ているときは、その高さを iframe の高さに足す（縦が切れない）', () => {
+    const heights: number[] = []
+    bindFrameDocument(frameWithView(329, 321), {
+      onHeight: (h) => heights.push(h),
+      onLink: () => {},
+    })
+    expect(heights).toEqual([329])
+  })
+
+  test('横バーが出ていなければ足さない', () => {
+    const heights: number[] = []
+    bindFrameDocument(frameWithView(321, 321), {
+      onHeight: (h) => heights.push(h),
+      onLink: () => {},
+    })
+    expect(heights).toEqual([321])
   })
 })
