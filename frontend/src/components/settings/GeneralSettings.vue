@@ -174,7 +174,7 @@ function openUpdate(): void {
 .general {
   display: flex;
   flex-direction: column;
-  gap: var(--s-4);
+  gap: var(--gap-field);
 }
 
 .block {
