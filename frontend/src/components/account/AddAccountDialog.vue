@@ -103,7 +103,13 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-  <BaseDialog v-model:open="open" :title="title" size="sm" :busy="step === 'customize' && saving">
+  <BaseDialog
+    v-model:open="open"
+    :title="title"
+    size="sm"
+    :busy="step === 'customize' && saving"
+    :body-label="step === 'waiting' ? t.waiting : undefined"
+  >
     <!-- 1. OAuth クライアント選択（未登録なら設定へ誘導） -->
     <template v-if="step === 'choose'">
       <div v-if="options.length === 0" class="stack">
