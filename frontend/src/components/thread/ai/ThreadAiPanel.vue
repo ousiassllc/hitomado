@@ -86,7 +86,7 @@ function ask(): void {
         </BaseButton>
       </div>
       <div v-for="(t, i) in store.turns" :key="i" class="turn" :data-role="t.role">
-        <h4 class="mute-heading">{{ t.role === 'user' ? msg.ai.questionHeading : msg.ai.answerHeading }}</h4>
+        <h3 class="mute-heading">{{ t.role === 'user' ? msg.ai.questionHeading : msg.ai.answerHeading }}</h3>
         <p class="text">{{ t.text }}</p>
       </div>
       <div v-if="asking" class="block-head">
