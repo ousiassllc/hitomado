@@ -28,8 +28,10 @@ const props = withDefaults(
     /** false なら、外側クリック・Esc・× で閉じない（明示のボタンだけで閉じる確認）。 */
     closable?: boolean
     size?: 'sm' | 'md' | 'lg'
+    /** 本文にフォーカスできる要素が無いとき（テキストだけの確認など）の領域名。指定すると本文が Tab で入れる region になり、キーボードでスクロールできる（ガイド B6）。 */
+    bodyLabel?: string
   }>(),
-  { description: undefined, busy: false, closable: true, size: 'md' },
+  { description: undefined, busy: false, closable: true, size: 'md', bodyLabel: undefined },
 )
 
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
@@ -74,7 +76,14 @@ function guard(e: Event): void {
         </header>
         <DialogDescription v-if="description" class="dlg-desc">{{ description }}</DialogDescription>
         <AlertStack v-if="ui.isTopOverlay(mark)" class="dlg-alerts" />
-        <div class="dlg-body"><slot /></div>
+        <div
+          class="dlg-body"
+          :tabindex="bodyLabel ? 0 : undefined"
+          :role="bodyLabel ? 'region' : undefined"
+          :aria-label="bodyLabel"
+        >
+          <slot />
+        </div>
         <footer v-if="$slots.footer" class="dlg-foot"><slot name="footer" /></footer>
       </DialogContent>
     </DialogPortal>

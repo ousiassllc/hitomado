@@ -24,6 +24,7 @@ const emit = defineEmits<{ 'update:open': [open: boolean]; confirm: [] }>()
     :title="title"
     :description="description"
     :busy="busy"
+    :body-label="detail ? title : undefined"
     @update:open="emit('update:open', $event)"
   >
     <p v-if="detail" class="detail">{{ detail }}</p>
