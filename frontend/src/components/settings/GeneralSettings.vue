@@ -185,6 +185,7 @@ function openUpdate(): void {
 
 .block-title {
   margin: 0;
+  font-weight: 600;
   font-size: var(--font-size-base);
 }
 

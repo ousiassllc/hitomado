@@ -244,6 +244,7 @@ watch(() => [saved.value !== undefined, ui.aiSetupIntent], startFromIntent, { im
 
 .heading {
   margin: 0;
+  font-weight: 600;
   font-size: var(--font-size-base);
 }
 

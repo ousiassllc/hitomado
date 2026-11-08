@@ -103,6 +103,7 @@ const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail
 
 .subject {
   margin: 0;
+  font-weight: 600;
   font-size: var(--font-size-lg);
   line-height: var(--line-height-lg);
   overflow-wrap: anywhere;

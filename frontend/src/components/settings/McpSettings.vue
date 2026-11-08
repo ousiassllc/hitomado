@@ -221,6 +221,7 @@ async function copy(text: string): Promise<void> {
 
 .heading {
   margin: 0;
+  font-weight: 600;
   font-size: var(--font-size-base);
 }
 

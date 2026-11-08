@@ -162,6 +162,7 @@ function ask(): void {
 .heading {
   margin: 0;
   margin-right: auto;
+  font-weight: 600;
   font-size: var(--font-size-sm);
   color: var(--ink);
 }
