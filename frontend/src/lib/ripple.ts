@@ -2,7 +2,8 @@
 // 動きは styles/reset.css の .ripple。prefers-reduced-motion では出さない（同ファイル）。
 import type { Directive } from 'vue'
 
-function spawn(el: HTMLElement, ev: PointerEvent): void {
+/** `el` の中にリップルを出す。`ev` の座標が `el` の外でも、最も遠い角まで広げる（外周の押下を内側の面で受ける用）。 */
+export function spawn(el: HTMLElement, ev: PointerEvent): void {
   if (ev.button !== 0) return // 右・中ボタンは click にならないので出さない（ペン・タッチは button=0）
   if (el instanceof HTMLButtonElement && el.disabled) return
   if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return

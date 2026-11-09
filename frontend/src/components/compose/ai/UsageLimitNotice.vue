@@ -13,7 +13,7 @@ defineEmits<{ manage: []; dismiss: [] }>()
     <WarningTriangle class="icon icon-sm icon-warning limit-icon" aria-hidden="true" />
     <div class="limit-main">
       <header class="identity">{{ msg.ai.usageLimit.identity }}</header>
-      <h4 class="title">{{ msg.ai.usageLimit.title }}</h4>
+      <h3 class="title">{{ msg.ai.usageLimit.title }}</h3>
       <p class="body">{{ msg.ai.usageLimit.body }}</p>
       <p class="note">{{ msg.ai.usageLimit.note }}</p>
       <div class="actions">
@@ -60,6 +60,7 @@ defineEmits<{ manage: []; dismiss: [] }>()
 
 .title {
   margin: 0;
+  font-weight: 600;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
 }

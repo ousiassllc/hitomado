@@ -131,6 +131,7 @@ function askRemove(a: Account): void {
       :busy="removing"
       :title="msg.accounts.removeTitle(removeTarget?.displayName ?? '')"
       :description="msg.accounts.removeDescription(removeTarget?.email ?? '')"
+      :body-label="msg.accounts.removeTitle(removeTarget?.displayName ?? '')"
     >
       <p class="detail">{{ msg.accounts.removeDetail }}</p>
       <template #footer>

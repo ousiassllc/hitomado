@@ -91,7 +91,8 @@ async function reconnect(id: string): Promise<void> {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 var(--s-2) var(--s-2);
+  /* 先頭の「すべて」ボタンの外側のリング（offset 2px + 幅 2px = 4px）が上端で切れないよう、上は --s-1 の余白で収める。 */
+  padding: var(--s-1) var(--s-2) var(--s-2);
 }
 
 .bottom {

@@ -36,7 +36,13 @@ async function gotIt(): Promise<void> {
 </script>
 
 <template>
-  <BaseDialog :open="target !== undefined" :title="msg.ai.chatgpt.planNotice.title" size="sm" :closable="false">
+  <BaseDialog
+    :open="target !== undefined"
+    :title="msg.ai.chatgpt.planNotice.title"
+    :body-label="msg.ai.chatgpt.planNotice.title"
+    size="sm"
+    :closable="false"
+  >
     <div class="notice" data-testid="ai-chatgpt-plan-notice">
       <p class="text">{{ msg.ai.chatgpt.planNotice.body }}</p>
       <p v-if="shown?.email" class="note">{{ msg.ai.chatgpt.planNotice.account(shown.email) }}</p>
@@ -55,7 +61,7 @@ async function gotIt(): Promise<void> {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--s-2);
+  gap: var(--gap-para);
 }
 
 .text {
@@ -69,5 +75,7 @@ async function gotIt(): Promise<void> {
   color: var(--mute);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
+  /* 本文の段落間は --gap-para（S2）。アカウント行は直前の本文に寄せる（部品内 8） */
+  margin-top: calc(var(--s-2) - var(--gap-para));
 }
 </style>

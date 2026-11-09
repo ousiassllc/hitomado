@@ -103,7 +103,13 @@ async function save(): Promise<void> {
 </script>
 
 <template>
-  <BaseDialog v-model:open="open" :title="title" size="sm" :busy="step === 'customize' && saving">
+  <BaseDialog
+    v-model:open="open"
+    :title="title"
+    size="sm"
+    :busy="step === 'customize' && saving"
+    :body-label="step === 'waiting' ? t.waiting : undefined"
+  >
     <!-- 1. OAuth クライアント選択（未登録なら設定へ誘導） -->
     <template v-if="step === 'choose'">
       <div v-if="options.length === 0" class="stack">
@@ -123,7 +129,7 @@ async function save(): Promise<void> {
     <!-- 2. ブラウザでの認可待ち -->
     <div v-else-if="step === 'waiting'" class="stack waiting" role="status">
       <Spinner />
-      <p>{{ t.waiting }}</p>
+      <p class="waiting-text">{{ t.waiting }}</p>
       <p class="muted">{{ t.waitingHint }}</p>
     </div>
 
@@ -164,12 +170,17 @@ async function save(): Promise<void> {
 
 .title {
   margin: 0;
+  font-weight: 600;
   font-size: var(--font-size-base);
 }
 
 .waiting {
   align-items: center;
   text-align: center;
+}
+
+.waiting-text {
+  margin: 0;
 }
 
 .muted {

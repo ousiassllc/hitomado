@@ -17,7 +17,14 @@ const emit = defineEmits<{ agree: []; cancel: [] }>()
 </script>
 
 <template>
-  <BaseDialog :open="open" :title="msg.ai.consentTitle" size="sm" :busy="busy" @update:open="(v) => !v && emit('cancel')">
+  <BaseDialog
+    :open="open"
+    :title="msg.ai.consentTitle"
+    :body-label="msg.ai.consentTitle"
+    size="sm"
+    :busy="busy"
+    @update:open="(v) => !v && emit('cancel')"
+  >
     <p class="text" data-testid="ai-consent-body">{{ msg.ai.consentBody(providerLabel, url) }}</p>
     <template #footer>
       <BaseButton variant="secondary" :disabled="busy" data-testid="ai-consent-cancel" @click="emit('cancel')">

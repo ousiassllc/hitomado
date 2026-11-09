@@ -74,6 +74,12 @@ describe('利用枠の超過（#80）', () => {
     expect(w.emitted('dismiss')).toHaveLength(1)
   })
 
+  test('案内の見出しは作成画面の h2 の下なので h3 にする（h4 で h3 を飛ばさない）', () => {
+    const w = mount(UsageLimitNotice)
+    expect(w.find('h3.title').exists()).toBe(true)
+    expect(w.find('h4').exists()).toBe(false)
+  })
+
   test('AiDraftButton: 超過すると案内が出て、Manage usage で使用状況の画面を開く（失敗メッセージだけにしない）', async () => {
     const store = useSettingsStore()
     store.aiConfig = {

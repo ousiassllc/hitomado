@@ -174,7 +174,7 @@ function openUpdate(): void {
 .general {
   display: flex;
   flex-direction: column;
-  gap: var(--s-4);
+  gap: var(--gap-field);
 }
 
 .block {
@@ -185,6 +185,7 @@ function openUpdate(): void {
 
 .block-title {
   margin: 0;
+  font-weight: 600;
   font-size: var(--font-size-base);
 }
 

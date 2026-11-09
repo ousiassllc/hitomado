@@ -19,16 +19,8 @@ body {
   line-height: var(--line-height-base);
 }
 
-/* 見出しは SemiBold（600）。見出しでない強調（<strong>）は太字にしない（ガイド T2。区別は --ink と --mute の対比）。 */
-h1,
-h2,
-h3,
-h4,
-h5,
-h6 {
-  font-weight: 600;
-}
-
+/* 見出しの SemiBold（600）は各コンポーネントの役割クラスに置く（ガイド §2。タグを差し替えても見た目が変わらない）。
+   見出しでない強調（<strong>）は太字にしない（ガイド T2。区別は --ink と --mute の対比）。 */
 strong {
   font-weight: 400;
 }

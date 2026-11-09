@@ -30,6 +30,16 @@ export function measureContentHeight(doc: Document): number | undefined {
   return Number.isFinite(h) && h > 0 ? Math.max(Math.ceil(h), MIN_HEIGHT) : undefined
 }
 
+/**
+ * 横スクロールバーの高さ（px）。出ていなければ 0。バーの分だけ本文の下が切れないよう、計測した高さに足す。
+ * ビューポート高（innerHeight）とバーを除いた高さ（documentElement.clientHeight）の差で測る。
+ */
+function horizontalBarHeight(doc: Document): number {
+  const inner = doc.defaultView?.innerHeight ?? 0
+  const bar = inner - doc.documentElement.clientHeight
+  return Number.isFinite(bar) && bar > 0 && bar < inner ? bar : 0
+}
+
 /** クリックされた位置から最も近い `<a href>` の href を返す。iframe の要素は親と別 realm なので instanceof は使わない。 */
 function hrefAt(target: EventTarget | null): string | undefined {
   const node = target as Node | null
@@ -69,9 +79,12 @@ export function bindFrameDocument(
       try {
         const px = measureContentHeight(doc)
         if (px === undefined) return false
-        // 上限内はスクロールバーを出さず親側の iframe 高さで全体を見せる。超えたら上限で止めて内部スクロール。
-        doc.documentElement.style.overflow = px > MAX_HEIGHT ? 'auto' : 'hidden'
-        h.onHeight(Math.min(px, MAX_HEIGHT))
+        // 縦: 上限内はスクロールバーを出さず親側の iframe 高さで全体を見せる。超えたら上限で止めて内部スクロール。
+        // 横: 固定幅の table・pre などで幅があふれたら、切らずに横スクロールさせる（#291。overflow:hidden で隠さない）。
+        const root = doc.documentElement
+        root.style.overflowY = px > MAX_HEIGHT ? 'auto' : 'hidden'
+        root.style.overflowX = 'auto'
+        h.onHeight(Math.min(px + horizontalBarHeight(doc), MAX_HEIGHT))
         return true
       } catch {
         return false
