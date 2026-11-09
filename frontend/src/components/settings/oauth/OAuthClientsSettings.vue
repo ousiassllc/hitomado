@@ -166,7 +166,7 @@ function openGuide(): void {
   gap: var(--s-3);
   padding: var(--pad-card-sm);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-md);
   list-style: none;
 }
 
