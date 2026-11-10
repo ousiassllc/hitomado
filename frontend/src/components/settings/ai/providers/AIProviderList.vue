@@ -1,14 +1,40 @@
 <script setup lang="ts">
-import { NavArrowRight } from '@iconoir/vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { settings as msg } from '../../../../lib/messages'
 import { useSettingsStore } from '../../../../stores/settings'
-import { AI_PROVIDERS, type AIProviderId, hasProviderCredential } from './aiProviders'
+import {
+  AI_PROVIDERS,
+  type AIProviderId,
+  hasProviderCredential,
+  providerGridColumns,
+} from './aiProviders'
+import ProviderIcon from './ProviderIcon.vue'
 
-// AI の設定の最初の画面（#315）。プロバイダを一覧にし、押す（Android はタップ）とそのプロバイダの設定ページへ進む。
-// 既定のプロバイダ（保存済みの設定。未保存は ChatGPT）には「既定」を付け、資格情報の状況を各行に出す。
+// AI の設定の最初の画面（#315）。プロバイダを、サービス名とアイコンのカードのグリッドにする。押す（Android はタップ）と
+// そのプロバイダの設定ページへ進む。既定のプロバイダ（保存済みの設定。未保存は ChatGPT）には「既定」を付け、資格情報の状況をカードに出す。
+// 列数はこの一覧の幅で決める（providerGridColumns。広いと 4 列、Android の幅は 2 列、さらに狭いと 1 列）。
 const emit = defineEmits<{ open: [id: AIProviderId] }>()
 const store = useSettingsStore()
 const t = msg.ai.providerList
+
+const grid = ref<HTMLElement>()
+const columns = ref(providerGridColumns(0))
+let observer: ResizeObserver | undefined
+
+onMounted(() => {
+  const el = grid.value
+  if (!el) return
+  // 最初の描画の前に測って、列数が後から変わってガタつかないようにする。
+  columns.value = providerGridColumns(el.clientWidth)
+  if (typeof ResizeObserver !== 'function') return
+  observer = new ResizeObserver((entries) => {
+    const w = entries[entries.length - 1]?.contentRect.width ?? el.clientWidth
+    columns.value = providerGridColumns(w)
+  })
+  observer.observe(el)
+})
+
+onUnmounted(() => observer?.disconnect())
 
 function status(id: AIProviderId): string {
   const has = hasProviderCredential(id, store.aiConfig)
@@ -27,28 +53,31 @@ function status(id: AIProviderId): string {
       <h4 class="sub">{{ t.heading }}</h4>
       <p class="hint">{{ t.intro }}</p>
     </div>
-    <ul class="list" :aria-label="t.listLabel">
+    <ul
+      ref="grid"
+      class="grid"
+      :style="{ '--cols': columns }"
+      :data-columns="columns"
+      :aria-label="t.listLabel"
+      data-testid="ai-provider-grid"
+    >
       <li v-for="p in AI_PROVIDERS" :key="p.id">
         <button
           type="button"
           class="card"
+          :class="{ current: store.aiConfig?.provider === p.id }"
           :data-testid="`ai-provider-${p.id}`"
           :aria-label="t.open(t.names[p.id] ?? p.id)"
           @click="emit('open', p.id)"
         >
-          <span class="body">
-            <span class="name-row">
-              <span class="name">{{ t.names[p.id] }}</span>
-              <span
-                v-if="store.aiConfig?.provider === p.id"
-                class="badge"
-                data-testid="ai-provider-default"
-              >{{ t.defaultBadge }}</span>
-            </span>
-            <span class="summary">{{ t.summaries[p.id] }}</span>
-            <span class="status" :data-testid="`ai-provider-status-${p.id}`">{{ status(p.id) }}</span>
-          </span>
-          <NavArrowRight class="icon chevron" aria-hidden="true" />
+          <ProviderIcon :id="p.id" />
+          <span class="name">{{ t.names[p.id] }}</span>
+          <span
+            v-if="store.aiConfig?.provider === p.id"
+            class="badge"
+            data-testid="ai-provider-default"
+          >{{ t.defaultBadge }}</span>
+          <span class="status" :data-testid="`ai-provider-status-${p.id}`">{{ status(p.id) }}</span>
         </button>
       </li>
     </ul>
@@ -94,10 +123,10 @@ function status(id: AIProviderId): string {
   line-height: var(--line-height-sm);
 }
 
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-2);
+.grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
+  gap: var(--s-3);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -105,14 +134,15 @@ function status(id: AIProviderId): string {
 
 .card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--s-3);
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-2);
   width: 100%;
+  height: 100%;
   min-height: 44px;
-  padding: var(--s-3);
+  padding: var(--pad-card-sm);
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
+  border-radius: var(--r-lg);
   background: var(--surface);
   color: var(--ink);
   text-align: left;
@@ -123,22 +153,15 @@ function status(id: AIProviderId): string {
   background: var(--accent-soft);
 }
 
-.body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--s-1);
-  min-width: 0;
-}
-
-.name-row {
-  display: flex;
-  align-items: center;
-  gap: var(--s-2);
+/* 既定のプロバイダ: 「既定」の札に加えて、枠も --accent にする（色だけで伝えない）。 */
+.card.current {
+  border-color: var(--accent);
 }
 
 .name {
   font-weight: 600;
   font-size: var(--font-size-base);
+  overflow-wrap: anywhere;
 }
 
 .badge {
@@ -148,18 +171,12 @@ function status(id: AIProviderId): string {
   font-size: var(--font-size-xs);
 }
 
-.summary,
 .status {
+  margin-top: auto;
+  /* hover の --accent-soft 地の上でも AA を保つため、--mute ではなく --ink。 */
+  color: var(--ink);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
   overflow-wrap: anywhere;
-}
-
-.status {
-  color: var(--ink);
-}
-
-.chevron {
-  flex: none;
 }
 </style>

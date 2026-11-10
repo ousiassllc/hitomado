@@ -1,10 +1,16 @@
-import { beforeEach, describe, expect, test } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useSettingsStore } from '../../../../stores/settings'
 import { useUiStore } from '../../../../stores/ui'
 import { base, button } from '../aiTestSupport'
 import AIProviders from './AIProviders.vue'
+import {
+  AI_PROVIDERS,
+  GRID_FOUR_MIN_WIDTH,
+  GRID_TWO_MIN_WIDTH,
+  providerGridColumns,
+} from './aiProviders'
 
 beforeEach(() => {
   document.body.innerHTML = ''
@@ -200,6 +206,101 @@ describe('TypeSafe AI（Jev）のページ（#314・#315）', () => {
     await flushPromises()
     expect(w.get('[role="alert"]').text()).toContain('保存できません')
     expect(ui.toast).toBeUndefined()
+    w.unmount()
+  })
+})
+
+describe('プロバイダの一覧: カードのグリッド（#315）', () => {
+  test('列数は一覧の幅で決まる。デスクトップの幅は 4 列、Android の幅は 2 列、さらに狭いと 1 列。境目ちょうどは広い側', () => {
+    expect(providerGridColumns(806)).toBe(4)
+    expect(providerGridColumns(GRID_FOUR_MIN_WIDTH)).toBe(4)
+    expect(providerGridColumns(GRID_FOUR_MIN_WIDTH - 1)).toBe(2)
+    expect(providerGridColumns(324)).toBe(2)
+    expect(providerGridColumns(GRID_TWO_MIN_WIDTH)).toBe(2)
+    expect(providerGridColumns(GRID_TWO_MIN_WIDTH - 1)).toBe(1)
+    expect(providerGridColumns(240)).toBe(1)
+    expect(providerGridColumns(0)).toBe(1)
+  })
+
+  describe('画面での列数', () => {
+    const proto = HTMLElement.prototype as unknown as Record<string, unknown>
+    const own = Object.getOwnPropertyDescriptor(proto, 'clientWidth')
+    const realRO = globalThis.ResizeObserver
+    let width = 0
+    let fire: ((w: number) => void) | undefined
+
+    beforeEach(() => {
+      Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => width })
+      globalThis.ResizeObserver = class {
+        constructor(cb: ResizeObserverCallback) {
+          fire = (w) =>
+            cb([{ contentRect: { width: w } } as ResizeObserverEntry], this as ResizeObserver)
+        }
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      } as unknown as typeof ResizeObserver
+    })
+
+    afterEach(() => {
+      if (own) Object.defineProperty(proto, 'clientWidth', own)
+      else delete proto.clientWidth
+      globalThis.ResizeObserver = realRO
+      fire = undefined
+    })
+
+    const grid = (w: VueWrapper) => w.get('[data-testid="ai-provider-grid"]')
+    const columns = (w: VueWrapper) => grid(w).attributes('data-columns')
+
+    test('開いた幅で列数が決まり、幅が変わると列数も変わる。どの幅でも 4 つのカードがすべて出る', async () => {
+      width = 806
+      const { pinia } = setup()
+      const w = mountTab(pinia)
+      await flushPromises()
+      expect(columns(w)).toBe('4')
+      expect((grid(w).element as HTMLElement).style.getPropertyValue('--cols')).toBe('4')
+
+      for (const [px, cols] of [
+        [324, '2'],
+        [240, '1'],
+        [700, '4'],
+      ] as const) {
+        fire?.(px)
+        await flushPromises()
+        expect(columns(w)).toBe(cols)
+        expect(w.findAll('li')).toHaveLength(AI_PROVIDERS.length)
+      }
+      w.unmount()
+    })
+
+    test('Android の幅（約 390px の画面）で開くと 2 列から始まる', async () => {
+      width = 324
+      const { pinia } = setup()
+      const w = mountTab(pinia)
+      await flushPromises()
+      expect(columns(w)).toBe('2')
+      w.unmount()
+    })
+  })
+
+  test('各カードにサービス名とアイコンを出す。既定のカードは札と枠で分かり、キーボードで押せる（button）', () => {
+    const { pinia } = setup({ provider: 'anthropic' })
+    const w = mountTab(pinia)
+    for (const [id, name] of [
+      ['chatgpt', 'ChatGPT'],
+      ['anthropic', 'Anthropic'],
+      ['openai', 'OpenAI 互換'],
+      ['typesafe', 'TypeSafe AI（Jev）'],
+    ] as const) {
+      const c = card(w, id)
+      expect(c.element.tagName).toBe('BUTTON')
+      expect(c.text()).toContain(name)
+      expect(c.find(`[data-provider-icon="${id}"]`).exists()).toBe(true)
+      expect(c.find('svg').exists()).toBe(true)
+    }
+    expect(card(w, 'anthropic').classes()).toContain('current')
+    expect(card(w, 'anthropic').find('[data-testid="ai-provider-default"]').exists()).toBe(true)
+    expect(card(w, 'chatgpt').classes()).not.toContain('current')
     w.unmount()
   })
 })

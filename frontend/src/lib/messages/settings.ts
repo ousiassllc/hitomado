@@ -152,13 +152,6 @@ export const settings = {
         openai: 'OpenAI 互換',
         typesafe: 'TypeSafe AI（Jev）',
       } as Record<string, string>,
-      summaries: {
-        chatgpt: '自分の ChatGPT プランでログインして使います（Continue with ChatGPT）。',
-        anthropic: 'Anthropic の API キーで使います。',
-        openai:
-          'OpenAI または OpenAI 互換のサービスを、API キーで使います（Base URL を指定できます）。',
-        typesafe: '文章を書かない分類用のモデルです。API キーで使います。',
-      } as Record<string, string>,
       statusSignedIn: 'ログイン済み',
       statusSignedOut: '未ログイン',
       statusKeySet: 'API キー保存済み',
