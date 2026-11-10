@@ -82,19 +82,37 @@ describe('モーダル（O1・O2）', () => {
     w.unmount()
   })
 
-  test('closable=false は閉じるボタンが無く、Esc でも閉じる要求を出さない（明示のボタンだけで閉じる確認）', async () => {
+  test('busy 中は閉じるボタンが無く、Esc・外側クリックでも閉じる要求を出さない。busy でなければ出す', async () => {
     setActivePinia(createPinia())
     const w = mount(BaseDialog, {
-      props: { open: true, title: '確認', closable: false },
+      props: { open: true, title: '確認', busy: true },
       attachTo: document.body,
     })
-    await nextTick()
+    await flushPromises()
+    // Reka は pointerdown の購読を setTimeout(0) で始める。その購読が済んでから押す（購読の完了待ちで、時間の見込みではない）。
+    await new Promise((r) => setTimeout(r, 0))
+    const outside = () =>
+      document
+        .querySelector('.dlg-overlay')
+        ?.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    const esc = () =>
+      document
+        .querySelector('[role="dialog"]')
+        ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     expect(document.querySelector('button[aria-label="閉じる"]')).toBeNull()
-    document
-      .querySelector('[role="dialog"]')
-      ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    await nextTick()
+    esc()
+    outside()
+    await flushPromises()
     expect(w.emitted('update:open')).toBeUndefined()
+
+    await w.setProps({ busy: false })
+    expect(document.querySelector('button[aria-label="閉じる"]')).not.toBeNull()
+    outside()
+    await flushPromises()
+    expect(w.emitted('update:open')?.at(-1)).toEqual([false])
+    esc()
+    await flushPromises()
+    expect(w.emitted('update:open')).toHaveLength(2)
     w.unmount()
   })
 

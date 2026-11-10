@@ -15,7 +15,7 @@ import { common } from '../../lib/messages'
   border: 2px solid var(--accent-soft);
   border-top-color: var(--accent);
   border-radius: var(--r-full);
-  animation: spin 0.8s linear infinite;
+  animation: spin 0.9s linear infinite;
   flex: none;
   width: var(--icon-md);
   height: var(--icon-md);

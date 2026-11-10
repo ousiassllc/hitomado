@@ -81,14 +81,14 @@ const label = computed(
   background: var(--surface);
   cursor: pointer;
   overflow: hidden;
+  /* 補助文字（日時・スニペット・件数・既読の差出人と件名）の色。--accent-soft 地の上では --mute が AA に届かないので、ホバー・選択・複数選択のときだけ --mute-on-soft にする（#267）。 */
+  --row-mute: var(--mute);
 }
 
-.row:hover {
-  background: var(--accent-soft);
-}
-
+.row:hover,
 .row.selected,
 .row.checked {
+  --row-mute: var(--mute-on-soft);
   background: var(--accent-soft);
 }
 
@@ -136,7 +136,7 @@ const label = computed(
 
 .count {
   flex: none;
-  color: var(--mute);
+  color: var(--row-mute);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
 }
@@ -148,7 +148,7 @@ const label = computed(
 
 .date {
   flex: none;
-  color: var(--mute);
+  color: var(--row-mute);
   font-family: var(--font-mono), var(--font-sans);
   font-size: var(--font-size-xs);
 }
@@ -176,14 +176,14 @@ const label = computed(
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--mute);
+  color: var(--row-mute);
   font-size: var(--font-size-sm);
 }
 
 /* 未読は太字にせず、未読ドットと文字色の対比（未読 = --ink、既読 = --mute）で区別する。 */
 .sender,
 .subject {
-  color: var(--mute);
+  color: var(--row-mute);
 }
 
 .unread .sender,
@@ -207,6 +207,6 @@ const label = computed(
 
 .row.needs-reauth .sender,
 .row.needs-reauth .subject {
-  color: var(--mute);
+  color: var(--row-mute);
 }
 </style>

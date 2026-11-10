@@ -8,13 +8,13 @@ import BaseButton from '../../ui/BaseButton.vue'
 import BaseDialog from '../../ui/BaseDialog.vue'
 
 // 初めてログインして ChatGPT プランの利用が有効になったときだけ出す確認（OpenAI の UI/UX ガイドライン）。
-// 出すかどうかは Go が決める（アカウント＝クライアント登録ごとに永続。再ログインでは立たない）。「Got it」を押したときだけ確認済みにする（Esc・外側クリックでは閉じない）。
+// 出すかどうかは Go が決める（アカウント＝クライアント登録ごとに永続。再ログインでは立たない）。確認済みにする（記録する）のは「Got it」を押したときだけ。Esc・外側クリックでも閉じるが、記録はしない（次の読み込みでもう一度出る）。
 const props = defineProps<{ accounts: ChatGPTAccount[] }>()
 
 const store = useSettingsStore()
 const ui = useUiStore()
 
-// 記録に失敗しても、押したあとに出し続けない（記録できていなければ、次の読み込みでもう一度出る）。
+// 閉じたもの（記録に失敗したものを含む）は、そのあとに出し続けない（記録できていなければ、次の読み込みでもう一度出る）。
 const dismissed = ref(new Set<string>())
 const target = computed(() => props.accounts.find((a) => a.planNoticePending && a.signedIn && !dismissed.value.has(a.id)))
 // 確認済みで target が無くなっても、退出のフェード中はメールアドレスの行を残す（ダイアログが縮まないように、最後の対象を保持する）。
@@ -23,10 +23,20 @@ watch(target, (a) => {
   if (a) shown.value = a
 })
 
+function dismiss(id: string): void {
+  dismissed.value = new Set([...dismissed.value, id])
+}
+
+// Esc・外側クリックで閉じる。同意（確認済み）の記録はしない。
+function close(): void {
+  const a = target.value
+  if (a) dismiss(a.id)
+}
+
 async function gotIt(): Promise<void> {
   const a = target.value
   if (!a) return
-  dismissed.value = new Set([...dismissed.value, a.id])
+  dismiss(a.id)
   try {
     await store.ackChatGPTPlanNotice(a.id)
   } catch {
@@ -41,7 +51,7 @@ async function gotIt(): Promise<void> {
     :title="msg.ai.chatgpt.planNotice.title"
     :body-label="msg.ai.chatgpt.planNotice.title"
     size="sm"
-    :closable="false"
+    @update:open="(v) => !v && close()"
   >
     <div class="notice" data-testid="ai-chatgpt-plan-notice">
       <p class="text">{{ msg.ai.chatgpt.planNotice.body }}</p>
@@ -66,8 +76,8 @@ async function gotIt(): Promise<void> {
 
 .text {
   margin: 0;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
 }
 
 .note {
