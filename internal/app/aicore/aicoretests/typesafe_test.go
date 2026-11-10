@@ -31,6 +31,9 @@ func TestTypeSafeKeyButNotADraftProvider(t *testing.T) {
 	requireCode(t, "VALIDATION", err)
 	_, err = f.ai.SetAIApiKey(ctx, "typesafe", "  ")
 	requireCode(t, "VALIDATION", err)
+	// 同意は、Jev へ送るメールの範囲（#314 の要判断）が決まってから足す。それまでは取れない。
+	_, err = f.ai.RecordAIConsent(ctx, "typesafe", "")
+	requireCode(t, "VALIDATION", err)
 
 	cfg, err = f.ai.ClearAIApiKey(ctx, "typesafe")
 	require.NoError(t, err)
