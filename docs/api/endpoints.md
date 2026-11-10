@@ -325,6 +325,7 @@ sequenceDiagram
   CS-->>FE: SendResult
 ```
 
+- 設定「送信前に確認画面を出す」（`AppService.SetSendConfirmEnabled`。既定オン）がオフのとき、フロントは確認ダイアログを出さずに、`PrepareSend` の応答の確認トークンですぐ `Send` を呼ぶ。バックエンドは設定を見ず、確認トークンなしの送信を拒否し、内容ハッシュも照合する。`PrepareSend` の `warnings` があるときの扱いは [機能要件 F-06](../requirements/functional.md) の暫定の扱い（確認ダイアログを出す。要判断）に従う
 - **確認トークン**: 暗号論的乱数 128bit。セッションに紐づけてメモリのみで保持する。有効期限 5 分、1 回限り（使用で失効）。`PrepareSend` を再度呼ぶと以前のトークンは無効になる
 - **内容ハッシュ**: `PrepareSend` が受け取った `ComposeContent`、送信元アカウント ID、添付（ID・サイズ）、`archiveAfterSend` を正規化して SHA-256 を取り、トークンに紐づける。`Send` は渡された `content` で同じ計算を行い、**不一致なら `CONFIRM_MISMATCH`**（確認後に宛先や本文を変えて送信することを防ぐ）
 - `Send` はトークンがない・未知なら `CONFIRM_REQUIRED`、期限切れ・使用済みなら `CONFIRM_EXPIRED`
@@ -477,10 +478,11 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 |----------|------|--------|------|
 | `GetInboxFilter()` | — | `{ accountIds: string[]; unreadOnly: boolean }` | 保存済みフィルタ（`app_settings.inbox.filter`）。存在しないアカウント ID は除いて返す |
 | `SetInboxFilter(filter)` | 同上 | — | 保存 |
-| `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; autoUpdateSupported: boolean; autoUpdateEnabled: boolean; dataDir: string }` | `autoUpdateSupported` は新しい版の自動ダウンロードと入れ替えを行えるビルド（Windows のリリース版。Android・dev ビルド・開発用の Linux は `false`）。`autoUpdateEnabled` は自動アップデートの設定（既定 `true`。`autoUpdateSupported` が偽なら常に `false`） |
+| `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; autoUpdateSupported: boolean; autoUpdateEnabled: boolean; sendConfirmEnabled: boolean; dataDir: string }` | `autoUpdateSupported` は新しい版の自動ダウンロードと入れ替えを行えるビルド（Windows のリリース版。Android・dev ビルド・開発用の Linux は `false`）。`autoUpdateEnabled` は自動アップデートの設定（既定 `true`。`autoUpdateSupported` が偽なら常に `false`）。`sendConfirmEnabled` は送信前の確認画面を出す設定（既定 `true`。未設定・壊れた値は `true`。#313） |
 | `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03。アプリ内の更新確認を持たない機能構成（`supportsAutoUpdate` が偽）では `UNSUPPORTED`。Android は更新確認を持つ（新しい版のお知らせとリンクだけ） |
 | `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時、および版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは通信せず `{ available: false }`。新しい版があり自動アップデートが有効（`autoUpdateEnabled`）なら、更新ファイルのダウンロードと照合をバックグラウンドで始める（応答は待たない。進みは `update:status`） |
 | `SetAutoUpdateEnabled(enabled)` | boolean | — | NF-D03。自動アップデートのオン／オフ（`app_settings.update.auto_enabled`）。オフにするとダウンロード済みのファイルを捨てる。入れ替えを行えないビルド（`autoUpdateSupported` が偽）では `UNSUPPORTED` |
+| `SetSendConfirmEnabled(enabled)` | boolean | — | 送信前に確認画面を出すか（`app_settings.compose.send_confirm`。既定オン。#313）。オフでも、`ComposeService.Send` は確認トークンなしでは拒否し（`CONFIRM_REQUIRED`）、送信元は受信アカウントに固定される。確認画面を省くのはフロントの送信フローだけで、`PrepareSend` を呼んでそのトークンで `Send` する（§5.2） |
 | `GetUpdateStatus()` | — | `{ stage: 'none' \| 'downloading' \| 'ready' \| 'failed'; version?: string; message?: string }` | 自動アップデートの現在の進み（`update:status` と同じ形）。`ready` はダウンロードと `SHA256SUMS.txt` との照合が済んだ入れ替え待ち。`message` は失敗・注意の日本語の文面（URL・パスを含めない） |
 | `RestartToUpdate()` | — | — | 「再起動して更新」。`stage` が `ready` のとき、終了を要求し（`AckBeforeQuit` を待って未保存の下書きを保存してから終了）、終了処理の最後でインストーラーを `/S /WAIT=60 /RELAUNCH` で分離起動して入れ替える。`ready` でないとき・送信中・下書きの保存中は `VALIDATION`（入れ替えない）。入れ替えを行えないビルドでは `UNSUPPORTED` |
 | `AckBeforeQuit()` | — | — | `app:before-quit` を受けたフロントが、未保存の作成セッションを `SaveDraft` し終えたことを Go に伝える（§9）。Go はこれを受けるか猶予 3 秒の経過で終了処理に進む |
@@ -618,3 +620,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.38 | 2026-11-06 | `AIService` に `SummarizeThread`（スレッドの AI 要約）と型 `ThreadAIResult` を追加。「スレッド AI の入力」（全メッセージ・合計 40,000 文字・下書きと添付の中身を送らない）、プロンプトでの本文の扱い、保存しないこと、要約の寿命（§9）、`CancelGenerate` の対象を追記 | #206 |
 | 1.39 | 2026-11-06 | `AIService` に `AskAboutThread`（スレッドの内容を文脈にした AI への質問）と型 `ThreadAITurn` を追加。`history`・`question` の検証（`VALIDATION`）、プロンプトの構成（スレッド本文は信頼しない先頭の user メッセージ・要約は文脈に入れない）、分からないことは失敗にしないこと、会話の寿命（§9）、`CancelGenerate` の対象を追記 | #207 |
 | 1.40 | 2026-11-07 | Android でも更新確認（`CheckForUpdate`・`SetUpdateCheckEnabled`・`update:available`）を有効にした。`GetCapabilities` の Android は `supportsAutoUpdate` が `true`。新しい版のバナー・設定の項目はダウンロードページのリンクを出すだけで、ダウンロード・入れ替え（`SetAutoUpdateEnabled` など）は Android では `UNSUPPORTED` のまま | Android の新バージョンのお知らせ |
+| 1.41 | 2026-11-10 | `AppService` に `SetSendConfirmEnabled`、`GetAppInfo` に `sendConfirmEnabled` を追加（送信前の確認画面のオン・オフ。既定オン）。§5.2 に、オフのときの送信の流れを追記 | #313 |

@@ -314,7 +314,7 @@ graph TD
 | `AttachmentBar` | 添付の一覧・削除・追加ボタン・ドラッグ＆ドロップ。合計サイズ表示と上限エラー | | `ComposeService.AddAttachments／RemoveAttachment` |
 | `AiDraftButton` | 「AI で下書き」。AI の設定が未保存（`aiConfig.configured` が偽）→初回の案内（ChatGPT でログインする「Continue with ChatGPT」・「別のプロバイダを選ぶ」・「あとで」。[§3.9.1](#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）。保存済みでキー未設定（ChatGPT プランは未ログイン）→設定へ誘導。利用枠の超過（`AI_FAILED` の `details.reason`）は「Manage usage」を主なアクションにしたコンパクトな案内 `UsageLimitNotice`（ChatGPT の見出しを残す。失敗メッセージだけにしない）、未同意→同意ダイアログ（`AIConsentDialog`。設定画面と共通）、生成中→キャンセル可、本文入力済み→置換確認 | emits: `generated(bodyHtml)` | `AIService.GenerateReplyDraft／CancelGenerate／RecordAIConsent`（`settingsStore` 経由） |
 | `AiDraftInstruction` | 「AI への指示」（F-08。#109）。`AiDraftButton` の下に常に開いている複数行の入力欄（開閉はしない。2,000 文字の残り表示。空・空白だけなら指示なしの従来の下書き）。値は `composeStore` の作成セッションにだけ持つ（`localStorage` などには保存しない）。入力欄は内容に応じて 2〜6 行まで伸びる（超えたら内部スクロール） | props/emits: `v-model` | `composeStore.aiInstruction`（`AIService.GenerateReplyDraft` の `instruction`） |
-| `SendConfirmDialog` | `PrepareSend` の結果を表示。送信元（`SenderBadge`）、宛先・件名・添付数・本文（改行を保ち署名・引用を除いたプレビュー）、`warnings`（他の自アカウント宛・件名なし・本文なし。他の自アカウント宛は送信元より目立たせる）。確定ボタン「<アドレス> から送信」。ダイアログ表示中はエディタ操作不可 | props: `preview`, `busy` | `composeStore.confirmSend`（`ComposeService.Send`） |
+| `SendConfirmDialog` | `PrepareSend` の結果を表示（設定「送信前に確認画面を出す」がオフで警告も無いときは出さず、`useComposeSend` が `PrepareSend` の確認トークンですぐ `Send` する。#313）。送信元（`SenderBadge`）、宛先・件名・添付数・本文（改行を保ち署名・引用を除いたプレビュー）、`warnings`（他の自アカウント宛・件名なし・本文なし。他の自アカウント宛は送信元より目立たせる）。確定ボタン「<アドレス> から送信」。ダイアログ表示中はエディタ操作不可 | props: `preview`, `busy` | `composeStore.confirmSend`（`ComposeService.Send`） |
 | `SignatureConflictDialog` | 新規作成で送信元を切り替えたとき、署名部分が編集済みなら差し替える前に確認する（F-07）。「編集した署名を残す」「差し替える」。`ComposePane` が配置する | — | `composeStore.signatureConflict`／`resolveSignatureConflict` |
 
 #### 署名の挿入・差し替え（`lib/signature`）
@@ -334,7 +334,8 @@ graph TD
 2. **リモート画像をブロック**: 既定で `img[src]`（`data:` 以外）、`srcset`、`background` 属性、CSS の `url()` を取り除き、`hasRemoteImages` が真のときだけ「画像を表示」ボタンを出す。押すとそのメッセージのみ画像参照を復元して再描画する
 3. サニタイズ済み HTML を **`sandbox` 付き iframe の `srcdoc`** で表示する。`srcdoc` 先頭に `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: …; style-src 'unsafe-inline'">` を入れる（画像表示を許可した場合のみ `img-src` に `https:` を追加）
 4. iframe の `sandbox` は **`allow-same-origin` のみ**（`allow-scripts`・`allow-forms`・`allow-popups` なし）とする。スクリプトは実行されないため、ホスト側（親ウィンドウ）が iframe の `contentDocument` に対して (a) 内容の高さを計測して自動でリサイズし、(b) リンクのクリックを捕捉して `ThreadService.OpenExternal` に渡す。リンクは `http`／`https`／`mailto` のみ有効
-5. HTML がなければ `bodyText` を `<pre>` 相当で表示（URL は自動リンク化しない）
+5. HTML がなければ `bodyText` を `<pre>` 相当（`LinkedText`）で表示する。素の URL・メールアドレスは `lib/autolink` で見つけて `<a href rel="noopener noreferrer">` にし、クリックは `onLink` 同様にナビゲーションを止めて `ThreadService.OpenExternal` へ渡す（#312）
+   - HTML 本文の素の URL も、`sanitizeEmailHtml(html, { autolink: true })` が**サニタイズ後の DOM** の `a`・`area`・`script`・`style`・`textarea`・`button`・`title` の外のテキストノードだけを `<a>` に置き換えて行う（既存の `<a>` は変えず、二重にしない。href は `http`／`https`／`mailto` だけ）。対象は `http://`・`https://`・`www.`（`https://` を補う）・メールアドレス（`mailto:`）。末尾の句読点・対応のない閉じかっこ・日本語（ASCII の URL 文字だけを URL とみなす）は URL に含めない
 6. iframe の中の既定のスタイル（`color-scheme: light`・地 `Canvas`・字 `CanvasText`・`14px/1.5 sans-serif`）は、ガイドのトークンを使わない案件固有の逸脱（理由は [§5.3 逸脱](#逸脱)）。メール本文の自前のスタイルが優先される
 7. iframe の中のスクロールバーも、親（`styles/scrollbar.css`）と同じ設計にそろえる（8px・矢印なし・つまみ `--mute`・hover／active は `--ink` 35%／65%・`@media (forced-colors: none)` と `@supports selector(::-webkit-scrollbar)` の構造も同じ）。`srcdoc` は親のトークンを読めないので、`buildSrcdoc` が親の `tokens.css` の既定（Light）の `--mute`・`--ink` を `:root` の変数として注入する（iframe は `color-scheme: light` 固定・地 `Canvas` なので、ダークテーマの値は使わない。色値はコードに直書きしない。値が取れないときのフォールバックはシステム色の `GrayText`／`CanvasText`）
 8. iframe は横にあふれても切らない。縦は、高さが `MAX_HEIGHT` 以内なら `overflow-y: hidden`（親側の iframe 高さで全体を見せる）、超えたら `auto`。横は常に `overflow-x: auto` で、固定幅の `table`・`pre` などは横スクロールで見せる（`overflow: hidden` で隠さない）。横バーが出ているときは、その高さを iframe の高さに足して、縦が切れないようにする（`bodyFrame.ts`）
@@ -357,7 +358,7 @@ graph TD
 | `AISetupDialog` | 作成画面の「AI で下書き」の初回の案内（AI の設定が未保存のとき。`AiDraftButton` が出し、選んだ道を設定画面の AI の流れへつなぐ） | props: `open`。emits: `choose(choice?: 'chatgpt' \| 'other')` | — |
 | `McpSettings` | MCP のオン／オフ（既定オフ）、待ち受けアドレス・ポート、loopback 以外の許可、トークンの発行・再発行・無効化（無効化は確認モーダルを経由。値は発行直後だけ表示してコピー）、接続先 URL・状態 | `MCPService.*` |
 | `LogSettings` | ログフォルダを開く、ログの書き出し、記録しない情報の説明（常時表示）。保存場所とローテーション（5 MB・5 世代・30 日）は折りたたみ `BaseDisclosure` に置く | `LogService.OpenLogFolder／ExportLogs` |
-| `GeneralSettings` | 更新確認オン／オフ・「今すぐ確認」・新しい版のリンク（`platformStore.supportsAutoUpdate` が偽のときは出さない。Android は真）、自動アップデートのオン／オフと進み・「再起動して更新」（`AppInfo.autoUpdateSupported` が真の Windows リリース版だけ）、バージョン表示、データ保存先の表示 | `AppService.*` |
+| `GeneralSettings` | **「送信前に確認画面を出す」のオン／オフ**（`BaseSwitch`。既定オン。`AppInfo.sendConfirmEnabled`・`AppService.SetSendConfirmEnabled`。#313。オフでも警告があるときは確認画面を出す。要判断）、更新確認オン／オフ・「今すぐ確認」・新しい版のリンク（`platformStore.supportsAutoUpdate` が偽のときは出さない。Android は真）、自動アップデートのオン／オフと進み・「再起動して更新」（`AppInfo.autoUpdateSupported` が真の Windows リリース版だけ）、バージョン表示、データ保存先の表示 | `AppService.*` |
 
 ### 3.9.1 AI 設定と初回の案内（プロバイダ選択→同意→モデル一覧の流れ。#104・#105）
 
@@ -682,3 +683,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.97 | 2026-11-09 | §3.7 `RecipientChip` と §5.3 の宛先チップの削除ボタンに、当たり判定の外周（`touch.css` の `.chip-remove::before`）の押下も `pointerdown`（`.self`）で受け、内側の円（`.chip-remove-face`）にリップルを出す旨を追記 | #298 |
 | 1.98 | 2026-11-09 | `Sidebar` の `.accounts`（縦スクロール）の上の padding を 0 から `--s-1` にし、先頭の「すべて」ボタンの外側のリングが上端で切れないようにした。§5.3 のフォーカスリングの逸脱の欄に、外側のリングのまま余白で収める箇所（`BaseDialog`・`BaseMenu`・`BaseSelect`・`Sidebar`）を追記。§5.3 のタイポ行の見出しの 600 を、`reset.css` でなく役割クラスが指定する実装に、`UsageLimitNotice` の見出しを `h4` から `h3`（実装は #290 で `h3`）、縦並びの間隔を `--s-1` から `--s-2`（#242）に揃えた | #302・#303・#304 |
 | 1.99 | 2026-11-09 | §3.3 `BaseSelect` に、選択肢のスクロール領域（`.sel-viewport`）が Reka UI の注入するバーの非表示を打ち消してバーを出す旨を追記した（実装は #289 で入っていた記述の漏れ） | #289 |
+| 2.00 | 2026-11-10 | §3.8 項 5 に本文の素の URL・メールアドレスの自動リンク化（`lib/autolink`・`LinkedText`・`sanitizeEmailHtml` の `autolink`。#312）を、§3.7 `SendConfirmDialog` と §3.9 `GeneralSettings` に「送信前に確認画面を出す」設定（#313）を追記 | #312・#313 |

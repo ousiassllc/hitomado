@@ -329,6 +329,7 @@ erDiagram
 | `ai.consent` | `{"providers":[{"provider":"openai","baseUrl":"https://api.openai.com","agreedAt":1730000000000}]}` | AI 送信の同意（F-08）。「プロバイダ＋送信先（Base URL の scheme とホスト。パスは含めない）」単位の配列で、プロバイダ＋送信先ごとに 1 件（保存前に選んだ送信先の同意も、`RecordAIConsent` の引数の送信先として保存する。#105）。`baseUrl` は省略可（省略は既定の送信先）。送信先が変わった同意は無効になり、保存からも外す。旧形式 `{"provider":"anthropic","agreedAt":...}`（単一オブジェクト）は読み取り専用の互換入力で、保存は常に `providers` 形式（`RecordAIConsent` が書き込む。[API §6](../api/endpoints.md)） |
 | `update.check_enabled` | `true` | 新バージョン確認の有効／無効（NF-D03） |
 | `update.auto_enabled` | `true` | 自動アップデート（Windows 版。新しい版の自動ダウンロードと入れ替え）の有効／無効（NF-D03）。未設定・壊れた値は有効。入れ替えを行わないビルド（Android・dev ビルド）では保存値にかかわらず無効 |
+| `compose.send_confirm` | `true` | 送信前に確認画面を出すか（真偽。#313）。未設定・壊れた値は `true`（出す）。値は JSON として妥当な `true`／`false` |
 | `update.last_checked_at` | `1730000000000` | 最終確認日時 |
 | `window.state` | `{"x":100,"y":60,"width":1280,"height":800,"maximized":false}` | ウィンドウ状態。位置・サイズは最大化していないときの DIP 値（`x`／`y` は省略可。省略時は位置を OS に任せる）。画面外の位置は起動時に捨てる（[F-10](../requirements/functional.md)） |
 
@@ -376,3 +377,4 @@ erDiagram
 | 1.15 | 2026-11-04 | §3.9 の `ai.config` に、未保存のときの既定のプロバイダ（`chatgpt`）を、`ai.consent` に、同意が「プロバイダ＋送信先」ごとであり保存前に選んだ送信先の同意も保存する旨を追記 | #104・#105 |
 | 1.16 | 2026-11-05 | §2 の `accounts.signature_html` に、Gmail から取り込める旨（取得元は持たず、列の追加はない）を追記 | #110 |
 | 1.17 | 2026-11-05 | §3.9 の `ai.config` に任意キー `effort`（モデルのエフォート）を追加 | #111 |
+| 1.18 | 2026-11-10 | §3.9 に `compose.send_confirm`（送信前の確認画面のオン・オフ）を追加 | #313 |
