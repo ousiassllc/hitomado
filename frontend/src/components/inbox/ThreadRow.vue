@@ -81,7 +81,7 @@ const label = computed(
   background: var(--surface);
   cursor: pointer;
   overflow: hidden;
-  /* 補助文字（日時・スニペット・件数・既読の差出人と件名）の色。--accent-soft 地の上では --mute が AA に届かないので、ホバー・選択・複数選択のときだけ --mute-on-soft にする（#267）。 */
+  /* 補助文字（日時・スニペット・件数・既読の件名）の色。--accent-soft 地の上では --mute が AA に届かないので、ホバー・選択・複数選択のときだけ --mute-on-soft にする（#267）。 */
   --row-mute: var(--mute);
 }
 
@@ -181,7 +181,10 @@ const label = computed(
 }
 
 /* 未読は太字にせず、未読ドットと文字色の対比（未読 = --ink、既読 = --mute）で区別する。 */
-.sender,
+.sender {
+  color: var(--mute);
+}
+
 .subject {
   color: var(--row-mute);
 }
@@ -207,6 +210,6 @@ const label = computed(
 
 .row.needs-reauth .sender,
 .row.needs-reauth .subject {
-  color: var(--row-mute);
+  color: var(--mute);
 }
 </style>
