@@ -325,7 +325,7 @@ sequenceDiagram
   CS-->>FE: SendResult
 ```
 
-- 設定「送信前に確認画面を出す」（`AppService.SetSendConfirmEnabled`。既定オン）がオフのとき、フロントは確認ダイアログを出さずに、`PrepareSend` の応答の確認トークンですぐ `Send` を呼ぶ。バックエンドは設定を見ず、確認トークンなしの送信を拒否し、内容ハッシュも照合する。`PrepareSend` の `warnings` があるときの扱いは [機能要件 F-06](../requirements/functional.md) の暫定の扱い（確認ダイアログを出す。要判断）に従う
+- 設定「送信前に確認画面を出す」（`AppService.SetSendConfirmEnabled`。既定オン）がオフのとき、フロントは確認ダイアログを出さずに、`PrepareSend` の応答の確認トークンですぐ `Send` を呼ぶ。バックエンドは設定を見ず、確認トークンなしの送信を拒否し、内容ハッシュも照合する。`PrepareSend` の `warnings` が 1 件でもあるときは、設定がオフでも確認ダイアログを出す（[機能要件 F-06](../requirements/functional.md)）
 - **確認トークン**: 暗号論的乱数 128bit。セッションに紐づけてメモリのみで保持する。有効期限 5 分、1 回限り（使用で失効）。`PrepareSend` を再度呼ぶと以前のトークンは無効になる
 - **内容ハッシュ**: `PrepareSend` が受け取った `ComposeContent`、送信元アカウント ID、添付（ID・サイズ）、`archiveAfterSend` を正規化して SHA-256 を取り、トークンに紐づける。`Send` は渡された `content` で同じ計算を行い、**不一致なら `CONFIRM_MISMATCH`**（確認後に宛先や本文を変えて送信することを防ぐ）
 - `Send` はトークンがない・未知なら `CONFIRM_REQUIRED`、期限切れ・使用済みなら `CONFIRM_EXPIRED`

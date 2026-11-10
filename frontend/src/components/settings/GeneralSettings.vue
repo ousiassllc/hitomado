@@ -97,7 +97,7 @@ function openUpdate(): void {
 
 <template>
   <section class="general" :aria-label="msg.tabs.general">
-    <!-- 送信前の確認画面（#313）。既定はオン。オフでも、警告があるときは確認画面を出す。 -->
+    <!-- 送信前の確認画面（#313）。既定はオン。オフでも、警告が 1 件でもあるときは確認画面を出す（取り違え・空送信を止める。仕様で確定）。 -->
     <div class="block" data-testid="send-confirm">
       <div class="toggle">
         <BaseSwitch

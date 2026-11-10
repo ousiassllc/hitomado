@@ -52,7 +52,7 @@ export function useComposeSend(ctx: ComposeSendContext) {
 
   /**
    * 確認画面を省いてよいか。設定がオフ（読み込み前・不明は「出す」）で、警告が 1 件も無いときだけ。
-   * 警告があるときは、設定にかかわらず今までどおり確認画面を出す（OTHER_OWN_ACCOUNT などの扱いは要判断。#313）。
+   * 警告（OTHER_OWN_ACCOUNT・EMPTY_SUBJECT・EMPTY_BODY）が 1 件でもあるときは、種類によらず、設定にかかわらず確認画面を出す（#313。仕様で確定）。
    */
   function canSkipConfirm(p: SendPreview): boolean {
     return settings.appInfo?.sendConfirmEnabled === false && !p.warnings?.length
