@@ -89,8 +89,10 @@ if [ "${#so_files[@]}" -gt 0 ]; then
 fi
 
 # 署名: 検証して証明書の持ち主を表示する。デバッグ鍵は "CN=Android Debug"。
+# 証明書の SHA-256 も表示する（公開してよい値）。固定鍵で署名した版どうしで同じ値になることを、ビルドのログで比べられる。
 certs="$("$apksigner" verify --print-certs "$apk")"
 subject="$(sed -n 's/^Signer #1 certificate DN: //p' <<<"$certs")"
+cert_sha256="$(sed -n 's/^Signer #1 certificate SHA-256 digest: //p' <<<"$certs")"
 if grep -q 'CN=Android Debug' <<<"$subject"; then
   kind=debug
   echo "SIGNING: DEBUG key ($subject). Local install only; not a release signature."
@@ -98,6 +100,7 @@ else
   kind=release
   echo "SIGNING: non-debug key ($subject)"
 fi
+echo "SIGNING: certificate SHA-256 ${cert_sha256:-unknown}"
 if [ -n "${EXPECT_SIGNING:-}" ]; then
   check "signing kind is ${EXPECT_SIGNING}" test "$kind" = "$EXPECT_SIGNING"
 fi

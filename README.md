@@ -67,9 +67,10 @@ Releases の `hitomado-vX.Y.Z-android-arm64.apk`（arm64 の実機向け。`SHA2
 1. 端末の設定で、APK を開くアプリ（ブラウザ・ファイル）に「不明なアプリのインストール」を許可し、APK をインストールします。Play プロテクトの警告が出ることがあります。
 2. 起動して、Windows 版と同じように OAuth クライアントの登録・アカウントの追加をします。
 
-**警告が出る前提です（意図した状態です）。** この APK は、リリースのたびに作る**使い捨ての鍵**で署名しています（正式な署名鍵ではありません）。そのため:
+**警告が出る前提です（意図した状態です）。** Google Play では配布していないので、Play プロテクトの警告が出ることがあります。この APK は、リポジトリの管理者が保管する**固定の署名鍵**で署名していて、どの版も署名証明書が同じです。そのため:
 
-- **版ごとに署名が変わり、上書きインストールはできません**（「競合するパッケージ」などで失敗します）。更新するときは、いったんアンインストールして入れ直します。**アプリのデータ（アカウント・設定・下書き）は消えます**。PC に接続した端末なら `adb uninstall jp.ousias.hitomado` の後に `adb install hitomado-vX.Y.Z-android-arm64.apk`、端末だけなら「設定 → アプリ → Hitomado → アンインストール」の後に新しい APK を入れます。
+- **新しい版は、入っている版の上に上書きインストールできます**。アカウント・設定・下書きは残ります。新しい APK を開いて「更新」を選ぶか、PC に接続した端末なら `adb install -r hitomado-vX.Y.Z-android-arm64.apk` を実行します。
+- **固定の鍵に切り替えた最初の版だけは、上書きできません。** それより前の APK は、版ごとに作る使い捨ての鍵で署名していたため、入れようとすると「アプリがインストールされていません」「競合するパッケージ」などで失敗します。この切り替えのときだけ、いったんアンインストールして入れ直します。**アプリのデータ（アカウント・設定・下書き）は消えます**。PC に接続した端末なら `adb uninstall jp.ousias.hitomado` の後に `adb install hitomado-vX.Y.Z-android-arm64.apk`、端末だけなら「設定 → アプリ → Hitomado → アンインストール」の後に新しい APK を入れます。次の版からは上書きで更新できます。
 - アプリ内の更新確認はありません（新しい版は Releases で確認してください）。
 - エミュレーター（x86_64）向けの APK は添付していません。
 
@@ -192,4 +193,4 @@ task check                      # CI と同等の検査（生成物の差分な�
 - **Android 版のビルド**（APK／AAB。`task android:package ARCH=arm64 VERSION=X.Y.Z` で `bin/hitomado.apk`、`task android:install` で実機へ）の手順・署名・版番号は [docs/environment/android.md](docs/environment/android.md) にあります。まだ試験段階で、Google Play では配布していません（Releases の APK は検証用です）。
 - 仕様書は [docs/overview.md](docs/overview.md) のドキュメントマップから辿れます。
 - マージは squash／rebase せず、マージコミット方式です。コミットには `git commit -s`（Signed-off-by）を付けます。
-- リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けのインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）・Android の APK（`hitomado-vX.Y.Z-android-arm64.apk`）・macOS の zip（`hitomado-vX.Y.Z-macos-arm64.zip`・`hitomado-vX.Y.Z-macos-amd64.zip`）・`NOTICE`・`SHA256SUMS.txt` を Releases に添付します（Windows は署名なし、Android は使い捨て鍵の署名、macOS は ad-hoc 署名のみで、いずれも正式な署名・公証はしません）。どれか 1 つのビルドが失敗したら Release は作りません。手元でインストーラーを作るときは、Windows で [NSIS](https://nsis.sourceforge.io/)（`makensis`）を入れて `task package VERSION=X.Y.Z` を実行します（`bin/` に出力）。macOS の `.app`・zip は、macOS 上で `task package VERSION=X.Y.Z`（Apple Silicon なら arm64。Intel 向けは `ARCH=amd64` を付ける）で `bin/` に作れます。手でタグを打つ必要はありません。
+- リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けのインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）・Android の APK（`hitomado-vX.Y.Z-android-arm64.apk`）・macOS の zip（`hitomado-vX.Y.Z-macos-arm64.zip`・`hitomado-vX.Y.Z-macos-amd64.zip`）・`NOTICE`・`SHA256SUMS.txt` を Releases に添付します（Windows は署名なし、Android は固定鍵の署名（Google Play の署名ではありません）、macOS は ad-hoc 署名のみで、Windows・macOS は正式な署名・公証をしません）。どれか 1 つのビルドが失敗したら Release は作りません。Android の固定鍵は管理者が GitHub Secrets（`ANDROID_KEYSTORE_BASE64`・`ANDROID_KEYSTORE_PASSWORD`・`ANDROID_KEY_ALIAS`・`ANDROID_KEY_PASSWORD`）に登録します（鍵の作り方・登録の手順・控えは [docs/environment/android.md §4.1](docs/environment/android.md#41-リリースの固定鍵github-secrets310)）。Secrets が無いと、使い捨ての鍵では公開せず Release の Android のビルドが失敗します。PR の CI（フォークを含む）は Secrets を使わず、使い捨ての鍵でビルドします。手元でインストーラーを作るときは、Windows で [NSIS](https://nsis.sourceforge.io/)（`makensis`）を入れて `task package VERSION=X.Y.Z` を実行します（`bin/` に出力）。macOS の `.app`・zip は、macOS 上で `task package VERSION=X.Y.Z`（Apple Silicon なら arm64。Intel 向けは `ARCH=amd64` を付ける）で `bin/` に作れます。手でタグを打つ必要はありません。

@@ -189,7 +189,7 @@ Gmail のスコープで得たデータは、次のとおりに扱う必要が�
 
 ### 6.2 署名鍵
 
-- 現在の Release の APK は**使い捨ての鍵**で署名している（版ごとに署名が変わる。[Android ビルド §8](android.md#8-ciリリースciymlreleaseyml)）。Play に出すには、**恒久のアップロード鍵**を作り、リポジトリの外（パスワードマネージャー等）と GitHub Secrets に置いて、CI（`release.yml`）で署名した AAB を作る必要がある。署名の仕組み（環境変数 4 つ）は実装済み（[Android ビルド §4](android.md#4-署名)）。
+- 現在の Release の APK は、GitHub Secrets の**固定鍵**で署名している（版が変わっても署名が同じで、上書きインストールで更新できる。作り方・Secrets の登録・控えは [Android ビルド §4.1](android.md#41-リリースの固定鍵github-secrets310)。#310）。Play に出すには、**恒久のアップロード鍵**を作り、リポジトリの外（パスワードマネージャー等）と GitHub Secrets に置いて、CI（`release.yml`）で署名した AAB を作る必要がある。署名の仕組み（環境変数 4 つ）は実装済み（[Android ビルド §4](android.md#4-署名)）。
 - **Play に出した後は、GitHub Releases の APK と Play 版で署名が違う**（Play App Signing では Google の鍵で再署名される）。同じ端末で入れ替えると署名が合わず、いったんアンインストールが要る。Releases の APK を続けるか、Play に一本化するかは未決（§8）。
 
 ## 7. 関連: Android の開発者確認

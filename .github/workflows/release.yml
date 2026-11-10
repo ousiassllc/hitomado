@@ -75,7 +75,9 @@ jobs:
             NOTICE
           if-no-files-found: error
 
-  # Android の APK（arm64）。署名は使い捨ての鍵（実鍵は使わない）なので、版ごとに署名が変わる（README.md）。
+  # Android の APK（arm64）。署名は Secrets の固定鍵（版が変わっても署名が同じなので、上書きインストールで更新できる。README.md）。
+  # 固定鍵が登録されていなければ、使い捨ての鍵で公開せずここで失敗させる（require-fixed-key）。
+  # Secrets の名前と登録の手順は docs/environment/android.md §4.1。
   android:
     needs: [version, ci]
     runs-on: ubuntu-latest
@@ -89,6 +91,11 @@ jobs:
         with:
           version: ${{ needs.version.outputs.tag }}
           output: out/hitomado-${{ needs.version.outputs.tag }}-android-arm64.apk
+          keystore-base64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          keystore-password: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.ANDROID_KEY_ALIAS }}
+          key-password: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          require-fixed-key: "true"
       - uses: actions/upload-artifact@v4
         with:
           name: release-android

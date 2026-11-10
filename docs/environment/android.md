@@ -52,7 +52,7 @@ adb devices                                       # 端末の USB デバッグ�
 task android:install                              # = adb install -r bin/hitomado.apk
 ```
 
-署名の鍵が違う同名のアプリが入っていると `INSTALL_FAILED_UPDATE_INCOMPATIBLE` になる（デバッグ鍵と release 鍵の入れ替えなど）。`adb uninstall jp.ousias.hitomado` で消してから入れる（**アプリのデータも消える**）。
+署名の鍵が違う同名のアプリが入っていると `INSTALL_FAILED_UPDATE_INCOMPATIBLE` になる（デバッグ鍵と release 鍵の入れ替え、Releases の固定鍵に切り替える前の使い捨て鍵の APK など）。`adb uninstall jp.ousias.hitomado` で消してから入れる（**アプリのデータも消える**）。
 
 ## 3. compileSdk／targetSdk を 36 に揃える理由
 
@@ -85,7 +85,63 @@ Wails v3.1.0 のテンプレートは `compileSdk = 36`・`targetSdk = 36`（`ap
 - **`ANDROID_KEYSTORE_FILE` が未設定のとき**: ローカルの実機へ入れるために、Android の**デバッグ鍵**（`~/.android/debug.keystore`。Gradle が無ければ作る）で署名する。このとき `WARNING: Signing: DEBUG key …` を表示する。これは release 署名ではなく、Play には上げられない（Play は debug 署名の AAB を拒否する）。`android:verify` も `SIGNING: DEBUG key` と表示する。
 - パスワードの渡し方: Gradle は環境変数（`System.getenv`）から読む。`-Pandroid.injected.signing.store.password=…` のように **`-P`／コマンドライン引数に載せない**（`ps` やビルドログに出る）。`task`・Gradle のログにパスワードは出ない（`signing:notice` は鍵のエイリアスしか出さない）。Gradle デーモンは環境変数を引数にしない。
 - Play App Signing を使う場合、ここで設定する鍵は**アップロード鍵**になる（Google が検証し、配布用の鍵で再署名する）。アップロード鍵と、ローカル用のデバッグ鍵を混同しない。release 用の鍵は別に作って保管する（失うと更新できない）。
-- 鍵の作り方（例）: `keytool -genkeypair -keystore ~/hitomado-upload.jks -alias hitomado -keyalg RSA -keysize 2048 -validity 10000`
+- GitHub Releases の APK の署名に使う固定鍵の作り方・Secrets への登録・控えの取り方は §4.1。
+
+### 4.1 リリースの固定鍵（GitHub Secrets。#310）
+
+GitHub Releases の APK は、リポジトリの Secrets に登録した**固定の鍵**で署名する。署名証明書が版によらず同じなので、端末に入っている前の版の上に、アカウント・設定・下書きを残したまま上書きインストールで更新できる（以前は版ごとに使い捨ての鍵を作っていたため、上書きは `INSTALL_FAILED_UPDATE_INCOMPATIBLE`／「アプリがインストールされていません」で失敗していた）。鍵を失う・作り直すと、以後の更新はできなくなる（インストール済みの端末で一度アンインストールが要る）。
+
+**Secrets（リポジトリの Actions secrets。4 つとも必要）**
+
+| Secret | 内容 | build.gradle が読む環境変数 |
+|--------|------|-----------------------------|
+| `ANDROID_KEYSTORE_BASE64` | keystore（`.jks`）ファイルを base64 にした 1 行の文字列 | `ANDROID_KEYSTORE_FILE`（`.github/scripts/prepare-android-signing.sh` が復号してパスを入れる） |
+| `ANDROID_KEYSTORE_PASSWORD` | keystore のパスワード | `ANDROID_KEYSTORE_PASSWORD` |
+| `ANDROID_KEY_ALIAS` | 鍵のエイリアス（下の例では `hitomado`） | `ANDROID_KEY_ALIAS` |
+| `ANDROID_KEY_PASSWORD` | 鍵のパスワード（PKCS12 の keystore ではストアのパスワードと同じ値） | `ANDROID_KEY_PASSWORD` |
+
+**登録の手順（人が行う。Secrets の登録・鍵の作成は自動化していない）**
+
+1. 鍵を作る（リポジトリの外。パスワードはコマンドラインに書かず、プロンプトで入力する）:
+
+   ```bash
+   keytool -genkeypair -keystore hitomado-release.jks -alias hitomado \
+     -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Hitomado"
+   ```
+
+2. **登録する前に控えを取る**。Secrets は登録後に値を読み戻せないので、`hitomado-release.jks`・パスワード・エイリアスを、GitHub の外（パスワードマネージャー、暗号化したバックアップなど）に保管する。保管場所は運用で決め、鍵そのものやパスワードをリポジトリ・Issue・PR・チャットに書かない。
+3. keystore を base64 にする（改行なしの 1 行。折り返しがあっても `prepare-android-signing.sh` は空白・改行を無視する）:
+
+   ```bash
+   base64 -w0 hitomado-release.jks > hitomado-release.jks.b64      # Linux（macOS は base64 -i hitomado-release.jks）
+   ```
+
+4. 4 つの Secrets を登録する（Settings → Secrets and variables → Actions → New repository secret。または `gh`。パスワードは標準入力から渡し、シェルの履歴に残さない）:
+
+   ```bash
+   gh secret set ANDROID_KEYSTORE_BASE64 < hitomado-release.jks.b64
+   gh secret set ANDROID_KEYSTORE_PASSWORD     # 値の入力を求められる
+   gh secret set ANDROID_KEY_ALIAS --body hitomado
+   gh secret set ANDROID_KEY_PASSWORD          # 値の入力を求められる
+   ```
+
+5. ローカルの `hitomado-release.jks.b64` を消す（`hitomado-release.jks` は手順 2 の保管場所に残す）。
+
+**どこでどの鍵を使うか（`build-android-apk` と `prepare-android-signing.sh`）**
+
+| 場面 | Secrets あり（4 つ揃い） | Secrets なし（4 つとも空） | 一部だけ登録 |
+|------|--------------------------|----------------------------|--------------|
+| `release.yml`（main への push。Release の公開） | 固定鍵で署名 | **失敗する**（`require-fixed-key: "true"`。使い捨ての鍵で公開しない。成果物の欠けた Release は作られない。登録したあと同じコミットの run を再実行する） | 失敗する（足りない名前を表示） |
+| `ci.yml` の `android`（pull_request） | Secrets を渡さないので、使い捨ての鍵（同左） | 使い捨ての鍵（今までどおり。フォークの PR も同じ） | — |
+
+- PR の CI に固定鍵を渡さないのは、PR のコード（ワークフロー・ビルドスクリプトを書き換えられる）に実鍵を触らせず、PR が作るアーティファクトを実鍵で署名させないため。固定鍵で署名するのは、レビュー済みで main に入ったコードだけ。
+- 登録が不完全（一部だけ）なとき、keystore が開けない（パスワード違い）とき、エイリアスが keystore に無いときは、ビルドの前に失敗する（使い捨ての鍵に黙って落とさない）。
+- 鍵とパスワードはログに出さない: パスワードは `::add-mask::` で伏せ、keytool には環境変数で渡す（コマンドラインに載せない）。keystore は `$RUNNER_TEMP` に置くだけで、成果物には含めない。`prepare-android-signing_test.sh`（CI の `test` ジョブ）が、鍵の選び方・失敗の条件・ログに値が出ないことを検査する。
+- `task android:verify` は、署名の証明書の **SHA-256**（公開してよい値）を `SIGNING: certificate SHA-256 …` として表示する。Release を作る run のログで、版どうしで同じ値になっていることを確認できる。APK を手元で調べるなら `apksigner verify --print-certs hitomado-vX.Y.Z-android-arm64.apk`。
+
+**固定鍵に切り替えた最初の版だけ**は、入っている使い捨ての鍵の APK の上に上書きできない。端末で `adb uninstall jp.ousias.hitomado`（または「設定 → アプリ → Hitomado → アンインストール」）をしてから入れる（**アプリのデータ（アカウント・設定・下書き）は消える**）。その次の版からは上書きで更新できる。
+
+Play 配布（#91）でも署名鍵の扱いは同じ問題になる。ここで作る鍵は GitHub Releases の APK 用で、Play App Signing の**アップロード鍵**を兼ねるかどうかは [android-play-distribution.md §6.2](android-play-distribution.md#62-署名鍵) で決める（Play 版と Releases の APK は、Play が配布用の鍵で再署名するので署名が違う）。
 
 `task android:run`／`android:run:device` は debug ビルド（`assembleDebug`。debug 鍵、`bin/hitomado-debug.apk`）。
 
@@ -149,9 +205,9 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 - `lint` に `Go lint (android)` を追加（`GOOS=android GOARCH=arm64 CGO_ENABLED=0 golangci-lint run`）。`*_android.go`・`!android` 側の型検査と lint が対象になる。手元では `task android:lint`（`build/android/gen` は overlay の生成物で単体では型検査に失敗するため、先に消してから実行し、次の `android:build` が作り直す）。
 - ビルド環境と release APK の作り方は、`.github/actions/` の composite action に切り出して `ci.yml` と `release.yml` で共有する（Windows の `build-installer` と同じ流儀）。
   - `setup-android`: Go・bun・JDK 17・wails3（`WAILS_VERSION`）・SDK platform 36・build-tools・NDK（`sdkmanager`）・フロントの依存。呼び出し元の `env` に `WAILS_VERSION`・`ANDROID_NDK_VERSION`・`ANDROID_BUILD_TOOLS_VERSION` が要る（NDK は `build/android/Taskfile.yml` の `NDK_VERSION` と同じ値）。
-  - `build-android-apk`（入力 `version`・`output`）: `keytool` で**使い捨ての鍵**を作り（パスワードは `::add-mask::` で伏せ、ジョブの中だけに存在し、成果物には含めない）、環境変数で渡して `android:package ARCH=arm64 VERSION=…` → `EXPECT_SIGNING=release android:verify` を通した APK を `output` へ置く。
-- `ci.yml` の `android` ジョブ（ubuntu-latest、**pull_request のみ**。`release.yml` が呼ぶとき（push）は動かさず、リリース用の APK は `release.yml` の `android` ジョブが同じ action で作る）: `setup-android` のあと、SecureStore の JVM 単体テスト、デバッグ鍵（フォールバック）の APK の検査、`build-android-apk`（版 `0.99.1`）、AAB（arm64＋x86_64）の作成と `bundletool validate` を行い、`hitomado-android` のアーティファクトに上げる。
-- `release.yml` の `android` ジョブ（ubuntu-latest。`needs: [version, ci]`）: `setup-android` → `build-android-apk`（版はタグから `v` を除いた値）で `hitomado-vX.Y.Z-android-arm64.apk` を作り、`publish` が Release に添付して `SHA256SUMS.txt` に載せる。**署名は使い捨ての鍵**（実鍵は使わない）なので、版ごとに署名が変わり、上書きインストールはできない（更新は `adb uninstall jp.ousias.hitomado` → 入れ直し。アプリのデータは消える）。Google Play では配布しない。arm64 だけで、AAB・x86_64 は Release に添付しない。この APK のビルドが落ちると `publish` が動かず、Release は作られない。
+  - `build-android-apk`（入力 `version`・`output`、署名鍵の入力 `keystore-base64`・`keystore-password`・`key-alias`・`key-password`・`require-fixed-key`）: `.github/scripts/prepare-android-signing.sh` で署名鍵を決める（§4.1。固定鍵の入力が 4 つ揃っていればその鍵、4 つとも空なら **使い捨ての鍵**を `keytool` で作る、`require-fixed-key: "true"` で空なら失敗、一部だけなら失敗。パスワードは `::add-mask::` で伏せ、成果物には含めない）→ 環境変数で渡して `android:package ARCH=arm64 VERSION=…` → `EXPECT_SIGNING=release android:verify` を通した APK を `output` へ置く。
+- `ci.yml` の `android` ジョブ（ubuntu-latest、**pull_request のみ**。`release.yml` が呼ぶとき（push）は動かさず、リリース用の APK は `release.yml` の `android` ジョブが同じ action で作る）: `setup-android` のあと、SecureStore の JVM 単体テスト、デバッグ鍵（フォールバック）の APK の検査、`build-android-apk`（版 `0.99.1`。Secrets は渡さないので使い捨ての鍵。フォークの PR も同じ）、AAB（arm64＋x86_64）の作成と `bundletool validate` を行い、`hitomado-android` のアーティファクトに上げる。
+- `release.yml` の `android` ジョブ（ubuntu-latest。`needs: [version, ci]`）: `setup-android` → `build-android-apk`（版はタグから `v` を除いた値）で `hitomado-vX.Y.Z-android-arm64.apk` を作り、`publish` が Release に添付して `SHA256SUMS.txt` に載せる。**署名は Secrets の固定鍵**（§4.1。`require-fixed-key: "true"`）なので、版が変わっても署名証明書が同じで、前の版の上に上書きインストールで更新できる（固定鍵に切り替えた最初の版だけは、入っている使い捨ての鍵の APK を `adb uninstall jp.ousias.hitomado` で消してから入れる。アプリのデータは消える）。固定鍵の Secrets が無い・一部だけのときは、使い捨ての鍵で公開せずこのジョブが失敗する。Google Play では配布しない。arm64 だけで、AAB・x86_64 は Release に添付しない。この APK のビルドが落ちると `publish` が動かず、Release は作られない。
 - Gradle のキャッシュは明示していない（初回は Gradle 本体の取得を含む）。
 - `android-e2e.yml`（**workflow_dispatch のみ**。`ci.yml` には入れていない）: KVM つきのエミュレーターでの E2E（§17.4）。
 
