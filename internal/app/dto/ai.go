@@ -12,7 +12,7 @@ type AIConfig struct {
 	Configured bool `json:"configured"`
 	// HasAPIKey は現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。
 	HasAPIKey bool `json:"hasApiKey"`
-	// APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai。chatgpt は ChatGPTSignedIn）。保存前に選んだプロバイダのキーの有無を出すのに使う。null にしない。
+	// APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai／typesafe。chatgpt は ChatGPTSignedIn）。保存前に選んだプロバイダのキーの有無を出すのに使う。null にしない。
 	APIKeyProviders    []string `json:"apiKeyProviders"`
 	ConsentedProviders []string `json:"consentedProviders"`
 	// ChatGPTSignedIn は選択中のプロバイダに関わらず、使用中の ChatGPT アカウントがログイン済みか。ChatGPTEmail はそのメールアドレス（表示用）。

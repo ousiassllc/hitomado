@@ -24,6 +24,9 @@ const (
 	providerAnthropic = "anthropic"
 	providerOpenAI    = "openai"
 	providerChatGPT   = "chatgpt" // Sign in with ChatGPT（利用者自身の ChatGPT プラン。Responses API）
+	// providerTypeSafe は TypeSafe AI（Jev。#314）。文章を書かない分類用のモデルで、返信下書き・要約・質問には使えない。
+	// 今は API キーの登録だけを扱う（validKeyProvider）。メール本文の送信と同意は、Inbox Zero の仕様が決まってから足す（#314）。
+	providerTypeSafe = "typesafe"
 )
 
 // defaultProvider は AI の設定をまだ保存していないときのプロバイダ（利用者自身の ChatGPT プラン。#104）。
@@ -73,8 +76,14 @@ type storedAIConfig struct {
 	Effort string `json:"effort,omitempty"`
 }
 
+// validProvider は返信下書き・要約・質問に使えるプロバイダか（AI 設定の provider・モデル一覧）。
 func validProvider(p string) bool {
 	return p == providerAnthropic || p == providerOpenAI || p == providerChatGPT
+}
+
+// validKeyProvider は API キーを登録できるプロバイダか（validProvider に TypeSafe AI を足したもの）。
+func validKeyProvider(p string) bool {
+	return validProvider(p) || p == providerTypeSafe
 }
 
 // loadConfig は AI 設定を返す。未保存（または保存値が壊れている・未知のプロバイダ）のときは defaultProvider の既定値。
@@ -132,7 +141,7 @@ func (s *Service) config(ctx context.Context) (dto.AIConfig, error) {
 		return dto.AIConfig{}, err
 	}
 	keyed := []string{}
-	for _, p := range []string{providerAnthropic, providerOpenAI} {
+	for _, p := range []string{providerAnthropic, providerOpenAI, providerTypeSafe} {
 		_, ok, err := s.apiKey(p)
 		if err != nil {
 			return dto.AIConfig{}, err
@@ -201,7 +210,7 @@ func (s *Service) SetAIConfig(ctx context.Context, provider, model, baseURL, eff
 
 // SetAIApiKey は API キーを資格情報ストアへ保存する（NF-S01）。キーはログに出さない。
 func (s *Service) SetAIApiKey(ctx context.Context, provider, apiKey string) (dto.AIConfig, error) {
-	if !validProvider(provider) {
+	if !validKeyProvider(provider) {
 		return dto.AIConfig{}, errBadProvider()
 	}
 	if provider == providerChatGPT {
@@ -219,7 +228,7 @@ func (s *Service) SetAIApiKey(ctx context.Context, provider, apiKey string) (dto
 
 // ClearAIApiKey は API キーを削除する。
 func (s *Service) ClearAIApiKey(ctx context.Context, provider string) (dto.AIConfig, error) {
-	if !validProvider(provider) {
+	if !validKeyProvider(provider) {
 		return dto.AIConfig{}, errBadProvider()
 	}
 	if provider == providerChatGPT {

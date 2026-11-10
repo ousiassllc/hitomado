@@ -33,7 +33,7 @@ export interface AIConfig {
     "hasApiKey": boolean;
 
     /**
-     * APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai。chatgpt は ChatGPTSignedIn）。保存前に選んだプロバイダのキーの有無を出すのに使う。null にしない。
+     * APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai／typesafe。chatgpt は ChatGPTSignedIn）。保存前に選んだプロバイダのキーの有無を出すのに使う。null にしない。
      */
     "apiKeyProviders": string[] | null;
     "consentedProviders": string[] | null;
