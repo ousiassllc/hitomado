@@ -228,7 +228,7 @@ Android 版はタッチ前提の画面で、Releases の APK は検証用（Goog
 | システムトレイ・× でトレイへ格納 | 作らない | `run.go` が `platform.NewTray` を呼ばない。ウィンドウの閉じるフックも付けない（`platform.NewMainWindow`）。通知のバッジ更新は何もしない（`Notifier` のトレイは `nil`） |
 | 多重起動の防止 | 設定しない | `application.Options.SingleInstance` を `nil` にする（`singleInstanceOptions`）。Android の起動は OS が管理する |
 | ウィンドウの位置・サイズ・最大化の保存復元 | 保存も復元もしない | `WindowKeeper` を作らない（`window.state` を読まず、書かない） |
-| アプリ内の自動アップデート（新しい版のダウンロード・照合・入れ替え） | 動かさない（更新確認とリンクのお知らせは行う） | 更新確認ループ（起動時・24 時間ごと）・「今すぐ確認」・`update:available` のバナー・設定画面の更新確認の項目は **Windows と同じに動く**（`SupportsAutoUpdate` は Android で `true`）。`update.Manager`（自動アップデート）は作らない（`update.AutoInstallSupported` が Windows だけ）ので、`AppInfo.autoUpdateSupported` は偽で、自動アップデートの項目は出ず、`SetAutoUpdateEnabled` は `UNSUPPORTED`。バナー・設定のリンクは Release のページを外部ブラウザで開く（APK はそこから取得し、署名が版ごとに変わるため `adb uninstall` のうえ入れ直す。§8）。dev ビルド（版 `0.0.0`）は確認しない |
+| アプリ内の自動アップデート（新しい版のダウンロード・照合・入れ替え） | 動かさない（更新確認とリンクのお知らせは行う） | 更新確認ループ（起動時・24 時間ごと）・「今すぐ確認」・`update:available` のバナー・設定画面の更新確認の項目は **Windows と同じに動く**（`SupportsAutoUpdate` は Android で `true`）。`update.Manager`（自動アップデート）は作らない（`update.AutoInstallSupported` が Windows だけ）ので、`AppInfo.autoUpdateSupported` は偽で、自動アップデートの項目は出ず、`SetAutoUpdateEnabled` は `UNSUPPORTED`。バナー・設定のリンクは Release のページを外部ブラウザで開く（APK はそこから取得し、上書きインストールで更新する。固定鍵に切り替えた最初の版だけ `adb uninstall` が要る。§4.1・§8）。dev ビルド（版 `0.0.0`）は確認しない |
 
 ### 仕組み（機能ベース）
 
