@@ -113,19 +113,22 @@ GitHub Releases の APK は、リポジトリの Secrets に登録した**固定
 3. keystore を base64 にする（改行なしの 1 行。折り返しがあっても `prepare-android-signing.sh` は空白・改行を無視する）:
 
    ```bash
-   base64 -w0 hitomado-release.jks > hitomado-release.jks.b64      # Linux（macOS は base64 -i hitomado-release.jks）
+   base64 -w0 hitomado-release.jks > hitomado-release.jks.b64                    # Linux
+   base64 -i hitomado-release.jks -o hitomado-release.jks.b64                    # macOS（折り返しなしで出力する）
    ```
 
-4. 4 つの Secrets を登録する（Settings → Secrets and variables → Actions → New repository secret。または `gh`。パスワードは標準入力から渡し、シェルの履歴に残さない）:
+4. 4 つの Secrets を登録する（Settings → Secrets and variables → Actions → New repository secret。または `gh`。`gh` はリポジトリの外で実行しても対象が決まるよう `--repo` を付ける。パスワードは標準入力から渡し、シェルの履歴に残さない）:
 
    ```bash
-   gh secret set ANDROID_KEYSTORE_BASE64 < hitomado-release.jks.b64
-   gh secret set ANDROID_KEYSTORE_PASSWORD     # 値の入力を求められる
-   gh secret set ANDROID_KEY_ALIAS --body hitomado
-   gh secret set ANDROID_KEY_PASSWORD          # 値の入力を求められる
+   gh secret set ANDROID_KEYSTORE_BASE64 --repo ousiassllc/hitomado < hitomado-release.jks.b64
+   gh secret set ANDROID_KEYSTORE_PASSWORD --repo ousiassllc/hitomado     # 値の入力を求められる
+   gh secret set ANDROID_KEY_ALIAS --repo ousiassllc/hitomado --body hitomado
+   gh secret set ANDROID_KEY_PASSWORD --repo ousiassllc/hitomado          # 値の入力を求められる
    ```
 
 5. ローカルの `hitomado-release.jks.b64` を消す（`hitomado-release.jks` は手順 2 の保管場所に残す）。
+
+**登録の前にマージしない**: この変更（固定鍵での署名。#310）を main へマージするより前に、上の 4 つの Secrets を登録する。未登録のままマージすると、`release.yml` の `android` ジョブが `require-fixed-key: "true"` で失敗し、成果物の欠けた Release は作られない（登録したあと、同じコミットの run を再実行すれば公開できる）。
 
 **どこでどの鍵を使うか（`build-android-apk` と `prepare-android-signing.sh`）**
 
@@ -135,7 +138,7 @@ GitHub Releases の APK は、リポジトリの Secrets に登録した**固定
 | `ci.yml` の `android`（pull_request） | Secrets を渡さないので、使い捨ての鍵（同左） | 使い捨ての鍵（今までどおり。フォークの PR も同じ） | — |
 
 - PR の CI に固定鍵を渡さないのは、PR のコード（ワークフロー・ビルドスクリプトを書き換えられる）に実鍵を触らせず、PR が作るアーティファクトを実鍵で署名させないため。固定鍵で署名するのは、レビュー済みで main に入ったコードだけ。
-- 登録が不完全（一部だけ）なとき、keystore が開けない（パスワード違い）とき、エイリアスが keystore に無いときは、ビルドの前に失敗する（使い捨ての鍵に黙って落とさない）。
+- 登録が不完全（一部だけ）なとき、keystore が開けない（パスワード違い）とき、エイリアスが keystore に無いとき、鍵のパスワードで鍵を取り出せないとき（JKS で鍵のパスワードがストアと別の場合の取り違え。PKCS12 はストアと同じ値でなければならない）は、ビルドの前に失敗する（使い捨ての鍵に黙って落とさない）。`require-fixed-key` は `true`／`1`（大文字小文字は問わない）で有効、`false`／`0`／空で無効、それ以外の値は誤記として失敗する。
 - 鍵とパスワードはログに出さない: パスワードは `::add-mask::` で伏せ、keytool には環境変数で渡す（コマンドラインに載せない）。keystore は `$RUNNER_TEMP` に置くだけで、成果物には含めない。`prepare-android-signing_test.sh`（CI の `test` ジョブ）が、鍵の選び方・失敗の条件・ログに値が出ないことを検査する。
 - `task android:verify` は、署名の証明書の **SHA-256**（公開してよい値）を `SIGNING: certificate SHA-256 …` として表示する。Release を作る run のログで、版どうしで同じ値になっていることを確認できる。APK を手元で調べるなら `apksigner verify --print-certs hitomado-vX.Y.Z-android-arm64.apk`。
 

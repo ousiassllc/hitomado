@@ -7,7 +7,8 @@
 #   KEYSTORE_PASSWORD  keystore のパスワード（Secrets ANDROID_KEYSTORE_PASSWORD）
 #   KEY_ALIAS          鍵のエイリアス（Secrets ANDROID_KEY_ALIAS）
 #   KEY_PASSWORD       鍵のパスワード（Secrets ANDROID_KEY_PASSWORD）
-#   REQUIRE_FIXED_KEY  "true" のとき、固定鍵が無ければ使い捨て鍵に落とさず失敗する（リリースの公開用）
+#   REQUIRE_FIXED_KEY  true（大文字小文字は問わない）か 1 のとき、固定鍵が無ければ使い捨て鍵に落とさず失敗する（リリースの公開用）。
+#                      false・0・空は要求しない。それ以外の値は誤記として失敗する
 #
 # 動き:
 #   4 つとも設定あり … 固定鍵を使う（base64 を復号して keytool で開けることを確認する）
@@ -23,6 +24,12 @@ store_password="${KEYSTORE_PASSWORD:-}"
 alias_name="${KEY_ALIAS:-}"
 key_password="${KEY_PASSWORD:-}"
 require_fixed="${REQUIRE_FIXED_KEY:-false}"
+# 真偽の表記ゆれ（True・1 など）で、固定鍵の要求が黙って外れないようにする。
+case "${require_fixed,,}" in
+  true | 1) require_fixed=true ;;
+  false | 0 | "") require_fixed=false ;;
+  *) echo "::error::REQUIRE_FIXED_KEY must be true, false, 1 or 0 (got: ${require_fixed})" >&2; exit 1 ;;
+esac
 
 keystore="${RUNNER_TEMP}/android-release.jks"
 
@@ -62,6 +69,29 @@ if [ -n "$b64$store_password$alias_name$key_password" ]; then
     -storepass:env PASSWORD > /dev/null 2>&1; then
     rm -f "$keystore"
     echo "::error::The keystore cannot be opened with ANDROID_KEYSTORE_PASSWORD, or ANDROID_KEY_ALIAS is not in it" >&2
+    exit 1
+  fi
+  # keytool -list は鍵のパスワードを使わない。JKS では鍵のパスワードがストアと別にできるので、鍵を取り出せるかを
+  # 一時の PKCS12 へ書き出して確かめる（Gradle の署名まで取り違えに気づかない、を避ける）。
+  # PKCS12 は鍵のパスワードがストアと同じ値に限られ、keytool は別の値を黙って無視するので、値の一致を見る。
+  keystore_type="$(PASSWORD="$store_password" keytool -list -keystore "$keystore" -storepass:env PASSWORD \
+    -J-Duser.language=en 2> /dev/null | sed -n 's/^Keystore type: //p' || true)"
+  key_check="${RUNNER_TEMP}/android-key-check.p12"
+  rm -f "$key_check"
+  if [ "$keystore_type" = PKCS12 ] && [ "$key_password" != "$store_password" ]; then
+    key_ok=false
+  elif SRC_STORE="$store_password" SRC_KEY="$key_password" DEST="$(openssl rand -hex 16)" keytool -importkeystore \
+    -srckeystore "$keystore" -srcalias "$alias_name" -srcstorepass:env SRC_STORE -srckeypass:env SRC_KEY \
+    -destkeystore "$key_check" -deststoretype PKCS12 -deststorepass:env DEST -destkeypass:env DEST \
+    -noprompt > /dev/null 2>&1; then
+    key_ok=true
+  else
+    key_ok=false
+  fi
+  rm -f "$key_check"
+  if [ "$key_ok" != true ]; then
+    rm -f "$keystore"
+    echo "::error::The key cannot be read with ANDROID_KEY_PASSWORD (a PKCS12 keystore needs the same value as ANDROID_KEYSTORE_PASSWORD)" >&2
     exit 1
   fi
   echo "::notice::Signing with the fixed release key from Secrets (alias: ${alias_name})"
