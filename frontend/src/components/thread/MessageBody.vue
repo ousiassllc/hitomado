@@ -5,6 +5,8 @@ import { thread as msg } from '../../lib/messages'
 import { buildSrcdoc, sanitizeEmailHtml } from '../../lib/sanitize'
 import BaseButton from '../ui/BaseButton.vue'
 import { bindFrameDocument, FALLBACK_HEIGHT } from './bodyFrame'
+// biome-ignore lint/correctness/noUnusedImports: <pre> の中のコンポーネント参照を Biome が読めない（テンプレートでは使っている）
+import LinkedText from './LinkedText.vue'
 
 const props = defineProps<{ html?: string; text?: string; hasRemoteImages: boolean }>()
 const emit = defineEmits<{ link: [url: string] }>()
@@ -15,7 +17,7 @@ const showImages = ref(false)
 // リモート画像の復元は、ブロック前の HTML を保持しているのでそのまま再サニタイズして行う。
 const srcdoc = computed(() =>
   props.html
-    ? buildSrcdoc(sanitizeEmailHtml(props.html, { allowRemoteImages: showImages.value }), { allowImages: showImages.value })
+    ? buildSrcdoc(sanitizeEmailHtml(props.html, { allowRemoteImages: showImages.value, autolink: true }), { allowImages: showImages.value })
     : '',
 )
 
@@ -76,7 +78,7 @@ const frameStyle = computed(() => ({ height: `${height.value ?? FALLBACK_HEIGHT}
       :style="frameStyle"
       @load="onLoad"
     ></iframe>
-    <pre v-else-if="text" class="body-text" data-testid="body-text">{{ text }}</pre>
+    <pre v-else-if="text" class="body-text" data-testid="body-text"><LinkedText :text="text" @link="emit('link', $event)" /></pre>
     <p v-else class="body-empty">{{ msg.noBody }}</p>
   </div>
 </template>

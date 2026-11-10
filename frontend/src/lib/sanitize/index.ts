@@ -1,6 +1,7 @@
 // メール本文のサニタイズと iframe 表示用の srcdoc 生成（components/overview.md §3.8、NF-S04/S05/S07）。
 // 純 TS。DOM は DOMPurify が使う window（ブラウザ／テストでは happy-dom）に依存する。
 import createPurify, { type Config, type DOMPurify } from 'dompurify'
+import { autolinkDom } from '../autolink'
 import { type CssPolicy, sanitizeDeclarations, sanitizeStyleSheet } from './css'
 
 export interface SanitizeOptions {
@@ -9,6 +10,11 @@ export interface SanitizeOptions {
    * メッセージ単位の「画像を表示」で、元の HTML を再サニタイズして復元する（既定 false）。
    */
   allowRemoteImages?: boolean
+  /**
+   * true のとき、本文の素の URL・メールアドレスを `<a>` にする（#312。既存の `<a>` の中は変えない）。
+   * サニタイズ後の DOM に対して行うので、生成するリンクは http／https／mailto だけ（既定 false）。
+   */
+  autolink?: boolean
 }
 
 const DATA_IMAGE = /^data:image\/(?:png|jpe?g|gif|webp|bmp|avif|x-icon);/i
@@ -115,7 +121,10 @@ export function sanitizeEmailHtml(html: string, opts: SanitizeOptions = {}): str
   if (!p.isSupported) return ''
   policy = { allowRemoteImages: opts.allowRemoteImages === true }
   try {
-    return String(p.sanitize(html, CONFIG))
+    if (opts.autolink !== true) return String(p.sanitize(html, CONFIG))
+    const body = p.sanitize(html, { ...CONFIG, RETURN_DOM: true }) as HTMLElement
+    autolinkDom(body)
+    return body.innerHTML
   } finally {
     policy = { allowRemoteImages: false }
   }

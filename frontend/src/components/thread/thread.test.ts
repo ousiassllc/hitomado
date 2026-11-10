@@ -56,15 +56,41 @@ describe('MessageBody', () => {
     expect(srcdocOf(b)).not.toContain('img.example')
   })
 
-  test('HTML が無ければ bodyText を pre で表示し、URL を自動リンク化せず、iframe を使わない', () => {
+  test('HTML が無ければ bodyText を pre で表示し、素の URL だけを a にして、iframe を使わない', async () => {
     const w = mount(MessageBody, {
-      props: { text: '見て https://example.com <b>x</b>', hasRemoteImages: false },
+      props: {
+        text: '見て https://example.com/a?b=1。<b>x</b> javascript:alert(1)',
+        hasRemoteImages: false,
+      },
     })
     expect(w.find('iframe').exists()).toBe(false)
     const pre = w.get('pre')
-    expect(pre.text()).toBe('見て https://example.com <b>x</b>')
-    expect(pre.find('a').exists()).toBe(false)
+    expect(pre.text()).toBe('見て https://example.com/a?b=1。<b>x</b> javascript:alert(1)')
     expect(pre.find('b').exists()).toBe(false)
+    const links = pre.findAll('a')
+    expect(links.map((a) => a.attributes('href'))).toEqual(['https://example.com/a?b=1'])
+    expect(links[0]?.attributes('rel')).toBe('noopener noreferrer')
+    expect(links[0]?.attributes('target')).toBeUndefined()
+
+    const click = new MouseEvent('click', { bubbles: true, cancelable: true })
+    links[0]?.element.dispatchEvent(click)
+    expect(click.defaultPrevented).toBe(true)
+    expect(w.emitted('link')).toEqual([['https://example.com/a?b=1']])
+  })
+
+  test('HTML 本文の素の URL は srcdoc で a になり、既存の a は二重にならない', () => {
+    const w = mount(MessageBody, {
+      props: {
+        html: '<p>https://plain.example/x と <a href="https://kept.example/">https://kept.example/</a></p>',
+        hasRemoteImages: false,
+      },
+    })
+    const doc = srcdocOf(w)
+    expect(doc).toContain(
+      '<a href="https://plain.example/x" rel="noopener noreferrer">https://plain.example/x</a>',
+    )
+    expect(doc.match(/<a /g)).toHaveLength(2)
+    expect(doc).not.toContain('<a href="https://kept.example/" rel="noopener noreferrer"><a')
   })
 
   test('スクリプトを含む HTML は srcdoc に残らない', () => {
