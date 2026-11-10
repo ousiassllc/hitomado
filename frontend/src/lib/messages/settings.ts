@@ -140,11 +140,10 @@ export const settings = {
     providerList: {
       heading: 'AI のプロバイダ',
       intro:
-        '使うプロバイダを選ぶと、そのプロバイダの設定ページが開きます（API キー・ログイン・モデルなど）。',
+        '使うプロバイダを選ぶと、そのプロバイダの設定ページが開きます（API キー・ログイン・モデルなど）。チェックが付いているのは、「AI で下書き」の既定のプロバイダです。',
       listLabel: 'AI のプロバイダの一覧',
       open: (provider: string) => `${provider} の設定を開く`,
       back: 'プロバイダ一覧に戻る',
-      defaultBadge: '既定',
       draftHint: '「設定を保存」すると、このプロバイダが「AI で下書き」の既定になります。',
       names: {
         chatgpt: 'ChatGPT',
@@ -152,10 +151,10 @@ export const settings = {
         openai: 'OpenAI 互換',
         typesafe: 'TypeSafe AI（Jev）',
       } as Record<string, string>,
-      statusSignedIn: 'ログイン済み',
-      statusSignedOut: '未ログイン',
-      statusKeySet: 'API キー保存済み',
-      statusKeyUnset: 'API キー未設定',
+      // カードの補足。設定済みは文言だけで伝える（色のバッジにしない）。
+      noteConfigured: '設定済み',
+      noteLogin: 'ログイン',
+      noteApiKey: 'API キー',
     },
     typesafe: {
       note: 'TypeSafe AI（Jev）は文章を書かないモデルです。「AI で下書き」の既定のプロバイダにはなりません。',

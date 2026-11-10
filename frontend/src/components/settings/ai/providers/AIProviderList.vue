@@ -1,45 +1,47 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { Check } from '@iconoir/vue'
+import { computed, ref } from 'vue'
 import { settings as msg } from '../../../../lib/messages'
 import { useSettingsStore } from '../../../../stores/settings'
-import {
-  AI_PROVIDERS,
-  type AIProviderId,
-  hasProviderCredential,
-  providerGridColumns,
-} from './aiProviders'
+import { AI_PROVIDERS, type AIProviderId, hasProviderCredential } from './aiProviders'
 import ProviderIcon from './ProviderIcon.vue'
 
-// AI の設定の最初の画面（#315）。プロバイダを、サービス名とアイコンのカードのグリッドにする。押す（Android はタップ）と
-// そのプロバイダの設定ページへ進む。既定のプロバイダ（保存済みの設定。未保存は ChatGPT）には「既定」を付け、資格情報の状況をカードに出す。
-// 列数はこの一覧の幅で決める（providerGridColumns。広いと 4 列、Android の幅は 2 列、さらに狭いと 1 列）。
+// AI の設定の最初の画面（#315）。プロバイダを、アイコン・サービス名・補足のカードのグリッドにする。
+// 押す（Android はタップ）とそのプロバイダの設定ページへ進む。選択中（チェック）は、保存済みの既定のプロバイダ
+// （未保存の間は印なし）。カードは radiogroup の radio で、矢印キーでフォーカスを動かし（端で回り込む）、Enter・Space で開く。
+// 矢印は選択（既定のプロバイダ）を変えない。既定は、プロバイダのページで保存したときにだけ変わる。
+// 列数は CSS（repeat(auto-fill, minmax(160px, 1fr))）で、この一覧の幅から決まる。
 const emit = defineEmits<{ open: [id: AIProviderId] }>()
 const store = useSettingsStore()
 const t = msg.ai.providerList
 
-const grid = ref<HTMLElement>()
-const columns = ref(providerGridColumns(0))
-let observer: ResizeObserver | undefined
+const buttons = ref<HTMLButtonElement[]>([])
+const ids = AI_PROVIDERS.map((p) => p.id)
+const selected = computed(() => ids.find((id) => store.aiConfig?.provider === id))
+// Tab で入ったときにフォーカスされる 1 枚（roving tabindex）。選択中があればそれ、無ければ先頭。
+const focusId = ref<AIProviderId | undefined>(undefined)
+const tabStop = computed(() => focusId.value ?? selected.value ?? ids[0])
 
-onMounted(() => {
-  const el = grid.value
-  if (!el) return
-  // 最初の描画の前に測って、列数が後から変わってガタつかないようにする。
-  columns.value = providerGridColumns(el.clientWidth)
-  if (typeof ResizeObserver !== 'function') return
-  observer = new ResizeObserver((entries) => {
-    const w = entries[entries.length - 1]?.contentRect.width ?? el.clientWidth
-    columns.value = providerGridColumns(w)
-  })
-  observer.observe(el)
-})
+function note(id: AIProviderId): string {
+  if (hasProviderCredential(id, store.aiConfig)) return t.noteConfigured
+  return id === 'chatgpt' ? t.noteLogin : t.noteApiKey
+}
 
-onUnmounted(() => observer?.disconnect())
+function move(from: number, step: number): void {
+  const next = (from + step + ids.length) % ids.length
+  focusId.value = ids[next]
+  buttons.value[next]?.focus()
+}
 
-function status(id: AIProviderId): string {
-  const has = hasProviderCredential(id, store.aiConfig)
-  if (id === 'chatgpt') return has ? t.statusSignedIn : t.statusSignedOut
-  return has ? t.statusKeySet : t.statusKeyUnset
+function onKeydown(e: KeyboardEvent, i: number): void {
+  const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key]
+  if (step !== undefined) {
+    e.preventDefault()
+    move(i, step)
+  } else if (e.key === 'Home' || e.key === 'End') {
+    e.preventDefault()
+    move(e.key === 'Home' ? -1 : ids.length, e.key === 'Home' ? 1 : -1)
+  }
 }
 </script>
 
@@ -53,34 +55,29 @@ function status(id: AIProviderId): string {
       <h4 class="sub">{{ t.heading }}</h4>
       <p class="hint">{{ t.intro }}</p>
     </div>
-    <ul
-      ref="grid"
-      class="grid"
-      :style="{ '--cols': columns }"
-      :data-columns="columns"
-      :aria-label="t.listLabel"
-      data-testid="ai-provider-grid"
-    >
-      <li v-for="p in AI_PROVIDERS" :key="p.id">
-        <button
-          type="button"
-          class="card"
-          :class="{ current: store.aiConfig?.provider === p.id }"
-          :data-testid="`ai-provider-${p.id}`"
-          :aria-label="t.open(t.names[p.id] ?? p.id)"
-          @click="emit('open', p.id)"
-        >
-          <ProviderIcon :id="p.id" />
-          <span class="name">{{ t.names[p.id] }}</span>
-          <span
-            v-if="store.aiConfig?.provider === p.id"
-            class="badge"
-            data-testid="ai-provider-default"
-          >{{ t.defaultBadge }}</span>
-          <span class="status" :data-testid="`ai-provider-status-${p.id}`">{{ status(p.id) }}</span>
-        </button>
-      </li>
-    </ul>
+    <div class="grid" role="radiogroup" :aria-label="t.listLabel" data-testid="ai-provider-grid">
+      <!-- biome-ignore lint/a11y/useSemanticElements: カード全体（アイコン・名前・補足）を押せる radio にする仕様。input[type=radio] は中身を持てない -->
+      <button
+        v-for="(p, i) in AI_PROVIDERS"
+        :key="p.id"
+        :ref="(el) => { if (el) buttons[i] = el as HTMLButtonElement }"
+        type="button"
+        role="radio"
+        class="card"
+        :aria-checked="selected === p.id"
+        :tabindex="tabStop === p.id ? 0 : -1"
+        :data-testid="`ai-provider-${p.id}`"
+        :aria-label="t.open(t.names[p.id] ?? p.id)"
+        @click="emit('open', p.id)"
+        @focus="focusId = p.id"
+        @keydown="onKeydown($event, i)"
+      >
+        <Check v-if="selected === p.id" class="icon icon-sm check" aria-hidden="true" data-testid="ai-provider-default" />
+        <ProviderIcon :id="p.id" />
+        <span class="name">{{ t.names[p.id] }}</span>
+        <span class="note" :data-testid="`ai-provider-status-${p.id}`">{{ note(p.id) }}</span>
+      </button>
+    </div>
   </section>
 </template>
 
@@ -125,58 +122,78 @@ function status(id: AIProviderId): string {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(var(--cols, 1), minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: var(--s-3);
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--s-2);
+  gap: var(--s-3);
   width: 100%;
-  height: 100%;
   min-height: 44px;
-  padding: var(--pad-card-sm);
+  padding: var(--s-4);
   border: 1px solid var(--border);
-  border-radius: var(--r-lg);
+  border-radius: var(--r-md);
   background: var(--surface);
   color: var(--ink);
   text-align: left;
   cursor: pointer;
+  /* #316 が足す --mute-on-soft が無いブランチでも動くよう、Light #5c5c5e／Dark #9c9c9f を既定にする（#316 のマージ後は不要）。 */
+  --note-on-soft: var(--mute-on-soft, #5c5c5e);
+  transition:
+    border-color var(--motion-fast),
+    background-color var(--motion-fast);
+}
+
+@media (prefers-color-scheme: dark) {
+  .card {
+    --note-on-soft: var(--mute-on-soft, #9c9c9f);
+  }
 }
 
 .card:hover {
+  border-color: var(--mute);
+}
+
+/* 選択中（既定のプロバイダ）: 地 --accent-soft・線 --ink 1.5px。線が太くなる分だけ padding を減らして、中身が動かないようにする。 */
+.card[aria-checked='true'] {
+  padding: calc(var(--s-4) - 0.5px);
+  border-width: 1.5px;
+  border-color: var(--ink);
   background: var(--accent-soft);
 }
 
-/* 既定のプロバイダ: 「既定」の札に加えて、枠も --accent にする（色だけで伝えない）。 */
-.card.current {
-  border-color: var(--accent);
+.card:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.check {
+  position: absolute;
+  top: var(--s-3);
+  right: var(--s-3);
 }
 
 .name {
+  max-width: 100%;
+  overflow: hidden;
   font-weight: 600;
-  font-size: var(--font-size-base);
-  overflow-wrap: anywhere;
-}
-
-.badge {
-  padding: 0 var(--s-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-full);
-  font-size: var(--font-size-xs);
-}
-
-.status {
-  margin-top: auto;
-  /* hover の --accent-soft 地の上でも AA を保つため、--mute ではなく --ink。 */
-  color: var(--ink);
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
-  overflow-wrap: anywhere;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note {
+  color: var(--mute);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
+}
+
+.card[aria-checked='true'] .note {
+  color: var(--note-on-soft);
 }
 </style>

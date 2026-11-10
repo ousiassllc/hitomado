@@ -1,16 +1,10 @@
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useSettingsStore } from '../../../../stores/settings'
 import { useUiStore } from '../../../../stores/ui'
 import { base, button } from '../aiTestSupport'
 import AIProviders from './AIProviders.vue'
-import {
-  AI_PROVIDERS,
-  GRID_FOUR_MIN_WIDTH,
-  GRID_TWO_MIN_WIDTH,
-  providerGridColumns,
-} from './aiProviders'
 
 beforeEach(() => {
   document.body.innerHTML = ''
@@ -56,7 +50,7 @@ describe('AI の設定: プロバイダの一覧（#315）', () => {
     w.unmount()
   })
 
-  test('既定のプロバイダに「既定」を付け、資格情報の状況（ログイン・API キー）を各行に出す', () => {
+  test('既定のプロバイダがチェック（aria-checked）で選択中になり、補足に「設定済み」・「ログイン」・「API キー」を出す', () => {
     const { pinia } = setup({
       provider: 'openai',
       apiKeyProviders: ['openai', 'typesafe'],
@@ -65,11 +59,11 @@ describe('AI の設定: プロバイダの一覧（#315）', () => {
     const w = mountTab(pinia)
     expect(w.findAll('[data-testid="ai-provider-default"]')).toHaveLength(1)
     expect(card(w, 'openai').find('[data-testid="ai-provider-default"]').exists()).toBe(true)
-    const status = (id: string) => w.get(`[data-testid="ai-provider-status-${id}"]`).text()
-    expect(status('chatgpt')).toBe('未ログイン')
-    expect(status('anthropic')).toBe('API キー未設定')
-    expect(status('openai')).toBe('API キー保存済み')
-    expect(status('typesafe')).toBe('API キー保存済み')
+    const note = (id: string) => w.get(`[data-testid="ai-provider-status-${id}"]`).text()
+    expect(note('chatgpt')).toBe('ログイン')
+    expect(note('anthropic')).toBe('API キー')
+    expect(note('openai')).toBe('設定済み')
+    expect(note('typesafe')).toBe('設定済み')
     w.unmount()
   })
 
@@ -211,96 +205,98 @@ describe('TypeSafe AI（Jev）のページ（#314・#315）', () => {
 })
 
 describe('プロバイダの一覧: カードのグリッド（#315）', () => {
-  test('列数は一覧の幅で決まる。デスクトップの幅は 4 列、Android の幅は 2 列、さらに狭いと 1 列。境目ちょうどは広い側', () => {
-    expect(providerGridColumns(806)).toBe(4)
-    expect(providerGridColumns(GRID_FOUR_MIN_WIDTH)).toBe(4)
-    expect(providerGridColumns(GRID_FOUR_MIN_WIDTH - 1)).toBe(2)
-    expect(providerGridColumns(324)).toBe(2)
-    expect(providerGridColumns(GRID_TWO_MIN_WIDTH)).toBe(2)
-    expect(providerGridColumns(GRID_TWO_MIN_WIDTH - 1)).toBe(1)
-    expect(providerGridColumns(240)).toBe(1)
-    expect(providerGridColumns(0)).toBe(1)
-  })
+  const grid = (w: VueWrapper) => w.get('[data-testid="ai-provider-grid"]')
+  const cards = (w: VueWrapper) => w.findAll('[role="radio"]')
+  const checked = (w: VueWrapper) => cards(w).map((c) => c.attributes('aria-checked'))
+  const tabStops = (w: VueWrapper) => cards(w).map((c) => c.attributes('tabindex'))
+  const focusedId = () => (document.activeElement as HTMLElement | null)?.dataset.testid
+  const key = (w: VueWrapper, id: string, k: string) => card(w, id).trigger('keydown', { key: k })
 
-  describe('画面での列数', () => {
-    const proto = HTMLElement.prototype as unknown as Record<string, unknown>
-    const own = Object.getOwnPropertyDescriptor(proto, 'clientWidth')
-    const realRO = globalThis.ResizeObserver
-    let width = 0
-    let fire: ((w: number) => void) | undefined
-
-    beforeEach(() => {
-      Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => width })
-      globalThis.ResizeObserver = class {
-        constructor(cb: ResizeObserverCallback) {
-          fire = (w) =>
-            cb([{ contentRect: { width: w } } as ResizeObserverEntry], this as ResizeObserver)
-        }
-        observe() {}
-        unobserve() {}
-        disconnect() {}
-      } as unknown as typeof ResizeObserver
-    })
-
-    afterEach(() => {
-      if (own) Object.defineProperty(proto, 'clientWidth', own)
-      else delete proto.clientWidth
-      globalThis.ResizeObserver = realRO
-      fire = undefined
-    })
-
-    const grid = (w: VueWrapper) => w.get('[data-testid="ai-provider-grid"]')
-    const columns = (w: VueWrapper) => grid(w).attributes('data-columns')
-
-    test('開いた幅で列数が決まり、幅が変わると列数も変わる。どの幅でも 4 つのカードがすべて出る', async () => {
-      width = 806
-      const { pinia } = setup()
-      const w = mountTab(pinia)
-      await flushPromises()
-      expect(columns(w)).toBe('4')
-      expect((grid(w).element as HTMLElement).style.getPropertyValue('--cols')).toBe('4')
-
-      for (const [px, cols] of [
-        [324, '2'],
-        [240, '1'],
-        [700, '4'],
-      ] as const) {
-        fire?.(px)
-        await flushPromises()
-        expect(columns(w)).toBe(cols)
-        expect(w.findAll('li')).toHaveLength(AI_PROVIDERS.length)
-      }
-      w.unmount()
-    })
-
-    test('Android の幅（約 390px の画面）で開くと 2 列から始まる', async () => {
-      width = 324
-      const { pinia } = setup()
-      const w = mountTab(pinia)
-      await flushPromises()
-      expect(columns(w)).toBe('2')
-      w.unmount()
-    })
-  })
-
-  test('各カードにサービス名とアイコンを出す。既定のカードは札と枠で分かり、キーボードで押せる（button）', () => {
+  test('radiogroup の中に radio のカードが 4 枚（button）。サービス名・アイコン・補足を出し、title 属性は使わない', () => {
     const { pinia } = setup({ provider: 'anthropic' })
     const w = mountTab(pinia)
-    for (const [id, name] of [
-      ['chatgpt', 'ChatGPT'],
-      ['anthropic', 'Anthropic'],
-      ['openai', 'OpenAI 互換'],
-      ['typesafe', 'TypeSafe AI（Jev）'],
+    expect(grid(w).attributes('role')).toBe('radiogroup')
+    expect(grid(w).attributes('aria-label')).toBe('AI のプロバイダの一覧')
+    expect(cards(w)).toHaveLength(4)
+    for (const [id, name, initial] of [
+      ['chatgpt', 'ChatGPT', 'C'],
+      ['anthropic', 'Anthropic', 'A'],
+      ['openai', 'OpenAI 互換', undefined],
+      ['typesafe', 'TypeSafe AI（Jev）', 'T'],
     ] as const) {
       const c = card(w, id)
       expect(c.element.tagName).toBe('BUTTON')
+      expect(c.attributes('role')).toBe('radio')
       expect(c.text()).toContain(name)
-      expect(c.find(`[data-provider-icon="${id}"]`).exists()).toBe(true)
-      expect(c.find('svg').exists()).toBe(true)
+      const icon = c.get(`[data-provider-icon="${id}"]`)
+      // 頭文字のタイル。OpenAI 互換だけは頭文字ではなく Iconoir のアイコン。
+      if (initial) expect(icon.text()).toBe(initial)
+      else expect(icon.find('svg').exists()).toBe(true)
     }
-    expect(card(w, 'anthropic').classes()).toContain('current')
+    expect(w.findAll('[title]')).toHaveLength(0)
+    w.unmount()
+  })
+
+  test('選択中は既定のプロバイダの 1 枚だけ（aria-checked とチェック印）。既定が保存されていないときはどれも選択中にならない', () => {
+    const { pinia } = setup({ provider: 'anthropic' })
+    const w = mountTab(pinia)
+    expect(checked(w)).toEqual(['false', 'true', 'false', 'false'])
     expect(card(w, 'anthropic').find('[data-testid="ai-provider-default"]').exists()).toBe(true)
-    expect(card(w, 'chatgpt').classes()).not.toContain('current')
+    w.unmount()
+
+    const none = setup({ provider: '' })
+    const w2 = mountTab(none.pinia)
+    expect(checked(w2)).toEqual(['false', 'false', 'false', 'false'])
+    expect(w2.find('[data-testid="ai-provider-default"]').exists()).toBe(false)
+    w2.unmount()
+  })
+
+  test('Tab で入れるのは 1 枚だけ（選択中があればそれ、無ければ先頭）', () => {
+    const { pinia } = setup({ provider: 'openai' })
+    const w = mountTab(pinia)
+    expect(tabStops(w)).toEqual(['-1', '-1', '0', '-1'])
+    w.unmount()
+
+    const none = setup({ provider: '' })
+    const w2 = mountTab(none.pinia)
+    expect(tabStops(w2)).toEqual(['0', '-1', '-1', '-1'])
+    w2.unmount()
+  })
+
+  test('矢印キーでフォーカスが次・前へ動き（端で回り込む）、Tab で入れるカードも付いてくる。選択（既定）は変わらない', async () => {
+    const { pinia, store } = setup({ provider: 'anthropic' })
+    const w = mountTab(pinia)
+    const first = card(w, 'anthropic').element as HTMLElement
+    first.focus()
+    await key(w, 'anthropic', 'ArrowRight')
+    expect(focusedId()).toBe('ai-provider-openai')
+    await key(w, 'openai', 'ArrowDown')
+    expect(focusedId()).toBe('ai-provider-typesafe')
+    await key(w, 'typesafe', 'ArrowRight')
+    expect(focusedId()).toBe('ai-provider-chatgpt')
+    await key(w, 'chatgpt', 'ArrowLeft')
+    expect(focusedId()).toBe('ai-provider-typesafe')
+    await key(w, 'typesafe', 'ArrowUp')
+    expect(focusedId()).toBe('ai-provider-openai')
+    await key(w, 'openai', 'Home')
+    expect(focusedId()).toBe('ai-provider-chatgpt')
+    await key(w, 'chatgpt', 'End')
+    expect(focusedId()).toBe('ai-provider-typesafe')
+
+    expect(tabStops(w)).toEqual(['-1', '-1', '-1', '0'])
+    expect(checked(w)).toEqual(['false', 'true', 'false', 'false'])
+    expect(store.aiConfig?.provider).toBe('anthropic')
+    expect(w.find('[data-testid="ai-provider-back"]').exists()).toBe(false)
+    w.unmount()
+  })
+
+  test('カード全体を押す・フォーカスして押すとそのプロバイダのページが開く。矢印キーだけでは開かない', async () => {
+    const { pinia, ui } = setup()
+    const w = mountTab(pinia)
+    await key(w, 'chatgpt', 'ArrowRight')
+    expect(ui.aiProviderPage).toBeUndefined()
+    await card(w, 'typesafe').trigger('click')
+    expect(ui.aiProviderPage).toBe('typesafe')
     w.unmount()
   })
 })
