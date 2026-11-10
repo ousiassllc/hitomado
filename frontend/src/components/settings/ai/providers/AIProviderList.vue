@@ -10,7 +10,7 @@ import ProviderIcon from './ProviderIcon.vue'
 // 押す（Android はタップ）とそのプロバイダの設定ページへ進む。選択中（チェック）は、保存済みの既定のプロバイダ
 // （未保存の間は印なし）。カードは radiogroup の radio で、矢印キーでフォーカスを動かし（端で回り込む）、Enter・Space で開く。
 // 矢印は選択（既定のプロバイダ）を変えない。既定は、プロバイダのページで保存したときにだけ変わる。
-// 列数は CSS（repeat(auto-fill, minmax(160px, 1fr))）で、この一覧の幅から決まる。
+// 列数は CSS（repeat(auto-fill, minmax(min(160px, calc(50% - var(--s-3) / 2)), 1fr))）で、この一覧の幅から決まる。
 const emit = defineEmits<{ open: [id: AIProviderId] }>()
 const store = useSettingsStore()
 const t = msg.ai.providerList
@@ -74,8 +74,10 @@ function onKeydown(e: KeyboardEvent, i: number): void {
       >
         <Check v-if="selected === p.id" class="icon icon-sm check" aria-hidden="true" data-testid="ai-provider-default" />
         <ProviderIcon :id="p.id" />
-        <span class="name">{{ t.names[p.id] }}</span>
-        <span class="note" :data-testid="`ai-provider-status-${p.id}`">{{ note(p.id) }}</span>
+        <span class="text">
+          <span class="name">{{ t.names[p.id] }}</span>
+          <span class="note" :data-testid="`ai-provider-status-${p.id}`">{{ note(p.id) }}</span>
+        </span>
       </button>
     </div>
   </section>
@@ -122,7 +124,8 @@ function onKeydown(e: KeyboardEvent, i: number): void {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  /* 最小幅は 160px だが、狭いときは 2 列が収まるよう「幅の半分 − gap の半分」まで縮める（Android 390px の一覧 324px も 2 列）。 */
+  grid-template-columns: repeat(auto-fill, minmax(min(160px, calc(50% - var(--s-3) / 2)), 1fr));
   gap: var(--s-3);
 }
 
@@ -177,6 +180,14 @@ function onKeydown(e: KeyboardEvent, i: number): void {
   right: var(--s-3);
 }
 
+/* 名前と補足の間は --s-1。アイコンとの間（カードの gap）は --s-3 のまま、下に余白は足さない。 */
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-1);
+  max-width: 100%;
+}
+
 .name {
   max-width: 100%;
   overflow: hidden;
@@ -191,6 +202,11 @@ function onKeydown(e: KeyboardEvent, i: number): void {
   color: var(--mute);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
+}
+
+/* 選択中のカードの頭文字タイルは、カードの地（--accent-soft）と同じ色で見えなくならないよう、地を --surface にする。 */
+.card[aria-checked='true'] .provider-icon {
+  background: var(--surface);
 }
 
 .card[aria-checked='true'] .note {
