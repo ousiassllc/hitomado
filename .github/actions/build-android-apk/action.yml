@@ -4,7 +4,7 @@ description: >-
   署名鍵は入力で決まる（ロジックは .github/scripts/prepare-android-signing.sh、手順は docs/environment/android.md §4.1）。
   固定鍵の 4 つの入力（GitHub Secrets の値）が揃っていればその鍵で署名する。版が変わっても署名が同じなので、上書きインストールで更新できる。
   4 つとも空なら、このジョブの中だけの使い捨ての鍵で署名する（フォークの PR など。版ごとに署名が変わる）。
-  require-fixed-key が true のときは、固定鍵が無ければ使い捨ての鍵に落とさず失敗する（リリースの公開用）。
+  require-fixed-key が true か 1（大文字小文字は問わない）のときは、固定鍵が無ければ使い捨ての鍵に落とさず失敗する（リリースの公開用）。false・0・空は要求しない。それ以外の値は誤記として失敗する。
   一部だけ設定されているときは、どちらでも失敗する。鍵とパスワードは成果物に含めない（keystore は $RUNNER_TEMP に置くだけで、ランナーはジョブごとに破棄される）。
 inputs:
   version:
@@ -30,7 +30,7 @@ inputs:
     required: false
     default: ""
   require-fixed-key:
-    description: true のとき、固定鍵が無ければ失敗する（使い捨ての鍵で公開しない）
+    description: true か 1（大文字小文字は問わない）のとき、固定鍵が無ければ失敗する（使い捨ての鍵で公開しない）。false・0・空は要求しない。それ以外の値は誤記として失敗する
     required: false
     default: "false"
 runs:
