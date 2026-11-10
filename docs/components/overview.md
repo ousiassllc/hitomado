@@ -240,7 +240,10 @@ graph TD
   SettingsDialog --> AccountsSettings
   SettingsDialog --> OAuthClientsSettings
   SettingsDialog --> SignatureSettings
-  SettingsDialog --> AISettings
+  SettingsDialog --> AIProviders
+  AIProviders --> AIProviderList
+  AIProviders --> AISettings
+  AIProviders --> AITypeSafePage
   SettingsDialog --> GeneralSettings
 ```
 
@@ -352,7 +355,9 @@ graph TD
 | `AccountsSettings` | アカウント一覧、表示名・色・通知オン／オフ、並べ替え、再接続、削除（確認つき）。OAuth クライアントの拒否で要再接続のアカウントの行には、`statusMessage` と「OAuth クライアントを確認」ボタン（OAuth クライアントタブへ切り替える）を再接続ボタンと並べて出す | `AccountService.UpdateAccount／ReorderAccounts／Reconnect／RemoveAccount` |
 | `OAuthClientsSettings` | クライアントの追加・編集・削除（使用中は削除不可を表示。削除は確認モーダル `ConfirmDialog` を経由）、README（OAuth クライアント作成手順）へのリンク | `AccountService.*OAuthClient` |
 | `SignatureSettings` | アカウント選択＋リッチテキスト署名編集（`RichTextEditor` 共用）。**「Gmail から取得」ボタン**（#110）: `FetchGmailSignature` を呼び、結果を署名エディタに入れる（保存はしない。エディタに入力済みなら置換前に確認。`found` が偽なら「Gmail に署名が設定されていません」を出してエディタを変えない。`sanitized` が真なら「画像・装飾など、取り込めない部分は除きました」を出す。取得中はボタンを無効にし、失敗は理由を表示する） | `AccountService.SetSignature`／`FetchGmailSignature` |
-| `AISettings` | プロバイダ（Anthropic／OpenAI 互換／ChatGPT プラン。**未保存のときの既定は ChatGPT プラン**。選ぶと、保存前でも同意の確認→モデル一覧の取得へ進む。[§3.9.1](#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）・モデル（取得した一覧から選択。取得できない・まだのときは手入力。「一覧を更新」ボタンと取得できない理由の表示。保存済みのモデルが一覧に無くても選択肢に残す。子コンポーネント `AIModelField`）・Base URL（`https://`、または `localhost`／`127.0.0.1`／`::1` の `http://` のみ。それ以外は `VALIDATION` を表示）・API キー（入力後は伏字、削除可。子コンポーネント `AIApiKey`）・ChatGPT プランでは API キー・Base URL の代わりに `AIChatGPTLogin`（「Continue with ChatGPT」・ログイン中の中止・保存済みの ChatGPT アカウントの一覧（使用中の表示・選んで切り替え・アカウントごとのログアウト・ログアウト済みの登録の再ログインと削除。同じメールアドレスの登録は ID の末尾で見分ける。画面が古くログアウト済みのアカウントを選んでしまったときは、エラー欄に「このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。」を出し、一覧を読み込み直す）・「アカウントを追加」・初めてログインして ChatGPT プランの利用が有効になったときだけ出す確認モーダル `ChatGPTPlanNotice`（「You're using your ChatGPT plan」・説明・「Got it」で確認済みにする。ロゴは使わない））・設定画面からの送信への同意（同意すると一覧を取得）、同意状況（送信先が変わると再同意）、送信先の表示 | `AIService.*` |
+| `AIProviders`・`AIProviderList` | **設定の AI タブの入口（#315）**。最初は**プロバイダの一覧**（`AIProviderList`。ChatGPT／Anthropic／OpenAI 互換／TypeSafe AI（Jev）の順に、名前・説明・資格情報の状況（ChatGPT はログイン済み／未ログイン、ほかは API キー保存済み／未設定）を 1 行ずつカードで出す。保存済みの既定のプロバイダには「既定」の札。カードは 44px 以上で、押す（Android はタップ）とそのプロバイダのページを開く）。ページは 1 段下で、`AIProviders` が `ui.aiProviderPage` に従って `AISettings`（ChatGPT・Anthropic・OpenAI 互換）か `AITypeSafePage` に切り替え、先頭の「プロバイダ一覧に戻る」で一覧へ戻る。開いているページをストア（`uiStore.aiProviderPage`）に持つのは、Android の戻るで設定ダイアログを閉じずに一覧へ戻すため（`lib/navigation` の `closeSettingsPage`。ほかのダイアログ・メニューが前面にあるときは、そちらを先に閉じる）。設定を開くたびに一覧から始まる（`openSettings` が `aiProviderPage` を空に戻す）。作成画面の初回の案内から ChatGPT へ進む入口（`aiSetupIntent`）のときは ChatGPT のページから始める。**ロゴは未対応**（各社のブランドの決まりの確認・デザインのレビュー待ち。下の「要判断」） | `uiStore`、`settingsStore.aiConfig` | — |
+| `AITypeSafePage` | TypeSafe AI（Jev。#314）のページ。API キーの登録・削除だけを持つ（`AIApiKey` を共用。キーは資格情報ストアで、画面には再表示しない）。モデル・エフォート・Base URL・ログインは無く、「AI で下書き」の既定のプロバイダにもならない（文章を書かないモデルのため）。データの送信先（`https://api.typesafe.ai`）を `AIDestinationBox` で表示する | `AIService.SetAIApiKey／ClearAIApiKey`（`provider = typesafe`） |
+| `AISettings` | **1 つのプロバイダの設定ページ**（#315。プロバイダは一覧から選んで開くので、ページ内にプロバイダの選択はない。props `provider`。別のプロバイダのページは、保存済みの既定の値を引き継がず、「設定を保存」するまで既定にならない旨を出す）。プロバイダ（Anthropic／OpenAI 互換／ChatGPT プラン。**未保存のときの既定は ChatGPT プラン**。保存済みと別のプロバイダのページを開くと、保存前でも同意の確認→モデル一覧の取得へ進む。[§3.9.1](#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）・モデル（取得した一覧から選択。取得できない・まだのときは手入力。「一覧を更新」ボタンと取得できない理由の表示。保存済みのモデルが一覧に無くても選択肢に残す。子コンポーネント `AIModelField`）・Base URL（`https://`、または `localhost`／`127.0.0.1`／`::1` の `http://` のみ。それ以外は `VALIDATION` を表示）・API キー（入力後は伏字、削除可。子コンポーネント `AIApiKey`）・ChatGPT プランでは API キー・Base URL の代わりに `AIChatGPTLogin`（「Continue with ChatGPT」・ログイン中の中止・保存済みの ChatGPT アカウントの一覧（使用中の表示・選んで切り替え・アカウントごとのログアウト・ログアウト済みの登録の再ログインと削除。同じメールアドレスの登録は ID の末尾で見分ける。画面が古くログアウト済みのアカウントを選んでしまったときは、エラー欄に「このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。」を出し、一覧を読み込み直す）・「アカウントを追加」・初めてログインして ChatGPT プランの利用が有効になったときだけ出す確認モーダル `ChatGPTPlanNotice`（「You're using your ChatGPT plan」・説明・「Got it」で確認済みにする。ロゴは使わない））・設定画面からの送信への同意（同意すると一覧を取得）、同意状況（送信先が変わると再同意）、送信先の表示 | `AIService.*` |
 | `AIEffortField` | 「エフォート」の選択（F-08。#111。`AISettings` の子）。先頭は常に「モデルの既定」。`anthropic` は選んだモデルの `AIModel.efforts` の段階だけを出し、`efforts` が省略のモデル・一覧が取れず手入力のモデルでは、エフォートの選択自体を出さない。`openai`／`chatgpt` は共通の `low`／`medium`／`high` を出す。モデル・プロバイダを変えて選択中の値が選択肢に無くなったら「モデルの既定」へ戻す。選んだ値は `SetAIConfig` の `effort` で保存する | props: `efforts`（出す段階。空なら選択自体を出さない）, `modelValue`。emits: `update:modelValue` | `settingsStore.setAIConfig` |
 | `AIConsentDialog`／`AIConsentSection` | 同意の画面（F-08。送信先のプロバイダ名と URL を表示。作成画面の `AiDraftButton`・スレッドの AI（`ThreadAiPanel`）と設定画面の `AISettings` が共用）。説明には、下書き・要約・質問で送られる内容（スレッドの内容。要約・質問では全メッセージ（上限あり）、質問では入力した質問とそれまでの回答も）を書く（F-08・F-17・F-18）／設定画面の「送信への同意」（選んだ送信先の同意の状態と、同意の画面を開くボタン） | props: 送信先・開閉・保存中。emits: `agree`／`cancel` | — |
 | `AISetupDialog` | 作成画面の「AI で下書き」の初回の案内（AI の設定が未保存のとき。`AiDraftButton` が出し、選んだ道を設定画面の AI の流れへつなぐ） | props: `open`。emits: `choose(choice?: 'chatgpt' \| 'other')` | — |
@@ -360,13 +365,15 @@ graph TD
 | `LogSettings` | ログフォルダを開く、ログの書き出し、記録しない情報の説明（常時表示）。保存場所とローテーション（5 MB・5 世代・30 日）は折りたたみ `BaseDisclosure` に置く | `LogService.OpenLogFolder／ExportLogs` |
 | `GeneralSettings` | **「送信前に確認画面を出す」のオン／オフ**（`BaseSwitch`。既定オン。`AppInfo.sendConfirmEnabled`・`AppService.SetSendConfirmEnabled`。#313。オフでも警告があるときは確認画面を出す。要判断）、更新確認オン／オフ・「今すぐ確認」・新しい版のリンク（`platformStore.supportsAutoUpdate` が偽のときは出さない。Android は真）、自動アップデートのオン／オフと進み・「再起動して更新」（`AppInfo.autoUpdateSupported` が真の Windows リリース版だけ）、バージョン表示、データ保存先の表示 | `AppService.*` |
 
+> **要判断（#315）: プロバイダのロゴ**。Issue は「ロゴつきの一覧」を求めるが、ロゴの使い方は各社のブランドの決まりに従う必要がある。OpenAI（ChatGPT）のガイドラインは、ロゴの使用に OpenAI の許可を求め、「提携・推奨を示唆しない」「自社より目立たせない」「改変しない」と定める（許可の窓口は同社のガイドラインページに記載）。Anthropic・TypeSafe AI も同様に確認が要る。現状は名前・説明の文字だけで一覧にしており、ロゴは足していない。選択肢は、(1) 各社に許可を取って公式配布のロゴを同梱する、(2) 許可が取れるまで文字（ワードマーク）だけで運用する、(3) 各社のロゴではなく汎用のアイコンで揃える。デザインはいろはに見てもらう。
+
 ### 3.9.1 AI 設定と初回の案内（プロバイダ選択→同意→モデル一覧の流れ。#104・#105）
 
 AI の設定の入口は 2 つ（作成画面の「AI で下書き」と設定画面のプロバイダ選択）あるが、**同意の画面（`AIConsentDialog`）・ChatGPT のログイン（`AIChatGPTLogin`。確認モーダル `ChatGPTPlanNotice` を含む）・モデル一覧の取得（`settingsStore.loadAIModels`）を共有する 1 つの流れ**にする。流れの本体は `AISettings`（`refresh`／`agree`）にあり、作成画面は入口で `uiStore.openSettings('ai', 'chatgpt-login')` を呼んで、設定画面のこの流れに合流する（下書きの生成そのものは、これまでどおり「AI で下書き」を押したときだけで、自動では作らない）。
 
-**入口 A: 設定画面でプロバイダを選ぶ（#105）**
+**入口 A: 設定画面でプロバイダのページを開く（#105・#315）**
 
-1. プロバイダを選ぶ（AI の設定が未保存のときの既定は **ChatGPT プラン**。Go の `GetAIConfig` の `provider` と `configured`。保存済みの `anthropic`／`openai`／`chatgpt` は変えない）。OpenAI 互換は Base URL が決まるまで取得に進まない（Base URL を入力して Enter、または「一覧を更新」。空欄のまま「一覧を更新」を押すと既定の送信先 `https://api.openai.com`）。それ以外は選んだ時点で 2 へ。
+1. 一覧からプロバイダを選んでそのページを開く（AI の設定が未保存のときの既定は **ChatGPT プラン**。Go の `GetAIConfig` の `provider` と `configured`。保存済みの `anthropic`／`openai`／`chatgpt` は変えない）。OpenAI 互換は Base URL が決まるまで取得に進まない（Base URL を入力して Enter、または「一覧を更新」。空欄のまま「一覧を更新」を押すと既定の送信先 `https://api.openai.com`）。それ以外は選んだ時点で 2 へ。
 2. `loadAIModels(provider, baseUrl)` を呼ぶ。**そのプロバイダ＋送信先にまだ同意していなければ、Go が取得の通信を送らず `reason = consent_required` を返す**（UI だけで守らない）。画面はこれを契機に、同意の画面（F-08。送信先のプロバイダ名と URL を表示）を出す。同意済みなら 3 を飛ばして 4 へ（すぐ一覧が出る）。
 3. 「同意して一覧を取得する」で `RecordAIConsent(provider, baseUrl)` を呼んで同意を保存し、`loadAIModels` を呼び直す。閉じた（「同意しない」）ときは取得せず、プロバイダの選択だけが残る（モデル名は手入力できる。設定画面の「…への送信に同意する」ボタンから同意の画面をもう一度開ける）。
 4. 取得の結果で、次の案内に分かれる。
@@ -684,3 +691,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 1.98 | 2026-11-09 | `Sidebar` の `.accounts`（縦スクロール）の上の padding を 0 から `--s-1` にし、先頭の「すべて」ボタンの外側のリングが上端で切れないようにした。§5.3 のフォーカスリングの逸脱の欄に、外側のリングのまま余白で収める箇所（`BaseDialog`・`BaseMenu`・`BaseSelect`・`Sidebar`）を追記。§5.3 のタイポ行の見出しの 600 を、`reset.css` でなく役割クラスが指定する実装に、`UsageLimitNotice` の見出しを `h4` から `h3`（実装は #290 で `h3`）、縦並びの間隔を `--s-1` から `--s-2`（#242）に揃えた | #302・#303・#304 |
 | 1.99 | 2026-11-09 | §3.3 `BaseSelect` に、選択肢のスクロール領域（`.sel-viewport`）が Reka UI の注入するバーの非表示を打ち消してバーを出す旨を追記した（実装は #289 で入っていた記述の漏れ） | #289 |
 | 2.00 | 2026-11-10 | §3.8 項 5 に本文の素の URL・メールアドレスの自動リンク化（`lib/autolink`・`LinkedText`・`sanitizeEmailHtml` の `autolink`。#312）を、§3.7 `SendConfirmDialog` と §3.9 `GeneralSettings` に「送信前に確認画面を出す」設定（#313）を追記 | #312・#313 |
+| 2.01 | 2026-11-10 | §3.9 に AI タブの入口 `AIProviders`・`AIProviderList`（名前・説明・状況の一覧。ロゴは要判断）・`AITypeSafePage` を追加し、`AISettings` を 1 プロバイダの設定ページにした。戻る（Android）で一覧へ戻す `closeSettingsPage` を追記 | #315・#314 |

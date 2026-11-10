@@ -363,7 +363,7 @@ type AIConfig = {
   effort?: string;            // 下書きの生成に渡すモデルのエフォート（reasoning effort）。未指定は「モデルの既定」（プロバイダへ送らない）。`anthropic` は `low`／`medium`／`high`／`xhigh`／`max`、`openai`／`chatgpt` は `low`／`medium`／`high`（#111）
   configured: boolean;        // AI の設定（`SetAIConfig`）を一度でも保存したか。偽のあいだ、provider は既定の `chatgpt`・model は空（画面は「AI で下書き」で初回の案内を出す）。壊れた保存値・未知のプロバイダの保存値も偽（既定として扱う）
   hasApiKey: boolean;         // 現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。キー・トークン自体は返さない
-  apiKeyProviders: AIProvider[];       // API キーを登録済みのプロバイダ（anthropic／openai。chatgpt は含めず chatgptSignedIn で見る）。保存前に選んだプロバイダのキーの有無を出すのに使う。無ければ空配列で null にしない
+  apiKeyProviders: (AIProvider | 'typesafe')[];       // API キーを登録済みのプロバイダ（anthropic／openai／typesafe（TypeSafe AI。#314）。chatgpt は含めず chatgptSignedIn で見る）。保存前に選んだプロバイダのキーの有無を出すのに使う。無ければ空配列で null にしない
   consentedProviders: AIProvider[];    // 現在保存している設定の送信先に同意済みのプロバイダ（保存前に選んだ送信先の同意は、`ListAIModels` の `consent_required` で分かる）
   chatgptSignedIn: boolean;   // 選択中のプロバイダに関わらず、使用中の ChatGPT アカウントがログイン済みか
   chatgptEmail?: string;      // 使用中のアカウントのメールアドレス（表示用。検証済み ID トークンのもの）
@@ -400,8 +400,8 @@ type ThreadAITurn = { role: 'user' | 'assistant'; text: string };
 |----------|------|--------|------|
 | `GetAIConfig()` | — | `AIConfig` | 設定を保存していないときは `provider = "chatgpt"`・`model = ""`・`configured = false`（既定のプロバイダは Go の `defaultProvider`。保存済みの `anthropic`／`openai`／`chatgpt` は変えない。#104） |
 | `SetAIConfig(provider, model, baseUrl?, effort?)` | | `AIConfig` | `app_settings.ai.config` を更新。`baseUrl` は `openai` のみ有効で、`https://` の URL か、ホストが `localhost`／`127.0.0.1`／`::1` に完全一致する `http://` の URL に限る。それ以外（外部ホストへの `http://`、userinfo・クエリ・フラグメント付き等）は `VALIDATION`（メッセージに URL は含めない）。Base URL が変わって送信先（scheme＋ホスト）が変わると、そのプロバイダの同意は無効になる。`effort`（#111）は省略・空で「モデルの既定」（保存するときも `effort` キーを書かない）。指定できる値は `AIConfig.effort` に挙げたプロバイダごとの集合で、それ以外は `VALIDATION`。モデル名との組み合わせ（そのモデルが受け付けるか）は保存時に確かめない（確かめるのは画面。生成時にプロバイダが拒否したら §6 の `AI_FAILED`）。プロバイダ・モデルを変えて保存するときは、画面が `effort` を渡し直す（渡さなければ「既定」に戻る。前の値を黙って引き継がない） |
-| `SetAIApiKey(provider, apiKey)` | string ×2 | `AIConfig` | 資格情報ストアへ保存。`chatgpt` は API キーを使わないので `VALIDATION` |
-| `ClearAIApiKey(provider)` | string | `AIConfig` | キーを削除。`chatgpt` は `VALIDATION`（ログアウトは `SignOutChatGPT`） |
+| `SetAIApiKey(provider, apiKey)` | string ×2 | `AIConfig` | 資格情報ストアへ保存。`provider` は `anthropic`／`openai`／`typesafe`（TypeSafe AI（Jev）。文章を書かない分類用のモデルで、`SetAIConfig`・`ListAIModels` には使えない。#314）。`chatgpt` は API キーを使わないので `VALIDATION` |
+| `ClearAIApiKey(provider)` | string | `AIConfig` | キーを削除（`typesafe` も同じ）。`chatgpt` は `VALIDATION`（ログアウトは `SignOutChatGPT`） |
 | `RecordAIConsent(provider, baseUrl?)` | string ×2 | `AIConfig` | 「スレッド内容が当該プロバイダ・送信先へ送信される」ことの同意を保存（`app_settings.ai.consent`）。同意は「プロバイダ＋送信先」単位で、`openai`（api.openai.com）と `chatgpt`（api.openai.com）は別の同意として取る。**保存済みの設定ではなく、渡された送信先に対する同意を記録する**ので、設定を保存する前に、選んだプロバイダ・Base URL に同意できる（#105）。`baseUrl` は `openai` のみ有効で、空は既定の送信先。`SetAIConfig` と同じ規則で検証し、使えない Base URL は `VALIDATION`。ほかの送信先の同意は消さない。返す `AIConfig.consentedProviders` は、保存済みの設定の送信先に対するもの |
 | `ListAIModels(provider, baseUrl?)` | string ×2 | `AIModelList` | 渡された送信先（`openai` は `baseUrl`。空は既定）から、使えるモデルの一覧を取得する。**保存済みの設定に依らず、保存前でも取得できる**（#105。下記）。MCP からは呼べない |
 | `SignInChatGPT(accountId)` | string | `AIConfig` | OpenAI の公式画面（システムブラウザ）で ChatGPT にログインする。完了・中止・時間切れまでブロックする（下記）。`accountId` が空なら別の ChatGPT アカウントとして新しく登録する（追加）。保存済みの `id` を渡すと、その登録の `client_id` で再ログインする（別のアカウントでログインされたら `VALIDATION`、未登録の ID は `NOT_FOUND`）。ID トークンを検証して保存を終えるまで、使用中のアカウントとほかのアカウントのトークン・登録は変えず、成功したアカウントが使用中になる |
@@ -621,3 +621,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.39 | 2026-11-06 | `AIService` に `AskAboutThread`（スレッドの内容を文脈にした AI への質問）と型 `ThreadAITurn` を追加。`history`・`question` の検証（`VALIDATION`）、プロンプトの構成（スレッド本文は信頼しない先頭の user メッセージ・要約は文脈に入れない）、分からないことは失敗にしないこと、会話の寿命（§9）、`CancelGenerate` の対象を追記 | #207 |
 | 1.40 | 2026-11-07 | Android でも更新確認（`CheckForUpdate`・`SetUpdateCheckEnabled`・`update:available`）を有効にした。`GetCapabilities` の Android は `supportsAutoUpdate` が `true`。新しい版のバナー・設定の項目はダウンロードページのリンクを出すだけで、ダウンロード・入れ替え（`SetAutoUpdateEnabled` など）は Android では `UNSUPPORTED` のまま | Android の新バージョンのお知らせ |
 | 1.41 | 2026-11-10 | `AppService` に `SetSendConfirmEnabled`、`GetAppInfo` に `sendConfirmEnabled` を追加（送信前の確認画面のオン・オフ。既定オン）。§5.2 に、オフのときの送信の流れを追記 | #313 |
+| 1.42 | 2026-11-10 | `SetAIApiKey`／`ClearAIApiKey` が `typesafe`（TypeSafe AI（Jev））を受け付け、`AIConfig.apiKeyProviders` に含むようにした（下書きのプロバイダではない。#314） | #314 |
