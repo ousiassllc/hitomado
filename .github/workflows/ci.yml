@@ -111,6 +111,15 @@ jobs:
       - if: matrix.os == 'ubuntu-latest'
         name: Android ELF alignment check script
         run: bash build/android/scripts/check-elf-align_test.sh
+      # prepare-android-signing.sh の単体テスト（keytool を使うので JDK を入れる）。
+      - if: matrix.os == 'ubuntu-latest'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - if: matrix.os == 'ubuntu-latest'
+        name: Android signing key selection script
+        run: bash .github/scripts/prepare-android-signing_test.sh
 
   # インストーラーまで作り、旧版 → 上書き → アンインストールを実機（windows-latest）で通す。
   # 版は 0.99.1（旧）と 0.99.2（新）の固定値で、リリースの版とは無関係。exe に埋め込まれた版を
@@ -189,7 +198,9 @@ jobs:
             if (-not $p.HasExited) { $p.Kill() }
           }
 
-  # Android の APK と AAB を作る。署名は使い捨ての鍵（実鍵は使わない）。
+  # Android の APK と AAB を作る。署名は使い捨ての鍵（固定の実鍵は渡さない）。
+  # PR のコードに実鍵を渡さない（PR が作る成果物を実鍵で署名させない）ため、ここでは Secrets を build-android-apk に渡さず、フォークの PR でも同じ動きにする。
+  # 固定鍵での署名は release.yml（main への push）だけが行う（鍵の選択ロジックは prepare-android-signing_test.sh が検査する）。
   # この CI を workflow_call で呼ぶ release.yml（push）では動かさない（release.yml が同じ action でリリース用の APK を作る。二重に動かさない）。
   android:
     if: github.event_name == 'pull_request'
@@ -205,7 +216,7 @@ jobs:
         run: |
           wails3 task android:package ARCH=arm64 VERSION=0.99.1
           EXPECT_SIGNING=debug wails3 task android:verify VERSION=0.99.1
-      # 使い捨ての鍵を作って環境変数で渡し、release APK を作る（リリースの署名経路。release.yml も同じ action を使う）。
+      # 使い捨ての鍵を作って環境変数で渡し、release APK を作る（リリースと同じ action。鍵の入力を渡さないので使い捨ての鍵になる）。
       # 鍵はこのジョブの中だけに存在し、成果物には含めない。
       - name: Release APK (arm64, throwaway key)
         uses: ./.github/actions/build-android-apk
