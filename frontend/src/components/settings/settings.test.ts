@@ -95,7 +95,7 @@ describe('AISettings モデル名', () => {
     const pinia = setup()
     const settings = useSettingsStore()
     settings.aiConfig = savedConfig('anthropic', '', false, [])
-    const w = mount(AISettings, { global: { plugins: [pinia] } })
+    const w = mount(AISettings, { props: { provider: 'anthropic' }, global: { plugins: [pinia] } })
     expect(w.text()).toContain('モデルを入力してください')
 
     settings.aiConfig = savedConfig('anthropic', 'm', false, [])

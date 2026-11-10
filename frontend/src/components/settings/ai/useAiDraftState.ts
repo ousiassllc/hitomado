@@ -15,13 +15,15 @@ export function useAiDraftState(
   const store = useSettingsStore()
   const saved = computed(() => store.aiConfig)
 
+  // プロバイダは設定ページを開いたときに決まっている（#315。一覧から選ぶ）ので、ここでは変えない。
+  // 保存済みの既定と同じプロバイダのページだけ、モデル・Base URL・エフォートを保存済みの値から始める（別のプロバイダのモデル名は引き継がない）。
   function resetDraft(): void {
-    provider.value = saved.value?.provider ?? DEFAULT_AI_PROVIDER
-    model.value = saved.value?.model ?? ''
-    baseUrl.value = saved.value?.baseUrl ?? ''
-    effort.value = saved.value?.effort ?? ''
+    const same = (saved.value?.provider ?? DEFAULT_AI_PROVIDER) === provider.value
+    model.value = same ? (saved.value?.model ?? '') : ''
+    baseUrl.value = same ? (saved.value?.baseUrl ?? '') : ''
+    effort.value = same ? (saved.value?.effort ?? '') : ''
   }
-  // 下書きは、保存済みの設定そのものが変わったときだけ戻す。同意・キー・ログインで aiConfig が更新されても、選びかけのプロバイダは変えない。
+  // 下書きは、保存済みの設定そのものが変わったときだけ戻す。同意・キー・ログインで aiConfig が更新されても、選びかけの値は変えない。
   const savedDraftKey = computed(() =>
     JSON.stringify([
       saved.value?.configured,

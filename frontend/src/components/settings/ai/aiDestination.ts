@@ -4,6 +4,7 @@ import { settings as msg } from '../../../lib/messages'
 const ANTHROPIC_URL = 'https://api.anthropic.com'
 const OPENAI_DEFAULT_URL = 'https://api.openai.com'
 const CHATGPT_URL = 'https://api.openai.com'
+const TYPESAFE_URL = 'https://api.typesafe.ai'
 
 /** AI の設定をまだ保存していないときのプロバイダ（利用者自身の ChatGPT プラン。#104）。Go の `defaultProvider`（aicore）と同じ値。 */
 export const DEFAULT_AI_PROVIDER = 'chatgpt'
@@ -38,5 +39,6 @@ export function aiDestination(provider: string, baseUrl?: string): AIDestination
       ? { providerLabel: label, url: custom, custom: true }
       : { providerLabel: label, url: OPENAI_DEFAULT_URL, custom: false }
   }
+  if (provider === 'typesafe') return { providerLabel: label, url: TYPESAFE_URL, custom: false }
   return { providerLabel: label, url: ANTHROPIC_URL, custom: false }
 }

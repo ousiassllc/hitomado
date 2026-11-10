@@ -8,7 +8,7 @@ import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
 import BaseDialog from '../ui/BaseDialog.vue'
 import AccountsSettings from './accounts/AccountsSettings.vue'
-import AISettings from './ai/AISettings.vue'
+import AIProviders from './ai/providers/AIProviders.vue'
 import GeneralSettings from './GeneralSettings.vue'
 import LogSettings from './LogSettings.vue'
 import McpSettings from './McpSettings.vue'
@@ -25,7 +25,7 @@ const tabs = computed(() => [
   { value: 'accounts', label: msg.tabs.accounts, component: AccountsSettings },
   { value: 'oauth', label: msg.tabs.oauthClients, component: OAuthClientsSettings },
   { value: 'signature', label: msg.tabs.signature, component: SignatureSettings },
-  { value: 'ai', label: msg.tabs.ai, component: AISettings },
+  { value: 'ai', label: msg.tabs.ai, component: AIProviders },
   ...(platform.supportsMcp ? [{ value: 'mcp', label: msg.tabs.mcp, component: McpSettings }] : []),
   { value: 'logs', label: msg.tabs.logs, component: LogSettings },
   { value: 'general', label: msg.tabs.general, component: GeneralSettings },

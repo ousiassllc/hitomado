@@ -47,8 +47,19 @@ export function setup(
   return { pinia, store, calls, loads }
 }
 
-export const mountAI = (pinia: ReturnType<typeof createPinia>) =>
-  mount(AISettings, { global: { plugins: [pinia] }, attachTo: document.body })
+/**
+ * プロバイダの設定ページ（AISettings）を開く。一覧から開くのと同じく、既定は保存済み（未保存・未読み込みは ChatGPT）の
+ * プロバイダのページ。別のプロバイダのページは `switchProvider` で開き直す（一覧から別のプロバイダを選んだのと同じ）。
+ */
+export const mountAI = (pinia: ReturnType<typeof createPinia>, provider?: string) =>
+  mount(AISettings, {
+    props: { provider: provider ?? useSettingsStore().aiConfig?.provider ?? 'chatgpt' },
+    global: { plugins: [pinia] },
+    attachTo: document.body,
+  })
+
+/** 一覧から別のプロバイダを選んだとき（ページのプロバイダが変わるとき）と同じ。 */
+export const switchProvider = (w: VueWrapper, provider: string) => w.setProps({ provider })
 
 /** 同意の画面（ダイアログは body 直下に出る）の要素。 */
 export const consentEl = (testid: string) =>

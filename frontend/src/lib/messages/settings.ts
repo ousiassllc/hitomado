@@ -130,12 +130,43 @@ export const settings = {
       'スレッドの内容は OpenAI の API（Responses）へ送信されます。ログインだけは auth.openai.com の公式画面で行います。',
     destinationPending: (dest: string) =>
       `入力中の送信先（${dest}）は未保存です。「設定を保存」するまで、上の送信先が使われます。`,
-    provider: 'プロバイダ',
     providerOptions: {
       anthropic: 'Anthropic',
       openai: 'OpenAI 互換',
       chatgpt: 'ChatGPT プラン（Continue with ChatGPT）',
+      typesafe: 'TypeSafe AI（Jev）',
     } as Record<string, string>,
+    // プロバイダの一覧と各プロバイダの設定ページ（#315）。
+    providerList: {
+      heading: 'AI のプロバイダ',
+      intro:
+        '使うプロバイダを選ぶと、そのプロバイダの設定ページが開きます（API キー・ログイン・モデルなど）。',
+      listLabel: 'AI のプロバイダの一覧',
+      open: (provider: string) => `${provider} の設定を開く`,
+      back: 'プロバイダ一覧に戻る',
+      defaultBadge: '既定',
+      draftHint: '「設定を保存」すると、このプロバイダが「AI で下書き」の既定になります。',
+      names: {
+        chatgpt: 'ChatGPT',
+        anthropic: 'Anthropic',
+        openai: 'OpenAI 互換',
+        typesafe: 'TypeSafe AI（Jev）',
+      } as Record<string, string>,
+      summaries: {
+        chatgpt: '自分の ChatGPT プランでログインして使います（Continue with ChatGPT）。',
+        anthropic: 'Anthropic の API キーで使います。',
+        openai:
+          'OpenAI または OpenAI 互換のサービスを、API キーで使います（Base URL を指定できます）。',
+        typesafe: '文章を書かない分類用のモデルです。API キーで使います。',
+      } as Record<string, string>,
+      statusSignedIn: 'ログイン済み',
+      statusSignedOut: '未ログイン',
+      statusKeySet: 'API キー保存済み',
+      statusKeyUnset: 'API キー未設定',
+    },
+    typesafe: {
+      note: 'TypeSafe AI（Jev）は文章を書かないモデルです。「AI で下書き」の既定のプロバイダにはなりません。',
+    },
     model: 'モデル',
     modelPlaceholder: '例: claude-sonnet-4-5',
     modelRequired: 'モデルを入力してください。',

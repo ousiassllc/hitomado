@@ -38,8 +38,6 @@ function backend(opts: { consented?: string[]; keyed?: string[] } = {}) {
   return { consented, keyed, fn }
 }
 
-const providerSelect = (w: ReturnType<typeof mountAI>) =>
-  w.findAllComponents(BaseSelect).find((c) => c.props('ariaLabel') === 'プロバイダ')
 const _modelOptions = (w: ReturnType<typeof mountAI>) =>
   (
     w.getComponent(AIModelField).findComponent(BaseSelect).props('options') as { value: string }[]
@@ -57,7 +55,7 @@ describe('AI の既定のプロバイダ（#104）', () => {
     })
     const w = mountAI(pinia)
     await flushPromises()
-    expect(providerSelect(w)?.props('modelValue')).toBe('chatgpt')
+    expect(w.props('provider')).toBe('chatgpt')
     expect(w.find('[data-testid="ai-chatgpt-login"]').exists()).toBe(true)
     expect(calls).toEqual([])
   })
@@ -66,7 +64,7 @@ describe('AI の既定のプロバイダ（#104）', () => {
     const { pinia, store } = setup()
     store.aiConfig = undefined
     const w = mountAI(pinia)
-    expect(providerSelect(w)?.props('modelValue')).toBe('chatgpt')
+    expect(w.props('provider')).toBe('chatgpt')
   })
 
   test.each(['anthropic', 'openai', 'chatgpt'])(
@@ -75,7 +73,7 @@ describe('AI の既定のプロバイダ（#104）', () => {
       const { pinia } = setup({ provider, model: 'saved-model', configured: true })
       const w = mountAI(pinia)
       await flushPromises()
-      expect(providerSelect(w)?.props('modelValue')).toBe(provider)
+      expect(w.props('provider')).toBe(provider)
       expect(w.find('[data-testid="ai-model"] input').element).toBeDefined()
     },
   )
@@ -109,7 +107,7 @@ describe('作成画面の初回の案内から ChatGPT へ進む流れ（#104・
     const w = mountAI(pinia)
     await flushPromises()
     expect(ui.aiSetupIntent).toBeUndefined()
-    expect(providerSelect(w)?.props('modelValue')).toBe('chatgpt')
+    expect(w.props('provider')).toBe('chatgpt')
     expect(consentEl('ai-consent-body')?.textContent).toContain('https://api.openai.com')
     expect(events).toEqual([])
     consentEl('ai-consent-agree')?.click()
