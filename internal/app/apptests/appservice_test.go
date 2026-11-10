@@ -56,7 +56,7 @@ func TestAppInfoAndUpdateToggle(t *testing.T) {
 	ctx := t.Context()
 	info, err := svc.GetAppInfo(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, dto.AppInfo{Version: "0.1.0", UpdateCheckEnabled: true, DataDir: e.Deps.DataDir}, info)
+	assert.Equal(t, dto.AppInfo{Version: "0.1.0", UpdateCheckEnabled: true, DataDir: e.Deps.DataDir, SendConfirmEnabled: true}, info)
 
 	require.NoError(t, svc.SetUpdateCheckEnabled(ctx, false))
 	info, _ = svc.GetAppInfo(ctx)
@@ -64,6 +64,25 @@ func TestAppInfoAndUpdateToggle(t *testing.T) {
 	require.NoError(t, svc.SetUpdateCheckEnabled(ctx, true))
 	info, _ = svc.GetAppInfo(ctx)
 	assert.True(t, info.UpdateCheckEnabled)
+}
+
+func TestSendConfirmSetting(t *testing.T) {
+	svc, e := newAppSvc(t)
+	ctx := t.Context()
+	info, err := svc.GetAppInfo(ctx)
+	require.NoError(t, err)
+	assert.True(t, info.SendConfirmEnabled, "既定は確認画面を出す")
+
+	require.NoError(t, svc.SetSendConfirmEnabled(ctx, false))
+	info, _ = svc.GetAppInfo(ctx)
+	assert.False(t, info.SendConfirmEnabled)
+	require.NoError(t, svc.SetSendConfirmEnabled(ctx, true))
+	info, _ = svc.GetAppInfo(ctx)
+	assert.True(t, info.SendConfirmEnabled)
+
+	require.NoError(t, e.Store.SetSetting(ctx, store.SettingSendConfirm, `"garbage"`))
+	info, _ = svc.GetAppInfo(ctx)
+	assert.True(t, info.SendConfirmEnabled, "壊れた保存値は既定（オン）に戻す")
 }
 
 func TestCheckForUpdate(t *testing.T) {

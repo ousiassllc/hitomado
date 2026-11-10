@@ -133,6 +133,11 @@ export interface AppInfo {
      */
     "autoUpdateEnabled": boolean;
     "dataDir": string;
+
+    /**
+     * SendConfirmEnabled は送信前に確認画面を出す設定（既定オン。#313）。
+     */
+    "sendConfirmEnabled": boolean;
 }
 
 /**

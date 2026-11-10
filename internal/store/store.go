@@ -221,4 +221,6 @@ const (
 	SettingLastChecked = "update.last_checked_at"
 	SettingWindowState = "window.state"
 	SettingMCPConfig   = "mcp.config"
+	// SettingSendConfirm は送信前の確認画面を出すか（真偽。未設定は true。#313）。
+	SettingSendConfirm = "compose.send_confirm"
 )

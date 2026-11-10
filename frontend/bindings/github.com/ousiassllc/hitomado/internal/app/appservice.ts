@@ -75,6 +75,15 @@ export function SetInboxFilter(filter: dto$0.InboxFilter): $CancellablePromise<v
 }
 
 /**
+ * SetSendConfirmEnabled は送信前の確認画面を出すか（既定オン）を保存する。オフでも、送信元は受信したアカウントに
+ * 固定され、送信は PrepareSend の確認トークンを使った Send を人がボタンを押したときだけ行う（#313）。警告の扱いは
+ * フロントの送信フロー（docs/components/overview.md §3.7）が決める。
+ */
+export function SetSendConfirmEnabled(enabled: boolean): $CancellablePromise<void> {
+    return $Call.ByID(608235485, enabled);
+}
+
+/**
  * SetUpdateCheckEnabled は更新確認のオン／オフを保存する。アプリ内の更新確認を持たない OS（Android）では UNSUPPORTED。
  */
 export function SetUpdateCheckEnabled(enabled: boolean): $CancellablePromise<void> {

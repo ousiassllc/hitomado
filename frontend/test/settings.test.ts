@@ -35,6 +35,7 @@ const baseInfo = {
   updateCheckEnabled: true,
   autoUpdateSupported: false,
   autoUpdateEnabled: false,
+  sendConfirmEnabled: true,
   dataDir: '/data',
 }
 

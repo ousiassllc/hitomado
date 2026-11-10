@@ -1,6 +1,8 @@
 // 作成セッションの送信フローと添付（composeStore の一部）。
 // 送信は必ず PrepareSend（確認トークン）→ 確認ダイアログ → Send の順。確認後に内容が変わったら preview は破棄される
 // （composeStore の watch）。失敗してもセッション・本文・添付は保持し、再度 prepareSend から送れる。
+// 設定「送信前に確認画面を出す」がオフで、警告が無いときだけ、ダイアログを出さずに PrepareSend の確認トークンで
+// そのまま Send する（#313。送信元の固定と、送信ボタンを押したときだけ送ることは変えない）。
 import type { ComputedRef, Ref } from 'vue'
 import { ComposeService } from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
 import type {
@@ -18,6 +20,7 @@ import {
 } from '../lib/composeModel'
 import { compose as msg } from '../lib/messages'
 import { useInboxStore } from '../stores/inbox'
+import { useSettingsStore } from '../stores/settings'
 import { useUiStore } from '../stores/ui'
 
 export interface ComposeSendContext {
@@ -45,8 +48,17 @@ export interface ComposeSendContext {
 export function useComposeSend(ctx: ComposeSendContext) {
   const ui = useUiStore()
   const inbox = useInboxStore()
+  const settings = useSettingsStore()
 
-  /** 送信前確認を取得する。成功すると `preview` が入り、SendConfirmDialog が開く。 */
+  /**
+   * 確認画面を省いてよいか。設定がオフ（読み込み前・不明は「出す」）で、警告が 1 件も無いときだけ。
+   * 警告があるときは、設定にかかわらず今までどおり確認画面を出す（OTHER_OWN_ACCOUNT などの扱いは要判断。#313）。
+   */
+  function canSkipConfirm(p: SendPreview): boolean {
+    return settings.appInfo?.sendConfirmEnabled === false && !p.warnings?.length
+  }
+
+  /** 送信前確認を取得する。成功すると `preview` が入り、SendConfirmDialog が開く（確認を省く設定のときは、そのまま送信する）。 */
   async function prepareSend(archive: boolean): Promise<boolean> {
     const s = ctx.session.value
     if (!s || ctx.sending.value || ctx.preparing.value) return false
@@ -57,6 +69,7 @@ export function useComposeSend(ctx: ComposeSendContext) {
     }
     const wantArchive = archive && ctx.canArchive.value
     const at = ctx.version()
+    let skip: SendPreview | undefined
     ctx.preparing.value = true
     try {
       const p = await call(
@@ -70,14 +83,19 @@ export function useComposeSend(ctx: ComposeSendContext) {
         return false
       }
       ctx.previewArchive.value = wantArchive
-      ctx.preview.value = normalizePreview(p)
-      return true
+      const next = normalizePreview(p)
+      if (!canSkipConfirm(next)) {
+        ctx.preview.value = next
+        return true
+      }
+      skip = next
     } catch (e) {
       ctx.error.value = ctx.fail(e)
       return false
     } finally {
       ctx.preparing.value = false
     }
+    return skip ? sendPrepared(s, skip) : false
   }
 
   /** 確認ダイアログのキャンセル。トークンを破棄してエディタへ戻る（再度 prepareSend が必要）。 */
@@ -92,11 +110,16 @@ export function useComposeSend(ctx: ComposeSendContext) {
     inbox.onSyncUpdated({ accountId: ref.accountId, changedThreadIds: [ref.threadId] })
   }
 
-  /** 確認済みの内容を送信する。失敗してもセッション・本文・添付は保持し、再度 prepareSend から送れる。 */
-  async function confirmSend(): Promise<boolean> {
+  /** 確認ダイアログで確認済みの内容を送信する。 */
+  function confirmSend(): Promise<boolean> {
     const s = ctx.session.value
     const p = ctx.preview.value
-    if (!s || !p || ctx.sending.value) return false
+    return s && p ? sendPrepared(s, p) : Promise.resolve(false)
+  }
+
+  /** 確認トークンを持つ内容を送信する。失敗してもセッション・本文・添付は保持し、再度 prepareSend から送れる。 */
+  async function sendPrepared(s: ComposeSession, p: SendPreview): Promise<boolean> {
+    if (ctx.sending.value) return false
     ctx.sending.value = true
     ctx.error.value = undefined
     try {
