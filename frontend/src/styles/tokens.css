@@ -16,8 +16,7 @@
   --danger: #7a4545;
   --info: #4a5a6a;
   --scrim: rgb(5 5 5 / 40%);
-  /* フォームの focus は --focus の 40%。状態のピル・バッジ・アラートは、枠を状態色の 40%・地を 10%（どちらも transparent に混ぜる。C4）。 */
-  --ring: color-mix(in srgb, var(--focus) 40%, transparent);
+  /* 状態のピル・バッジ・アラートは、枠を状態色の 40%・地を 10%（どちらも transparent に混ぜる。C4）。フォーカスは --focus の outline で描く（--ring は使わない。#248）。 */
   --success-border: color-mix(in srgb, var(--success) 40%, transparent);
   --success-soft: color-mix(in srgb, var(--success) 10%, transparent);
   --warning-border: color-mix(in srgb, var(--warning) 40%, transparent);

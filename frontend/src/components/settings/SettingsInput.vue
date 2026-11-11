@@ -85,8 +85,8 @@ const id = useId()
 
 .field-input:focus {
   border-color: var(--focus);
-  box-shadow: 0 0 0 2px var(--ring);
-  outline: none;
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
 }
 
 .field-input:disabled {
@@ -95,6 +95,13 @@ const id = useId()
 
 .field-input[aria-invalid="true"] {
   border-color: var(--danger);
+}
+
+/* 640px 以下は 16px（iOS・Android のフォーカス時の自動ズームを避ける） */
+@media (max-width: 640px) {
+  .field-input {
+    font-size: var(--font-size-base);
+  }
 }
 
 .field-hint {
