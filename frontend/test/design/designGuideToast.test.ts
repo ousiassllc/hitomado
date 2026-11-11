@@ -137,3 +137,14 @@ describe('トーストの幅（O3・#319）', () => {
     expect(rule('shell/ToastHost.vue', '.undo {')).toContain('white-space: nowrap')
   })
 })
+
+describe('スナックバー本文の折り返し（#319）', () => {
+  test('語（文節）単位で折り返し、日本語の語を割る overflow-wrap: anywhere は使わない。長い語は枠から出さない', () => {
+    const msg = rule('shell/ToastHost.vue', '.snackbar .msg {')
+    expect(msg).toContain('word-break: auto-phrase')
+    expect(msg).toContain('overflow-wrap: break-word')
+    expect(msg).not.toContain('overflow-wrap: anywhere')
+    // 長い URL・英数字で .toasts の max-width を超えて広がらないよう、スナックバー自身が縮められる
+    expect(rule('shell/ToastHost.vue', '.snackbar {')).toContain('min-width: 0')
+  })
+})

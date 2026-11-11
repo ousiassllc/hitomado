@@ -100,6 +100,7 @@ onBeforeUnmount(stop)
   display: flex;
   align-items: center;
   gap: var(--s-2);
+  min-width: 0; /* .toasts の max-width を超えて、空白のない長い語で押し広げられない */
   min-height: calc(var(--toast-h) + var(--s-2));
   padding: var(--s-2) var(--s-4);
   border: 1px solid var(--border);
@@ -146,7 +147,10 @@ onBeforeUnmount(stop)
   overflow: visible;
   text-overflow: clip;
   white-space: normal;
-  overflow-wrap: anywhere;
+  /* 日本語は文節（語）単位で折り返し、「条件」のような語を途中で割らない（auto-phrase。非対応の WebView では従来どおり）。
+     空白のない長い URL・英数字は、置き場がないときだけ折る（break-word）。anywhere は使わない（どこでも折れて語が割れる）。 */
+  overflow-wrap: break-word;
+  word-break: auto-phrase;
 }
 
 .toast-enter-active {
