@@ -5,6 +5,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, nextTick } from 'vue'
 import ToastHost from '../../src/components/shell/ToastHost.vue'
 import { useUiStore } from '../../src/stores/ui'
+import { rule } from './styleRule'
 
 afterEach(() => {
   jest.useRealTimers()
@@ -121,5 +122,29 @@ describe('トースト（O3）: 同時に 1 つ・3 秒・短い結果だけ', (
     ui.pushAlert('読み込めませんでした', () => {})
     expect(ui.toast).toBeUndefined()
     expect(ui.alerts).toHaveLength(1)
+  })
+})
+
+describe('トーストの幅（O3・#319）', () => {
+  test('幅は内容に合わせ（max-content）、上限は 480px と左右 16px の余白の小さいほう。中央寄せは translateX(-50%) のまま', () => {
+    const toasts = rule('shell/ToastHost.vue', '.toasts {')
+    expect(toasts).toContain('width: max-content')
+    expect(toasts).toContain('max-width: min(480px, calc(100vw - var(--s-8)))')
+    expect(toasts).toContain('transform: translateX(-50%)')
+  })
+
+  test('「元に戻す」は折り返さない', () => {
+    expect(rule('shell/ToastHost.vue', '.undo {')).toContain('white-space: nowrap')
+  })
+})
+
+describe('スナックバー本文の折り返し（#319）', () => {
+  test('語（文節）単位で折り返し、日本語の語を割る overflow-wrap: anywhere は使わない。長い語は枠から出さない', () => {
+    const msg = rule('shell/ToastHost.vue', '.snackbar .msg {')
+    expect(msg).toContain('word-break: auto-phrase')
+    expect(msg).toContain('overflow-wrap: break-word')
+    expect(msg).not.toContain('overflow-wrap: anywhere')
+    // 長い URL・英数字で .toasts の max-width を超えて広がらないよう、スナックバー自身が縮められる
+    expect(rule('shell/ToastHost.vue', '.snackbar {')).toContain('min-width: 0')
   })
 })

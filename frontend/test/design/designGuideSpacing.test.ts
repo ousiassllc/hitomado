@@ -35,6 +35,12 @@ describe('入れ子パネルの padding（S2・#223）', () => {
       'padding: var(--pad-card-sm)',
     )
   })
+
+  test('データの送信先のパネルも --pad-card-sm', () => {
+    expect(rule('settings/ai/AIDestinationBox.vue', '.dest-panel {')).toContain(
+      'padding: var(--pad-card-sm)',
+    )
+  })
 })
 
 describe('部品間の間隔（S2・#228）', () => {

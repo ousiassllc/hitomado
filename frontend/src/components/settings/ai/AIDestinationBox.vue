@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { WarningTriangle } from '@iconoir/vue'
-import { computed } from 'vue'
+import { computed, useId } from 'vue'
 import { settings as msg } from '../../../lib/messages'
 import { aiDestination } from './aiDestination'
 
@@ -18,37 +18,40 @@ const draft = computed(() => aiDestination(props.draftProvider, props.draftBaseU
 const differs = computed(
   () => draft.value.providerLabel !== saved.value.providerLabel || draft.value.url !== saved.value.url,
 )
+// 見出しとパネルを aria-labelledby でつなぐ（fieldset をやめたので、グループの名前は自前で付ける）。id は部品ごとに一意。
+const titleId = useId()
 const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d.providerLabel, d.url)
 </script>
 
 <template>
-  <fieldset class="dest">
-    <legend class="dest-title">{{ msg.ai.destinationHeading }}</legend>
-    <p class="dest-value" data-testid="ai-destination">{{ saved.providerLabel }}（<span class="url">{{ saved.url }}</span>）</p>
-    <p class="dest-note">
-      {{ saved.note ?? (saved.custom ? msg.ai.destinationCustomNote : msg.ai.destinationDefaultNote) }}
-    </p>
-    <Transition name="alert">
-      <p v-if="differs" class="dest-pending" role="status">
-        <WarningTriangle class="icon icon-sm icon-warning dest-pending-icon" aria-hidden="true" />
-        <span>{{ msg.ai.destinationPending(text(draft)) }}</span>
-      </p>
-    </Transition>
-  </fieldset>
+  <div class="dest">
+    <h4 :id="titleId" class="dest-title">{{ msg.ai.destinationHeading }}</h4>
+    <section class="dest-panel" :aria-labelledby="titleId">
+      <p class="dest-value" data-testid="ai-destination">{{ saved.providerLabel }}（<span class="url">{{ saved.url }}</span>）</p>
+      <p class="dest-note">{{ saved.note ?? (saved.custom ? msg.ai.destinationCustomNote : msg.ai.destinationDefaultNote) }}</p>
+      <Transition name="alert">
+        <p v-if="differs" class="dest-pending" role="status">
+          <WarningTriangle class="icon icon-sm icon-warning dest-pending-icon" aria-hidden="true" />
+          <span>{{ msg.ai.destinationPending(text(draft)) }}</span>
+        </p>
+      </Transition>
+    </section>
+  </div>
 </template>
 
 <style scoped>
-.dest {
-  margin: 0;
-  padding: var(--s-3);
-  border: 1px solid var(--mute);
-  border-radius: var(--r-md);
-  background: var(--bone);
+.dest-title {
+  margin: 0 0 var(--s-2);
+  padding: 0;
+  font-size: var(--font-size-sm);
+  font-weight: 600;
 }
 
-.dest-title {
-  padding: 0 var(--s-1);
-  font-size: var(--font-size-sm);
+.dest-panel {
+  padding: var(--pad-card-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface);
 }
 
 .dest-value {

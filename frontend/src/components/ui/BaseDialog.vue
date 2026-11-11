@@ -197,6 +197,7 @@ function guard(e: Event): void {
 
 .dlg-foot {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: var(--gap-inline);
   margin-top: var(--gap-field);
