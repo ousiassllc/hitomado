@@ -220,6 +220,13 @@ async function save(): Promise<void> {
   outline-offset: -1px;
 }
 
+/* 640px 以下は 16px（iOS・Android のフォーカス時の自動ズームを避ける） */
+@media (max-width: 640px) {
+  .text {
+    font-size: var(--font-size-base);
+  }
+}
+
 .text:disabled {
   opacity: 0.5;
 }

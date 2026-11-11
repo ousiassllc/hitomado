@@ -76,6 +76,13 @@ function submit(): void {
   outline-offset: -1px;
 }
 
+/* 640px 以下は 16px（iOS・Android のフォーカス時の自動ズームを避ける） */
+@media (max-width: 640px) {
+  .rte-link-input {
+    font-size: var(--font-size-base);
+  }
+}
+
 .rte-link-input[aria-invalid="true"] {
   border-color: var(--danger);
 }

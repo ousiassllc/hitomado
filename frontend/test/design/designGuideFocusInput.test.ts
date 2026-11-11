@@ -63,12 +63,17 @@ describe('入力欄の文字サイズ（#283）', () => {
   })
 
   test.each([
-    ['inbox/SearchBar.vue', '.input {'],
-    ['settings/SettingsInput.vue', '.field-input {'],
-  ])('%s はデスクトップで sm 14・640px 以下で 16', (file, selector) => {
-    expect(rule(file, selector)).toContain('font-size: var(--font-size-sm)')
+    ['inbox/SearchBar.vue', '.input'],
+    ['settings/SettingsInput.vue', '.field-input'],
+    ['ui/BaseSelect.vue', '.sel'],
+    ['compose/EditorLinkForm.vue', '.rte-link-input'],
+    ['account/AddAccountDialog.vue', '.text'],
+  ])('%s（%s）はデスクトップで sm 14・640px 以下で 16', (file, cls) => {
+    expect(rule(file, `${cls} {`)).toContain('font-size: var(--font-size-sm)')
     expect(sfcStyle(file)).toMatch(
-      /@media \(max-width: 640px\) \{\s*\.[\w-]+ \{\s*font-size: var\(--font-size-base\);/,
+      new RegExp(
+        `@media \\(max-width: 640px\\) \\{\\s*\\${cls} \\{\\s*font-size: var\\(--font-size-base\\);`,
+      ),
     )
   })
 })

@@ -68,6 +68,13 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   outline-offset: -1px;
 }
 
+/* 640px 以下は 16px（iOS・Android のフォーカス時の自動ズームを避ける） */
+@media (max-width: 640px) {
+  .sel {
+    font-size: var(--font-size-base);
+  }
+}
+
 .sel[data-placeholder] {
   color: var(--mute);
 }
