@@ -216,7 +216,8 @@ function onKeydown(e: KeyboardEvent): void {
 
 .recipient-box:focus-within {
   border-color: var(--focus);
-  box-shadow: 0 0 0 2px var(--ring);
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
 }
 
 .recipient-disabled {
@@ -242,7 +243,7 @@ function onKeydown(e: KeyboardEvent): void {
   border: none;
   background: transparent;
   color: var(--ink);
-  font-size: var(--font-size-sm);
+  font-size: var(--font-size-base);
   outline: none;
 }
 

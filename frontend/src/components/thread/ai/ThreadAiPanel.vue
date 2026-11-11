@@ -169,8 +169,8 @@ function ask(): void {
 
 .mute-heading {
   margin: 0;
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
   font-weight: 600;
   color: var(--mute);
 }

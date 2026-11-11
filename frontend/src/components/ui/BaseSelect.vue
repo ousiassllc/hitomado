@@ -64,8 +64,15 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
 .sel:focus-visible {
   border-color: var(--focus);
-  box-shadow: 0 0 0 2px var(--ring);
-  outline: none;
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
+}
+
+/* 640px 以下は 16px（iOS・Android のフォーカス時の自動ズームを避ける） */
+@media (max-width: 640px) {
+  .sel {
+    font-size: var(--font-size-base);
+  }
 }
 
 .sel[data-placeholder] {

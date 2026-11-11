@@ -261,14 +261,14 @@ describe('ChatGPT アカウント行のラジオはガイドの見た目（O8・
     expect(style).not.toContain('accent-color')
   })
 
-  test('appearance:none・18px・--mute の外枠・選択時は --accent 地に --bone の点・フォーカスは --ring', () => {
+  test('appearance:none・18px・--mute の外枠・選択時は --accent 地に --bone の点・フォーカスは --focus の 3px outline', () => {
     expect(style).toContain('appearance: none')
     expect(style).toContain('width: 18px')
     expect(style).toContain('height: 18px')
     expect(style).toContain('border: 1px solid var(--mute)')
     expect(style).toContain('background: var(--accent)')
     expect(style).toContain('background: var(--bone)')
-    expect(style).toContain('box-shadow: 0 0 0 3px var(--ring)')
+    expect(style).toContain('outline: 3px solid var(--focus)')
   })
 })
 
