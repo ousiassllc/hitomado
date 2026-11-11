@@ -180,9 +180,9 @@ const label = computed(
   font-size: var(--font-size-sm);
 }
 
-/* 未読は太字にせず、未読ドットと文字色の対比（未読 = --ink、既読 = --mute）で区別する。 */
+/* 未読は太字にせず、未読ドットと文字色の対比（未読 = --ink、既読 = --row-mute）で区別する。 */
 .sender {
-  color: var(--mute);
+  color: var(--row-mute);
 }
 
 .subject {

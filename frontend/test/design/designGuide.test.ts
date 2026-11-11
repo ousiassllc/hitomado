@@ -195,6 +195,22 @@ describe('モーション（M）', () => {
     expect(style).not.toMatch(/--icon-(sm|lg)/)
   })
 
+  test('スピナーは prefers-reduced-motion: reduce で回転を止め、リング（track と先端）は残す（M3）', () => {
+    const style = parse(
+      readFileSync(new URL('../../src/components/ui/Spinner.vue', import.meta.url), 'utf8'),
+    ).descriptor.styles[0].content
+    expect(style).toMatch(/\.spinner \{[^}]*animation: spin 0\.9s linear infinite;/)
+    const reduced =
+      style.match(
+        /@media \(prefers-reduced-motion: reduce\) \{\s*\.spinner \{([^}]*)\}\s*\}/,
+      )?.[1] ?? ''
+    expect(reduced.replace(/\s+/g, '')).toBe('animation:none;')
+    // 静止しても処理中だとわかるよう、リングの描画（border・先端の色）は reduced-motion で消さない
+    expect(style).toMatch(
+      /\.spinner \{[^}]*border: 2px solid var\(--accent-soft\);[^}]*border-top-color: var\(--accent\);/,
+    )
+  })
+
   test('primary ボタンの loading のスピナーは、--accent 地で見えるよう --bone に反転する（O12）', () => {
     const w = mount(BaseButton, {
       props: { variant: 'primary', loading: true },
