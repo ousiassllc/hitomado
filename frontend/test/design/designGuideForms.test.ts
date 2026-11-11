@@ -1,9 +1,10 @@
 // Ousiass デザインガイド準拠の回帰テスト（#128）。検索欄の構造を確かめる。
-import { describe, expect, test } from 'bun:test'
+import { afterEach, describe, expect, test } from 'bun:test'
 import { mount } from '@vue/test-utils'
-import { defineComponent, h } from 'vue'
+import { defineComponent, h, nextTick } from 'vue'
 import SearchBar from '../../src/components/inbox/SearchBar.vue'
 import AIDestinationBox from '../../src/components/settings/ai/AIDestinationBox.vue'
+import AISetupDialog from '../../src/components/settings/ai/AISetupDialog.vue'
 import { rule } from './styleRule'
 
 describe('部品・オーバーレイ（P・#128）', () => {
@@ -59,8 +60,23 @@ describe('フォームのグループ見出し（P・#319）', () => {
   })
 })
 
+afterEach(() => {
+  document.body.innerHTML = ''
+})
+
 describe('ダイアログのフッター（#318）', () => {
   test('狭い幅ではボタンを折り返し、縮めて切れさせない', () => {
     expect(rule('ui/BaseDialog.vue', '.dlg-foot {')).toContain('flex-wrap: wrap')
+  })
+
+  test('AI の初回の案内は md 幅（560px）で、狭い画面では画面幅 - 32px に収まる', async () => {
+    const w = mount(AISetupDialog, { props: { open: true }, attachTo: document.body })
+    await nextTick()
+    expect(document.querySelector('.dlg')?.classList.contains('dlg-md')).toBe(true)
+    expect(rule('ui/BaseDialog.vue', '.dlg-md {')).toContain('--dlg-w: 560px')
+    expect(rule('ui/BaseDialog.vue', '.dlg {')).toContain(
+      'width: min(var(--dlg-w, 520px), calc(100vw - var(--s-8)))',
+    )
+    w.unmount()
   })
 })
