@@ -85,8 +85,9 @@ describe('一覧の行の既読の送信者の色（#259）', () => {
     )
   })
 
-  test('要再接続の行の件名は --mute のまま（変えない）', () => {
-    expect(style).toMatch(/\.row\.needs-reauth \.subject \{\s*color: var\(--mute\);\s*\}/)
+  test('要再接続の行の件名も --row-mute にし、通常時は --mute のまま、ホバー・選択では --mute-on-soft になる（AA）', () => {
+    expect(style).toMatch(/\.row\.needs-reauth \.subject \{\s*color: var\(--row-mute\);\s*\}/)
+    expect(style).not.toMatch(/\.row\.needs-reauth \.subject[^{]*\{[^}]*color: var\(--mute\)/)
   })
 })
 
