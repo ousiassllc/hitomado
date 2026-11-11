@@ -97,16 +97,16 @@ watch(model, () => void nextTick(fit))
   background: var(--surface);
   color: var(--ink);
   font: inherit;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
   resize: none;
   overflow-y: auto;
 }
 
 .question-input:focus {
   border-color: var(--focus);
-  box-shadow: 0 0 0 2px var(--ring);
-  outline: none;
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
 }
 
 .question-input:disabled {

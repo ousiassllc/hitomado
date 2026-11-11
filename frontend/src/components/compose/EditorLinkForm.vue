@@ -72,8 +72,8 @@ function submit(): void {
 
 .rte-link-input:focus {
   border-color: var(--focus);
-  box-shadow: 0 0 0 2px var(--ring);
-  outline: none;
+  outline: 2px solid var(--focus);
+  outline-offset: -1px;
 }
 
 .rte-link-input[aria-invalid="true"] {

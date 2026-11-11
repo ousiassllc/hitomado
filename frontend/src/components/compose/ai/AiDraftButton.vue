@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { MagicWand, WarningCircle } from '@iconoir/vue'
-import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, useId, watch } from 'vue'
 import { useAiDraft } from '../../../composables/useAiDraft'
 import { instructionLength, MAX_INSTRUCTION_CHARS } from '../../../lib/aiInstruction'
 import { common, compose as msg, settings as settingsMsg } from '../../../lib/messages'
@@ -52,6 +52,8 @@ const destination = computed(() => {
 // 設定が未保存のあいだは、既定の ChatGPT プランをログイン済みとして扱わない（案内文の出し分けだけに使う）。
 const usingChatGPT = computed(() => settings.aiConfig?.configured === true && settings.aiConfig.provider === 'chatgpt')
 const needText = computed(() => (usingChatGPT.value ? msg.ai.needLogin : msg.ai.needKey))
+// 無効なボタンの理由は title（OS 標準のツールチップ）ではなく、見えている .ai-note をボタンにつなぐ（#264）。
+const noteId = useId()
 
 const setupOpen = computed(() => ai.step.value === 'setup')
 const consentOpen = computed(() => ai.step.value === 'consent')
@@ -69,7 +71,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
         v-if="!generating"
         variant="secondary"
         :disabled="ai.needsKey.value || busy"
-        :title="ai.needsKey.value ? needText : undefined"
+        :aria-describedby="ai.needsKey.value ? noteId : undefined"
         @click="ai.start()"
       >
         <MagicWand class="icon icon-sm" aria-hidden="true" /> {{ msg.ai.button }}
@@ -79,7 +81,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
         <BaseButton size="sm" variant="secondary" @click="ai.cancel()">{{ msg.ai.cancel }}</BaseButton>
       </template>
       <template v-if="ai.needsKey.value">
-        <span class="ai-note">{{ needText }}</span>
+        <span :id="noteId" class="ai-note">{{ needText }}</span>
         <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
       </template>
     </div>

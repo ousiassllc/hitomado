@@ -81,7 +81,7 @@ watch(
   align-items: baseline;
   gap: var(--s-2);
   width: 100%;
-  padding: var(--s-2) var(--s-3);
+  padding: var(--s-2) var(--pad-card-sm);
   border: 0;
   background: transparent;
   color: var(--ink);
@@ -132,7 +132,7 @@ watch(
   display: flex;
   flex-direction: column;
   gap: var(--s-3);
-  padding: 0 var(--s-3) var(--s-3);
+  padding: 0 var(--pad-card-sm) var(--s-3);
 }
 
 .headers {
