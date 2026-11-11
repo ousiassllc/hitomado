@@ -157,7 +157,7 @@ export const settings = {
       noteApiKey: 'API キー',
     },
     typesafe: {
-      note: 'TypeSafe AI（Jev）は文章を書かないモデルです。「AI で下書き」の既定のプロバイダにはなりません。',
+      note: 'TypeSafe AI（Jev）は文章を書かないモデルです。「AI で下書き」の既定のプロバイダにはなりません。受信トレイの Inbox Zero ボタンで、不要なメールの判断に使います。',
     },
     model: 'モデル',
     modelPlaceholder: '例: claude-sonnet-4-5',

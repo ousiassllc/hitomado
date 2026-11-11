@@ -2,6 +2,7 @@
 import { TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { INBOX_TABS, type InboxTab } from '../../lib/inboxTabs'
 import { common } from '../../lib/messages'
+import InboxZeroButton from './InboxZeroButton.vue'
 
 defineProps<{ modelValue: InboxTab }>()
 const emit = defineEmits<{ 'update:modelValue': [tab: InboxTab] }>()
@@ -12,22 +13,38 @@ function onSelect(v: string | number): void {
 </script>
 
 <template>
-  <TabsRoot :model-value="modelValue" activation-mode="automatic" orientation="horizontal" @update:model-value="onSelect">
-    <TabsList class="tab-list" :aria-label="common.inboxTabs.label" data-testid="inbox-tabs">
-      <TabsTrigger v-for="t in INBOX_TABS" :key="t" :value="t" class="tab" :data-testid="`inbox-tab-${t}`">
-        {{ common.inboxTabs[t] }}
-      </TabsTrigger>
-    </TabsList>
-  </TabsRoot>
+  <!-- Inbox Zero ボタンはタブの横スクロールの外（左端）に置く。タブが横にスクロールしても隠れず、タブとぶつからない。 -->
+  <div class="tabs-row">
+    <InboxZeroButton />
+    <TabsRoot class="tabs-root" :model-value="modelValue" activation-mode="automatic" orientation="horizontal" @update:model-value="onSelect">
+      <TabsList class="tab-list" :aria-label="common.inboxTabs.label" data-testid="inbox-tabs">
+        <TabsTrigger v-for="t in INBOX_TABS" :key="t" :value="t" class="tab" :data-testid="`inbox-tab-${t}`">
+          {{ common.inboxTabs[t] }}
+        </TabsTrigger>
+      </TabsList>
+    </TabsRoot>
+  </div>
 </template>
 
 <style scoped>
-/* 狭い画面（スマホ）では横にスクロールする。 */
+.tabs-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+  padding-left: var(--s-3);
+  border-bottom: 1px solid var(--border);
+}
+
+.tabs-root {
+  flex: 1;
+  min-width: 0;
+}
+
+/* 狭い画面（スマホ）では横にスクロールする（ボタンは外にあるので一緒に流れない）。 */
 .tab-list {
   display: flex;
   gap: var(--s-1);
-  padding: 0 var(--s-3);
-  border-bottom: 1px solid var(--border);
+  padding: 0 var(--s-3) 0 var(--s-1);
   overflow-x: auto;
 }
 
