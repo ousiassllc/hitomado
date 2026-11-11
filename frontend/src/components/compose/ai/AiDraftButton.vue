@@ -198,8 +198,8 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
 
 .dlg-text {
   margin: 0;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
 }
 
 .alert-enter-active {

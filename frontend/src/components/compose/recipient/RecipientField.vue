@@ -281,6 +281,12 @@ function onKeydown(e: KeyboardEvent): void {
   color: var(--mute);
 }
 
+/* --accent-soft 地（強調・ホバーの行）の上では --mute が AA 4.5:1 に届かない。名前とメールの階層（色の対比）を残すため --ink にせず --mute-on-soft にする（#271）。 */
+.suggest-active .suggest-name,
+.suggest-item:hover .suggest-name {
+  color: var(--mute-on-soft);
+}
+
 /* 出現はフェードイン 320ms（ease-out）、退出はフェードアウト 240ms（ease-in）（M5。duration・easing は BaseMenu・BaseSelect と同じ。入力欄の直下に出るので移動なしで opacity だけ） */
 .suggest-enter-active {
   animation: ui-fade-in var(--motion-fade-in) var(--ease-out);

@@ -68,7 +68,7 @@ describe('ChatGPT プランの確認モーダル（#80）', () => {
     w.unmount()
   })
 
-  test('Esc では閉じず、確認も記録しない（Got it だけが確認になる）', async () => {
+  test('Esc で閉じる。確認は記録しない（記録するのは Got it だけ）', async () => {
     const { w, acked } = mountNotice([pending(acctA)])
     await flushPromises()
     document
@@ -76,8 +76,22 @@ describe('ChatGPT プランの確認モーダル（#80）', () => {
       ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await flushPromises()
     expect(acked).toEqual([])
-    expect(dialogText()).toContain("You're using your ChatGPT plan")
-    expect(document.body.querySelector('button[aria-label="閉じる"]')).toBeNull()
+    expect(dialogText()).not.toContain("You're using your ChatGPT plan")
+    w.unmount()
+  })
+
+  test('外側（スクラム）クリックで閉じる。確認は記録せず、× のボタンも出る', async () => {
+    const { w, acked } = mountNotice([pending(acctA)])
+    await flushPromises()
+    expect(document.body.querySelector('button[aria-label="閉じる"]')).not.toBeNull()
+    // Reka は pointerdown の購読を setTimeout(0) で始める。その購読が済んでから押す。
+    await new Promise((r) => setTimeout(r, 0))
+    document
+      .querySelector('.dlg-overlay')
+      ?.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    await flushPromises()
+    expect(acked).toEqual([])
+    expect(dialogText()).not.toContain("You're using your ChatGPT plan")
     w.unmount()
   })
 

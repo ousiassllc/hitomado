@@ -9,13 +9,13 @@ import { common } from '../../lib/messages'
 </template>
 
 <style scoped>
-/* 処理中の表示なので、prefers-reduced-motion でも回し続ける（止めるのは装飾的な動きだけ。ガイド M3）。 */
+/* 周期は 0.9s linear。prefers-reduced-motion: reduce では回転を止める（animation: none）。track と先端（--accent）の 2 色のリングはそのまま残るので、静止した状態でも処理中の表示だとわかる。 */
 .spinner {
   display: inline-block;
   border: 2px solid var(--accent-soft);
   border-top-color: var(--accent);
   border-radius: var(--r-full);
-  animation: spin 0.8s linear infinite;
+  animation: spin 0.9s linear infinite;
   flex: none;
   width: var(--icon-md);
   height: var(--icon-md);
@@ -24,6 +24,12 @@ import { common } from '../../lib/messages'
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
   }
 }
 </style>

@@ -8,6 +8,8 @@
   --border: #e7e7e5;
   --accent: #050505;
   --accent-soft: #e7e7e5;
+  /* --accent-soft（ホバー・選択）の地の上の補助文字。--mute は AA 4.5:1 に届かない（Light 4.29・Dark 4.22）ので、--ink へ 15% 寄せる。ダークは :root の --mute 上書きに追従する。--ink にできない（未読/既読の対比や名前とメールの階層を残す）箇所だけが使う。 */
+  --mute-on-soft: color-mix(in srgb, var(--mute) 85%, var(--ink));
   --focus: #4a72d0;
   --success: #3d5c4a;
   --warning: #7a6a3a;
@@ -180,7 +182,7 @@
 }
 
 /* reduced-motion: 移動・スライドは無効にし、必要な opacity のフェードは 100ms 以内にする。
-   スピナーなど処理中の表示は動かし続ける（アニメーションを一括で止めない）。 */
+   アニメーションを一括で止めはしない。Spinner は --motion-* を使わず、自分の @media（Spinner.vue）で回転を止める。 */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-fast: 0ms;

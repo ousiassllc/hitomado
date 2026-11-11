@@ -162,8 +162,8 @@ function askRemove(a: Account): void {
 
 .detail {
   margin: 0;
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
 }
 
 .sr-only {

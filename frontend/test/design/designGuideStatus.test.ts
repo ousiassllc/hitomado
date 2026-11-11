@@ -57,6 +57,40 @@ describe('要再接続の行は濃淡だけで伝えない（C4・#129）', () =
   })
 })
 
+describe('一覧の行の既読の送信者の色（#259）', () => {
+  const style = parse(
+    readFileSync(new URL('../../src/components/inbox/ThreadRow.vue', import.meta.url), 'utf8'),
+  ).descriptor.styles[0].content
+
+  test('既読は --row-mute（ホバー・選択・複数選択では --mute-on-soft になる補助文字の色）にする', () => {
+    expect(style).toMatch(/\n\.sender \{\s*color: var\(--row-mute\);\s*\}/)
+    expect(style).toMatch(/\.row \{[^}]*--row-mute: var\(--mute\);/)
+    expect(style).toMatch(
+      /\.row:hover,\s*\.row\.selected,\s*\.row\.checked \{\s*--row-mute: var\(--mute-on-soft\);/,
+    )
+  })
+
+  test('未読の送信者は --ink のままで、--row-mute にしない', () => {
+    expect(style).toMatch(/\.unread \.sender,\s*\.unread \.subject \{\s*color: var\(--ink\);\s*\}/)
+  })
+
+  test('要再接続の行の差出人も --row-mute にし、通常時は --mute のまま、ホバー・選択では --mute-on-soft になる（AA）', () => {
+    // .row.needs-reauth .sender は .sender より詳細度が高いので、--mute 直書きだとホバー・選択で --mute-on-soft に切り替わらない
+    expect(style).toMatch(/\.row\.needs-reauth \.sender \{\s*color: var\(--row-mute\);\s*\}/)
+    expect(style).not.toMatch(/\.row\.needs-reauth \.sender[^{]*\{[^}]*color: var\(--mute\)/)
+    // 通常時の --row-mute は --mute（見た目は変わらない）で、ホバー・選択・複数選択で --mute-on-soft
+    expect(style).toMatch(/\.row \{[^}]*--row-mute: var\(--mute\);/)
+    expect(style).toMatch(
+      /\.row:hover,\s*\.row\.selected,\s*\.row\.checked \{\s*--row-mute: var\(--mute-on-soft\);/,
+    )
+  })
+
+  test('要再接続の行の件名も --row-mute にし、通常時は --mute のまま、ホバー・選択では --mute-on-soft になる（AA）', () => {
+    expect(style).toMatch(/\.row\.needs-reauth \.subject \{\s*color: var\(--row-mute\);\s*\}/)
+    expect(style).not.toMatch(/\.row\.needs-reauth \.subject[^{]*\{[^}]*color: var\(--mute\)/)
+  })
+})
+
 describe('無効な宛先（C4・#129）', () => {
   test('形式が正しくないアドレスは、チップの警告アイコンと入力欄の下の文言で伝える', () => {
     const w = mount(RecipientField, {

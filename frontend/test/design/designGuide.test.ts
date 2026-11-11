@@ -82,19 +82,37 @@ describe('モーダル（O1・O2）', () => {
     w.unmount()
   })
 
-  test('closable=false は閉じるボタンが無く、Esc でも閉じる要求を出さない（明示のボタンだけで閉じる確認）', async () => {
+  test('busy 中は閉じるボタンが無く、Esc・外側クリックでも閉じる要求を出さない。busy でなければ出す', async () => {
     setActivePinia(createPinia())
     const w = mount(BaseDialog, {
-      props: { open: true, title: '確認', closable: false },
+      props: { open: true, title: '確認', busy: true },
       attachTo: document.body,
     })
-    await nextTick()
+    await flushPromises()
+    // Reka は pointerdown の購読を setTimeout(0) で始める。その購読が済んでから押す（購読の完了待ちで、時間の見込みではない）。
+    await new Promise((r) => setTimeout(r, 0))
+    const outside = () =>
+      document
+        .querySelector('.dlg-overlay')
+        ?.dispatchEvent(new Event('pointerdown', { bubbles: true }))
+    const esc = () =>
+      document
+        .querySelector('[role="dialog"]')
+        ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     expect(document.querySelector('button[aria-label="閉じる"]')).toBeNull()
-    document
-      .querySelector('[role="dialog"]')
-      ?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
-    await nextTick()
+    esc()
+    outside()
+    await flushPromises()
     expect(w.emitted('update:open')).toBeUndefined()
+
+    await w.setProps({ busy: false })
+    expect(document.querySelector('button[aria-label="閉じる"]')).not.toBeNull()
+    outside()
+    await flushPromises()
+    expect(w.emitted('update:open')?.at(-1)).toEqual([false])
+    esc()
+    await flushPromises()
+    expect(w.emitted('update:open')).toHaveLength(2)
     w.unmount()
   })
 
@@ -175,6 +193,22 @@ describe('モーション（M）', () => {
     expect(style).toContain('width: var(--icon-md)')
     expect(style).toContain('height: var(--icon-md)')
     expect(style).not.toMatch(/--icon-(sm|lg)/)
+  })
+
+  test('スピナーは prefers-reduced-motion: reduce で回転を止め、リング（track と先端）は残す（M3）', () => {
+    const style = parse(
+      readFileSync(new URL('../../src/components/ui/Spinner.vue', import.meta.url), 'utf8'),
+    ).descriptor.styles[0].content
+    expect(style).toMatch(/\.spinner \{[^}]*animation: spin 0\.9s linear infinite;/)
+    const reduced =
+      style.match(
+        /@media \(prefers-reduced-motion: reduce\) \{\s*\.spinner \{([^}]*)\}\s*\}/,
+      )?.[1] ?? ''
+    expect(reduced.replace(/\s+/g, '')).toBe('animation:none;')
+    // 静止しても処理中だとわかるよう、リングの描画（border・先端の色）は reduced-motion で消さない
+    expect(style).toMatch(
+      /\.spinner \{[^}]*border: 2px solid var\(--accent-soft\);[^}]*border-top-color: var\(--accent\);/,
+    )
   })
 
   test('primary ボタンの loading のスピナーは、--accent 地で見えるよう --bone に反転する（O12）', () => {
