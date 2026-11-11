@@ -188,17 +188,24 @@ function onKeydown(e: KeyboardEvent, i: number): void {
   max-width: 100%;
 }
 
+/* 名前は 2 行まで折り返し、3 行目以降は末尾「…」。折り返しは単語の区切り優先（overflow-wrap: anywhere は使わない）。全文は aria-label が持つ。 */
 .name {
+  display: -webkit-box;
   max-width: 100%;
   overflow: hidden;
   font-weight: 600;
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
+/* 補足は 1 行で、はみ出したら末尾「…」。 */
 .note {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--mute);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);

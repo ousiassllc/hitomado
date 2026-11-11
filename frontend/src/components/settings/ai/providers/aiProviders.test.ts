@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { settings as msg } from '../../../../lib/messages'
 import { useSettingsStore } from '../../../../stores/settings'
 import { useUiStore } from '../../../../stores/ui'
 import { base, button } from '../aiTestSupport'
@@ -235,6 +236,23 @@ describe('プロバイダの一覧: カードのグリッド（#315）', () => {
     }
     expect(w.findAll('[title]')).toHaveLength(0)
     w.unmount()
+  })
+
+  test('名前が長くて省略されても、カードの aria-label には名前の全文が入る（title 属性は付けない）', () => {
+    const t = msg.ai.providerList
+    const orig = t.names.typesafe
+    t.names.typesafe = 'TypeSafe AI Jev 日本語向けのとても長いサービス名のテスト用プロバイダ'
+    try {
+      const { pinia } = setup()
+      const w = mountTab(pinia)
+      const c = card(w, 'typesafe')
+      expect(c.attributes('aria-label')).toBe(`${t.names.typesafe} の設定を開く`)
+      expect(c.get('.name').text()).toBe(t.names.typesafe)
+      expect(c.attributes('title')).toBeUndefined()
+      w.unmount()
+    } finally {
+      t.names.typesafe = orig
+    }
   })
 
   test('選択中は既定のプロバイダの 1 枚だけ（aria-checked とチェック印）。既定が保存されていないときはどれも選択中にならない', () => {
