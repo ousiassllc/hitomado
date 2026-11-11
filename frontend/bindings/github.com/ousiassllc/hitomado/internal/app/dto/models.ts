@@ -36,6 +36,11 @@ export interface AIConfig {
      * APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai／typesafe。chatgpt は ChatGPTSignedIn）。保存前に選んだプロバイダのキーの有無を出すのに使う。null にしない。
      */
     "apiKeyProviders": string[] | null;
+
+    /**
+     * ConsentedProviders は送信先への同意済みのプロバイダ（anthropic／openai／chatgpt／typesafe）。typesafe（Inbox Zero の判定。#314）は
+     * 既定のプロバイダに関わらず、同意していれば含む。openai は現在の Base URL の送信先への同意だけが有効。null にしない。
+     */
     "consentedProviders": string[] | null;
 
     /**
@@ -303,6 +308,76 @@ export interface InboxQuery {
     "tab"?: string;
     "limit": number;
     "cursor"?: string;
+}
+
+/**
+ * InboxZeroCandidate はアーカイブの候補 1 件（FindInboxZeroCandidates の結果）。
+ */
+export interface InboxZeroCandidate {
+    "ref": ThreadRef;
+
+    /**
+     * From はスレッドの最新のメッセージ（下書きを除く）の差出人（表示名。無ければメールアドレス）。
+     */
+    "from": string;
+    "subject": string;
+
+    /**
+     * Reason は候補にした理由（ad／notification／newsletter／replied）。
+     */
+    "reason": string;
+}
+
+/**
+ * InboxZeroReasons は Inbox Zero（#314）で「不要なメール」とみなす理由ごとのオン・オフ。オンの理由だけを使う。
+ */
+export interface InboxZeroReasons {
+    /**
+     * Ad は広告・宣伝のメール（TypeSafe AI が判定）。
+     */
+    "ad": boolean;
+
+    /**
+     * Notification は通知だけのメール（TypeSafe AI が判定）。
+     */
+    "notification": boolean;
+
+    /**
+     * Newsletter は未読のニュースレター（TypeSafe AI が判定。スレッドが未読のときだけ）。
+     */
+    "newsletter": boolean;
+
+    /**
+     * Replied は返信済みのメール（スレッドに自分のメッセージがある。端末内で判定し、TypeSafe AI は使わない）。
+     */
+    "replied": boolean;
+}
+
+/**
+ * InboxZeroResult は FindInboxZeroCandidates の結果。
+ */
+export interface InboxZeroResult {
+    /**
+     * Candidates は候補（渡された順。null にしない）。
+     */
+    "candidates": InboxZeroCandidate[] | null;
+
+    /**
+     * Examined は調べたスレッドの数（重複を除く）。
+     */
+    "examined": number;
+
+    /**
+     * Skipped は TypeSafe AI の判定に失敗して候補にしなかったスレッドの数。
+     */
+    "skipped": number;
+}
+
+/**
+ * InboxZeroSettings は Inbox Zero の設定（app_settings の inbox_zero.reasons）。未設定・壊れた値は全部オン。
+ */
+export interface InboxZeroSettings {
+    "reasons": InboxZeroReasons;
 }
 
 /**

@@ -24,8 +24,8 @@ const (
 	providerAnthropic = "anthropic"
 	providerOpenAI    = "openai"
 	providerChatGPT   = "chatgpt" // Sign in with ChatGPT（利用者自身の ChatGPT プラン。Responses API）
-	// providerTypeSafe は TypeSafe AI（Jev。#314）。文章を書かない分類用のモデルで、返信下書き・要約・質問には使えない。
-	// 今は API キーの登録だけを扱う（validKeyProvider）。メール本文の送信と同意は、Inbox Zero の仕様が決まってから足す（#314）。
+	// providerTypeSafe は TypeSafe AI（Jev。#314）。文章を書かない分類用のモデルで、Inbox Zero の判定（FindInboxZeroCandidates）だけに使う。
+	// 返信下書き・要約・質問には使えない（validProvider の外）。API キーと同意（件名・差出人・本文の先頭の送信）は持つ（validSendProvider）。
 	providerTypeSafe = "typesafe"
 )
 
@@ -81,8 +81,8 @@ func validProvider(p string) bool {
 	return p == providerAnthropic || p == providerOpenAI || p == providerChatGPT
 }
 
-// validKeyProvider は API キーを登録できるプロバイダか（validProvider に TypeSafe AI を足したもの）。
-func validKeyProvider(p string) bool {
+// validSendProvider はメールの内容の送信先になり得るプロバイダ（API キーの登録・同意の対象）か。validProvider に TypeSafe AI を足したもの。
+func validSendProvider(p string) bool {
 	return validProvider(p) || p == providerTypeSafe
 }
 
@@ -210,7 +210,7 @@ func (s *Service) SetAIConfig(ctx context.Context, provider, model, baseURL, eff
 
 // SetAIApiKey は API キーを資格情報ストアへ保存する（NF-S01）。キーはログに出さない。
 func (s *Service) SetAIApiKey(ctx context.Context, provider, apiKey string) (dto.AIConfig, error) {
-	if !validKeyProvider(provider) {
+	if !validSendProvider(provider) {
 		return dto.AIConfig{}, errBadProvider()
 	}
 	if provider == providerChatGPT {
@@ -228,7 +228,7 @@ func (s *Service) SetAIApiKey(ctx context.Context, provider, apiKey string) (dto
 
 // ClearAIApiKey は API キーを削除する。
 func (s *Service) ClearAIApiKey(ctx context.Context, provider string) (dto.AIConfig, error) {
-	if !validKeyProvider(provider) {
+	if !validSendProvider(provider) {
 		return dto.AIConfig{}, errBadProvider()
 	}
 	if provider == providerChatGPT {

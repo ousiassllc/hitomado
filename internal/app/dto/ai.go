@@ -13,7 +13,9 @@ type AIConfig struct {
 	// HasAPIKey は現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。
 	HasAPIKey bool `json:"hasApiKey"`
 	// APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai／typesafe。chatgpt は ChatGPTSignedIn）。保存前に選んだプロバイダのキーの有無を出すのに使う。null にしない。
-	APIKeyProviders    []string `json:"apiKeyProviders"`
+	APIKeyProviders []string `json:"apiKeyProviders"`
+	// ConsentedProviders は送信先への同意済みのプロバイダ（anthropic／openai／chatgpt／typesafe）。typesafe（Inbox Zero の判定。#314）は
+	// 既定のプロバイダに関わらず、同意していれば含む。openai は現在の Base URL の送信先への同意だけが有効。null にしない。
 	ConsentedProviders []string `json:"consentedProviders"`
 	// ChatGPTSignedIn は選択中のプロバイダに関わらず、使用中の ChatGPT アカウントがログイン済みか。ChatGPTEmail はそのメールアドレス（表示用）。
 	ChatGPTSignedIn bool   `json:"chatgptSignedIn"`
