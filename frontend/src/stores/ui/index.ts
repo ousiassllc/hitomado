@@ -58,6 +58,8 @@ export const useUiStore = defineStore('ui', () => {
   const settingsTab = ref('accounts')
   /** AI 設定タブを開いた直後に始める流れ（「AI で下書き」の初回の案内から ChatGPT へ進むとき。AISettings が一度だけ受け取る）。 */
   const aiSetupIntent = ref<'chatgpt-login'>()
+  /** AI 設定タブで開いているプロバイダのページ（#315）。undefined はプロバイダの一覧。戻る（Android の戻るボタン）で一覧へ戻すため、ストアに持つ。 */
+  const aiProviderPage = ref<string>()
   const online = ref(true)
   /** サイドバーのドロワー（2 ペイン・1 画面ずつのレイアウトで使う）が開いているか */
   const menuOpen = ref(false)
@@ -136,6 +138,7 @@ export const useUiStore = defineStore('ui', () => {
   function openSettings(tab = 'accounts', aiIntent?: 'chatgpt-login'): void {
     settingsTab.value = tab
     aiSetupIntent.value = tab === 'ai' ? aiIntent : undefined
+    aiProviderPage.value = undefined // 開くたびに AI はプロバイダの一覧から始める（初回の案内の入口は AISettings が ChatGPT のページへ進める）
     openDialog('settings')
   }
 
@@ -172,6 +175,7 @@ export const useUiStore = defineStore('ui', () => {
     dialogs,
     settingsTab,
     aiSetupIntent,
+    aiProviderPage,
     online,
     menuOpen,
     pushToast,

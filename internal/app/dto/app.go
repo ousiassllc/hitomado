@@ -15,6 +15,8 @@ type AppInfo struct {
 	// AutoUpdateEnabled は自動アップデートの設定（既定オン。AutoUpdateSupported が false のときは常に false）。
 	AutoUpdateEnabled bool   `json:"autoUpdateEnabled"`
 	DataDir           string `json:"dataDir"`
+	// SendConfirmEnabled は送信前に確認画面を出す設定（既定オン。#313）。
+	SendConfirmEnabled bool `json:"sendConfirmEnabled"`
 }
 
 // UpdateInfo は新バージョン確認の結果。

@@ -30,7 +30,7 @@ export function AskAboutThread(ref: dto$0.ThreadRef, requestID: string, question
 }
 
 /**
- * CancelGenerate は実行中の生成を中止する（GenerateReplyDraft・SummarizeThread・AskAboutThread は CANCELLED で終わる）。
+ * CancelGenerate は実行中の生成を中止する（GenerateReplyDraft・SummarizeThread・AskAboutThread・FindInboxZeroCandidates は CANCELLED で終わる）。
  */
 export function CancelGenerate(requestID: string): $CancellablePromise<void> {
     return $Call.ByID(624546058, requestID);
@@ -48,6 +48,15 @@ export function ClearAIApiKey(provider: string): $CancellablePromise<dto$0.AICon
 }
 
 /**
+ * FindInboxZeroCandidates は refs（読み込み済みの一覧。重複を除いて 100 件まで）から、オンの理由に当てはまるアーカイブ候補を返す。
+ * 返信済みは端末内で判定し、広告・通知・ニュースレターは TypeSafe AI（件名・差出人・本文の先頭 500 文字を送る。キーと同意が前提）で判定する。
+ * 中止は CancelGenerate（CANCELLED）。アーカイブは行わない（InboxService.Archive を使う）。
+ */
+export function FindInboxZeroCandidates(refs: dto$0.ThreadRef[] | null, requestID: string): $CancellablePromise<dto$0.InboxZeroResult> {
+    return $Call.ByID(3006175544, refs, requestID);
+}
+
+/**
  * GenerateReplyDraft は reply／reply_all セッションのスレッドから下書きを生成する。ctx キャンセルは CANCELLED。
  * instruction は任意の「AI への指示」（空・空白だけは指示なし。2,000 文字まで。保存しない）。
  */
@@ -57,6 +66,13 @@ export function GenerateReplyDraft(sessionID: string, requestID: string, instruc
 
 export function GetAIConfig(): $CancellablePromise<dto$0.AIConfig> {
     return $Call.ByID(792522765);
+}
+
+/**
+ * GetInboxZeroSettings は Inbox Zero の設定（「不要なメール」の理由ごとのオン・オフ）を返す。未設定は全部オン（#314）。
+ */
+export function GetInboxZeroSettings(): $CancellablePromise<dto$0.InboxZeroSettings> {
+    return $Call.ByID(2571272336);
 }
 
 /**
@@ -90,6 +106,13 @@ export function SetAIApiKey(provider: string, apiKey: string): $CancellablePromi
 
 export function SetAIConfig(provider: string, model: string, baseURL: string, effort: string): $CancellablePromise<dto$0.AIConfig> {
     return $Call.ByID(101858289, provider, model, baseURL, effort);
+}
+
+/**
+ * SetInboxZeroReasons は「不要なメール」の理由ごとのオン・オフを保存する（広告・通知・ニュースレター・返信済み）。
+ */
+export function SetInboxZeroReasons(reasons: dto$0.InboxZeroReasons): $CancellablePromise<dto$0.InboxZeroSettings> {
+    return $Call.ByID(1259288786, reasons);
 }
 
 /**

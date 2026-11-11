@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { parseBindingError } from '../../../lib/api'
 import { settings as msg } from '../../../lib/messages'
 import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'
 import BaseButton from '../../ui/BaseButton.vue'
-import BaseSelect from '../../ui/BaseSelect.vue'
 import SettingsInput from '../SettingsInput.vue'
 import AIApiKey from './AIApiKey.vue'
 import AIChatGPTLogin from './AIChatGPTLogin.vue'
@@ -13,19 +12,20 @@ import AIConsentSection from './AIConsentSection.vue'
 import AIDestinationBox from './AIDestinationBox.vue'
 import AIEffortField from './AIEffortField.vue'
 import AIModelField from './AIModelField.vue'
-import { DEFAULT_AI_PROVIDER, providerLabel } from './aiDestination'
+import { providerLabel } from './aiDestination'
 import { useAiDraftState } from './useAiDraftState'
 import { type AiBusy, useAiSetupFlow } from './useAiSetupFlow'
 
+// 1 つのプロバイダの設定ページ（#315。プロバイダは一覧から選んで開く。AIProviders が `provider` を渡す）。
 // プロバイダを選ぶ → (未同意なら) 同意の画面 → 同意でそのままモデル一覧を取得 → 一覧からモデルを選んで保存、という 1 つの流れ（#105）。
 // 作成画面の「AI で下書き」の初回の案内から ChatGPT へ進むとき（#104）も、この流れの入口（`ui.aiSetupIntent`）から入る。
 // 一覧の取得・同意の確認は保存前の選択（プロバイダ・Base URL）に対して行い、同意前の送信先へ送らないのは Go が決める（reason=consent_required）。
 const store = useSettingsStore()
 const ui = useUiStore()
 
-const providers = Object.entries(msg.ai.providerOptions).map(([value, label]) => ({ value, label }))
+const props = defineProps<{ provider: string }>()
 
-const provider = ref(DEFAULT_AI_PROVIDER)
+const provider = ref(props.provider)
 const model = ref('')
 const baseUrl = ref('')
 const effort = ref('')
@@ -61,6 +61,8 @@ const { refresh, agree, declineConsent } = useAiSetupFlow({
   chatgptLogin,
 })
 
+// 開いたページのプロバイダが保存済みの既定と違うときは、プロバイダを選んだときと同じ流れ（同意の確認 → 一覧の取得）を始める。
+// 保存済みの既定のページを開いただけでは取得しない。初回の案内から入るとき（ui.aiSetupIntent）は、その流れ（startFromIntent）が始める。
 function onProvider(v: string): void {
   provider.value = v
   errors.value = {}
@@ -132,12 +134,19 @@ function startFromIntent(): void {
   void refresh(true)
 }
 watch(() => [saved.value !== undefined, ui.aiSetupIntent], startFromIntent, { immediate: true })
+watch(() => props.provider, onProvider)
+onMounted(() => {
+  if (saved.value !== undefined && ui.aiSetupIntent === undefined && props.provider !== saved.value.provider) {
+    fitEffort()
+    if (destinationDecided.value) void refresh()
+  }
+})
 </script>
 
 <template>
   <section class="ai" :aria-label="msg.ai.heading">
     <div class="group">
-      <h3 class="heading">{{ msg.ai.heading }}</h3>
+      <h3 class="heading">{{ providerLabel(provider) }}</h3>
       <p class="intro">{{ msg.ai.intro }}</p>
     </div>
 
@@ -149,15 +158,9 @@ watch(() => [saved.value !== undefined, ui.aiSetupIntent], startFromIntent, { im
     />
 
     <div class="form">
-      <div class="field">
-        <span class="label">{{ msg.ai.provider }}</span>
-        <BaseSelect
-          :model-value="provider"
-          :options="providers"
-          :ariaLabel="msg.ai.provider"
-          @update:model-value="onProvider"
-        />
-      </div>
+      <p v-if="saved !== undefined && provider !== saved.provider" class="hint" data-testid="ai-draft-hint">
+        {{ msg.ai.providerList.draftHint }}
+      </p>
       <SettingsInput
         v-if="provider === 'openai'"
         v-model="baseUrl"
@@ -266,17 +269,6 @@ watch(() => [saved.value !== undefined, ui.aiSetupIntent], startFromIntent, { im
   display: flex;
   flex-direction: column;
   gap: var(--gap-field);
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: var(--gap-label);
-  max-width: 320px;
-}
-
-.label {
-  font-size: var(--font-size-sm);
 }
 
 .error {

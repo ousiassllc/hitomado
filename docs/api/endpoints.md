@@ -18,7 +18,7 @@ Hitomado は HTTP サーバーを持たない。フロントエンド（Vue）�
 | `InboxService` | 統合受信箱、検索、未読件数、スレッド操作、ラベル |
 | `ThreadService` | スレッド詳細、添付保存、リンクを開く |
 | `ComposeService` | 作成セッション、下書き、送信前確認、送信、宛先候補 |
-| `AIService` | AI 設定・同意・下書き生成・スレッドの要約・スレッドへの質問 |
+| `AIService` | AI 設定・同意・下書き生成・スレッドの要約・スレッドへの質問・Inbox Zero（アーカイブ候補の判定） |
 | `AppService` | アプリ設定（受信箱フィルタ等）、バージョン、更新確認 |
 | `LogService` | フロントのエラーの記録、ログフォルダを開く、ログの書き出し |
 | `MCPService` | 内蔵 MCP サーバーの設定・トークン・状態 |
@@ -325,6 +325,7 @@ sequenceDiagram
   CS-->>FE: SendResult
 ```
 
+- 設定「送信前に確認画面を出す」（`AppService.SetSendConfirmEnabled`。既定オン）がオフのとき、フロントは確認ダイアログを出さずに、`PrepareSend` の応答の確認トークンですぐ `Send` を呼ぶ。バックエンドは設定を見ず、確認トークンなしの送信を拒否し、内容ハッシュも照合する。`PrepareSend` の `warnings` が 1 件でもあるときは、設定がオフでも確認ダイアログを出す（[機能要件 F-06](../requirements/functional.md)）
 - **確認トークン**: 暗号論的乱数 128bit。セッションに紐づけてメモリのみで保持する。有効期限 5 分、1 回限り（使用で失効）。`PrepareSend` を再度呼ぶと以前のトークンは無効になる
 - **内容ハッシュ**: `PrepareSend` が受け取った `ComposeContent`、送信元アカウント ID、添付（ID・サイズ）、`archiveAfterSend` を正規化して SHA-256 を取り、トークンに紐づける。`Send` は渡された `content` で同じ計算を行い、**不一致なら `CONFIRM_MISMATCH`**（確認後に宛先や本文を変えて送信することを防ぐ）
 - `Send` はトークンがない・未知なら `CONFIRM_REQUIRED`、期限切れ・使用済みなら `CONFIRM_EXPIRED`
@@ -362,8 +363,8 @@ type AIConfig = {
   effort?: string;            // 下書きの生成に渡すモデルのエフォート（reasoning effort）。未指定は「モデルの既定」（プロバイダへ送らない）。`anthropic` は `low`／`medium`／`high`／`xhigh`／`max`、`openai`／`chatgpt` は `low`／`medium`／`high`（#111）
   configured: boolean;        // AI の設定（`SetAIConfig`）を一度でも保存したか。偽のあいだ、provider は既定の `chatgpt`・model は空（画面は「AI で下書き」で初回の案内を出す）。壊れた保存値・未知のプロバイダの保存値も偽（既定として扱う）
   hasApiKey: boolean;         // 現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。キー・トークン自体は返さない
-  apiKeyProviders: AIProvider[];       // API キーを登録済みのプロバイダ（anthropic／openai。chatgpt は含めず chatgptSignedIn で見る）。保存前に選んだプロバイダのキーの有無を出すのに使う。無ければ空配列で null にしない
-  consentedProviders: AIProvider[];    // 現在保存している設定の送信先に同意済みのプロバイダ（保存前に選んだ送信先の同意は、`ListAIModels` の `consent_required` で分かる）
+  apiKeyProviders: (AIProvider | 'typesafe')[];       // API キーを登録済みのプロバイダ（anthropic／openai／typesafe（TypeSafe AI。#314）。chatgpt は含めず chatgptSignedIn で見る）。保存前に選んだプロバイダのキーの有無を出すのに使う。無ければ空配列で null にしない
+  consentedProviders: (AIProvider | 'typesafe')[];    // 現在保存している設定の送信先に同意済みのプロバイダ（保存前に選んだ送信先の同意は、`ListAIModels` の `consent_required` で分かる）。`typesafe`（TypeSafe AI。Inbox Zero の判定。#314）は送信先が固定（api.typesafe.ai）で、選択中のプロバイダや Base URL を変えても（`SetAIConfig`）失効しない
   chatgptSignedIn: boolean;   // 選択中のプロバイダに関わらず、使用中の ChatGPT アカウントがログイン済みか
   chatgptEmail?: string;      // 使用中のアカウントのメールアドレス（表示用。検証済み ID トークンのもの）
   chatgptAccounts: ChatGPTAccount[];   // 保存済みの ChatGPT アカウント（登録順。無ければ空配列で null にしない。トークンは含まない）
@@ -393,15 +394,35 @@ type ThreadAIResult = { text: string; includedCount: number; totalCount: number 
 
 // スレッドへの AI 質問の会話 1 件（F-18）。`user` は利用者の質問、`assistant` は AI の回答。Go は会話を保持せず、呼び出しごとにフロントが渡す
 type ThreadAITurn = { role: 'user' | 'assistant'; text: string };
+
+// Inbox Zero（#314。§6.3）
+type InboxZeroReasons = {
+  ad: boolean;            // 広告・宣伝（TypeSafe AI が判定）
+  notification: boolean;  // 通知だけのメール（TypeSafe AI が判定）
+  newsletter: boolean;    // 未読のニュースレター（TypeSafe AI が判定。スレッドが未読のときだけ）
+  replied: boolean;       // 返信済みのメール（端末内で判定。TypeSafe AI は使わない）
+};
+type InboxZeroSettings = { reasons: InboxZeroReasons };
+type InboxZeroCandidate = {
+  ref: ThreadRef;
+  from: string;           // 最新の（下書きでない）メッセージの差出人。表示名が無ければメールアドレス
+  subject: string;
+  reason: 'ad' | 'notification' | 'newsletter' | 'replied';
+};
+type InboxZeroResult = {
+  candidates: InboxZeroCandidate[];  // 渡された順。無ければ空配列で null にしない
+  examined: number;                  // 調べたスレッド数（重複を除く）
+  skipped: number;                   // TypeSafe AI の判定に失敗して候補にしなかったスレッド数
+};
 ```
 
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
 | `GetAIConfig()` | — | `AIConfig` | 設定を保存していないときは `provider = "chatgpt"`・`model = ""`・`configured = false`（既定のプロバイダは Go の `defaultProvider`。保存済みの `anthropic`／`openai`／`chatgpt` は変えない。#104） |
 | `SetAIConfig(provider, model, baseUrl?, effort?)` | | `AIConfig` | `app_settings.ai.config` を更新。`baseUrl` は `openai` のみ有効で、`https://` の URL か、ホストが `localhost`／`127.0.0.1`／`::1` に完全一致する `http://` の URL に限る。それ以外（外部ホストへの `http://`、userinfo・クエリ・フラグメント付き等）は `VALIDATION`（メッセージに URL は含めない）。Base URL が変わって送信先（scheme＋ホスト）が変わると、そのプロバイダの同意は無効になる。`effort`（#111）は省略・空で「モデルの既定」（保存するときも `effort` キーを書かない）。指定できる値は `AIConfig.effort` に挙げたプロバイダごとの集合で、それ以外は `VALIDATION`。モデル名との組み合わせ（そのモデルが受け付けるか）は保存時に確かめない（確かめるのは画面。生成時にプロバイダが拒否したら §6 の `AI_FAILED`）。プロバイダ・モデルを変えて保存するときは、画面が `effort` を渡し直す（渡さなければ「既定」に戻る。前の値を黙って引き継がない） |
-| `SetAIApiKey(provider, apiKey)` | string ×2 | `AIConfig` | 資格情報ストアへ保存。`chatgpt` は API キーを使わないので `VALIDATION` |
-| `ClearAIApiKey(provider)` | string | `AIConfig` | キーを削除。`chatgpt` は `VALIDATION`（ログアウトは `SignOutChatGPT`） |
-| `RecordAIConsent(provider, baseUrl?)` | string ×2 | `AIConfig` | 「スレッド内容が当該プロバイダ・送信先へ送信される」ことの同意を保存（`app_settings.ai.consent`）。同意は「プロバイダ＋送信先」単位で、`openai`（api.openai.com）と `chatgpt`（api.openai.com）は別の同意として取る。**保存済みの設定ではなく、渡された送信先に対する同意を記録する**ので、設定を保存する前に、選んだプロバイダ・Base URL に同意できる（#105）。`baseUrl` は `openai` のみ有効で、空は既定の送信先。`SetAIConfig` と同じ規則で検証し、使えない Base URL は `VALIDATION`。ほかの送信先の同意は消さない。返す `AIConfig.consentedProviders` は、保存済みの設定の送信先に対するもの |
+| `SetAIApiKey(provider, apiKey)` | string ×2 | `AIConfig` | 資格情報ストアへ保存。`provider` は `anthropic`／`openai`／`typesafe`（TypeSafe AI（Jev）。文章を書かない分類用のモデルで、Inbox Zero の判定（`FindInboxZeroCandidates`）だけに使う。返信下書きのプロバイダではないので `SetAIConfig`・`ListAIModels` には使えない（`VALIDATION`）。#314）。`chatgpt` は API キーを使わないので `VALIDATION` |
+| `ClearAIApiKey(provider)` | string | `AIConfig` | キーを削除（`typesafe` も同じ）。`chatgpt` は `VALIDATION`（ログアウトは `SignOutChatGPT`） |
+| `RecordAIConsent(provider, baseUrl?)` | string ×2 | `AIConfig` | 「スレッド内容が当該プロバイダ・送信先へ送信される」ことの同意を保存（`app_settings.ai.consent`）。同意は「プロバイダ＋送信先」単位で、`openai`（api.openai.com）と `chatgpt`（api.openai.com）は別の同意として取る。**保存済みの設定ではなく、渡された送信先に対する同意を記録する**ので、設定を保存する前に、選んだプロバイダ・Base URL に同意できる（#105）。`baseUrl` は `openai` のみ有効で、空は既定の送信先。`SetAIConfig` と同じ規則で検証し、使えない Base URL は `VALIDATION`。ほかの送信先の同意は消さない。返す `AIConfig.consentedProviders` は、保存済みの設定の送信先に対するもの。`provider = "typesafe"`（TypeSafe AI。Inbox Zero の判定。#314）にも同意を取れる（送信先は api.typesafe.ai に固定。`baseUrl` は無視して保存しない）。`typesafe` の同意は選択中のプロバイダに関わらず `consentedProviders` に含み、`SetAIConfig` で別のプロバイダ・Base URL に変えても消えない。同意の文面（フロント）は「件名・差出人・本文の先頭約 500 文字が TypeSafe AI へ送られる」ことを示す |
 | `ListAIModels(provider, baseUrl?)` | string ×2 | `AIModelList` | 渡された送信先（`openai` は `baseUrl`。空は既定）から、使えるモデルの一覧を取得する。**保存済みの設定に依らず、保存前でも取得できる**（#105。下記）。MCP からは呼べない |
 | `SignInChatGPT(accountId)` | string | `AIConfig` | OpenAI の公式画面（システムブラウザ）で ChatGPT にログインする。完了・中止・時間切れまでブロックする（下記）。`accountId` が空なら別の ChatGPT アカウントとして新しく登録する（追加）。保存済みの `id` を渡すと、その登録の `client_id` で再ログインする（別のアカウントでログインされたら `VALIDATION`、未登録の ID は `NOT_FOUND`）。ID トークンを検証して保存を終えるまで、使用中のアカウントとほかのアカウントのトークン・登録は変えず、成功したアカウントが使用中になる |
 | `SelectChatGPTAccount(accountId)` | string | `AIConfig` | 下書きの生成に使う ChatGPT アカウントを切り替える。通信しない。ログイン中のアカウントだけ選べる（ログアウト済みは `AI_NOT_CONFIGURED`・`details.reason = "account_signed_out"`・メッセージは「このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。」、未登録は `NOT_FOUND`） |
@@ -412,7 +433,10 @@ type ThreadAITurn = { role: 'user' | 'assistant'; text: string };
 | `GenerateReplyDraft(sessionId, requestId, instruction?)` | string ×3 | `{ bodyHtml: string }` | 返信系セッション（`reply`／`reply_all`）のスレッドから下書きを生成する。署名・引用は含めない。`new`／`forward` は `VALIDATION`。`instruction` は利用者が書いた「AI への指示」（省略・空・空白だけは指示なし＝従来の下書き。前後の空白は除く。2,000 文字（rune 数）を超えると、通信せず `VALIDATION`）。保存はしない（ログ・DB・資格情報ストアのいずれにも残さない） |
 | `SummarizeThread(ref, requestId)` | `ThreadRef`, string | `ThreadAIResult` | 開いているスレッドの要約を生成する（F-17。#206）。`ref` のスレッドを `threads.get(format=full)`（メモリ LRU を優先）で読み、全メッセージを入力にする（下記「スレッド AI の入力」）。`text` は経緯・現在の状況・受信アカウントの利用者に求められている対応を含む短い箇条書き。保存しない。スレッドが無ければ `NOT_FOUND`、アカウントが要再接続なら `NEEDS_REAUTH` |
 | `AskAboutThread(ref, requestId, question, history)` | `ThreadRef`, string, string, `ThreadAITurn[]` | `ThreadAIResult` | 開いているスレッドの内容を文脈に、利用者の質問へ答える（F-18。#207）。入力は「スレッド AI の入力」（`SummarizeThread` と同じ全メッセージ）に、`history`（そのスレッドで今までに交わした質問と回答）と今回の `question` を加えたもの。`text` は回答（日本語のプレーンテキスト）。保存しない。`question` は前後の空白を除いて空なら `VALIDATION`、2,000 文字（rune 数）を超えると通信せず `VALIDATION`。`history` は `null`・空でもよい。形が正しくないとき（先頭が `assistant`・`user` と `assistant` が交互でない・最後が `user`・`text` が空）、20 件（10 往復）を超えるとき、`text` の合計が 20,000 文字を超えるときは、通信せず `VALIDATION`（古い往復を外すのはフロントの責務で、Go は黙って切り詰めない）。スレッドが無ければ `NOT_FOUND`、アカウントが要再接続なら `NEEDS_REAUTH` |
-| `CancelGenerate(requestId)` | string | — | 生成を中止（`GenerateReplyDraft`・`SummarizeThread`・`AskAboutThread` は `CANCELLED` で reject） |
+| `CancelGenerate(requestId)` | string | — | 生成を中止（`GenerateReplyDraft`・`SummarizeThread`・`AskAboutThread`・`FindInboxZeroCandidates` は `CANCELLED` で reject） |
+| `GetInboxZeroSettings()` | — | `InboxZeroSettings` | Inbox Zero の「不要なメール」の理由ごとのオン・オフ（`app_settings.inbox_zero.reasons`）。未設定・壊れた保存値は 4 つとも `true`（#314） |
+| `SetInboxZeroReasons(reasons)` | `InboxZeroReasons` | `InboxZeroSettings` | 理由ごとのオン・オフを保存して返す。全部オフも保存できる（そのとき `FindInboxZeroCandidates` が `VALIDATION`）。通信しない |
+| `FindInboxZeroCandidates(refs, requestId)` | `ThreadRef[]`, string | `InboxZeroResult` | `refs`（フロントが読み込み済みの、現在のタブの一覧）のうち、オンの理由に当てはまる「アーカイブ候補」を返す（§6.3）。アーカイブはしない（フロントが `InboxService.Archive`／`Unarchive` を使う）。MCP からは呼べない |
 
 - `GenerateReplyDraft` の前提: キー設定済み（`AI_NOT_CONFIGURED`。`chatgpt` ではログイン済み）・同意済み（`AI_CONSENT_REQUIRED`）。タイムアウトは 60 秒（`AI_FAILED`）。プロバイダの応答が 3xx のときは、同意した送信先以外へ内容を再送しないよう追従せず `AI_FAILED` とする（Base URL にはリダイレクト後の最終的な URL を指定する）
 - 送信するコンテキスト: 直近 5 メッセージ・合計 20,000 文字以内（NF §12）。HTML はテキスト化して送る。機密のログ出力は禁止（NF-S10）
@@ -426,6 +450,24 @@ type ThreadAITurn = { role: 'user' | 'assistant'; text: string };
 - **スレッド AI の入力**（`SummarizeThread`・F-18 の `AskAboutThread` で共通）: 対象は `ref` の 1 スレッドの全メッセージ。古い順に、差出人・日時・本文（HTML はテキスト化。`textconv`）を渡す。`DRAFT` ラベルのメッセージは含めない。添付はファイル名とサイズだけで、中身は送らない。合計 40,000 文字（NF §12）を超えるときは古いメッセージから外して新しい側を残し（最新の 1 件だけで超える場合は、その本文の先頭を切り詰める）、`includedCount`／`totalCount` で知らせる。`GenerateReplyDraft` の「直近 5 メッセージ・20,000 文字」とは別の枠で、互いに影響しない
 - **プロンプトの区別**（#206）: スレッド本文は信頼しない入力として、利用者の操作（要約の指示・質問）とは別の枠に入れ、スレッド内の文章に含まれる指示（「この指示に従ってください」等）には従わない。出力の形式（日本語のプレーンテキスト・箇条書き）はスレッド内の文章で変えさせない
 - **保存しない**: 要約の本文・質問・回答・会話・スレッドの内容は、ログ・DB・資格情報ストアのいずれにも残さない。エラー文面にも含めない（NF-S10）
+
+### 6.3 Inbox Zero（`FindInboxZeroCandidates`。#314）
+
+受信箱の一覧のうち「もう読まなくてよさそうなメール」を、利用者が確認してからまとめてアーカイブするための候補を見つける。**判定だけを行い、アーカイブはしない**。ボタン押下からのみ呼ばれる（自動実行しない）。
+
+- **プロバイダの分担**: 返信下書き・要約・質問は従来どおり既定のプロバイダ（§6）。Inbox Zero の判定は TypeSafe AI（Jev）だけで、Jev は下書きのプロバイダにはならない（`SetAIConfig`・`ListAIModels` の `typesafe` は `VALIDATION` のまま）
+- **理由（4 つ。各オン・オフ。`GetInboxZeroSettings`／`SetInboxZeroReasons`）**: オンの理由だけを使う
+  - `replied`（返信済み）: **端末内だけで判定する**。スレッドに自分のメッセージがある（下書きを除くメッセージのうち、Gmail ラベル `SENT` を持つもの、または `From` のアドレスがそのアカウントのメールアドレスと一致するもの。大文字小文字を区別しない）。Jev には聞かない。`replied` だけがオンのときは、API キーも同意も要らず、Jev のクライアントは作らない
+  - `ad`（広告・宣伝）／`notification`（通知だけのメール）／`newsletter`（未読のニュースレター）: Jev が判定する。`newsletter` はさらに、スレッドが未読（`UNREAD` ラベルのメッセージが 1 通でもある）のときだけ候補にする
+  - 返信済みと判定したスレッドは Jev に送らない（`replied` がオフのときは、通常どおり Jev の判定に従う）。1 スレッドの理由は 1 つ（`replied` が最優先）
+- **Jev の呼び出し**: `POST https://api.typesafe.ai/v1/systemone`（`Authorization: Bearer <API キー>`）。本文は `{"state": "...", "model": "jev-latest", "questions": {"category": {"type": "choice", "instructions": "...", "criteria": {"ad": "...", "notification": "...", "newsletter": "...", "other": "..."}}}}`（選択肢の説明は日本語で、`other` は「通常のメール・個人宛て・重要なもの・判断できない」）。応答の `answers.category.choice`（選ばれた選択肢）と `answers.category.probabilities`（全選択肢の確率）を使う（[Choice](https://docs.typesafe.ai/primitives/choice.md)）。選択肢は、オフの理由も含めて常に全部を送る（オフの理由のメールを `other` に寄せず、その理由として選ばせたうえで候補から外すため）
+- **候補にする条件**: 選ばれた選択肢の確率 `probabilities[choice]` が **0.8 以上**（確率の分布から算出される `confidence` ではなく、実際に行動する選択肢の確率で判断する）、かつ選ばれた選択肢が有効な理由（`other` ではない・オンである・`newsletter` は未読）。1 位の理由がオフ・対象外のスレッドは候補にしない（2 位の選択肢には落とさない）
+- **Jev へ送る内容**: スレッドの最新の（下書きでない）メッセージの差出人・件名・本文の先頭約 500 文字（HTML は `textconv` でテキスト化）だけ。ほかのメッセージ・宛先・添付・アカウント情報は送らない。1 スレッド 1 リクエスト。初回の利用前に同意が要る（`RecordAIConsent("typesafe", "")`）
+- **対象**: `refs`（重複は除く）は最大 100 件。超えると `VALIDATION`。1 回の呼び出しの中で、スレッドは `threads.get(format=full)`（メモリ LRU を優先。§10）で読む
+- **並行・タイムアウト**: Jev への同時リクエストは 4 件まで。各リクエストのタイムアウトは 60 秒（AI の他の呼び出しと同じ）。`CancelGenerate(requestId)`・呼び出し側の中止で、実行中の判定を止めて `CANCELLED`
+- **前提の検査（通信・スレッドの読み込みの前）**: `requestId` が空・`refs` が 101 件以上・理由がすべてオフ → `VALIDATION`。Jev の理由（`ad`／`notification`／`newsletter`）が 1 つでもオンで、TypeSafe AI の API キーが未登録 → `AI_NOT_CONFIGURED`（メッセージは「TypeSafe AI のキー」の登録を案内する）。同意が未取得 → `AI_CONSENT_REQUIRED`
+- **失敗の扱い**: Jev が 401／403（キー不正）→ `AI_FAILED`、429 → `RATE_LIMITED`（`retryable`）で全体を止める（途中までの結果は返さない）。ほかの 1 スレッドの失敗（5xx・不正な応答・タイムアウト・通信エラー、読み込み後に消えたスレッド）は、そのスレッドを候補にせず `skipped` に数えて続ける。Gmail のスレッド取得の失敗（認証切れなど）は §1.2 の対応するコードで全体を止める
+- **保存しない・ログに出さない**: API キー・件名・差出人・本文は、ログ・エラー文面・結果のどこにも残さない（NF-S10）。結果（`candidates`）は保存しない
 
 ### 6.1 モデル一覧（`ListAIModels`）
 
@@ -477,10 +519,11 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 |----------|------|--------|------|
 | `GetInboxFilter()` | — | `{ accountIds: string[]; unreadOnly: boolean }` | 保存済みフィルタ（`app_settings.inbox.filter`）。存在しないアカウント ID は除いて返す |
 | `SetInboxFilter(filter)` | 同上 | — | 保存 |
-| `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; autoUpdateSupported: boolean; autoUpdateEnabled: boolean; dataDir: string }` | `autoUpdateSupported` は新しい版の自動ダウンロードと入れ替えを行えるビルド（Windows のリリース版。Android・dev ビルド・開発用の Linux は `false`）。`autoUpdateEnabled` は自動アップデートの設定（既定 `true`。`autoUpdateSupported` が偽なら常に `false`） |
+| `GetAppInfo()` | — | `{ version: string; updateCheckEnabled: boolean; autoUpdateSupported: boolean; autoUpdateEnabled: boolean; sendConfirmEnabled: boolean; dataDir: string }` | `autoUpdateSupported` は新しい版の自動ダウンロードと入れ替えを行えるビルド（Windows のリリース版。Android・dev ビルド・開発用の Linux は `false`）。`autoUpdateEnabled` は自動アップデートの設定（既定 `true`。`autoUpdateSupported` が偽なら常に `false`）。`sendConfirmEnabled` は送信前の確認画面を出す設定（既定 `true`。未設定・壊れた値は `true`。#313） |
 | `SetUpdateCheckEnabled(enabled)` | boolean | — | NF-D03。アプリ内の更新確認を持たない機能構成（`supportsAutoUpdate` が偽）では `UNSUPPORTED`。Android は更新確認を持つ（新しい版のお知らせとリンクだけ） |
 | `CheckForUpdate()` | — | `{ available: boolean; version?: string; url?: string }` | GitHub Releases API を即時確認。無効時、および版が `0.0.0`（`VERSION` を注入しない dev・ローカルビルド）のときは通信せず `{ available: false }`。新しい版があり自動アップデートが有効（`autoUpdateEnabled`）なら、更新ファイルのダウンロードと照合をバックグラウンドで始める（応答は待たない。進みは `update:status`） |
 | `SetAutoUpdateEnabled(enabled)` | boolean | — | NF-D03。自動アップデートのオン／オフ（`app_settings.update.auto_enabled`）。オフにするとダウンロード済みのファイルを捨てる。入れ替えを行えないビルド（`autoUpdateSupported` が偽）では `UNSUPPORTED` |
+| `SetSendConfirmEnabled(enabled)` | boolean | — | 送信前に確認画面を出すか（`app_settings.compose.send_confirm`。既定オン。#313）。オフでも、`ComposeService.Send` は確認トークンなしでは拒否し（`CONFIRM_REQUIRED`）、送信元は受信アカウントに固定される。確認画面を省くのはフロントの送信フローだけで、`PrepareSend` を呼んでそのトークンで `Send` する（§5.2） |
 | `GetUpdateStatus()` | — | `{ stage: 'none' \| 'downloading' \| 'ready' \| 'failed'; version?: string; message?: string }` | 自動アップデートの現在の進み（`update:status` と同じ形）。`ready` はダウンロードと `SHA256SUMS.txt` との照合が済んだ入れ替え待ち。`message` は失敗・注意の日本語の文面（URL・パスを含めない） |
 | `RestartToUpdate()` | — | — | 「再起動して更新」。`stage` が `ready` のとき、終了を要求し（`AckBeforeQuit` を待って未保存の下書きを保存してから終了）、終了処理の最後でインストーラーを `/S /WAIT=60 /RELAUNCH` で分離起動して入れ替える。`ready` でないとき・送信中・下書きの保存中は `VALIDATION`（入れ替えない）。入れ替えを行えないビルドでは `UNSUPPORTED` |
 | `AckBeforeQuit()` | — | — | `app:before-quit` を受けたフロントが、未保存の作成セッションを `SaveDraft` し終えたことを Go に伝える（§9）。Go はこれを受けるか猶予 3 秒の経過で終了処理に進む |
@@ -618,3 +661,6 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.38 | 2026-11-06 | `AIService` に `SummarizeThread`（スレッドの AI 要約）と型 `ThreadAIResult` を追加。「スレッド AI の入力」（全メッセージ・合計 40,000 文字・下書きと添付の中身を送らない）、プロンプトでの本文の扱い、保存しないこと、要約の寿命（§9）、`CancelGenerate` の対象を追記 | #206 |
 | 1.39 | 2026-11-06 | `AIService` に `AskAboutThread`（スレッドの内容を文脈にした AI への質問）と型 `ThreadAITurn` を追加。`history`・`question` の検証（`VALIDATION`）、プロンプトの構成（スレッド本文は信頼しない先頭の user メッセージ・要約は文脈に入れない）、分からないことは失敗にしないこと、会話の寿命（§9）、`CancelGenerate` の対象を追記 | #207 |
 | 1.40 | 2026-11-07 | Android でも更新確認（`CheckForUpdate`・`SetUpdateCheckEnabled`・`update:available`）を有効にした。`GetCapabilities` の Android は `supportsAutoUpdate` が `true`。新しい版のバナー・設定の項目はダウンロードページのリンクを出すだけで、ダウンロード・入れ替え（`SetAutoUpdateEnabled` など）は Android では `UNSUPPORTED` のまま | Android の新バージョンのお知らせ |
+| 1.41 | 2026-11-10 | `AppService` に `SetSendConfirmEnabled`、`GetAppInfo` に `sendConfirmEnabled` を追加（送信前の確認画面のオン・オフ。既定オン）。§5.2 に、オフのときの送信の流れを追記 | #313 |
+| 1.42 | 2026-11-10 | `SetAIApiKey`／`ClearAIApiKey` が `typesafe`（TypeSafe AI（Jev））を受け付け、`AIConfig.apiKeyProviders` に含むようにした（下書きのプロバイダではない。#314） | #314 |
+| 1.43 | 2026-11-11 | `AIService` に Inbox Zero（`GetInboxZeroSettings`・`SetInboxZeroReasons`・`FindInboxZeroCandidates`）と型 `InboxZeroReasons`／`InboxZeroSettings`／`InboxZeroCandidate`／`InboxZeroResult` を追加し、§6.3 に判定の規則（理由 4 つ・Jev は広告／通知／ニュースレターのみ・確率 0.8 以上・送る内容・上限 100 件・並行 4・エラー）を追記。`RecordAIConsent` が `typesafe` を受け付け、`AIConfig.consentedProviders` に含むようにした（`SetAIConfig` で消えない）。`CancelGenerate` の対象に `FindInboxZeroCandidates` を追加 | #314 |

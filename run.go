@@ -159,6 +159,7 @@ func run() error {
 		AIModels: func(ctx context.Context, provider, baseURL, credential string) ([]ai.ModelInfo, error) {
 			return ai.ListModels(ctx, provider, baseURL, credential, nil)
 		},
+		Classifier: ai.NewClassifier,
 		ChatGPT: siwc.New(siwc.Options{
 			OpenBrowser: platform.NewBrowser(wapp).Open, Secrets: sec, Settings: st, Clock: clk, Logger: logger,
 		}),

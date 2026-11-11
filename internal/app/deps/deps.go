@@ -46,6 +46,9 @@ type AIFactory func(provider, model, baseURL, apiKey string) (ai.Provider, error
 // credential は API キー（chatgpt では ChatGPT ログインのアクセストークン）。baseURL は openai のみ（空なら既定）。
 type AIModelsLister func(ctx context.Context, provider, baseURL, credential string) ([]ai.ModelInfo, error)
 
+// ClassifierFactory は TypeSafe AI（Jev。Inbox Zero の判定。#314）の API キーから Classifier を作る（テストではフェイクに差し替える）。
+type ClassifierFactory func(apiKey string) ai.Classifier
+
 // Deps はサービス層が使う外部依存。具象は main.go（composition root）で組み立てる。
 type Deps struct {
 	Store    store.Store
@@ -70,10 +73,12 @@ type Deps struct {
 	Paths    PathOpener
 	AI       AIFactory
 	AIModels AIModelsLister
-	ChatGPT  siwc.Auth // Sign in with ChatGPT（ログイン・更新・ログアウト）
-	Logger   *slog.Logger
-	DataDir  string // %APPDATA%\Hitomado
-	Version  string
+	// Classifier は Inbox Zero の判定に使う Jev の Classifier を作る。返信下書きの AI（AI）とは別の経路。
+	Classifier ClassifierFactory
+	ChatGPT    siwc.Auth // Sign in with ChatGPT（ログイン・更新・ログアウト）
+	Logger     *slog.Logger
+	DataDir    string // %APPDATA%\Hitomado
+	Version    string
 
 	// Capabilities はこの OS で提供する機能（MCP・自動更新など。Android では無効）。ゼロ値は全機能が無効。
 	Capabilities capability.Capabilities

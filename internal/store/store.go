@@ -221,4 +221,8 @@ const (
 	SettingLastChecked = "update.last_checked_at"
 	SettingWindowState = "window.state"
 	SettingMCPConfig   = "mcp.config"
+	// SettingSendConfirm は送信前の確認画面を出すか（真偽。未設定は true。#313）。
+	SettingSendConfirm = "compose.send_confirm"
+	// SettingInboxZero は Inbox Zero で使う「不要なメール」の理由ごとのオン・オフ（JSON オブジェクト。未設定は全部オン。#314）。
+	SettingInboxZero = "inbox_zero.reasons"
 )

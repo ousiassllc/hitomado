@@ -12,6 +12,7 @@ import { useUiStore } from '../../stores/ui'
 import AddAccountDialog from '../account/AddAccountDialog.vue'
 import ComposePane from '../compose/ComposePane.vue'
 import SendConfirmDialog from '../compose/SendConfirmDialog.vue'
+import InboxZeroDialog from '../inbox/InboxZeroDialog.vue'
 import ThreadListPane from '../inbox/ThreadListPane.vue'
 import SettingsDialog from '../settings/SettingsDialog.vue'
 import ThreadPane from '../thread/ThreadPane.vue'
@@ -132,6 +133,7 @@ onBeforeUnmount(() => {
     </Transition>
     <SendConfirmDialog />
     <SettingsDialog />
+    <InboxZeroDialog />
     <AddAccountDialog />
     <ToastHost />
   </div>

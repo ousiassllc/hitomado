@@ -68,6 +68,7 @@ export const { useComposeStore } = await import('../compose')
 export const { useUiStore } = await import('../ui')
 export const { useAccountsStore } = await import('../accounts')
 export const { useInboxStore } = await import('../inbox')
+export const { useSettingsStore } = await import('../settings')
 
 export const SIG_A = '<p>Aの署名</p>'
 export const SIG_B = '<p>Bの署名</p>'
