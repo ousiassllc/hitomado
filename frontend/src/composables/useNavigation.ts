@@ -44,12 +44,27 @@ export function useNavigation() {
    */
   function goBack(): boolean {
     const overlayOpen = ui.anyDialogOpen() || hasOpenDialog(document) || hasOpenPopup(document)
-    const action: BackAction | undefined = backActionOf({ ...state.value, overlayOpen })
+    // 設定の AI のプロバイダのページは、ほかのダイアログ・メニューが前面に無いときだけ、一覧へ戻す（#315）。
+    const settingsPageOpen =
+      ui.dialogs.settings &&
+      ui.settingsTab === 'ai' &&
+      ui.aiProviderPage !== undefined &&
+      ui.overlays.length === 1 &&
+      document.querySelectorAll('[role="dialog"], [role="alertdialog"]').length <= 1 &&
+      !hasOpenPopup(document)
+    const action: BackAction | undefined = backActionOf({
+      ...state.value,
+      overlayOpen,
+      settingsPageOpen,
+    })
     switch (action) {
       case 'dismissOverlay':
         document.dispatchEvent(
           new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
         )
+        break
+      case 'closeSettingsPage':
+        ui.aiProviderPage = undefined
         break
       case 'closeMenu':
         ui.closeMenu()

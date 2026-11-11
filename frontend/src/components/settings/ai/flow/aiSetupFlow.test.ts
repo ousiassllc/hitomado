@@ -12,6 +12,7 @@ import {
   type ModelsFn,
   mountAI,
   setup,
+  switchProvider,
 } from '../aiTestSupport'
 
 beforeEach(() => {
@@ -47,8 +48,6 @@ function backend(opts: { consented?: string[]; keyed?: string[] } = {}) {
   return { consented, keyed, fn }
 }
 
-const providerSelect = (w: ReturnType<typeof mountAI>) =>
-  w.findAllComponents(BaseSelect).find((c) => c.props('ariaLabel') === 'プロバイダ')
 const modelOptions = (w: ReturnType<typeof mountAI>) =>
   (
     w.getComponent(AIModelField).findComponent(BaseSelect).props('options') as { value: string }[]
@@ -72,7 +71,7 @@ describe('プロバイダを選ぶ → 同意 → モデル一覧（#105）', ()
       configSaved = true
     }
     const w = mountAI(pinia)
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
+    await switchProvider(w, 'anthropic')
     await flushPromises()
 
     // 1 回目の取得は、同意前なので Go が送らず consent_required を返す。画面は同意の画面を出す。
@@ -89,7 +88,7 @@ describe('プロバイダを選ぶ → 同意 → モデル一覧（#105）', ()
     expect(consentEl('ai-consent-body')).toBeNull()
     expect(modelOptions(w)).toContain('model-a')
     expect(configSaved).toBe(false) // 保存し直さない
-    expect(providerSelect(w)?.props('modelValue')).toBe('anthropic') // 同意で下書きのプロバイダが戻らない
+    expect(w.props('provider')).toBe('anthropic') // 同意で下書きのプロバイダが戻らない
   })
 
   test('一覧から選んだモデルを、そのまま保存できる', async () => {
@@ -100,7 +99,7 @@ describe('プロバイダを選ぶ → 同意 → モデル一覧（#105）', ()
       saved.push([p, m, url])
     }
     const w = mountAI(pinia)
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
+    await switchProvider(w, 'anthropic')
     await flushPromises()
     w.getComponent(AIModelField).findComponent(BaseSelect).vm.$emit('update:modelValue', 'model-b')
     await flushPromises()
@@ -121,7 +120,7 @@ describe('プロバイダを選ぶ → 同意 → モデル一覧（#105）', ()
       recorded = true
     }
     const w = mountAI(pinia)
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
+    await switchProvider(w, 'anthropic')
     await flushPromises()
     expect(loads).toEqual([{ provider: 'anthropic', baseUrl: '' }])
     expect(consentEl('ai-consent-body')).toBeNull()
@@ -137,14 +136,14 @@ describe('プロバイダを選ぶ → 同意 → モデル一覧（#105）', ()
       recorded = true
     }
     const w = mountAI(pinia)
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
+    await switchProvider(w, 'anthropic')
     await flushPromises()
     consentEl('ai-consent-cancel')?.click()
     await flushPromises()
     expect(consentEl('ai-consent-body')).toBeNull()
     expect(recorded).toBe(false)
     expect(loads).toHaveLength(1) // 同意前の 1 回だけ（Go は送信先へ何も送らない）。同意しないので取得し直さない
-    expect(providerSelect(w)?.props('modelValue')).toBe('anthropic')
+    expect(w.props('provider')).toBe('anthropic')
     const input = w.get('[data-testid="ai-model"] input')
     await input.setValue('claude-manual')
     expect((w.get('[data-testid="ai-model"] input').element as HTMLInputElement).value).toBe(
@@ -168,7 +167,7 @@ describe('プロバイダを選ぶ → 同意 → モデル一覧（#105）', ()
       store.aiConfig = { ...base, ...chatgptCfg([acctA]), consentedProviders: ['chatgpt'] }
     }
     const w = mountAI(pinia)
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'chatgpt')
+    await switchProvider(w, 'chatgpt')
     await flushPromises()
     expect(consentEl('ai-consent-body')?.textContent).toContain('https://api.openai.com')
     consentEl('ai-consent-agree')?.click()
@@ -187,7 +186,7 @@ describe('プロバイダを選ぶ → 同意 → モデル一覧（#105）', ()
       be.keyed.add(p)
     }
     const w = mountAI(pinia)
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
+    await switchProvider(w, 'anthropic')
     await flushPromises()
     expect(w.get('[data-testid="ai-models-note"]').text()).toContain('API キーを登録すると')
     const key = w.get('input[type="password"]')
@@ -210,7 +209,7 @@ describe('プロバイダを選ぶ → 同意 → モデル一覧（#105）', ()
       be.consented.add(`${p}|${u}`)
     }
     const w = mountAI(pinia)
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'openai')
+    await switchProvider(w, 'openai')
     await flushPromises()
     expect(loads).toEqual([]) // Base URL が決まるまで、既定の送信先へも同意を求めない
     expect(consentEl('ai-consent-body')).toBeNull()
@@ -239,7 +238,7 @@ describe('プロバイダを選ぶ → 同意 → モデル一覧（#105）', ()
       message,
     }))
     const w = mountAI(pinia)
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
+    await switchProvider(w, 'anthropic')
     await flushPromises()
     expect(consentEl('ai-consent-body')).toBeNull()
     expect(w.get('[data-testid="ai-models-note"]').text()).toContain(message)
@@ -267,8 +266,8 @@ describe('モデル一覧の取得が重なったとき', () => {
     })
     const pending = deferredLoads(store)
     const w = mountAI(pinia)
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'chatgpt')
+    await switchProvider(w, 'anthropic')
+    await switchProvider(w, 'chatgpt')
     await flushPromises()
     expect(pending.map((p) => p.provider)).toEqual(['anthropic', 'chatgpt'])
     expect(button(w, '取得中…').attributes('disabled')).toBeDefined()
@@ -290,8 +289,8 @@ describe('モデル一覧の取得が重なったとき', () => {
     const { pinia, store } = setup({ provider: 'openai', model: 'm' })
     const pending = deferredLoads(store)
     const w = mountAI(pinia)
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'chatgpt')
+    await switchProvider(w, 'anthropic')
+    await switchProvider(w, 'chatgpt')
     await flushPromises()
     // 古い（anthropic）の取得が後から consent_required で戻る。
     pending[1]?.resolve({ provider: 'chatgpt', models: [{ id: 'gpt-plan' }] })
@@ -306,8 +305,8 @@ describe('モデル一覧の取得が重なったとき', () => {
     const { pinia, store } = setup({ provider: 'openai', model: 'm' })
     const pending = deferredLoads(store)
     const w = mountAI(pinia)
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'anthropic')
-    await providerSelect(w)?.vm.$emit('update:modelValue', 'chatgpt')
+    await switchProvider(w, 'anthropic')
+    await switchProvider(w, 'chatgpt')
     await flushPromises()
     pending[1]?.resolve({ provider: 'chatgpt', models: [] })
     await flushPromises()

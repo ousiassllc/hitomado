@@ -20,6 +20,8 @@ const (
 	defaultOpenAIHost    = "https://api.openai.com"
 	// chatgpt の送信先（Responses API）。ログインは別ホスト（auth.openai.com）だが、スレッド内容を送るのはここだけ。
 	defaultChatGPTHost = "https://api.openai.com"
+	// TypeSafe AI（Jev。Inbox Zero の判定）の送信先。固定で、Base URL は持たない。
+	defaultTypeSafeHost = "https://api.typesafe.ai"
 )
 
 // consentEntry は同意 1 件。同意は「プロバイダ＋送信先（Base URL の scheme とホスト）」単位。
@@ -83,6 +85,8 @@ func destination(provider, baseURL string) string {
 		return provider + "|" + hostKey(baseURL, defaultOpenAIHost)
 	case providerChatGPT:
 		return provider + "|" + defaultChatGPTHost
+	case providerTypeSafe:
+		return provider + "|" + defaultTypeSafeHost
 	}
 	return provider + "|" + defaultAnthropicHost
 }
@@ -98,7 +102,7 @@ func currentBaseURL(cfg storedAIConfig, provider string) string {
 // valid は同意が現在の設定の送信先に対するものか。
 // 現在の Base URL が使えない（保存済みの旧設定の非 loopback http:// など）ときは無効とする。
 func (e consentEntry) valid(cfg storedAIConfig) bool {
-	if !validProvider(e.Provider) {
+	if !validSendProvider(e.Provider) {
 		return false
 	}
 	cur := currentBaseURL(cfg, e.Provider)
@@ -128,7 +132,7 @@ func (s *Service) loadConsentEntries(ctx context.Context) ([]consentEntry, error
 		return out, apperr.Wrap(apperr.Internal, "AI の同意状態を読み込めません。", err)
 	}
 	for _, e := range append([]consentEntry{{Provider: c.Provider, AgreedAt: c.AgreedAt}}, c.Providers...) {
-		if validProvider(e.Provider) && !slices.ContainsFunc(out, func(o consentEntry) bool { return o.sameDestination(e) }) {
+		if validSendProvider(e.Provider) && !slices.ContainsFunc(out, func(o consentEntry) bool { return o.sameDestination(e) }) {
 			out = append(out, e)
 		}
 	}
@@ -193,7 +197,7 @@ func (s *Service) hasConsent(ctx context.Context, provider, baseURL string) (boo
 // （設定を保存する前に、選んだプロバイダ・Base URL に同意できるようにする。#105）。使えない Base URL は VALIDATION。
 // 同意は「プロバイダ＋送信先」ごとに 1 件で、ほかの送信先の同意は消さない。
 func (s *Service) RecordAIConsent(ctx context.Context, provider, baseURL string) (dto.AIConfig, error) {
-	if !validProvider(provider) {
+	if !validSendProvider(provider) {
 		return dto.AIConfig{}, errBadProvider()
 	}
 	baseURL = strings.TrimSpace(baseURL)

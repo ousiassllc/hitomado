@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { setSendConfirmEnabled } from '../../composables/useSendConfirmSetting'
 import { parseBindingError } from '../../lib/api'
 import { settings as msg } from '../../lib/messages'
 import { useNotificationsStore } from '../../stores/notifications'
@@ -51,6 +52,14 @@ async function checkNow(): Promise<void> {
   }
 }
 
+async function toggleSendConfirm(enabled: boolean): Promise<void> {
+  try {
+    await setSendConfirmEnabled(enabled)
+  } catch (e) {
+    ui.pushAlert(parseBindingError(e).message)
+  }
+}
+
 async function toggleAutoUpdate(enabled: boolean): Promise<void> {
   try {
     await store.setAutoUpdateEnabled(enabled)
@@ -88,6 +97,19 @@ function openUpdate(): void {
 
 <template>
   <section class="general" :aria-label="msg.tabs.general">
+    <!-- 送信前の確認画面（#313）。既定はオン。オフでも、警告が 1 件でもあるときは確認画面を出す（取り違え・空送信を止める。仕様で確定）。 -->
+    <div class="block" data-testid="send-confirm">
+      <div class="toggle">
+        <BaseSwitch
+          :model-value="info?.sendConfirmEnabled ?? true"
+          :ariaLabel="msg.general.sendConfirmSwitch"
+          @update:model-value="toggleSendConfirm"
+        />
+        <strong>{{ msg.general.sendConfirm }}</strong>
+      </div>
+      <p class="body">{{ msg.general.sendConfirmHint }}</p>
+    </div>
+
     <!-- アプリ内の更新確認を持たない機能構成では出さない。Android は確認と新しい版のリンクだけ（自動アップデートは下の別ブロック）。 -->
     <div v-if="platform.supportsAutoUpdate" class="block">
       <div class="toggle">

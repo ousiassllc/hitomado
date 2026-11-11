@@ -41,3 +41,18 @@ describe('backActionOf', () => {
     expect(backActionOf({ ...base, menuOpen: true, overlayOpen: true })).toBe('dismissOverlay')
   })
 })
+
+describe('backActionOf（設定の AI のプロバイダのページ。#315）', () => {
+  test('プロバイダのページが最前面なら、ダイアログを閉じずに一覧へ戻す', () => {
+    expect(backActionOf({ ...base, overlayOpen: true, settingsPageOpen: true })).toBe(
+      'closeSettingsPage',
+    )
+  })
+
+  test('オーバーレイが開いていなければ settingsPageOpen は効かず、ほかのダイアログが前面なら閉じる', () => {
+    expect(backActionOf({ ...base, settingsPageOpen: true })).toBeUndefined()
+    expect(backActionOf({ ...base, overlayOpen: true, settingsPageOpen: false })).toBe(
+      'dismissOverlay',
+    )
+  })
+})

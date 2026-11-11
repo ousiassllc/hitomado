@@ -276,7 +276,7 @@ func (s *Service) unregister(requestID string) {
 	s.mu.Unlock()
 }
 
-// CancelGenerate は実行中の生成を中止する（GenerateReplyDraft・SummarizeThread・AskAboutThread は CANCELLED で終わる）。未知の ID は何もしない。
+// CancelGenerate は実行中の生成を中止する（GenerateReplyDraft・SummarizeThread・AskAboutThread・FindInboxZeroCandidates は CANCELLED で終わる）。未知の ID は何もしない。
 func (s *Service) CancelGenerate(requestID string) error {
 	s.mu.Lock()
 	cancel := s.inflight[requestID]

@@ -5,7 +5,7 @@ import { COMMON_EFFORTS, effortChoices } from '../../../../lib/aiConfig'
 import BaseSelect from '../../../ui/BaseSelect.vue'
 import AIEffortField from '../AIEffortField.vue'
 import AIModelField from '../AIModelField.vue'
-import { base, button, flushPromises, mountAI, setup } from '../aiTestSupport'
+import { base, button, flushPromises, mountAI, setup, switchProvider } from '../aiTestSupport'
 
 beforeEach(() => {
   document.body.innerHTML = ''
@@ -176,10 +176,7 @@ describe('AISettings のエフォート（#111）', () => {
       { anthropic: anthropicModels },
     )
     const w = mountAI(pinia)
-    const provider = w
-      .findAllComponents(BaseSelect)
-      .find((s) => s.props('ariaLabel') === 'プロバイダ')
-    provider?.vm.$emit('update:modelValue', 'openai')
+    await switchProvider(w, 'openai')
     await flushPromises()
     expect(effortSelect(w).props('modelValue')).toBe('default')
     w.unmount()

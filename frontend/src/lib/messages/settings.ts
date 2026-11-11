@@ -130,12 +130,35 @@ export const settings = {
       'スレッドの内容は OpenAI の API（Responses）へ送信されます。ログインだけは auth.openai.com の公式画面で行います。',
     destinationPending: (dest: string) =>
       `入力中の送信先（${dest}）は未保存です。「設定を保存」するまで、上の送信先が使われます。`,
-    provider: 'プロバイダ',
     providerOptions: {
       anthropic: 'Anthropic',
       openai: 'OpenAI 互換',
       chatgpt: 'ChatGPT プラン（Continue with ChatGPT）',
+      typesafe: 'TypeSafe AI（Jev）',
     } as Record<string, string>,
+    // プロバイダの一覧と各プロバイダの設定ページ（#315）。
+    providerList: {
+      heading: 'AI のプロバイダ',
+      intro:
+        '使うプロバイダを選ぶと、そのプロバイダの設定ページが開きます（API キー・ログイン・モデルなど）。チェックが付いているのは、「AI で下書き」の既定のプロバイダです。',
+      listLabel: 'AI のプロバイダの一覧',
+      open: (provider: string) => `${provider} の設定を開く`,
+      back: 'プロバイダ一覧に戻る',
+      draftHint: '「設定を保存」すると、このプロバイダが「AI で下書き」の既定になります。',
+      names: {
+        chatgpt: 'ChatGPT',
+        anthropic: 'Anthropic',
+        openai: 'OpenAI 互換',
+        typesafe: 'TypeSafe AI（Jev）',
+      } as Record<string, string>,
+      // カードの補足。設定済みは文言だけで伝える（色のバッジにしない）。
+      noteConfigured: '設定済み',
+      noteLogin: 'ログイン',
+      noteApiKey: 'API キー',
+    },
+    typesafe: {
+      note: 'TypeSafe AI（Jev）は文章を書かないモデルです。「AI で下書き」の既定のプロバイダにはなりません。受信トレイの Inbox Zero ボタンで、不要なメールの判断に使います。',
+    },
     model: 'モデル',
     modelPlaceholder: '例: claude-sonnet-4-5',
     modelRequired: 'モデルを入力してください。',
@@ -192,6 +215,10 @@ export const settings = {
   },
 
   general: {
+    sendConfirm: '送信前に確認画面を出す',
+    sendConfirmSwitch: '送信前の確認画面',
+    sendConfirmHint:
+      'オフにすると、送信ボタンを押したときに確認画面を出さず、すぐに送信します。送信元は受信したアカウントのまま変わりません。宛先に他の自分のアカウントがある・件名が空・本文が空のときは、オフでも確認画面を出します。',
     updateCheck: '更新を確認する',
     updateCheckHint:
       '起動時と 24 時間ごとに GitHub で新しいバージョンを確認します。メールやアカウントの情報は送信しません。',

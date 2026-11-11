@@ -6,6 +6,7 @@ import (
 	"slices"
 
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
+	"github.com/ousiassllc/hitomado/internal/app/composecore"
 	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/app/updatecore"
@@ -83,10 +84,21 @@ func (s *AppService) GetAppInfo(ctx context.Context) (dto.AppInfo, error) {
 	if err != nil {
 		return dto.AppInfo{}, err
 	}
+	confirm, err := composecore.SendConfirmEnabled(ctx, (*deps.Deps)(s.d))
+	if err != nil {
+		return dto.AppInfo{}, err
+	}
 	return dto.AppInfo{
 		Version: s.d.Version, UpdateCheckEnabled: check,
 		AutoUpdateSupported: s.updates.Supported(), AutoUpdateEnabled: auto, DataDir: s.d.DataDir,
+		SendConfirmEnabled: confirm,
 	}, nil
+}
+
+// SetSendConfirmEnabled は送信前に確認画面を出すか（既定オン）を保存する。オフでも、送信元は受信したアカウントに
+// 固定され、送信は PrepareSend の確認トークンを使った Send を人がボタンを押したときだけ行う（#313）。
+func (s *AppService) SetSendConfirmEnabled(ctx context.Context, enabled bool) error {
+	return composecore.SetSendConfirmEnabled(ctx, (*deps.Deps)(s.d), enabled)
 }
 
 // SetUpdateCheckEnabled は更新確認のオン／オフを保存する。アプリ内の更新確認を持たない OS（Android）では UNSUPPORTED。

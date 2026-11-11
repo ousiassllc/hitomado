@@ -44,6 +44,8 @@ type Env struct {
 	Secrets    *secrets.Memory
 	Clock      *clock.Fake
 	ChatGPT    *siwcfake.Fake
+	// Classifier は Inbox Zero の判定（TypeSafe AI。Jev）のフェイク。既定は全件 other。
+	Classifier *FakeClassifier
 
 	defaultClient string // AddAccount が使う OAuth クライアントの行 ID
 }
@@ -62,7 +64,8 @@ func NewEnv(tb testing.TB) *Env {
 	tb.Cleanup(func() { _ = st.Close() })
 
 	e := &Env{
-		Store: st, Gmail: NewFakeGmail(), Flow: NewFakeFlow(), Files: &FakeFiles{}, Browser: &FakeBrowser{}, Paths: &FakePaths{},
+		Classifier: &FakeClassifier{},
+		Store:      st, Gmail: NewFakeGmail(), Flow: NewFakeFlow(), Files: &FakeFiles{}, Browser: &FakeBrowser{}, Paths: &FakePaths{},
 		Notifier: &FakeNotifier{}, Background: &FakeBackground{}, Events: NewFakeEmitter(), Update: &FakeUpdate{},
 		Secrets: secrets.NewMemory(), Clock: clk, ChatGPT: &siwcfake.Fake{Token: "chatgpt-access-token"}, //nolint:gosec // テスト用のダミー値
 	}
@@ -76,9 +79,10 @@ func NewEnv(tb testing.TB) *Env {
 		AIModels: func(context.Context, string, string, string) ([]ai.ModelInfo, error) {
 			return nil, errors.New("apptest: Deps.AIModels が未設定です")
 		},
-		ChatGPT: e.ChatGPT,
-		Logger:  slog.New(slog.NewTextHandler(io.Discard, nil)),
-		DataDir: tb.TempDir(), Version: "0.1.0",
+		Classifier: e.Classifier.factory,
+		ChatGPT:    e.ChatGPT,
+		Logger:     slog.New(slog.NewTextHandler(io.Discard, nil)),
+		DataDir:    tb.TempDir(), Version: "0.1.0",
 		Capabilities: capability.Desktop("windows"),
 		Threads:      threadcache.New(e.Gmail, threadcache.DefaultCapacity),
 	}
