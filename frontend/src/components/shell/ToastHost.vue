@@ -77,7 +77,8 @@ onBeforeUnmount(stop)
   transform: translateX(-50%);
   display: flex;
   justify-content: center;
-  max-width: calc(100vw - var(--s-8));
+  width: max-content;
+  max-width: min(480px, calc(100vw - var(--s-8)));
   pointer-events: none;
   z-index: var(--z-toast);
 }
@@ -122,6 +123,7 @@ onBeforeUnmount(stop)
   color: var(--ink);
   font: inherit;
   font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
   text-decoration: underline;
   text-decoration-color: var(--mute);

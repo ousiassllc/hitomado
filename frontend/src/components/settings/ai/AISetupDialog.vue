@@ -13,7 +13,7 @@ const emit = defineEmits<{ choose: [choice?: 'chatgpt' | 'other'] }>()
     :open="open"
     :title="msg.ai.setup.title"
     :body-label="msg.ai.setup.title"
-    size="sm"
+    size="md"
     @update:open="(v) => !v && emit('choose')"
   >
     <div class="setup" data-testid="ai-setup">
