@@ -52,7 +52,7 @@ const text = (d: { providerLabel: string; url: string }) => msg.ai.destination(d
 }
 
 .dest-panel {
-  padding: var(--s-3);
+  padding: var(--pad-card-sm);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
