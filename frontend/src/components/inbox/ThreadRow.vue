@@ -194,7 +194,7 @@ const label = computed(
   color: var(--ink);
 }
 
-/* 要再接続のアカウントの行は、アイコンと文言で伝える（色や濃淡だけにしない）。文字は --mute にして、操作できる行と区別する。 */
+/* 要再接続のアカウントの行は、アイコンと文言で伝える（色や濃淡だけにしない）。文字は --mute にして、操作できる行と区別する。差出人は --row-mute なので、通常時は --mute のまま、--accent-soft 地（ホバー・選択・複数選択）では --mute-on-soft で AA に届く（#316）。 */
 .reauth {
   display: inline-flex;
   flex: none;
@@ -208,7 +208,10 @@ const label = computed(
   color: var(--warning);
 }
 
-.row.needs-reauth .sender,
+.row.needs-reauth .sender {
+  color: var(--row-mute);
+}
+
 .row.needs-reauth .subject {
   color: var(--mute);
 }
