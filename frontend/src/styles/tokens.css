@@ -182,7 +182,7 @@
 }
 
 /* reduced-motion: 移動・スライドは無効にし、必要な opacity のフェードは 100ms 以内にする。
-   スピナーなど処理中の表示は動かし続ける（アニメーションを一括で止めない）。 */
+   アニメーションを一括で止めはしない。Spinner は --motion-* を使わず、自分の @media（Spinner.vue）で回転を止める。 */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --motion-fast: 0ms;
