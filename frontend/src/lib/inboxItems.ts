@@ -12,6 +12,16 @@ export function keyOf(t: ThreadRef | ThreadSummary): string {
   return threadKey(t.accountId, t.threadId)
 }
 
+/** 一覧の表示条件（モード・検索語・タブ・未読のみ・アカウント）を表す文字列。条件が変わったかの比較に使う。 */
+export function viewKeyOf(
+  mode: string,
+  searchQuery: string,
+  tab: string,
+  filter: { unreadOnly: boolean; accountIds: string[] },
+): string {
+  return JSON.stringify([mode, searchQuery, tab, filter.unreadOnly, filter.accountIds])
+}
+
 export function refOf(t: ThreadRef | ThreadSummary): ThreadRef {
   return { accountId: t.accountId, threadId: t.threadId }
 }
