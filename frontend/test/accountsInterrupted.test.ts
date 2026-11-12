@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import {
+  appError,
   calls,
   callsOf,
   failures,
@@ -7,6 +8,7 @@ import {
   resetKit,
   responses,
   restoreMocks,
+  until,
 } from './inboxKit'
 
 installMocks()
@@ -46,5 +48,35 @@ describe('認可の中断の案内（Android）', () => {
     await s.start()
     expect(useUiStore().alerts).toHaveLength(0)
     expect(s.accounts).toEqual([])
+  })
+})
+
+describe('起動時のアカウント読み込みの失敗', () => {
+  test('INTERNAL で失敗したらエラーのアラートを 1 件出し、再試行で読み込み直す', async () => {
+    failures.ListAccounts = appError('INTERNAL')
+    const s = useAccountsStore()
+    const ui = useUiStore()
+    await s.start()
+    expect(ui.alerts).toHaveLength(1)
+    expect(ui.alerts[0].kind).toBe('error')
+    expect(callsOf('ListAccounts')).toHaveLength(1)
+
+    delete failures.ListAccounts
+    responses.ListAccounts = [
+      { id: 'a1', displayName: 'A', email: 'a@example.com', status: 'active' },
+    ]
+    ui.alerts[0].retry?.()
+    await until(() => s.accounts.length === 1)
+    expect(callsOf('ListAccounts')).toHaveLength(2)
+  })
+
+  test('OFFLINE ではアラートを出さず、共通のオフライン表示に任せる', async () => {
+    failures.ListAccounts = appError('OFFLINE')
+    failures.ListOAuthClients = appError('OFFLINE')
+    const s = useAccountsStore()
+    const ui = useUiStore()
+    await s.start()
+    expect(ui.alerts).toHaveLength(0)
+    expect(ui.online).toBe(false)
   })
 })
