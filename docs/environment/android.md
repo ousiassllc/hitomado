@@ -235,7 +235,7 @@ Android 版はタッチ前提の画面で、Releases の APK は検証用（Goog
 
 ### 仕組み（機能ベース）
 
-- 機能の有無は `internal/capability` の `Capabilities`（`SupportsMCP`・`SupportsTray`・`SupportsAutoUpdate`・`SupportsWindowState`・`SingleInstance`）で表す。値を決めるのは、ビルドタグで分けた薄い 2 ファイル（`current_android.go`＝すべて無効、`current_other.go`＝すべて有効）だけで、判定の中身はタグなしの純粋な関数・値（`Desktop`／`Android`）なので、ホストでテストできる（Android のビルドはホストで実行できない）。
+- 機能の有無は `internal/capability` の `Capabilities`（`SupportsMCP`・`SupportsTray`・`SupportsAutoUpdate`・`SupportsWindowState`・`SingleInstance`）で表す。値を決めるのは、ビルドタグで分けた薄い 2 ファイル（`current_android.go`＝`Android()`＝更新確認とタッチ UI だけ有効、`current_other.go`＝`Desktop()`＝すべて有効。タッチ UI は無効）だけで、判定の中身はタグなしの純粋な関数・値（`Desktop`／`Android`）なので、ホストでテストできる（Android のビルドはホストで実行できない）。
 - `run.go` が `capability.Current()` を 1 回だけ読み、`app.Deps.Capabilities` と各部品の生成へ渡す。`Deps.Capabilities` のゼロ値は全機能が無効（設定し忘れて機能が動いてしまうことを避ける）。
 - フロントへは `PlatformService.GetCapabilities`（[バインディング仕様 §7.3](../api/endpoints.md#73-platformservice)）で渡す。画面は OS 名を比べず、`platformStore`（`frontend/src/stores/platform.ts`）の `supportsMcp` などで出し分ける（スマホ向けの画面 §16 も `touchUi` で切り替える）。読み込み前・失敗時はデスクトップ（全機能あり）の値。
 - **バインディングは OS で変えない**（§7）。`PlatformService` は全 OS で同じシグネチャで、値だけが変わる。MCP は登録の有無だけが変わるが、型は同じで、バインディングは既定のタグ（`purego`）で 1 つだけ生成する。
