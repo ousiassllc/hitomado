@@ -185,7 +185,7 @@ func (s *InboxService) hydratePicked(ctx context.Context, work []*accountSearch,
 		if e.Sum != nil {
 			return
 		}
-		meta, err := s.d.Gmail.GetThreadMetadata(ctx, e.AccountID, e.ThreadID)
+		meta, err := s.threadMetadata(ctx, e.AccountID, e.ThreadID)
 		mu.Lock()
 		defer mu.Unlock()
 		switch {
@@ -198,6 +198,13 @@ func (s *InboxService) hydratePicked(ctx context.Context, work []*accountSearch,
 			page.Failures = append(page.Failures, s.failure(ctx, e.AccountID, err))
 		}
 	})
+}
+
+// threadMetadata は GetThreadMetadata を呼び、panic もそのスレッドの取得失敗（error）にする（別 goroutine で動く）。
+// 捕捉しないと ParallelDo の安全網が握りつぶし、そのエントリは結果にも Failures にも載らず黙って残りへ戻る。
+func (s *InboxService) threadMetadata(ctx context.Context, accountID, threadID string) (meta gmail.ThreadMeta, err error) {
+	defer logging.RecoverTo(logger(s.d), "inbox search hydrate", &err)
+	return s.d.Gmail.GetThreadMetadata(ctx, accountID, threadID)
 }
 
 // dropEntry は消えたスレッドを作業キューから除く。

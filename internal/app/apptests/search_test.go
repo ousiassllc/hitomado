@@ -235,6 +235,35 @@ func TestSearchMetadataFailureKeepsPageForRetry(t *testing.T) {
 	assert.Empty(t, p.NextCursor)
 }
 
+// カーソルの残りから取り直すスレッドのメタデータ取得が panic しても、プロセスは落ちず、失敗として返り、次回の再開に残る。
+func TestSearchRecoversPanicWhenHydratingCursorRest(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	b := e.AddAccount(t, "b@x.example")
+	e.PutRemoteThread(a.ID, "hit1", apptest.Msg("m1", "hit1", at(1), "INBOX"))
+	e.PutRemoteThread(b.ID, "hit2", apptest.Msg("m2", "hit2", at(2), "INBOX"))
+	ctx := t.Context()
+
+	// 2 アカウントから 1 件ずつ取得し、新しい方だけ配信する。もう一方は取得済みのまま残りとしてカーソルに入る。
+	p, err := svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 1})
+	require.NoError(t, err)
+	require.Equal(t, []string{"hit2"}, threadIDs(p.Items))
+	require.NotEmpty(t, p.NextCursor)
+
+	e.Gmail.Panic["GetThreadMetadata:"+a.ID+":hit1"] = "metadata exploded"
+	p2, err := svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 1, Cursor: p.NextCursor})
+	require.NoError(t, err)
+	assert.Empty(t, p2.Items)
+	require.Len(t, p2.Failures, 1, "panic は黙って捨てず、アカウントの失敗として返す")
+	assert.Equal(t, a.ID, p2.Failures[0].AccountID)
+	require.NotEmpty(t, p2.NextCursor)
+
+	delete(e.Gmail.Panic, "GetThreadMetadata:"+a.ID+":hit1")
+	p3, err := svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 1, Cursor: p2.NextCursor})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hit1"}, threadIDs(p3.Items))
+}
+
 func TestSearchPermanentFailureIsNotKeptInCursor(t *testing.T) {
 	svc, e := newInboxSvc(t)
 	a := e.AddAccount(t, "a@x.example")
