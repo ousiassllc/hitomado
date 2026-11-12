@@ -8,7 +8,7 @@
 
 | 項目 | 採用 |
 |------|------|
-| バックエンド | Go 1.26 系（開発機の確認値: go1.26.5）。`go.mod` の `go` 行で下限を固定 |
+| バックエンド | Go 1.26 系（開発機の確認値: go1.26.11）。`go.mod` の `go` 行で下限を固定（標準ライブラリの脆弱性修正を含むパッチ版。CI・リリースの `setup-go` もこの版を入れる。上げるときは `govulncheck`（§4.1 の `vulncheck`）の結果に合わせる） |
 | デスクトップ基盤 | Wails v3（バージョンは `go.mod` で固定） |
 | フロントエンド | Vue 3＋TypeScript＋Vite＋Pinia |
 | **パッケージマネージャ** | **bun 固定**（開発機の確認値: 1.3.14）。`npm`／`yarn`／`pnpm`／`npx` は使わない。ロックファイルは `bun.lock` のみコミットする |
@@ -110,12 +110,14 @@ flowchart LR
   T[test<br/>ubuntu + windows] --> B
   A[android<br/>ubuntu・PR のみ]
   M[macos<br/>macos-latest・PR のみ]
+  V[vulncheck<br/>ubuntu]
 ```
 
 | ジョブ | 実行環境 | 内容 |
 |--------|----------|------|
 | `lint` | ubuntu-latest | `go mod tidy -diff`、`golangci-lint run`、**android タグ側の Go lint**（`GOOS=android`・CGO なしの `golangci-lint run`）、`bunx biome ci`、`vue-tsc --noEmit`、`bunx linterly check`、**生成物の差分検査**（`sqlc generate` と `wails3 generate bindings` のあと `git diff --exit-code`）、**`NOTICE` の最新性検査**（`bun .github/scripts/gen-notice.ts --check`。§4.3） |
-| `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため） |
+| `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）、`go test -race ./internal/...`（ubuntu のみ。`-race` は cgo が要るのでこのステップだけ `CGO_ENABLED=1`・`-tags=purego`）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため） |
+| `vulncheck` | ubuntu-latest | `govulncheck ./...`（`CGO_ENABLED=0`・`-tags=purego`。バージョンは `env` の `GOVULNCHECK_VERSION`）。コードから到達できる標準ライブラリ・依存の既知の脆弱性があると失敗する |
 | `android` | ubuntu-latest | `pull_request` のみ（`release.yml` からの呼び出しでは動かさない）。release APK（arm64）と AAB を作って検査し、アーティファクトに上げる（使い捨ての署名鍵。PR のコードに固定鍵を渡さないので、Secrets は使わない。[Android ビルド §8](android.md)） |
 | `build` | windows-latest | `needs: [lint, test]`。`wails3 package` でインストーラーを作り（版 `0.99.1` と `0.99.2` の 2 つ）、`.github/scripts/test-installer.ps1` で **インストール → 起動中の上書き拒否 → 上書き → アンインストール** を実機で検証する（§4.3）。新しい方のインストーラーを Actions のアーティファクトに保存 |
 | `installer-arm64` | windows-11-arm（ARM64 の実機） | `needs: build`。`build` の x64 の成果物で、同じ `test-installer.ps1` と、exe の 15 秒の起動確認を通す（#13。§4.3「ARM64 の扱い」） |
@@ -334,3 +336,4 @@ pre-push:
 | 1.15 | 2026-11-06 | §4.3 の検証に、実機でしか確かめられない項目の手順と結果の記録先として [windows-verification.md](windows-verification.md) への導線を追加 | #174 |
 | 1.16 | 2026-11-06 | §4.3 の対応を「x64 と ARM64 の Windows 11（x64 エミュレーション）」に変更し、「ARM64 の扱い」を追加。§4.1 に `installer-arm64`（windows-11-arm）を追加 | #13 |
 | 1.17 | 2026-11-10 | Android の APK の署名を、使い捨ての鍵から Secrets の固定鍵に変更（§4.1 の `android` ジョブの説明、§4.2 の Release の説明。公開時に固定鍵が無ければ失敗する。PR の CI は使い捨ての鍵のまま）。署名鍵の選択スクリプトの単体テストを `test` ジョブに追加 | #310 |
+| 1.18 | 2026-11-13 | `go.mod` の `go` 行を修正済みのパッチ版（1.26.11）に上げ、§4.1 に `vulncheck` ジョブ（`govulncheck`）と `test` ジョブの `-race` ステップ（ubuntu）を追加 | #328、#331 |
