@@ -463,7 +463,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | `c` | 新規作成 | 全体 |
 | `/` | 検索窓にフォーカス | 全体 |
 | `g` → `i` | 受信箱（検索解除）へ | 全体 |
-| `Ctrl+Enter` | エディタ内で送信（確認ダイアログを開く。確認なしの送信はできない） | エディタ |
+| `Ctrl+Enter` | エディタ内で送信（既定は確認ダイアログを開く。設定「送信前に確認画面を出す」がオフで警告も無いときは、そのまま送信する。送信元の固定と確認トークンは変わらない。F-06） | エディタ |
 
 - 操作系キー（`e`、`#`）を押したとき、対象が複数選択なら選択全体に作用する
 - 破壊的操作は `#`（ゴミ箱）のみ。完全削除はない。ゴミ箱は Gmail 側で 30 日復元できる
@@ -706,3 +706,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 2.11 | 2026-11-11 | §5.3 の参照を brand-guide `a66e8514` に更新し、逸脱表の「未承認」のうち、ガイドが採用した 3 行（処理中の固定・空状態の `compact`・スイッチの横のラベル）を #pane-app／#dialog／#proposals の参照に置き換えた。フォーカスは `--ring` をやめて `--focus` の outline に統一（入力系 2px・offset −1px、スイッチ・ラジオ 3px・offset 2px。ガイド #focus）。`BaseMenu` の無効は opacity .4（#states）。入力欄の文字サイズは宛先・件名・AI の質問と指示を base 16、検索と設定の入力はデスクトップで sm 14。640px 以下では、すべての入力欄を 16px にする。`MessageCard` の左右 padding を `--pad-card-sm`、`ThreadAiPanel` の `.mute-heading` を sm・600 に。`AiDraftButton` は `title` をやめ `aria-describedby` で `.ai-note` につなぐ | #264・#265・#248・#285・#283・#306 |
 | 2.12 | 2026-11-11 | §3.3 `BaseDialog` のフッターを、1 行に収まらない狭い幅では折り返す（`flex-wrap: wrap`）ようにし、§3.9 `AISetupDialog` を `md` 幅にして、ボタン 3 つが切れないようにした（広い画面は 1 行、狭い幅は折り返し）。§3.4 `ToastHost` の枠の幅を内容に合わせ（`max-content`）、上限を `min(480px, 100vw - 32px)` にして、「元に戻す」を折り返さないようにした。§5.3 `AIDestinationBox` を、枠なしの fieldset＋legend（h4 の段）＋パネル（padding は入れ子パネルの `--pad-card-sm`。地だけ #16 に従い `--surface` で、入れ子パネルの `--bone` とは別）にした | #318・#319 |
 | 2.13 | 2026-11-12 | §3.4 `ToastHost` のスナックバー本文を、文字単位ではなく文節（語）単位で折り返す（`overflow-wrap: anywhere` をやめ、`word-break: auto-phrase`＋`overflow-wrap: break-word`、スナックバーに `min-width: 0`。長い URL・英数字は枠から出さない）。§5.3 `AIDestinationBox` の見出しを `<h4>` にし、パネルと `aria-labelledby` でつないだ（fieldset をやめた）。§3.9 `AISetupDialog` の幅は `BaseDialog` の `min(560px, 100vw - 32px)` のまま（変更なし） | #318・#319 |
+| 2.14 | 2026-11-13 | §4 の `Ctrl+Enter` を、設定「送信前に確認画面を出す」がオフで警告も無いときは確認ダイアログなしで送信する内容に直した（「確認なしの送信はできない」を削除） | #313 後の記載漏れ（#324・#334） |
