@@ -4,7 +4,7 @@
 
 ## 1. 設計方針
 
-- **サーバーレス**: 公開者のサーバーを持たない。すべての通信は利用者の PC から Google／AI プロバイダ／GitHub API へ直接行う
+- **サーバーレス**: 公開者のサーバーを持たない。すべての通信は利用者の PC から Google／AI プロバイダ（返信下書き・要約・質問）／TypeSafe AI（Inbox Zero の判定）／GitHub API へ直接行う
 - **薄いフロント・厚い Go**: 認証・同期・MIME 生成・送信元の強制など、安全性に関わる処理はすべて Go 側に置く。フロントエンドは表示と入力に専念し、外部へ直接通信しない（CSP で禁止）
 - **送信元の強制は Go 側が最終防衛線**: UI の制御を迂回しても、返信・転送の送信元は受信アカウント以外にならない
 - **アカウント単位の隔離**: 同期・レート制限・エラー状態はアカウントごとに独立させる
@@ -25,7 +25,7 @@
 | レート制限 | `golang.org/x/time/rate` | アカウントごとのクォータ制御（NF 同期） |
 | ログ | 標準 `log/slog`（JSON Lines）＋ `lumberjack` によるローテーション。書き込み前に秘密・メール内容を伏せる Handler を通す | NF-S10 |
 | MCP | 公式 Go SDK `github.com/modelcontextprotocol/go-sdk`（Streamable HTTP）。既定オフ・Bearer トークン必須・送信ツールなし | NF-S13〜NF-S15、[docs/mcp.md](../mcp.md) |
-| AI | 自前の薄い `Provider` インターフェース。Anthropic・OpenAI 互換（Chat Completions）・ChatGPT プラン（Responses API）の 3 実装と、モデル一覧の取得（`ListModels`） | NF §12 |
+| AI | 自前の薄い `Provider` インターフェース。Anthropic・OpenAI 互換（Chat Completions）・ChatGPT プラン（Responses API）の 3 実装と、モデル一覧の取得（`ListModels`）。Inbox Zero の判定だけは別の `ai.Classifier`（TypeSafe AI〔Jev〕の `POST /v1/systemone` の choice 質問。文章は書かない。`internal/ai/jev.go`）で、`Provider` の実装には加えない | NF §12、NF §2 |
 | ChatGPT ログイン | `internal/siwc`（Sign in with ChatGPT の OSS 向けフロー。動的登録・PKCE・ID トークンの検証は `github.com/coreos/go-oidc/v3`） | NF §2、[API §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt) |
 | フロントエンド | **Vue 3＋TypeScript**（Composition API／`<script setup>`）、Vite、Pinia | |
 | リッチテキスト | Tiptap（ProseMirror）。太字・リンク・箇条書き | F-11 |
@@ -65,6 +65,7 @@ graph TD
   INF <-->|HTTPS| GG[Google OAuth / Gmail API]
   INF <-->|HTTPS| AI[AI プロバイダ 利用者のキー／ChatGPT プラン]
   INF <-->|HTTPS| OA[auth.openai.com ChatGPT ログイン]
+  INF <-->|HTTPS| TS[api.typesafe.ai TypeSafe AI Inbox Zero の判定]
   INF <-->|HTTPS| GH[GitHub Releases API と Release の添付ファイル 自動アップデート]
 ```
 
@@ -392,3 +393,4 @@ sequenceDiagram
 | 1.23 | 2026-11-06 | §7.5（スレッドの AI 要約: `SummarizeThread` の通信フロー。スレッドは `ThreadRef` で指定し、全メッセージ・合計 40,000 文字を目安に渡す。保存しない）を追加 | #206 |
 | 1.24 | 2026-11-06 | §7.6（スレッドへの AI 質問: `AskAboutThread` の通信フロー。Go はステートレスで、会話はフロントが `history` として毎回渡す。検証は Go、会話の長さの制限はフロント）を追加 | #207 |
 | 1.25 | 2026-11-10 | Android が自動アップデートをしない理由から「署名が版ごとに変わる」を外した（APK は固定鍵で署名し、上書きインストールで更新できる） | #310 |
+| 1.26 | 2026-11-13 | §1 の通信先と §2 の AI の行・§3 の構成図に、Inbox Zero の判定先 TypeSafe AI（`ai.Classifier`。`Provider` とは別）を追加 | #314 の通信先の記載漏れ（#323・#332） |
