@@ -60,7 +60,10 @@ const consentOpen = computed(() => ai.step.value === 'consent')
 const replaceOpen = computed(() => ai.step.value === 'replace')
 const generating = computed(() => ai.step.value === 'generating')
 watch(generating, (v) => (compose.aiGenerating = v), { immediate: true })
-onBeforeUnmount(() => (compose.aiGenerating = false))
+onBeforeUnmount(() => {
+  ai.dispose() // 作成セッションを閉じた・破棄したら、進行中の生成を中止する（Go 側の呼び出しを走らせ続けない）
+  compose.aiGenerating = false
+})
 const busy = computed(() => compose.sending || compose.preview !== undefined)
 </script>
 
