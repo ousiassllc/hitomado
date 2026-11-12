@@ -19,6 +19,10 @@ const props = defineProps<{
   account?: { displayName: string; email: string; color: string; status?: string }
   /** 行の DOM id（aria-activedescendant 用） */
   id?: string
+  /** 一覧の中の位置（1 始まり）。仮想スクロールで一部の行だけ描くので、読み上げ側へ aria-posinset で伝える */
+  posinset?: number
+  /** 一覧の件数。続きがあって総数が分からないときは -1（aria-setsize の規定） */
+  setsize?: number
 }>()
 
 const sender = computed(() => props.thread.lastFrom.name || props.thread.lastFrom.email || common.list.noSender)
@@ -46,6 +50,8 @@ const label = computed(
     role="option"
     tabindex="-1"
     :aria-selected="selected || checked || false"
+    :aria-posinset="posinset"
+    :aria-setsize="setsize"
     :aria-label="label"
   >
     <span class="band" :style="{ background: account ? accountColorVar(account.color) : 'var(--border)' }" aria-hidden="true" />
