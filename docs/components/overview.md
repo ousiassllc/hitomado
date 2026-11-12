@@ -112,6 +112,14 @@ type Provider interface {
 // 実装は anthropic／openai（Chat Completions）／chatgpt（Responses API）。モデル一覧は
 // ListModels(ctx, provider, baseURL, credential, hc) ([]ModelInfo, error)（Models API が無いときは ErrModelsUnsupported）
 
+// Inbox Zero の判定（F-19。#314）。Provider とは別のインターフェース（文章は書かない。返信下書きのプロバイダにはならない）
+type Classifier interface {
+    Classify(ctx context.Context, in ClassifyInput) (ClassifyAnswer, error)  // ClassifyInput は State（判定するメールの内容）・Instructions・Criteria（選択肢の名前と説明。この順で要求に載せる）。ClassifyAnswer は Choice（確率が最も高い選択肢）と Probabilities（全選択肢の確率）
+}
+// 実装は jev（TypeSafe AI の System One API `POST /v1/systemone` の choice 質問。`internal/ai/jev.go`）。ai.NewClassifier(apiKey) で作り、
+// サービス層へは `Deps.Classifier`（型 `deps.ClassifierFactory`。API キーから Classifier を作る関数で、テストではフェイクに差し替える）で渡す。
+// エラーは Provider と同じ分類（ErrUnauthorized・ErrRateLimited・ErrFailed）で、キー・要求・応答の本文を含まない
+
 // internal/siwc（Sign in with ChatGPT。トークンは secrets.Store、登録情報は app_settings）
 type Auth interface {
     SignIn(ctx context.Context, opts SignInOptions) (Status, error)  // opts.AccountID 空 = 別アカウントの追加、指定 = その登録で再ログイン。検証・保存を終えるまで使用中とトークンは変えない
@@ -154,7 +162,7 @@ type Launcher func(installer string, opts LaunchOptions) error // 起動だけ�
 | `InboxService` | `store`、`gmail.Client`、`sync.Scheduler` | ローカル優先で返し、末尾で `inbox_page_token` による追加取得。操作後に `threads` を再計算 |
 | `ThreadService` | `gmail.Client`、メモリ LRU | 本文は保存せず LRU のみ。`cid` 画像を `data:` に変換 |
 | `ComposeService` | `domain`（reply／quote／signature／senderpolicy／confirm）、`gmail.Client`、`store` | 作成セッションのマップ（排他制御つき）。`PrepareSend`→`Send` の確認トークン検証 |
-| `AIService` | `ai.Provider`、`ai.ListModels`、`siwc.Auth`、`secrets.Store`、`gmail.Client`、`ComposeService`（セッション参照） | 同意・キー（ChatGPT はログイン）確認後、直近 5 メッセージ・20,000 文字以内で生成。ChatGPT で 401 のときは 1 度だけトークンを更新してやり直す。モデル一覧は保存済みの設定の送信先から、同意後だけ取得し、取れなければ手入力へ。`SummarizeThread`（F-17）は `ThreadRef` のスレッドの全メッセージ（下書きを除く。合計 40,000 文字を目安に、超えたら古いものから外す）を同じ確認のあとで要約する（作成セッションは使わない。結果は保持しない）。`AskAboutThread`（F-18）は同じスレッドの入力に `history`・`question` を加えて答える（`question`・`history` の形は呼び出しごとに検証し、通信前に `VALIDATION`。会話は Go で持たない＝ステートレス） |
+| `AIService` | `ai.Provider`、`ai.Classifier`（`Deps.Classifier`＝`deps.ClassifierFactory` で作る）、`ai.ListModels`、`siwc.Auth`、`secrets.Store`、`gmail.Client`、`ComposeService`（セッション参照） | 同意・キー（ChatGPT はログイン）確認後、直近 5 メッセージ・20,000 文字以内で生成。ChatGPT で 401 のときは 1 度だけトークンを更新してやり直す。モデル一覧は保存済みの設定の送信先から、同意後だけ取得し、取れなければ手入力へ。`SummarizeThread`（F-17）は `ThreadRef` のスレッドの全メッセージ（下書きを除く。合計 40,000 文字を目安に、超えたら古いものから外す）を同じ確認のあとで要約する（作成セッションは使わない。結果は保持しない）。`AskAboutThread`（F-18）は同じスレッドの入力に `history`・`question` を加えて答える（`question`・`history` の形は呼び出しごとに検証し、通信前に `VALIDATION`。会話は Go で持たない＝ステートレス）。`FindInboxZeroCandidates`（F-19。#314）は、フロントが渡した `ThreadRef`（読み込み済みのタブの一覧。重複を除き 100 件まで）を、`GetInboxZeroSettings` の理由（`SetInboxZeroReasons` で保存。既定はすべてオン）に従って判定する。TypeSafe AI の理由（広告・通知・ニュースレター）が 1 つでもオンなら、API キーと同意（`typesafe`）を通信の前に確かめて `ai.Classifier` を作る。スレッドは `threadcache`（共有のスレッド本文 LRU）経由で最大 4 件並行に読み、**返信済みは端末内だけで判定**（下書きを除くメッセージに `SENT` ラベルまたは受信アカウントのアドレスの差出人があるか。Jev には聞かない）、そのほかは最新の下書きでないメッセージの差出人・件名・本文の先頭約 500 文字を `Classify` に渡し、選ばれた選択肢がオンの理由で確率 0.8 以上のものだけを候補にする。**判定だけを行い、アーカイブはしない**（フロントが確認の一覧のあとに `InboxService` で行う）。認証エラー・レート制限は全体を止め、ほかの 1 スレッドの失敗は `skipped` に数える。結果は保持しない |
 | `AppService` | `store`、`update.Checker`、`update.Manager`、`capability.Capabilities` | 設定の読み書き、更新確認（更新確認を持たない機能構成では常に無効。Android は確認だけ行う）、自動アップデート（Windows 版のリリース版だけ。`GetUpdateStatus`／`RestartToUpdate`／`SetAutoUpdateEnabled`）。実装は `internal/app/updatecore`（`Service`＝設定・確認・状態・「再起動して更新」、`Loop`＝起動時と 24 時間ごとの確認、`ApplyOnExit`＝終了処理からの入れ替え。送信・下書きの保存の進行中は `deps.Busy` で見る） |
 | `PlatformService`（`internal/capability`） | `capability.Capabilities` | 実行中の OS で提供する機能（MCP・トレイ・自動更新・ウィンドウ状態・多重起動の防止）をフロントへ返す。全 OS で同じシグネチャ・値だけが変わる |
 | `LogService` | `logging`、`FileDialog`（返す `exportfile.Target` に書いて `Commit`）、`PathOpener` | フロントのエラーを伏せてログへ記録（流量制限つき）、ログフォルダを開く、ログを zip で書き出す |
@@ -463,7 +471,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | `c` | 新規作成 | 全体 |
 | `/` | 検索窓にフォーカス | 全体 |
 | `g` → `i` | 受信箱（検索解除）へ | 全体 |
-| `Ctrl+Enter` | エディタ内で送信（確認ダイアログを開く。確認なしの送信はできない） | エディタ |
+| `Ctrl+Enter` | エディタ内で送信（既定は確認ダイアログを開く。設定「送信前に確認画面を出す」がオフで警告も無いときは、そのまま送信する。送信元の固定と確認トークンは変わらない。F-06） | エディタ |
 
 - 操作系キー（`e`、`#`）を押したとき、対象が複数選択なら選択全体に作用する
 - 破壊的操作は `#`（ゴミ箱）のみ。完全削除はない。ゴミ箱は Gmail 側で 30 日復元できる
@@ -586,7 +594,10 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | F-12 下書き保存 | `useAutosave`、`composeStore` | `ComposeService.SaveDraft`、`gmail.Client`（drafts） |
 | F-13 オートコンプリート | `RecipientField` | `ComposeService.SuggestContacts`、`domain/contacts`、`store` |
 | F-14 添付送信 | `AttachmentBar` | `ComposeService.AddAttachments`、`gmail/mime.go` |
+| F-15 MCP・ログ | `McpSettings`、`LogSettings` | `MCPService`、`mcpserver`、`LogService`、`logging` |
+| F-16 アプリの更新 | `GeneralSettings`、`BannerStack`、`lib/updateBanner`、`settingsStore` | `AppService`、`updatecore`（`Service`・`Loop`・`ApplyOnExit`）、`update.Checker`／`update.Manager`、`capability.Capabilities` |
 | F-17 スレッドの AI 要約・F-18 スレッドへの AI 質問 | `ThreadHeader`、`ThreadAiPanel`、`ThreadAiQuestionForm`、`threadAiStore`、`useThreadAi` | `AIService.SummarizeThread`／`AskAboutThread`、`ai.Provider` |
+| F-19 Inbox Zero | `InboxZeroButton`、`InboxZeroDialog`、`inboxZeroStore`、`AITypeSafePage`（理由のオン・オフと API キー） | `AIService.FindInboxZeroCandidates`／`GetInboxZeroSettings`／`SetInboxZeroReasons`、`ai.Classifier`、`InboxService`（アーカイブと元に戻す） |
 
 ## 改訂履歴
 
@@ -707,3 +718,5 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 2.12 | 2026-11-11 | §3.3 `BaseDialog` のフッターを、1 行に収まらない狭い幅では折り返す（`flex-wrap: wrap`）ようにし、§3.9 `AISetupDialog` を `md` 幅にして、ボタン 3 つが切れないようにした（広い画面は 1 行、狭い幅は折り返し）。§3.4 `ToastHost` の枠の幅を内容に合わせ（`max-content`）、上限を `min(480px, 100vw - 32px)` にして、「元に戻す」を折り返さないようにした。§5.3 `AIDestinationBox` を、枠なしの fieldset＋legend（h4 の段）＋パネル（padding は入れ子パネルの `--pad-card-sm`。地だけ #16 に従い `--surface` で、入れ子パネルの `--bone` とは別）にした | #318・#319 |
 | 2.13 | 2026-11-12 | §3.4 `ToastHost` のスナックバー本文を、文字単位ではなく文節（語）単位で折り返す（`overflow-wrap: anywhere` をやめ、`word-break: auto-phrase`＋`overflow-wrap: break-word`、スナックバーに `min-width: 0`。長い URL・英数字は枠から出さない）。§5.3 `AIDestinationBox` の見出しを `<h4>` にし、パネルと `aria-labelledby` でつないだ（fieldset をやめた）。§3.9 `AISetupDialog` の幅は `BaseDialog` の `min(560px, 100vw - 32px)` のまま（変更なし） | #318・#319 |
 | 2.14 | 2026-11-13 | §3.5 `InboxZeroDialog` に判断中のダイアログ（スピナーと「やめる」。「やめる」・× ・Esc・Android の戻るで判断を中止）を追加し、`InboxZeroButton` の判断中の記述にやめる操作の置き場を追記（#343）。`AiDraftButton` のアンマウント時の生成の中止（#342）、`accountsStore.start` の読み込み失敗のアラート（#340）を追記 | #340・#342・#343 |
+| 2.15 | 2026-11-13 | §4 の `Ctrl+Enter` を、設定「送信前に確認画面を出す」がオフで警告も無いときは確認ダイアログなしで送信する内容に直した（「確認なしの送信はできない」を削除） | #313 後の記載漏れ（#324・#334） |
+| 2.16 | 2026-11-13 | §2.3 に `ai.Classifier`（Inbox Zero の判定。`Provider` とは別）、§2.4 の `AIService` に Inbox Zero の協調（返信済みの端末内判定・Jev の呼び出し・アーカイブはしない）を追記。§6 の要件対応に F-15・F-16・F-19 の行を追加 | 実装（`internal/ai/jev.go`・`internal/app/aicore/inboxzero.go`）との整合（#333） |
