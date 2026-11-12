@@ -9,6 +9,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/logging"
 )
 
 // threadOp は 1 スレッドへの Gmail 操作。
@@ -91,7 +92,7 @@ func (s *InboxService) apply(ctx context.Context, refs []dto.ThreadRef, op threa
 	outcomes := make([]opOutcome, len(refs))
 	var mu sync.Mutex
 	touched := map[string][]string{}
-	appcore.ParallelDo(len(accountOrder), len(accountOrder), func(n int) {
+	appcore.ParallelDo(logger(s.d), len(accountOrder), len(accountOrder), func(n int) {
 		accountID := accountOrder[n]
 		for _, i := range byAccount[accountID] {
 			o := opOutcome{ref: refs[i]}
@@ -136,8 +137,9 @@ func isNotFound(err error) bool {
 
 // applyOne は 1 スレッドに op を実行して DB を更新する。スレッドが Gmail に無ければ（404）DB から削除したうえで
 // NOT_FOUND を返す（F-04: 操作時の 404 は「スレッドが見つかりません」としてリストから除去する）。
-func (s *InboxService) applyOne(ctx context.Context, accountID, threadID string, op threadOp) (*dto.ThreadSummary, error) {
-	if err := op(ctx, accountID, threadID); err != nil {
+func (s *InboxService) applyOne(ctx context.Context, accountID, threadID string, op threadOp) (_ *dto.ThreadSummary, err error) {
+	defer logging.RecoverTo(logger(s.d), "inbox apply", &err) // panic もこのスレッドの失敗にする（別 goroutine で動く）
+	if err = op(ctx, accountID, threadID); err != nil {
 		if errors.Is(err, gmail.ErrNotFound) {
 			return nil, s.dropGone(ctx, accountID, threadID)
 		}

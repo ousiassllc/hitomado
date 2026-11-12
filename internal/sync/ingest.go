@@ -10,6 +10,7 @@ import (
 
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
@@ -46,19 +47,15 @@ loop:
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			meta, err := s.gmail.GetThreadMetadata(ctx, accountID, id)
-			switch {
-			case err == nil:
-				meta.Messages = withoutDrafts(meta.Messages)
-				out[i] = fetched{id: id, meta: meta, gone: len(meta.Messages) == 0}
-			case errors.Is(err, gmail.ErrNotFound):
-				out[i] = fetched{id: id, gone: true}
-			default:
+			f, err := s.fetchOne(ctx, accountID, id)
+			if err != nil {
 				once.Do(func() {
 					firstErr = err
 					cancel()
 				})
+				return
 			}
+			out[i] = f
 		}()
 	}
 	wg.Wait()
@@ -69,6 +66,22 @@ loop:
 		return nil, err
 	}
 	return out, nil
+}
+
+// fetchOne は 1 スレッドのメタデータを取得する。ErrNotFound は gone として返す。
+// 取得は別 goroutine で動くため呼び出し元の recover が効かない。panic はここで記録してエラーにする。
+func (s *Scheduler) fetchOne(ctx context.Context, accountID, id string) (f fetched, err error) {
+	defer logging.RecoverTo(s.log, "sync fetch thread metadata", &err)
+	meta, err := s.gmail.GetThreadMetadata(ctx, accountID, id)
+	switch {
+	case err == nil:
+		meta.Messages = withoutDrafts(meta.Messages)
+		return fetched{id: id, meta: meta, gone: len(meta.Messages) == 0}, nil
+	case errors.Is(err, gmail.ErrNotFound):
+		return fetched{id: id, gone: true}, nil
+	default:
+		return fetched{}, err
+	}
 }
 
 // withoutDrafts は DRAFT ラベルのメッセージを除く。下書きは Gmail 側が正で、保存すると

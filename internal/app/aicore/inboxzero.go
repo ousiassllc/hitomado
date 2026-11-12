@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/logging"
 )
 
 // Inbox Zero（#314）の定数。
@@ -179,7 +179,7 @@ func (r *inboxZeroRun) execute(runCtx context.Context, refs []dto.ThreadRef) (dt
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			slots[i] = r.judge(workCtx, ref)
+			slots[i] = r.judgeSafe(workCtx, ref)
 		}()
 	}
 	wg.Wait()
@@ -210,6 +210,19 @@ func (r *inboxZeroRun) fail(err error) {
 	}
 	r.mu.Unlock()
 	r.abort()
+}
+
+// judgeSafe は judge を呼ぶ。別 goroutine で動くため panic は呼び出し元の recover に届かずプロセスを落とす。
+// panic は記録し、そのスレッドだけ skipped にする（TypeSafe AI の失敗と同じ扱い）。
+func (r *inboxZeroRun) judgeSafe(ctx context.Context, ref dto.ThreadRef) (sl slot) {
+	var err error
+	defer func() {
+		if err != nil {
+			sl = slot{skipped: true}
+		}
+	}()
+	defer logging.RecoverTo(r.s.d.Logger, "inbox zero judge", &err)
+	return r.judge(ctx, ref)
 }
 
 // judge は 1 スレッドを判定する。ctx が終わっていたら何も記録しない（結果は使われない）。
@@ -290,40 +303,4 @@ func (r *inboxZeroRun) classify(ctx context.Context, latest gmail.MessageFull, e
 		return "", false, nil
 	}
 	return ans.Choice, true, nil
-}
-
-// jevState は TypeSafe AI へ送る内容（差出人・件名・本文の先頭 500 文字だけ）。
-func jevState(m gmail.MessageFull) string {
-	return "From: " + sender(m) + "\nSubject: " + m.Subject + "\n\n" + firstRunes(messageText(m), inboxZeroBodyRunes)
-}
-
-// sender は差出人を「表示名 <アドレス>」（表示名が無ければアドレス）にする。
-func sender(m gmail.MessageFull) string {
-	if m.From.Name == "" {
-		return m.From.Email
-	}
-	return m.From.Name + " <" + m.From.Email + ">"
-}
-
-// firstRunes は s の先頭 n 文字（rune）。
-func firstRunes(s string, n int) string {
-	for i := range s {
-		if n == 0 {
-			return s[:i]
-		}
-		n--
-	}
-	return s
-}
-
-// nonDraftMessages はスレッドの下書きでないメッセージ（古い順）。
-func nonDraftMessages(thread gmail.ThreadFull) []gmail.MessageFull {
-	return slices.DeleteFunc(slices.Clone(thread.Messages), func(m gmail.MessageFull) bool { return slices.Contains(m.LabelIDs, labelDraft) })
-}
-
-// hasOwnMessage はメッセージに自分が送ったもの（SENT ラベル、または差出人が自分のアドレス。大文字小文字を区別しない）があるか。
-func hasOwnMessage(msgs []gmail.MessageFull, email string) bool {
-	return slices.ContainsFunc(msgs, func(m gmail.MessageFull) bool {
-		return slices.Contains(m.LabelIDs, labelSent) || (email != "" && strings.EqualFold(strings.TrimSpace(m.From.Email), email))
-	})
 }

@@ -54,6 +54,24 @@ func failedRefs(t *testing.T, ae *apperr.Error) []map[string]string {
 	return v
 }
 
+// アカウント単位のワーカーが panic しても、プロセスは落ちず、そのアカウントの ref は失敗（INTERNAL）として failedRefs に載り、
+// ほかのアカウントの操作は反映される。
+func TestApplyRecoversPanicInAccountWorker(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	b := e.AddAccount(t, "b@x.example")
+	e.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX", "UNREAD"))
+	e.PutThread(t, b.ID, "t2", apptest.Msg("m2", "t2", at(2), "INBOX", "UNREAD"))
+	e.Gmail.Panic["ModifyThread:"+b.ID+":t2"] = "modify exploded"
+
+	_, err := svc.MarkRead(t.Context(), []dto.ThreadRef{ref(a.ID, "t1"), ref(b.ID, "t2")}, true)
+	ae := requireCode(t, apperr.Internal, err)
+	assert.Equal(t, []map[string]string{{"accountId": b.ID, "threadId": "t2"}}, failedRefs(t, ae))
+	row, err := e.Store.GetThread(t.Context(), a.ID, "t1")
+	require.NoError(t, err)
+	assert.False(t, row.IsUnread, "panic しなかったアカウントは反映される")
+}
+
 func TestArchivePartialFailure(t *testing.T) {
 	svc, e := newInboxSvc(t)
 	a := e.AddAccount(t, "a@x.example")

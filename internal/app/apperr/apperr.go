@@ -235,3 +235,13 @@ func ToMap(err error) map[string]any {
 	}
 	return m
 }
+
+// IsPermanent は再試行しても直らない失敗（NEEDS_REAUTH・OAUTH_CLIENT_REJECTED・NOT_FOUND）か。
+// RATE_LIMITED・OFFLINE・一時的な GMAIL_ERROR は再試行で直り得るので false。
+func IsPermanent(err error) bool {
+	switch FromInfra(err, "").Code {
+	case NeedsReauth, OAuthClientRejected, NotFound:
+		return true
+	}
+	return false
+}

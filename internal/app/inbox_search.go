@@ -11,6 +11,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
@@ -62,13 +63,13 @@ func (s *InboxService) Search(ctx context.Context, q dto.SearchQuery) (dto.Threa
 	}
 	page := dto.ThreadPage{Items: []dto.ThreadSummary{}, Failures: []dto.AccountFailure{}}
 
-	appcore.ParallelDo(len(work), len(work), func(i int) { s.loadAccount(ctx, work[i], query, limit, states[work[i].acc.ID]) })
+	appcore.ParallelDo(logger(s.d), len(work), len(work), func(i int) { s.loadAccount(ctx, work[i], query, limit, states[work[i].acc.ID]) })
 	next := map[string]appcore.SearchState{}
 	var all []searchEntry
 	for _, w := range work {
 		if w.err != nil {
 			page.Failures = append(page.Failures, s.failure(ctx, w.acc.ID, w.err))
-			w.gone = permanentFailure(w.err)
+			w.gone = apperr.IsPermanent(w.err)
 			continue // 失敗したアカウントは配信せず、取得済みの分も含めて next に引き継ぐ（時刻順を崩さないため）。
 		}
 		all = append(all, w.queue...)
@@ -116,19 +117,10 @@ func (s *InboxService) failure(ctx context.Context, accountID string, err error)
 	return dto.AccountFailure{AccountID: accountID, Error: apperr.ToMap(gmailErr(s.d, ctx, accountID, err))}
 }
 
-// permanentFailure は再試行しても直らない失敗（NEEDS_REAUTH・OAUTH_CLIENT_REJECTED・NOT_FOUND）か。
-// RATE_LIMITED・OFFLINE・一時的な GMAIL_ERROR は再試行で直り得るので false。
-func permanentFailure(err error) bool {
-	switch apperr.FromInfra(err, "").Code {
-	case apperr.NeedsReauth, apperr.OAuthClientRejected, apperr.NotFound:
-		return true
-	}
-	return false
-}
-
 // loadAccount は残り（カーソル由来）を起点に、limit 件に満ちるまで Gmail の次ページを取得して w.queue を作る。
 // 失敗したときも w.queue と w.pt は「次の呼び出しがそこから再開できる状態」（入ってきた状態＋失敗前に取り込めたページ）に保つ。
 func (s *InboxService) loadAccount(ctx context.Context, w *accountSearch, query string, limit int, st appcore.SearchState) {
+	defer logging.RecoverTo(logger(s.d), "inbox search account", &w.err) // panic もこのアカウントの取得失敗にする（別 goroutine で動く）
 	for _, r := range st.Rest {
 		w.queue = append(w.queue, searchEntry{AccountID: w.acc.ID, ThreadID: r.I, T: r.T})
 	}
@@ -154,7 +146,8 @@ func (s *InboxService) loadAccount(ctx context.Context, w *accountSearch, query 
 		}
 		entries := make([]*searchEntry, len(tl.Threads))
 		errs := make([]error, len(tl.Threads))
-		appcore.ParallelDo(len(tl.Threads), appcore.SearchParallelism, func(i int) {
+		appcore.ParallelDo(logger(s.d), len(tl.Threads), appcore.SearchParallelism, func(i int) {
+			defer logging.RecoverTo(logger(s.d), "inbox search thread", &errs[i]) // panic も取得失敗にする
 			var meta gmail.ThreadMeta
 			if meta, errs[i] = s.d.Gmail.GetThreadMetadata(ctx, w.acc.ID, tl.Threads[i].ID); errs[i] == nil {
 				if sum, ok := appcore.SummaryFromMeta(w.acc.ID, meta, w.labels); ok {
@@ -187,7 +180,7 @@ func (s *InboxService) hydratePicked(ctx context.Context, work []*accountSearch,
 	}
 	var mu sync.Mutex
 	failedAccounts := map[string]bool{}
-	appcore.ParallelDo(len(picked), appcore.SearchParallelism, func(i int) {
+	appcore.ParallelDo(logger(s.d), len(picked), appcore.SearchParallelism, func(i int) {
 		e := &picked[i]
 		if e.Sum != nil {
 			return
@@ -201,7 +194,7 @@ func (s *InboxService) hydratePicked(ctx context.Context, work []*accountSearch,
 			dropEntry(byID[e.AccountID], e.ThreadID)
 		case !failedAccounts[e.AccountID]:
 			failedAccounts[e.AccountID] = true
-			byID[e.AccountID].gone = permanentFailure(err)
+			byID[e.AccountID].gone = apperr.IsPermanent(err)
 			page.Failures = append(page.Failures, s.failure(ctx, e.AccountID, err))
 		}
 	})

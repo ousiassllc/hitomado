@@ -20,8 +20,9 @@ import (
 // skipLog は「paused のため同期周期を見送った」ログをアカウントごとに数える slog.Handler。
 // ワーカーが tick を処理し終えたことの観測に使う。
 type skipLog struct {
-	mu    sync.Mutex
-	count map[string]int
+	mu     sync.Mutex
+	count  map[string]int
+	panics int // "panic" レコード（logging.Recover が書く）の数
 }
 
 const skippedMsg = "sync cycle skipped: paused"
@@ -30,6 +31,12 @@ func (l *skipLog) Enabled(context.Context, slog.Level) bool { return true }
 func (l *skipLog) WithAttrs([]slog.Attr) slog.Handler       { return l }
 func (l *skipLog) WithGroup(string) slog.Handler            { return l }
 func (l *skipLog) Handle(_ context.Context, r slog.Record) error {
+	if r.Message == "panic" {
+		l.mu.Lock()
+		l.panics++
+		l.mu.Unlock()
+		return nil
+	}
 	if r.Message != skippedMsg {
 		return nil
 	}
@@ -43,6 +50,12 @@ func (l *skipLog) Handle(_ context.Context, r slog.Record) error {
 		return true
 	})
 	return nil
+}
+
+func (l *skipLog) panicCount() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.panics
 }
 
 func (l *skipLog) skipped(id string) int {
@@ -65,13 +78,17 @@ type harness struct {
 	s     *syncer.Scheduler
 }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T) *harness { return newHarnessWith(t, func(*synctest.Store) {}) }
+
+// newHarnessWith は Scheduler を作る前に prep でフェイクのストアを調整できる newHarness。
+func newHarnessWith(t *testing.T, prep func(*synctest.Store)) *harness {
 	t.Helper()
 	h := &harness{
 		t: t, st: synctest.NewStore(), gm: synctest.NewGmail(), ev: &synctest.Events{}, nt: &synctest.Notifier{},
 		clk: clock.NewFake(time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)), tk: &synctest.Tickers{},
 		skips: &skipLog{count: map[string]int{}},
 	}
+	prep(h.st)
 	h.s = syncer.New(syncer.Deps{
 		Store: h.st, Gmail: h.gm, Notifier: h.nt, Events: h.ev, Clock: h.clk,
 		Interval: time.Minute, NewTicker: h.tk.New, Logger: slog.New(h.skips),

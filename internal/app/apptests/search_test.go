@@ -88,6 +88,30 @@ func TestSearchAccountFilterFailureAndLabels(t *testing.T) {
 	assert.Equal(t, apperr.RateLimited, p.Failures[0].Error["code"])
 }
 
+// 並列取得の goroutine が panic しても、プロセスは落ちず、そのアカウントの失敗として返り、ほかのアカウントの結果は残る。
+func TestSearchRecoversPanicInParallelWorkers(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	b := e.AddAccount(t, "b@x.example")
+	e.PutRemoteThread(a.ID, "hit1", apptest.Msg("m1", "hit1", at(1), "INBOX"))
+	e.PutRemoteThread(b.ID, "hit2", apptest.Msg("m2", "hit2", at(2), "INBOX"))
+
+	e.Gmail.Panic["ListThreads:"+b.ID] = "list exploded" // アカウント単位のワーカー
+	p, err := svc.Search(t.Context(), dto.SearchQuery{Q: "hit"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hit1"}, threadIDs(p.Items))
+	require.Len(t, p.Failures, 1)
+	assert.Equal(t, b.ID, p.Failures[0].AccountID)
+
+	delete(e.Gmail.Panic, "ListThreads:"+b.ID)
+	e.Gmail.Panic["GetThreadMetadata:"+b.ID+":hit2"] = "metadata exploded" // スレッド単位のワーカー
+	p, err = svc.Search(t.Context(), dto.SearchQuery{Q: "hit"})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hit1"}, threadIDs(p.Items))
+	require.Len(t, p.Failures, 1)
+	assert.Equal(t, b.ID, p.Failures[0].AccountID)
+}
+
 func TestSearchValidation(t *testing.T) {
 	svc, _ := newInboxSvc(t)
 	for _, q := range []dto.SearchQuery{{Q: ""}, {Q: "   "}, {Q: "x", Limit: 101}, {Q: "x", Cursor: "%%"}} {

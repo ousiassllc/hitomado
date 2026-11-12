@@ -31,6 +31,8 @@ type Gmail struct {
 	Calls    []string // "account:method"
 	Queries  []gmail.ListQuery
 	HistHook func(accountID string) // ListHistory の先頭で呼ぶ（ブロック可）
+	// ThreadHook は GetThreadMetadata の先頭で呼ぶ（panic させて、並列取得の goroutine の異常を再現できる）。
+	ThreadHook func(accountID, threadID string)
 }
 
 func NewGmail() *Gmail { return &Gmail{Accts: map[string]*Script{}} }
@@ -100,6 +102,9 @@ func (g *Gmail) ListThreads(_ context.Context, id string, q gmail.ListQuery) (gm
 }
 
 func (g *Gmail) GetThreadMetadata(_ context.Context, id, threadID string) (gmail.ThreadMeta, error) {
+	if g.ThreadHook != nil {
+		g.ThreadHook(id, threadID)
+	}
 	g.Mu.Lock()
 	defer g.Mu.Unlock()
 	a := g.record(id, "GetThreadMetadata")

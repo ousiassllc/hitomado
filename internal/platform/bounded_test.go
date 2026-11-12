@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"log/slog"
 	"testing"
 	"time"
 )
@@ -10,7 +11,7 @@ const testBound = 20 * time.Millisecond
 func TestWaitBoundedReturnsTrueWhenFnFinishesInTime(t *testing.T) {
 	t.Parallel()
 	ran := false
-	if !WaitBounded(func() { ran = true }, time.Minute) {
+	if !WaitBounded(slog.New(slog.DiscardHandler), func() { ran = true }, time.Minute) {
 		t.Fatal("WaitBounded = false, want true for fast fn")
 	}
 	if !ran {
@@ -24,7 +25,7 @@ func TestWaitBoundedGivesUpOnBlockedFn(t *testing.T) {
 	finished := make(chan struct{})
 	result := make(chan bool, 1)
 	go func() {
-		result <- WaitBounded(func() { <-release; close(finished) }, testBound)
+		result <- WaitBounded(slog.New(slog.DiscardHandler), func() { <-release; close(finished) }, testBound)
 	}()
 
 	select {

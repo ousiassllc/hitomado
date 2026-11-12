@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/logging"
 )
 
 // refreshCall はアカウント 1 件分の手動更新。実行中の呼び出しは共有し、完了から 5 秒間は結果を使い回す。
@@ -71,13 +72,20 @@ func (s *Scheduler) refreshCall(id string) *refreshCall {
 	s.wg.Add(1)
 	go func() {
 		defer s.wg.Done()
-		err := s.runCycle(a.ctx, a)
+		err := s.runRefreshCycle(a)
 		s.mu.Lock()
 		c.err, c.at, c.finished = err, s.clock.Now(), true
 		s.mu.Unlock()
 		close(c.done)
 	}()
 	return c
+}
+
+// runRefreshCycle は手動更新の 1 周期を実行する。panic は記録してエラーにする
+// （呼び出し側が c.err を設定して c.done を閉じられるようにし、Refresh を戻らなくしない）。
+func (s *Scheduler) runRefreshCycle(a *account) (err error) {
+	defer logging.RecoverTo(s.log, "sync refresh", &err)
+	return s.runCycle(a.ctx, a)
 }
 
 func closedChan() chan struct{} {

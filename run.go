@@ -93,7 +93,7 @@ func run() error {
 	if caps.SupportsWindowState {
 		saved, save = loadWindowState(ctx, st, logger), windowStateSaver(st, logger)
 	}
-	win, keeper := platform.NewMainWindow(wapp, caps, saved, save)
+	win, keeper := platform.NewMainWindow(wapp, caps, saved, save, logger)
 	mainWindow.set(win)
 	emitter := platform.NewEmitter(wapp)
 	notifSvc := notifications.New()
@@ -185,7 +185,7 @@ func run() error {
 	shutdown := sync.OnceFunc(func() {
 		// Run がトレイ終了を経由せず戻った場合、flush 中の tray.SetIcon（InvokeSync）で sched.Shutdown が戻らないことがある。
 		// 終了処理全体（ループ・MCP・同期の停止）に上限を付け、超えたら打ち切って先へ進む。
-		stopped := platform.WaitBounded(func() {
+		stopped := platform.WaitBounded(logger, func() {
 			cancel()
 			loops.Wait()
 			svc.MCP.Shutdown()
@@ -202,7 +202,7 @@ func run() error {
 		defer cancel()
 		updatecore.New((*appdeps.Deps)(deps)).ApplyOnExit(ctx)
 	})
-	quitter = platform.NewQuitter(emitter, func() {
+	quitter = platform.NewQuitter(logger, emitter, func() {
 		keeper.Flush() // 終了でウィンドウが壊れる前に位置・サイズを保存する
 		shutdown()
 		applyUpdate()
