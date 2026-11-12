@@ -98,6 +98,26 @@ func TestInboxZeroSingleFailureIsSkipped(t *testing.T) {
 	assert.Equal(t, map[string]string{"t-good": "ad"}, reasonsOf(res))
 }
 
+// 判定の goroutine が panic しても、プロセスは落ちず、ログに panic が残り、そのスレッドだけ skipped になる。
+func TestInboxZeroPanicInJudgeIsSkippedAndLogged(t *testing.T) {
+	f := newIZFixture(t)
+	f.jevReady(t)
+	refs := []dto.ThreadRef{f.mail(t, "t-good"), f.mail(t, "t-boom")}
+	f.Classifier.Fn = func(_ context.Context, in ai.ClassifyInput) (ai.ClassifyAnswer, error) {
+		if strings.Contains(in.State, "subject t-boom") {
+			panic("classifier exploded")
+		}
+		return pick("ad", 0.9), nil
+	}
+	res, err := f.find(refs...)
+	require.NoError(t, err)
+	assert.Equal(t, 2, res.Examined)
+	assert.Equal(t, 1, res.Skipped)
+	assert.Equal(t, map[string]string{"t-good": "ad"}, reasonsOf(res))
+	assert.Contains(t, f.logs.String(), "msg=panic")
+	assert.Contains(t, f.logs.String(), "inbox zero judge")
+}
+
 // 401／403 と 429 は全体を止め、対応するエラーにする。
 func TestInboxZeroAuthAndRateLimitAbort(t *testing.T) {
 	for jevErr, code := range map[error]string{

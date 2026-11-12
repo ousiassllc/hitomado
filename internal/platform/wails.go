@@ -103,8 +103,8 @@ func WindowBackground(dark bool) application.RGBA {
 
 // NewMainWindow はメインウィンドウを作る。トレイがある OS では、× で終了せずトレイへ格納する（フックで閉じるのを取り消して隠す）。
 // ウィンドウ状態を保存する OS（caps.SupportsWindowState）では、saved の位置・サイズで開き、以後の変化を save へ渡す
-// （window.state。呼び出し側は戻り値の WindowKeeper の Flush を終了前に呼ぶ）。保存しない OS では saved・save は使わず、WindowKeeper は nil。
-func NewMainWindow(app *application.App, caps capability.Capabilities, saved WindowState, save func(WindowState)) (*application.WebviewWindow, *WindowKeeper) {
+// （window.state。呼び出し側は戻り値の WindowKeeper の Flush を終了前に呼ぶ）。log は WindowKeeper の goroutine が panic したときの記録先。保存しない OS では saved・save は使わず、WindowKeeper は nil。
+func NewMainWindow(app *application.App, caps capability.Capabilities, saved WindowState, save func(WindowState), log *slog.Logger) (*application.WebviewWindow, *WindowKeeper) {
 	if !caps.SupportsWindowState {
 		saved = DefaultWindowState()
 	}
@@ -127,7 +127,7 @@ func NewMainWindow(app *application.App, caps capability.Capabilities, saved Win
 	w := app.Window.NewWithOptions(opts)
 	var keeper *WindowKeeper
 	if caps.SupportsWindowState {
-		keeper = newWindowKeeper(app, w, saved, save)
+		keeper = newWindowKeeper(app, w, saved, save, log)
 	}
 	if caps.SupportsTray {
 		w.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {

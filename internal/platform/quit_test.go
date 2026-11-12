@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"log/slog"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -20,7 +21,7 @@ func newTestQuitter(t *testing.T) (q *Quitter, em *recordEmitter, quit chan stru
 	em = &recordEmitter{names: make(chan string, 4)}
 	quit = make(chan struct{}, 4)
 	timer = make(chan time.Time, 1)
-	q = NewQuitter(em, func() { quit <- struct{}{} }, func(time.Duration) <-chan time.Time { return timer })
+	q = NewQuitter(slog.New(slog.DiscardHandler), em, func() { quit <- struct{}{} }, func(time.Duration) <-chan time.Time { return timer })
 	return q, em, quit, timer
 }
 

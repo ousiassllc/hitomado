@@ -68,6 +68,15 @@ func TestFromInfraMapsSentinels(t *testing.T) {
 	}
 }
 
+func TestIsPermanent(t *testing.T) {
+	assert.True(t, apperr.IsPermanent(gmail.ErrNeedsReauth))
+	assert.True(t, apperr.IsPermanent(gmail.ErrClientRejected))
+	assert.True(t, apperr.IsPermanent(gmail.ErrNotFound))
+	assert.False(t, apperr.IsPermanent(gmail.ErrRateLimited))
+	assert.False(t, apperr.IsPermanent(gmail.ErrOffline))
+	assert.False(t, apperr.IsPermanent(gmail.ErrGeneric))
+}
+
 func TestFromInfraCancelBeatsNetError(t *testing.T) {
 	// url.Error はキャンセルでも net.Error を満たすため、OFFLINE と誤判定しないこと。
 	err := &url.Error{Op: "Get", URL: "https://example.invalid", Err: context.Canceled}

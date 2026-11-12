@@ -276,7 +276,7 @@ type SendResult = { messageId: string; threadId: string; archived: boolean; arch
 |----------|------|--------|------|
 | `OpenCompose(req)` | `OpenComposeRequest` | `ComposeSession` | セッションを作成し、宛先・件名・本文（署名・引用込み）を計算して返す（§5.1）。`draftId` 指定時は Gmail 下書きの内容（宛先・Cc・Bcc・件名・本文・**添付**）で上書きする。添付は復元時に取得して Go のメモリに保持する（下書きの更新でメッセージ ID が変わるため）。取得に失敗したときは `ATTACHMENT_IO` などで失敗し、合計が 25MB を超えるときは添付のみ復元せず `attachmentError` を返す |
 | `SetComposeSender(sessionId, accountId)` | string ×2 | `ComposeSession` | **`mode = new` のみ**。それ以外は `SENDER_LOCKED`。署名の差し替えはフロントが `Account.signatureHtml` で行う（F-07） |
-| `AddAttachments(sessionId, paths)` | string, `string[]` | `ComposeAttachment[]` | ローカルファイルを添付に追加（Go がパスを保持。内容は送信時に読む）。合計 25MB 超は `ATTACHMENT_TOO_LARGE`（追加分は全て不採用） |
+| `AddAttachments(sessionId, paths)` | string, `string[]` | `ComposeAttachment[]` | ローカルファイルを添付に追加（Go がパスを保持。内容は送信時に読む）。Content-Type は拡張子から `exportfile.MIMEForName` の固定表で決め（OS の対応表・レジストリには依存しない）、表に無ければ `application/octet-stream`。合計 25MB 超は `ATTACHMENT_TOO_LARGE`（追加分は全て不採用） |
 | `RemoveAttachment(sessionId, attachmentId)` | string ×2 | `ComposeAttachment[]` | 転送の元添付も削除可 |
 | `SaveDraft(sessionId, content)` | string, `ComposeContent` | `{ draftId: string; savedAt: number }` | Gmail の下書きを作成・更新（`drafts.create`／`update`）。**添付（ローカル・転送元・復元済み）も下書きの MIME に含める**（取得・読み込みに失敗したら `ATTACHMENT_IO`。添付なしの下書きで上書きしない）。送信元未選択は `SENDER_REQUIRED`（メモリのみで保持するため呼ばない） |
 | `PrepareSend(sessionId, content, options)` | string, `ComposeContent`, `{ archiveAfterSend: boolean }` | `SendPreview` | 送信前検証（§5.2）を行い、確認ダイアログ用の内容と**確認トークン**を返す |

@@ -2,7 +2,6 @@ package exportfile
 
 import (
 	"errors"
-	"mime"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +12,8 @@ import (
 // octetStream は種類が分からないときの MIME。
 const octetStream = "application/octet-stream"
 
-// knownTypes は Go の標準の対応表（OS の mime.types を読む。Android には無い）に頼らず、保存・表示で使う拡張子を固定する。
+// knownTypes は Go の標準の対応表（OS の mime.types・Windows のレジストリを読む。Android には無い）に頼らず、
+// 拡張子から MIME への対応を固定する。保存・表示（Android）と、メールの添付の送信（全 OS。composecore）が同じ表を使う。
 var knownTypes = map[string]string{
 	".pdf": "application/pdf", ".zip": "application/zip", ".txt": "text/plain", ".log": "text/plain",
 	".csv": "text/csv", ".json": "application/json", ".html": "text/html", ".htm": "text/html",
@@ -23,18 +23,17 @@ var knownTypes = map[string]string{
 	".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 	".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 	".mp3":  "audio/mpeg", ".mp4": "video/mp4", ".ics": "text/calendar", ".eml": "message/rfc822",
+	".md": "text/markdown", ".xml": "application/xml", ".rtf": "application/rtf", ".svg": "image/svg+xml",
+	".css": "text/css", ".js": "text/javascript", ".mjs": "text/javascript", ".wasm": "application/wasm", ".avif": "image/avif",
+	".heic": "image/heic", ".gz": "application/gzip", ".tar": "application/x-tar", ".7z": "application/x-7z-compressed",
+	".wav": "audio/wav", ".mov": "video/quicktime",
 }
 
 // MIMEForName はファイル名の拡張子から MIME を推定する。分からなければ application/octet-stream。
+// 結果は knownTypes だけで決まり、OS の mime.types・レジストリには依存しない（OS・端末で Content-Type が変わらない）。
 func MIMEForName(name string) string {
-	ext := strings.ToLower(filepath.Ext(name))
-	if t, ok := knownTypes[ext]; ok {
+	if t, ok := knownTypes[strings.ToLower(filepath.Ext(name))]; ok {
 		return t
-	}
-	if ext != "" {
-		if t, _, err := mime.ParseMediaType(mime.TypeByExtension(ext)); err == nil && t != "" {
-			return t
-		}
 	}
 	return octetStream
 }

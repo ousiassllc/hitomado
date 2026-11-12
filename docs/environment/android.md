@@ -443,7 +443,7 @@ Android: exportfile.Saver（純 Go。待ち合わせ・一時ファイル・後�
 | 待ちの上限 | 選択 10 分・コピー 5 分。呼び出しの ctx のキャンセルでも打ち切る | 利用者が放置しても goroutine と一時ファイルを残さない（`Saver` のテスト） |
 | 同時に 1 件 | `ErrBusy`（Java も `busy` を返す） | `startActivityForResult` の結果の取り違えを避ける（保存ボタンの連打） |
 | ファイル名 | Go（`appcore.SanitizeFilename`）と Java（`DocumentPaths.sanitizeName`）の両方で、区切り（`/`・`\`）・制御文字・`<>:"|?*`・予約名・長さ（255 バイト）を直す。ディレクトリ部分（`../`）は捨てる。**一時ファイル名には使わない**（`save-<id>`） | メールの添付名は信頼できない入力。保存先のファイル名は SAF のプロバイダーも直すが、アプリでも直す |
-| MIME | `exportfile.MIMEForName`（拡張子から。Android には `/etc/mime.types` が無いので表を持つ）。不明は `application/octet-stream` | 保存先選択画面の種類（`setType`）にだけ使う |
+| MIME | `exportfile.MIMEForName`（拡張子から。Android には `/etc/mime.types` が無いので表を持つ。OS の対応表・レジストリは引かず、表だけで決める）。不明は `application/octet-stream` | 保存先選択画面の種類（`setType`）に使う。メール添付（`AddAttachments`）の送信時の Content-Type も同じ関数で決める（全 OS で同じ規則） |
 | 一時ファイルの場所 | `cache/exports`（`getCacheDir()` 配下。FileProvider が公開しない） | Java はここの**直下のファイルだけ**を読む（`DocumentPaths.resolveChildFile`。正規化してから比較。`../`・サブディレクトリ・シンボリックリンクの外向きは拒否） |
 | 保存後の Mark-of-the-Web | Android では何もしない（`motw_other.go`） | 該当する仕組みが無い |
 | `SaveAttachmentResult.Path`／`ExportLogsResult.Path` | Windows は保存したパス、Android は選ばれた保存先の表示名 | Uri や内部パスを画面・ログに出さない |
