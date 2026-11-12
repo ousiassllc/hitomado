@@ -357,6 +357,35 @@ sequenceDiagram
 
 会話はフロントの `threadAiStore` だけが持ち、Go はリクエストの間しか持たない（ステートレス）。会話の長さ（最新 10 往復・20,000 文字）に収めるのはフロントで、Go は超えたものを黙って切り詰めず `VALIDATION` にする。入力の組み立て・同意・中止は §7.5 と共通。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
 
+### 7.7 Inbox Zero（不要なメールの候補の判定）
+
+```mermaid
+sequenceDiagram
+  participant FE as フロント
+  participant AI as AIService
+  participant GM as gmail.Client
+  participant CL as ai.Classifier（Jev）
+  participant IS as InboxService
+  FE->>AI: FindInboxZeroCandidates(refs, requestId)
+  AI->>AI: 検証（requestId・refs は重複を除き 100 件まで・理由が 1 つ以上オン。通信しない）
+  AI->>AI: Jev の理由（広告・通知・ニュースレター）が 1 つでもオンなら、API キー（AI_NOT_CONFIGURED）と同意（AI_CONSENT_REQUIRED）を確認して Classifier を作る
+  loop refs を最大 4 件ずつ並行に
+    AI->>GM: threads.get(format=full)（メモリ LRU を優先）
+    alt 返信済みがオンで、下書きでないメッセージに自分の送信（SENT ラベル、または差出人が受信アカウントのアドレス）がある
+      AI->>AI: 端末内で判定。候補（理由 = 返信済み）。Jev には送らない
+    else 広告・通知・未読のニュースレターのどれかがオン
+      AI->>CL: Classify(最新の下書きでないメッセージの差出人・件名・本文の先頭約 500 文字)
+      CL-->>AI: 選ばれた選択肢と全選択肢の確率
+      AI->>AI: オンの理由で確率 0.8 以上のときだけ候補（other・オフの理由・既読のニュースレターは候補にしない）
+    end
+  end
+  AI-->>FE: InboxZeroResult（candidates・examined・skipped）。アーカイブはしない
+  FE->>FE: 確認の一覧（最初は全部チェック済み）を出す
+  FE->>IS: Archive(チェックしたものだけ。Yes のときのみ)。「元に戻す」は Unarchive
+```
+
+判定とアーカイブは分かれていて、Go の `FindInboxZeroCandidates` は候補を返すだけである。アーカイブは利用者が一覧で確認して Yes を押したときに、通常のアーカイブ（F-04）と同じ `InboxService.Archive`／`Unarchive` で行う。TypeSafe AI の 401／403・429 は全体を止め、それ以外の 1 スレッドの失敗は `skipped` に数えて続ける。中止（`CancelGenerate`）は `CANCELLED` で結果を捨てる。送信先は TypeSafe AI（`api.typesafe.ai`）で固定、同意は `typesafe` として保存する（[非機能要件 §2](../requirements/non-functional.md#2-プライバシー外部通信)）。契約は [バインディング仕様 §6.3](../api/endpoints.md#63-inbox-zerofindinboxzerocandidates314)。
+
 ## 8. 主要な設計判断
 
 | 判断 | 採用 | 理由・トレードオフ |
@@ -410,3 +439,4 @@ sequenceDiagram
 | 1.26 | 2026-11-13 | §1 の通信先と §2 の AI の行・§3 の構成図に、Inbox Zero の判定先 TypeSafe AI（`ai.Classifier`。`Provider` とは別）を追加 | #314 の通信先の記載漏れ（#323・#332） |
 | 1.27 | 2026-11-13 | §7.3 に、設定「送信前に確認画面を出す」がオフ（警告なし）のときは確認ダイアログを省いて `PrepareSend` のトークンですぐ `Send` する分岐を追記 | #313 後の記載漏れ（#324・#334） |
 | 1.28 | 2026-11-13 | リンクの修正（§5 の Android ビルド §10 のパス、§2 の資格情報の保管の表示を §11 に）と、§4 のディレクトリ構成に現存するパッケージ（`capability`・`mcpserver`・`siwc`・`headless`・`androidbg`・`callbackpage`・`exportfile`・`asciijson`・`synctest`・`e2e`）とルートの OS 別ファイルを追加、`ai/` の説明を現状（chatgpt・jev）に直した | 実装のファイル構成・リンクとの乖離（#327） |
+| 1.29 | 2026-11-13 | §7.7（Inbox Zero: `FindInboxZeroCandidates` の流れ。返信済みは端末内で判定、広告・通知・ニュースレターは `ai.Classifier`〔Jev〕で判定し確率 0.8 以上だけを候補にする。アーカイブは `InboxService` 側）を追加 | 実装（`internal/app/aicore/inboxzero.go`）との整合（#333） |
