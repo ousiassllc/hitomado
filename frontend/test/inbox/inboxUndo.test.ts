@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
-import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ThreadSummary } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import {
   appError,
   callsOf,
@@ -10,13 +10,13 @@ import {
   resetState,
   restoreMocks,
   until,
-} from '../thread/threadTestKit'
+} from '../../src/components/thread/threadTestKit'
 
 installMocks()
 afterAll(restoreMocks)
 
-const { useInboxStore } = await import('../../stores/inbox')
-const { useUiStore } = await import('../../stores/ui')
+const { useInboxStore } = await import('../../src/stores/inbox')
+const { useUiStore } = await import('../../src/stores/ui')
 
 function summary(threadId: string, extra: Partial<ThreadSummary> = {}): ThreadSummary {
   return {
