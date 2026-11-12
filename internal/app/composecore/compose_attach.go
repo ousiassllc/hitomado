@@ -2,7 +2,6 @@ package composecore
 
 import (
 	"context"
-	"mime"
 	"os"
 	"path/filepath"
 	"slices"
@@ -10,6 +9,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/domain/model"
+	"github.com/ousiassllc/hitomado/internal/exportfile"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
@@ -43,12 +43,8 @@ func (s *Service) AddAttachments(ctx context.Context, sessionID string, paths []
 		if err != nil || !info.Mode().IsRegular() {
 			return nil, errAttachmentIO(name)
 		}
-		mt := mime.TypeByExtension(filepath.Ext(name))
-		if mt == "" {
-			mt = "application/octet-stream"
-		}
 		added = append(added, sessionAttachment{
-			ID: store.NewID(), Filename: name, MimeType: mt, Size: info.Size(), Source: attachmentLocal, Path: p,
+			ID: store.NewID(), Filename: name, MimeType: exportfile.MIMEForName(name), Size: info.Size(), Source: attachmentLocal, Path: p,
 			ModTime: info.ModTime(),
 		})
 	}

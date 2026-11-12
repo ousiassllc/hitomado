@@ -158,6 +158,36 @@ func TestAddAttachmentsLimit(t *testing.T) {
 	assert.Len(t, got, 1)
 }
 
+// 送信する添付の Content-Type は拡張子ごとに固定の表で決まり、OS の mime.types・レジストリに依存しない（exportfile.MIMEForName と同じ規則）。
+func TestSentAttachmentMIMEFromFixedTable(t *testing.T) {
+	f := newComposeFixture(t)
+	s, c := f.NewMail(t)
+	want := map[string]string{
+		"a.txt":  "text/plain",
+		"b.docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+		"c.ZIP":  "application/zip",
+		"d.csv":  "text/csv",
+		"e.pdf":  "application/pdf",
+		"f.bin":  "application/octet-stream",
+		"noext":  "application/octet-stream",
+	}
+	var paths []string
+	for name := range want {
+		paths = append(paths, writeFile(t, name, 1))
+	}
+	_, err := f.Svc.AddAttachments(t.Context(), s.SessionID, paths)
+	require.NoError(t, err)
+	prep, err := f.Svc.PrepareSend(t.Context(), s.SessionID, c, dto.SendOptions{})
+	require.NoError(t, err)
+	_, err = f.Svc.Send(t.Context(), s.SessionID, prep.ConfirmToken, c)
+	require.NoError(t, err)
+	env, _ := f.LastSent(t)
+	require.Len(t, env.Attachments, len(want))
+	for _, a := range env.Attachments {
+		assert.Equal(t, want[a.FileName], a.ContentType, "filename=%q", a.FileName)
+	}
+}
+
 func TestAddAttachmentsUnreadable(t *testing.T) {
 	f := newComposeFixture(t)
 	s := f.OpenNew(t, f.A.ID)
