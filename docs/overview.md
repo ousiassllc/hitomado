@@ -23,15 +23,16 @@
 - アカウント別署名
 - AI 返信下書き（「AIで下書き」押下時のみ生成。送信は人。API キーのほか ChatGPT プランでのログインにも対応し、モデルは一覧から選べる）
 - スレッドの AI 要約・AI への質問（「AI で要約」／質問の送信の操作のときのみ生成。質問ではそのスレッドの内容とそこまでの会話を文脈にする。結果・会話は開いている間だけメモリに持ち、保存しない）
+- Inbox Zero（「Inbox Zero」ボタンを押したときのみ、TypeSafe AI〔Jev〕と端末内の返信済み判定で不要なメールを選び、利用者が一覧で確認してからまとめてアーカイブ。F-19）
 - 検索（Gmail 検索クエリのパススルー、全アカウント横断）
 - 新着のデスクトップ通知（トースト）とトレイ常駐
-- Windows ビルド（コード署名なし、アプリ内で新バージョン通知）
+- Windows ビルド（コード署名なし。アプリ内で新バージョンを確認し、自動でダウンロード・入れ替え〔F-16・NF-D03〕）
 - README（OAuth クライアント作成手順）
 - UI は日本語のみ
 
 ### 含まないもの（当面）
 
-- Mac ビルド、モバイル
+- Android・macOS は検証用の試験版（NF-D06）のみ。正式な対応（Google Play 配布・Apple の署名と公証など）は当面しない
 - Outlook／IMAP 汎用
 - カレンダー、チーム共有、自動送信・エージェント
 - 公開者側サーバー（認証中継・メール中継・テレメトリ収集）
@@ -48,7 +49,7 @@
 ## ライセンス・配布
 
 - AGPL-3.0。GitHub（`ousiassllc/hitomado`）で無料公開
-- Windows 向けにビルド成果物を配布
+- Windows 向けにビルド成果物を配布（Android の APK・macOS の zip は検証用の試験版として同じ Release に添付。NF-D06）
 
 ## システム全体像
 
@@ -58,6 +59,7 @@ flowchart LR
   GO <--> G[Gmail / Workspace]
   GO <--> DB[(ローカル保存)]
   GO <--> AI[AI API（利用者のキー／ChatGPT プラン）]
+  GO <--> TS[TypeSafe AI（Inbox Zero の判定）]
 ```
 
 アーキテクチャの詳細は [アーキテクチャ設計](architecture/overview.md) を参照。
@@ -68,7 +70,7 @@ flowchart LR
 
 | ドキュメント | パス | 概要 |
 |------------|------|------|
-| 機能要件 | [`docs/requirements/functional.md`](requirements/functional.md) | F-01〜F-18 のユースケース・機能詳細・画面遷移・エラー動作 |
+| 機能要件 | [`docs/requirements/functional.md`](requirements/functional.md) | F-01〜F-19 のユースケース・機能詳細・画面遷移・エラー動作 |
 | 非機能要件 | [`docs/requirements/non-functional.md`](requirements/non-functional.md) | セキュリティ・外部通信・性能・同期・配布・テスト方針 |
 | アーキテクチャ設計 | [`docs/architecture/overview.md`](architecture/overview.md) | Wails v3＋Go＋Vue の構成、レイヤー、実行モデル、通信フロー |
 | ER / データモデル | [`docs/architecture/er.md`](architecture/er.md) | SQLite のテーブル定義（メタデータ・スニペットのみ）、インデックス、保持ルール |
@@ -76,6 +78,8 @@ flowchart LR
 | コンポーネント設計 | [`docs/components/overview.md`](components/overview.md) | Go／Vue のコンポーネント責務・依存・ショートカット・要件対応表 |
 | MCP 連携とログ | [`docs/mcp.md`](mcp.md) | 内蔵 MCP サーバー（既定オフ・トークン必須・送信なし）の設定・ツール、ログの場所・形式・伏せ処理 |
 | 環境構築 | [`docs/environment/setup.md`](environment/setup.md) | 開発ツール・bun 固定・CI（ubuntu／windows）・Biome／golangci-lint・Linterly・Lefthook。Android のビルドは [`android.md`](environment/android.md) |
+| Android ビルド | [`docs/environment/android.md`](environment/android.md) | Android 版（APK／AAB）のビルド・署名・版番号・CI・Windows 版との機能差・資格情報の保管・画面・E2E。調査資料: [試作と調査の結果](environment/android-investigation.md)・[Google Play 配布の準備](environment/android-play-distribution.md)・[libc 上流への報告文](environment/android-libc-upstream.md) |
+| Windows 実機の確認 | [`docs/environment/windows-verification.md`](environment/windows-verification.md) | Windows 実機・実 Gmail での確認手順 |
 
 ## マイルストーン / リリース計画
 
@@ -103,3 +107,4 @@ flowchart LR
 | 1.3 | 2026-11-03 | AI 下書きに ChatGPT プラン（Sign in with ChatGPT）とモデル一覧からの選択を追記（詳細は各設計書の履歴） | #75、#76 |
 | 1.4 | 2026-11-06 | スコープに、スレッドの AI 要約と AI への質問を追記（詳細は各設計書の履歴） | #206・#207 |
 | 1.5 | 2026-11-06 | ドキュメントマップの機能要件の範囲を F-01〜F-15 から F-01〜F-18 に直した（F-16 の漏れの補正を含む） | #206・#207 |
+| 1.6 | 2026-11-13 | ドキュメントマップを F-01〜F-19 にし、Android ビルド・Windows 実機の確認（`android-*.md`・`windows-verification.md`）を追加。スコープに Inbox Zero（F-19）を追加し、Windows の自動アップデートを明記、「含まないもの」を Android・macOS の試験版のみとする記述（NF-D06）に直した。システム全体像に TypeSafe AI を追加 | 現状（F-19・Android／macOS の試験版・F-16・文書構成）との食い違いの解消（#326。TypeSafe AI は #323） |
