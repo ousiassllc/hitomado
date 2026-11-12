@@ -27,6 +27,11 @@ const labelItems = computed(() => {
   return [{ key: '', label: store.labelsLoading ? msg.labelsLoading : msg.labelsEmpty, disabled: true }]
 })
 
+/** メニューが開いた経路によらず、開いた時点でアカウントのラベルを取得する。 */
+function onLabelsOpen(open: boolean): void {
+  if (open) void store.loadLabels()
+}
+
 function onLabel(key: string): void {
   if (key) void store.toggleLabel(key)
 }
@@ -52,14 +57,9 @@ const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail
             {{ msg.aiSummarize }}
           </BaseButton>
         </BaseTooltip>
-        <BaseMenu :items="labelItems" @select="onLabel">
+        <BaseMenu :items="labelItems" @select="onLabel" @open="onLabelsOpen">
           <template #trigger>
-            <BaseButton size="sm"
-              data-testid="act-label"
-              @pointerdown="store.loadLabels()"
-              @keydown.enter="store.loadLabels()"
-              @keydown.space="store.loadLabels()"
-            >{{ msg.label }}</BaseButton>
+            <BaseButton size="sm" data-testid="act-label">{{ msg.label }}</BaseButton>
           </template>
         </BaseMenu>
         <BaseTooltip

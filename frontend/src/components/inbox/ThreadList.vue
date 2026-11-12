@@ -37,6 +37,7 @@ const emit = defineEmits<{
 
 const accounts = useAccountsStore()
 const scroller = ref<HTMLElement | null>(null)
+const listbox = ref<HTMLElement | null>(null)
 const listId = `thread-list-${Math.random().toString(36).slice(2, 8)}`
 
 const virtualizer = useVirtualizer(
@@ -79,7 +80,7 @@ function onClick(ev: MouseEvent, t: ThreadSummary): void {
   if (ev.ctrlKey || ev.metaKey) emit('toggle', ref)
   else if (ev.shiftKey) emit('extend', ref)
   else emit('open', ref)
-  scroller.value?.focus({ preventScroll: true })
+  listbox.value?.focus({ preventScroll: true })
 }
 
 function onKeydown(ev: KeyboardEvent): void {
@@ -91,17 +92,8 @@ function onKeydown(ev: KeyboardEvent): void {
 </script>
 
 <template>
-  <div
-    ref="scroller"
-    class="list"
-    role="listbox"
-    tabindex="0"
-    aria-multiselectable="true"
-    :aria-label="common.list.label"
-    :aria-busy="loading"
-    :aria-activedescendant="activeDescendant"
-    @keydown="onKeydown"
-  >
+  <!-- スクロール領域（.list）の中に、option だけを持つ listbox（.inner）と、その外の兄弟として読み込み中・空表示・「さらに読み込む」を置く（listbox の子は option だけ） -->
+  <div ref="scroller" class="list">
     <div v-if="loading && items.length === 0" class="state"><Spinner /></div>
     <div v-else-if="items.length === 0" class="state">
       <EmptyState>
@@ -109,7 +101,19 @@ function onKeydown(ev: KeyboardEvent): void {
         {{ emptyText }}
       </EmptyState>
     </div>
-    <div v-else class="inner" :style="{ height: `${totalSize}px` }">
+    <div
+      v-else
+      ref="listbox"
+      class="inner"
+      role="listbox"
+      tabindex="0"
+      aria-multiselectable="true"
+      :aria-label="common.list.label"
+      :aria-busy="loading"
+      :aria-activedescendant="activeDescendant"
+      :style="{ height: `${totalSize}px` }"
+      @keydown="onKeydown"
+    >
       <!-- biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: キーボード操作は親の listbox（矢印・j/k・Enter）が担う。この要素は仮想スクロールの位置決め用ラッパー -->
       <div
         v-for="vr in rows"
@@ -124,6 +128,8 @@ function onKeydown(ev: KeyboardEvent): void {
           :selected="keyOf(items[vr.index]) === selectedKey"
           :checked="checkedSet.has(keyOf(items[vr.index]))"
           :active="keyOf(items[vr.index]) === cursorKey"
+          :posinset="vr.index + 1"
+          :setsize="hasMore ? -1 : items.length"
           :account="accountOf(items[vr.index])"
         />
       </div>
@@ -146,7 +152,8 @@ function onKeydown(ev: KeyboardEvent): void {
   position: relative;
 }
 
-.list:focus-visible {
+/* フォーカスは内側の listbox（.inner）にあるが、リングは画面に見えているスクロール領域の縁に描く（.inner は全行ぶんの高さがあり、縁が画面外になるため） */
+.list:has(> .inner:focus-visible) {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
@@ -154,6 +161,7 @@ function onKeydown(ev: KeyboardEvent): void {
 .inner {
   position: relative;
   width: 100%;
+  outline: none;
 }
 
 .slot {

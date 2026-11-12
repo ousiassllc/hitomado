@@ -161,6 +161,14 @@ describe('MessageCard', () => {
     expect(w.find('[data-testid="card-content"]').exists()).toBe(false)
   })
 
+  test('開閉ボタンの名前は中身（差出人・未読・日時）で、aria-label で上書きしない', () => {
+    const toggle = mount(MessageCard, {
+      props: { message: message('m1', true), expanded: false },
+    }).get('button.card-toggle')
+    expect(toggle.attributes('aria-label')).toBeUndefined()
+    for (const part of ['山田', '未読', '2020年1月']) expect(toggle.text()).toContain(part)
+  })
+
   test('添付があれば名前・サイズ・保存ボタンを出し、保存で save を emit する', async () => {
     const att = { id: 'a1', filename: '請求書.pdf', mimeType: 'application/pdf', size: 2048 }
     const w = mount(MessageCard, {
