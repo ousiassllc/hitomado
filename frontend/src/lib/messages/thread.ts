@@ -27,8 +27,6 @@ export const thread = {
   to: '宛先',
   cc: 'Cc',
   toMe: '（宛先なし）',
-  expand: 'メッセージを展開',
-  collapse: 'メッセージを折りたたむ',
   unreadMark: '未読',
   attachmentCount: (n: number) => `添付 ${n} 件`,
   noBody: '（本文なし）',
