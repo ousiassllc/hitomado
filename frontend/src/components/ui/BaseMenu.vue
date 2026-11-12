@@ -21,11 +21,12 @@ export interface MenuItem {
 }
 
 defineProps<{ items: MenuItem[] }>()
-const emit = defineEmits<{ select: [key: string] }>()
+/** `open`: 開閉が変わったとき（ポインタ・Enter・Space・ArrowDown など開いた経路によらず）に通知する。開いたときに取得する項目の読み込み用 */
+const emit = defineEmits<{ select: [key: string]; open: [open: boolean] }>()
 </script>
 
 <template>
-  <DropdownMenuRoot>
+  <DropdownMenuRoot @update:open="emit('open', $event)">
     <DropdownMenuTrigger as-child>
       <slot name="trigger" />
     </DropdownMenuTrigger>

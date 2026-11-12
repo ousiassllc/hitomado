@@ -1,11 +1,17 @@
 import { describe, expect, test } from 'bun:test'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import ListToolbar from './ListToolbar.vue'
 
-function mountToolbar(searching: boolean, selectedCount = 0, compact = false) {
+function mountToolbar(
+  searching: boolean,
+  selectedCount = 0,
+  compact = false,
+  attachTo?: HTMLElement,
+) {
   setActivePinia(createPinia())
   return mount(ListToolbar, {
+    attachTo,
     props: {
       selectedCount,
       compact,
@@ -78,6 +84,41 @@ describe('ListToolbar の一括操作（複数選択のときだけ）', () => {
   test('1 画面ずつのレイアウト（compact）では、複数選択でも出さない', () => {
     const w = mountToolbar(false, 3, true)
     expect(present(w)).toEqual([])
+    w.unmount()
+  })
+})
+
+// Reka UI のトリガーは ArrowDown でもメニューを開く。開いた経路によらず、開いた時点でラベルの取得を求める（#338）。
+describe('ListToolbar のラベルメニュー', () => {
+  const open = async (w: ReturnType<typeof mountToolbar>, key: string) => {
+    const trigger = w.get('button[aria-label="ラベル"]').element as HTMLElement
+    trigger.focus()
+    trigger.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
+    await flushPromises()
+  }
+
+  for (const key of ['ArrowDown', 'Enter', ' ']) {
+    test(`${JSON.stringify(key)} で開いたとき openLabels を 1 回通知する`, async () => {
+      document.body.innerHTML = ''
+      const w = mountToolbar(false, 2, false, document.body)
+      expect(w.emitted('openLabels')).toBeUndefined()
+      await open(w, key)
+      expect(document.querySelector('[role="menu"]')).not.toBeNull()
+      expect(w.emitted('openLabels')).toHaveLength(1)
+      w.unmount()
+    })
+  }
+
+  test('クリックで開いたときも通知し、閉じるときは通知しない', async () => {
+    document.body.innerHTML = ''
+    const w = mountToolbar(false, 2, false, document.body)
+    await w.get('button[aria-label="ラベル"]').trigger('click', { button: 0, ctrlKey: false })
+    await flushPromises()
+    expect(document.querySelector('[role="menu"]')).not.toBeNull()
+    expect(w.emitted('openLabels')).toHaveLength(1)
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await flushPromises()
+    expect(w.emitted('openLabels')).toHaveLength(1)
     w.unmount()
   })
 })

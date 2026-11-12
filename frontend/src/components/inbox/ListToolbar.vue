@@ -39,6 +39,11 @@ const menuItems = computed(() => {
   return props.labels.map((l) => ({ key: l.id, label: l.name, checked: l.checked }))
 })
 
+/** メニューが開いた経路によらず、開いた時点でラベルを取得させる。 */
+function onMenuOpen(open: boolean): void {
+  if (open) emit('openLabels')
+}
+
 function onLabelSelect(key: string): void {
   if (key) emit('label', key)
 }
@@ -64,12 +69,11 @@ function onLabelSelect(key: string): void {
       <BaseIconButton :label="common.toolbar.trash" :shortcut="SHORTCUT_KEYS.trash" variant="danger" @click="emit('trash')">
         <Trash class="icon" aria-hidden="true" />
       </BaseIconButton>
-      <BaseMenu :items="menuItems" @select="onLabelSelect">
+      <BaseMenu :items="menuItems" @select="onLabelSelect" @open="onMenuOpen">
         <template #trigger>
           <BaseIconButton
             :label="labelEnabled ? common.toolbar.label : common.toolbar.labelMultiAccount"
             :disabled="!labelEnabled"
-            @click="emit('openLabels')"
           >
             <Label class="icon" aria-hidden="true" />
           </BaseIconButton>
