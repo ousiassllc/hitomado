@@ -18,7 +18,7 @@
 | バックエンド言語 | Go | Gmail API 公式クライアント・単一バイナリ配布 |
 | メール API | Gmail API（`google.golang.org/api/gmail/v1`） | `history` による差分同期、`threads`／`drafts`／`messages.send` を使う。IMAP は採用しない（OAuth スコープが粗く、スレッド・ラベル・下書きの対応が弱い） |
 | OAuth | `golang.org/x/oauth2`＋Google エンドポイント（PKCE・ループバック） | NF-S03 |
-| 資格情報ストア | `github.com/zalando/go-keyring`（Windows 資格情報マネージャー）、Android は EncryptedSharedPreferences（`androidx.security:security-crypto` 1.1.0。[Android ビルド §10](../environment/android.md#11-資格情報の保管84)） | NF-S01 |
+| 資格情報ストア | `github.com/zalando/go-keyring`（Windows 資格情報マネージャー）、Android は EncryptedSharedPreferences（`androidx.security:security-crypto` 1.1.0。[Android ビルド §11](../environment/android.md#11-資格情報の保管84)） | NF-S01 |
 | ローカル DB | SQLite（`modernc.org/sqlite`、純 Go・CGO なし） | Windows でのビルドが容易（C コンパイラ不要） |
 | クエリ生成・マイグレーション | **sqlc**（型安全なクエリ生成）＋ **goose**（SQL マイグレーションを `embed`） | |
 | MIME 構築 | `github.com/jhillyerd/enmime`（Builder） | `multipart/alternative`・添付・`In-Reply-To`／`References` |
@@ -87,6 +87,8 @@ graph TD
 hitomado/
 ├─ main.go                 # エントリポイント（run() を呼び、失敗時は致命的エラーを表示して終了）
 ├─ run.go                  # composition root（Wails アプリ作成・単一インスタンス・依存の組み立て・サービス登録・トレイ生成。機能の有無は capability に従う）
+├─ runguard.go ほか        # run() の二重実行の防止（runguard）・多重起動の防止（singleinstance）・ウィンドウ状態の保存復元（windowstate）・バインディングの登録（services_binding）
+├─ datadir_*.go、notifsvc_*.go、oauthtracker_*.go、headless_android.go  # OS ごとの差（ビルドタグ android／!android。データの保存先・通知サービス・認可の追跡・Android のヘッドレス同期の JNI 入口）
 ├─ internal/
 │  ├─ app/                 # バインディング（サービス層）
 │  ├─ domain/              # 純粋ロジック（reply, quote, signature, senderpolicy, confirm, contacts, palette, textconv, model）
@@ -95,20 +97,30 @@ hitomado/
 │  ├─ oauth/               # ループバック＋PKCE フロー
 │  ├─ store/               # sqlc 生成コード・クエリ・goose マイグレーション
 │  ├─ secrets/             # 資格情報ストア（interface＋keyring 実装）
-│  ├─ ai/                  # Provider interface、anthropic、openai-compat
+│  ├─ ai/                  # Provider interface と 3 実装（anthropic、openai 互換、chatgpt＝Responses API）、モデル一覧、エフォート、Classifier（jev.go＝TypeSafe AI。Inbox Zero の判定）
+│  ├─ siwc/                # Sign in with ChatGPT（動的登録・PKCE・トークンの保持と更新）
+│  ├─ callbackpage/        # 認可（OAuth・Sign in with ChatGPT）の 127.0.0.1 待受が返す完了ページ
+│  ├─ capability/          # OS ごとの機能の有無（Capabilities。Desktop／Android）
+│  ├─ mcpserver/           # 内蔵 MCP サーバー（Streamable HTTP）
+│  ├─ exportfile/          # 保存先を利用者に選ばせてファイルを書く処理の OS 非依存部分
+│  ├─ headless/            # Wails に依存しない「1 回だけ同期して新着を返す」入口（Android の WorkManager 用）
+│  ├─ androidbg/           # WorkManager の Worker（Java）から Go のヘッドレス同期を呼ぶ JNI の入口
+│  ├─ asciijson/           # JNI に載せる ASCII だけの JSON の組み立て
 │  ├─ notify/              # 新着通知・トレイバッジの Notifier インターフェース（Wails 実装は platform）
 │  ├─ platform/            # Wails 接続層（メインウィンドウ・トレイ・トースト通知・ファイル／ブラウザのダイアログ・イベント発行・終了処理）
 │  ├─ events/              # フロントへ発行するイベントの名前とペイロード
 │  ├─ clock/               # 時刻の注入（System／Fake）
 │  ├─ logging/             # ログ出力（slog＋ローテーション。機密を出さない）
-│  └─ update/              # GitHub Releases 確認、Windows 版の自動アップデート（ダウンロード・SHA-256 照合・入れ替えの指示）
+│  ├─ update/              # GitHub Releases 確認、Windows 版の自動アップデート（ダウンロード・SHA-256 照合・入れ替えの指示）
+│  ├─ synctest/            # 同期・サービスのテストで共有するフェイク（Gmail・Store・Notifier など。テスト専用）
+│  └─ e2e/                 # Android の E2E 用のテスト用起動モード（ビルドタグ e2e のときだけ有効）
 ├─ frontend/               # Vue 3 + TS（src/components, src/stores, src/lib）
 └─ docs/
 ```
 
 ## 5. 実行モデル
 
-- **プロセス**: 単一プロセス。多重起動は Wails v3 の単一インスタンス機能で禁止し、2 つ目の起動は既存ウィンドウを前面に出す。**OS ごとの機能差**（Android では MCP サーバー・トレイ・多重起動の防止・ウィンドウ状態の保存復元を動かさず、アプリ内の更新は新しい版のお知らせとリンクだけ）は `internal/capability` の `Capabilities`（`run.go` が `capability.Current()` で決める。ビルドタグ `android`／`!android`）で表し、同じ値を `PlatformService.GetCapabilities` でフロントへ渡す（画面は OS 名ではなくこの値で出し分ける。[Android ビルド §10](environment/android.md#10-android-で動かさない機能)）
+- **プロセス**: 単一プロセス。多重起動は Wails v3 の単一インスタンス機能で禁止し、2 つ目の起動は既存ウィンドウを前面に出す。**OS ごとの機能差**（Android では MCP サーバー・トレイ・多重起動の防止・ウィンドウ状態の保存復元を動かさず、アプリ内の更新は新しい版のお知らせとリンクだけ）は `internal/capability` の `Capabilities`（`run.go` が `capability.Current()` で決める。ビルドタグ `android`／`!android`）で表し、同じ値を `PlatformService.GetCapabilities` でフロントへ渡す（画面は OS 名ではなくこの値で出し分ける。[Android ビルド §10](../environment/android.md#10-android-で動かさない機能)）
 - **ウィンドウ**: メインウィンドウ 1 つ。エディタはメインウィンドウ内のペイン（返信・転送はスレッド下部、新規作成は右ペイン全面）として表示する。独立ウィンドウは v0 では設けない
 - **トレイ**: ウィンドウの × は非表示化（トレイへ格納）。トレイメニュー「開く」「終了」。「終了」でのみ同期スケジューラを停止してプロセスを終了する
 - **同期**: アカウントごとに 1 ゴルーチン。`time.Ticker`（60 秒）＋手動更新シグナル。`context` でキャンセル可能。アカウント追加・削除に応じて起動・停止する
@@ -397,3 +409,4 @@ sequenceDiagram
 | 1.25 | 2026-11-10 | Android が自動アップデートをしない理由から「署名が版ごとに変わる」を外した（APK は固定鍵で署名し、上書きインストールで更新できる） | #310 |
 | 1.26 | 2026-11-13 | §1 の通信先と §2 の AI の行・§3 の構成図に、Inbox Zero の判定先 TypeSafe AI（`ai.Classifier`。`Provider` とは別）を追加 | #314 の通信先の記載漏れ（#323・#332） |
 | 1.27 | 2026-11-13 | §7.3 に、設定「送信前に確認画面を出す」がオフ（警告なし）のときは確認ダイアログを省いて `PrepareSend` のトークンですぐ `Send` する分岐を追記 | #313 後の記載漏れ（#324・#334） |
+| 1.28 | 2026-11-13 | リンクの修正（§5 の Android ビルド §10 のパス、§2 の資格情報の保管の表示を §11 に）と、§4 のディレクトリ構成に現存するパッケージ（`capability`・`mcpserver`・`siwc`・`headless`・`androidbg`・`callbackpage`・`exportfile`・`asciijson`・`synctest`・`e2e`）とルートの OS 別ファイルを追加、`ai/` の説明を現状（chatgpt・jev）に直した | 実装のファイル構成・リンクとの乖離（#327） |
