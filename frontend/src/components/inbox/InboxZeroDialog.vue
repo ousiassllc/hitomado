@@ -5,19 +5,26 @@ import { common, inboxZero as msg } from '../../lib/messages'
 import { useInboxZeroStore } from '../../stores/inboxZero'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseDialog from '../ui/BaseDialog.vue'
+import Spinner from '../ui/Spinner.vue'
 
-// Inbox Zero の 2 つのダイアログ（#314）。
-//   consent: 初めて使うとき、Jev へ送る内容への同意（同意前は送らない）。
+// Inbox Zero の 3 つのダイアログ（#314）。
+//   consent : 初めて使うとき、Jev へ送る内容への同意（同意前は送らない）。
+//   checking: 判断中（最大 100 通を 1 通ずつ Jev へ問い合わせる間）。「やめる」・× ・Esc（Android の戻るも）で判断を中止し、結果を捨てる（#343）。
 //   review : 候補の確認の一覧。「差出人・件名」だけをチェックボックスつきで出し（最初は全部チェック済み）、
 //            「アーカイブする（Yes）」でチェックの入ったものだけをアーカイブする。「やめる（No）」・閉じる・Esc は何も変えない。
 const zero = useInboxZeroStore()
 const t = msg
 
 const consentOpen = computed(() => zero.phase === 'consent')
+const checkingOpen = computed(() => zero.phase === 'checking')
 const reviewOpen = computed(() => zero.phase === 'review')
 const count = computed(() => zero.checkedCandidates.length)
 
 function onConsentOpen(open: boolean): void {
+  if (!open) zero.cancel()
+}
+
+function onCheckingOpen(open: boolean): void {
   if (!open) zero.cancel()
 }
 
@@ -37,6 +44,18 @@ function onReviewOpen(open: boolean): void {
     <template #footer>
       <BaseButton data-testid="inbox-zero-consent-cancel" @click="zero.cancel()">{{ common.cancel }}</BaseButton>
       <BaseButton variant="primary" data-testid="inbox-zero-consent-agree" @click="zero.agree()">{{ t.consentAgree }}</BaseButton>
+    </template>
+  </BaseDialog>
+
+  <BaseDialog
+    :open="checkingOpen"
+    size="sm"
+    :title="t.checkingTitle"
+    @update:open="onCheckingOpen"
+  >
+    <p class="checking" data-testid="inbox-zero-checking"><Spinner /> {{ t.checking }}</p>
+    <template #footer>
+      <BaseButton data-testid="inbox-zero-checking-cancel" @click="zero.cancel()">{{ t.abort }}</BaseButton>
     </template>
   </BaseDialog>
 
@@ -75,6 +94,13 @@ function onReviewOpen(open: boolean): void {
 </template>
 
 <style scoped>
+.checking {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: 0;
+}
+
 .count {
   margin: 0 0 var(--s-2);
   color: var(--mute);

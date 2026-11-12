@@ -7,6 +7,8 @@ export const inboxZero = {
   blockedEmpty: 'この一覧にメールがありません。',
   blockedNoKey: 'TypeSafe AI（Jev）の API キーが未登録です。設定の AI で登録してください。',
   checking: '不要なメールを探しています…',
+  checkingTitle: 'Inbox Zero：判断中',
+  abort: 'やめる',
   none: (n: number) => `不要なメールは見つかりませんでした（${n} 件を確認）。`,
   dialogTitle: 'Inbox Zero：アーカイブする候補',
   dialogDescription: '不要と思われるメールです。残したいものはチェックを外してください。',

@@ -74,7 +74,7 @@ describe('Inbox Zero ボタン（#314）', () => {
     w.unmount()
   })
 
-  test('判断中はスピナーと aria-busy を出し、押しても何も起きない', async () => {
+  test('判断中はスピナーと aria-busy を出し、押しても二度目の判断は始まらない（やめる操作は判断中のダイアログ）', async () => {
     const { pinia, zero } = setup()
     const w = mount(InboxTabs, { props: { modelValue: 'all' }, global: { plugins: [pinia] } })
     zero.phase = 'checking'
@@ -161,6 +161,63 @@ describe('Inbox Zero の確認の一覧（#314）', () => {
     await w.vm.$nextTick()
     expect(zero.phase).toBe('idle')
     expect(zero.candidates).toHaveLength(0)
+    w.unmount()
+  })
+})
+
+describe('Inbox Zero の判断中のダイアログ（#343）', () => {
+  function openChecking() {
+    document.body.innerHTML = ''
+    const ctx = setup()
+    ctx.zero.phase = 'checking'
+    const w = mount(InboxZeroDialog, {
+      props: {},
+      global: { plugins: [ctx.pinia] },
+      attachTo: document.body,
+    })
+    return { ...ctx, w }
+  }
+
+  test('判断中は、判断中の表示と「やめる」ボタンを持つダイアログが開く。判断中でなければ開かない', async () => {
+    const { w } = openChecking()
+    await w.vm.$nextTick()
+    expect(document.querySelector('[data-testid="inbox-zero-checking"]')?.textContent).toContain(
+      '不要なメールを探しています',
+    )
+    expect(document.querySelector('[data-testid="inbox-zero-checking-cancel"]')?.textContent).toBe(
+      'やめる',
+    )
+    w.unmount()
+
+    document.body.innerHTML = ''
+    const idle = setup()
+    const w2 = mount(InboxZeroDialog, {
+      props: {},
+      global: { plugins: [idle.pinia] },
+      attachTo: document.body,
+    })
+    await w2.vm.$nextTick()
+    expect(document.querySelector('[data-testid="inbox-zero-checking"]')).toBeNull()
+    w2.unmount()
+  })
+
+  test('「やめる」で判断を中止して idle に戻る（phase が checking のときだけ中止の合図が走る）', async () => {
+    const { w, zero } = openChecking()
+    await w.vm.$nextTick()
+    document.querySelector<HTMLButtonElement>('[data-testid="inbox-zero-checking-cancel"]')?.click()
+    await w.vm.$nextTick()
+    expect(zero.phase).toBe('idle')
+    w.unmount()
+  })
+
+  test('Esc（Android の戻るは Esc として届く）でも判断を中止する', async () => {
+    const { w, zero } = openChecking()
+    await w.vm.$nextTick()
+    document.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    )
+    await w.vm.$nextTick()
+    expect(zero.phase).toBe('idle')
     w.unmount()
   })
 })

@@ -108,4 +108,38 @@ describe('利用枠の超過（#80）', () => {
     expect(w.find('[data-testid="ai-usage-limit"]').exists()).toBe(false)
     w.unmount()
   })
+
+  test('AiDraftButton: 生成中にアンマウント（作成セッションを閉じる）すると CancelGenerate を 1 回呼び、後から届いた結果は挿入しない。生成中でなければ呼ばない', async () => {
+    const store = useSettingsStore()
+    store.aiConfig = {
+      provider: 'chatgpt',
+      model: 'gpt-plan',
+      configured: true,
+      hasApiKey: true,
+      apiKeyProviders: [],
+      consentedProviders: ['chatgpt'],
+      chatgptSignedIn: true,
+      chatgptAccounts: [],
+    }
+    const cancelled: string[] = []
+    store.cancelGenerate = async (id: string) => {
+      cancelled.push(id)
+    }
+    const gen = Promise.withResolvers<{ bodyHtml: string }>()
+    store.generateReplyDraft = () => gen.promise as never
+
+    const idle = mount(AiDraftButton, { props: { sessionId: 's0' }, attachTo: document.body })
+    idle.unmount()
+    expect(cancelled).toEqual([])
+
+    const w = mount(AiDraftButton, { props: { sessionId: 's1' }, attachTo: document.body })
+    await w.get('button').trigger('click')
+    await flushPromises()
+    w.unmount()
+    expect(cancelled).toHaveLength(1)
+    gen.resolve({ bodyHtml: '<p>late</p>' })
+    await flushPromises()
+    expect(w.emitted('generated')).toBeUndefined()
+    expect(cancelled).toHaveLength(1)
+  })
 })
