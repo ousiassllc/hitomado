@@ -123,7 +123,7 @@ flowchart LR
 | `installer-arm64` | windows-11-arm（ARM64 の実機） | `needs: build`。`build` の x64 の成果物で、同じ `test-installer.ps1` と、exe の 15 秒の起動確認を通す（#13。§4.3「ARM64 の扱い」） |
 | `macos` | macos-latest（マトリクス: `arm64`／`amd64`） | `pull_request` のみ（`release.yml` からの呼び出しでは動かさない）。`.github/actions/build-macos` で `.app`（ad-hoc 署名）と zip を版 `0.99.1` で作って検査し（§4.4）、zip をアーティファクトに上げる。`arm64` は起動して 10 秒生きていることも確認する（`amd64` は arm64 ランナーでのクロスビルドなので起動しない） |
 
-補足: `.github/workflows/android-e2e.yml`（`workflow_dispatch` のみ。PR の CI には含めない）が、KVM つきの x86_64 エミュレーター（API 35）で Android の E2E を回す（手動実行で通ることを確認済み。実機の arm64 は未確認）。手順と位置づけは [Android ビルド §17](android.md#17-実機エミュレーターでの-e2e-webview-のクラッシュ対策性能90)。
+補足: `.github/workflows/android-e2e.yml`（`workflow_dispatch` のみ。PR の CI には含めない）が、KVM つきの x86_64 エミュレーター（API 35）で Android の E2E を回す（手動実行で通ることを確認済み。実機の arm64 は未確認）。手順と位置づけは [Android ビルド §17](android.md#17-実機エミュレーターでの-e2ewebview-のクラッシュ対策性能90)。
 
 - セットアップ: `actions/setup-go`（`go.mod` のバージョン。Go のモジュール・ビルドキャッシュは既定で効く）、`oven-sh/setup-bun`（bun 1.3.14 を固定）、`bun install --frozen-lockfile`。フロントの依存は明示的にキャッシュしない
 - 生成物の差分検査: `wails3 generate bindings` は Linux でも動く。ただし GTK ヘッダが無い環境では cgo を使う既定の Linux バックエンドをビルドできないため、`CGO_ENABLED=0` と `-tags purego`（Wails v3.1.0 の CGO なし Linux バックエンド）を付ける。Go の lint・vet・test も ubuntu では同じ設定で実行する（Windows 向けビルドには影響しない）。

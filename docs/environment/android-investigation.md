@@ -14,7 +14,7 @@ Issue #81 は、Wails v3 の Android 対応（試験的）で Hitomado の Andro
 |------|------|
 | Android 版のビルド | **通る**。`task android:package`（release APK）・`android:bundle:fat`（AAB。arm64＋x86_64）が通り、`android:verify` が manifest・署名・権限を検査する。PR の CI の `android` ジョブが毎回 APK と AAB を作る（[§8](android.md#8-ciリリースciymlreleaseyml)） |
 | エミュレーターでの起動 | **起動する**（x86_64・API 35）。ただし x86_64 は `modernc.org/libc` のパッチなしでは SQLite の最初のファイル操作で落ちる（次の表） |
-| エミュレーターで一覧表示まで | **未確認**。KVM なしの環境で WebView のレンダラが落ち続け、一覧まで到達できなかった（[§17.6](android.md#176-確認の状況2026-11-04)） |
+| エミュレーターで一覧表示まで | **未確認**。KVM なしの環境で WebView のレンダラが落ち続け、一覧まで到達できなかった（[§17.6](android.md#176-確認の状況)） |
 | 実機（arm64） | **未確認**（端末が無い） |
 
 試作で分かったこと（本実装で直した）:
