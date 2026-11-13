@@ -29,7 +29,6 @@ watch(
       class="card-toggle"
       data-testid="card-toggle"
       :aria-expanded="open"
-      :aria-label="open ? msg.collapse : msg.expand"
       @click="open = !open"
     >
       <component :is="open ? NavArrowDown : NavArrowRight" class="icon icon-sm toggle-mark" aria-hidden="true" />

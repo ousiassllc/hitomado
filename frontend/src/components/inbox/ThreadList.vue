@@ -37,6 +37,7 @@ const emit = defineEmits<{
 
 const accounts = useAccountsStore()
 const scroller = ref<HTMLElement | null>(null)
+const listbox = ref<HTMLElement | null>(null)
 const listId = `thread-list-${Math.random().toString(36).slice(2, 8)}`
 
 const virtualizer = useVirtualizer(
@@ -79,7 +80,7 @@ function onClick(ev: MouseEvent, t: ThreadSummary): void {
   if (ev.ctrlKey || ev.metaKey) emit('toggle', ref)
   else if (ev.shiftKey) emit('extend', ref)
   else emit('open', ref)
-  scroller.value?.focus({ preventScroll: true })
+  listbox.value?.focus({ preventScroll: true })
 }
 
 function onKeydown(ev: KeyboardEvent): void {
@@ -91,62 +92,89 @@ function onKeydown(ev: KeyboardEvent): void {
 </script>
 
 <template>
-  <div
-    ref="scroller"
-    class="list"
-    role="listbox"
-    tabindex="0"
-    aria-multiselectable="true"
-    :aria-label="common.list.label"
-    :aria-busy="loading"
-    :aria-activedescendant="activeDescendant"
-    @keydown="onKeydown"
-  >
-    <div v-if="loading && items.length === 0" class="state"><Spinner /></div>
-    <div v-else-if="items.length === 0" class="state">
-      <EmptyState>
-        <template #icon><Mail class="icon icon-lg" /></template>
-        {{ emptyText }}
-      </EmptyState>
-    </div>
-    <div v-else class="inner" :style="{ height: `${totalSize}px` }">
-      <!-- biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: キーボード操作は親の listbox（矢印・j/k・Enter）が担う。この要素は仮想スクロールの位置決め用ラッパー -->
-      <div
-        v-for="vr in rows"
-        :key="String(vr.key)"
-        class="slot"
-        :style="{ height: `${vr.size}px`, transform: `translateY(${vr.start}px)` }"
-        @click="onClick($event, items[vr.index])"
-      >
-        <ThreadRow
-          :id="rowId(keyOf(items[vr.index]))"
-          :thread="items[vr.index]"
-          :selected="keyOf(items[vr.index]) === selectedKey"
-          :checked="checkedSet.has(keyOf(items[vr.index]))"
-          :active="keyOf(items[vr.index]) === cursorKey"
-          :account="accountOf(items[vr.index])"
-        />
+  <!-- 枠（.frame）の中に、スクロール領域（.list）を置く。.list の中に、option だけを持つ listbox（.inner）と、その外の兄弟として読み込み中・空表示・「さらに読み込む」を置く（listbox の子は option だけ）。フォーカスリングはスクロールしない .frame の ::after に描く -->
+  <div class="frame">
+    <div ref="scroller" class="list">
+      <div v-if="loading && items.length === 0" class="state"><Spinner /></div>
+      <div v-else-if="items.length === 0" class="state">
+        <EmptyState>
+          <template #icon><Mail class="icon icon-lg" /></template>
+          {{ emptyText }}
+        </EmptyState>
       </div>
-    </div>
-    <!-- 続きは明示のボタンで読み込む（O7: 無限スクロールにしない） -->
-    <div v-if="hasMore && !loading" class="more">
-      <BaseButton size="sm" variant="secondary" :loading="loadingMore" @click="emit('loadMore')">{{
-        loadingMore ? common.list.loadingMore : common.list.loadMore
-      }}</BaseButton>
+      <div
+        v-else
+        ref="listbox"
+        class="inner"
+        role="listbox"
+        tabindex="0"
+        aria-multiselectable="true"
+        :aria-label="common.list.label"
+        :aria-busy="loading"
+        :aria-activedescendant="activeDescendant"
+        :style="{ height: `${totalSize}px` }"
+        @keydown="onKeydown"
+      >
+        <!-- biome-ignore lint/a11y/noStaticElementInteractions lint/a11y/useKeyWithClickEvents: キーボード操作は親の listbox（矢印・j/k・Enter）が担う。この要素は仮想スクロールの位置決め用ラッパー -->
+        <div
+          v-for="vr in rows"
+          :key="String(vr.key)"
+          class="slot"
+          :style="{ height: `${vr.size}px`, transform: `translateY(${vr.start}px)` }"
+          @click="onClick($event, items[vr.index])"
+        >
+          <ThreadRow
+            :id="rowId(keyOf(items[vr.index]))"
+            :thread="items[vr.index]"
+            :selected="keyOf(items[vr.index]) === selectedKey"
+            :checked="checkedSet.has(keyOf(items[vr.index]))"
+            :active="keyOf(items[vr.index]) === cursorKey"
+            :posinset="vr.index + 1"
+            :setsize="hasMore ? -1 : items.length"
+            :account="accountOf(items[vr.index])"
+          />
+        </div>
+      </div>
+      <!-- 続きは明示のボタンで読み込む（O7: 無限スクロールにしない） -->
+      <div v-if="hasMore && !loading" class="more">
+        <BaseButton size="sm" variant="secondary" :loading="loadingMore" @click="emit('loadMore')">{{
+          loadingMore ? common.list.loadingMore : common.list.loadMore
+        }}</BaseButton>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.frame {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  isolation: isolate;
+}
+
 .list {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   outline: none;
-  position: relative;
 }
 
-.list:focus-visible {
+/* フォーカスは内側の listbox（.inner）にあるが、リングは画面に見えている枠（.frame）の縁の内側に描く。
+   .list の outline は、position した行（.slot）より先に塗られて隠れ、.inner は全行ぶんの高さがあって縁が画面外になる。
+   .frame はスクロールしないので、リングは行と一緒に流れない。行より前面に pointer-events: none で重ねる。
+   box-shadow ではなく outline（forced-colors で消えない）。 */
+.frame::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.frame:has(.inner:focus-visible)::after {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
@@ -154,6 +182,7 @@ function onKeydown(ev: KeyboardEvent): void {
 .inner {
   position: relative;
   width: 100%;
+  outline: none;
 }
 
 .slot {

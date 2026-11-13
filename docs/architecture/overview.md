@@ -4,7 +4,7 @@
 
 ## 1. 設計方針
 
-- **サーバーレス**: 公開者のサーバーを持たない。すべての通信は利用者の PC から Google／AI プロバイダ／GitHub API へ直接行う
+- **サーバーレス**: 公開者のサーバーを持たない。すべての通信は利用者の PC から Google／AI プロバイダ（返信下書き・要約・質問）／TypeSafe AI（Inbox Zero の判定）／GitHub API へ直接行う
 - **薄いフロント・厚い Go**: 認証・同期・MIME 生成・送信元の強制など、安全性に関わる処理はすべて Go 側に置く。フロントエンドは表示と入力に専念し、外部へ直接通信しない（CSP で禁止）
 - **送信元の強制は Go 側が最終防衛線**: UI の制御を迂回しても、返信・転送の送信元は受信アカウント以外にならない
 - **アカウント単位の隔離**: 同期・レート制限・エラー状態はアカウントごとに独立させる
@@ -18,14 +18,14 @@
 | バックエンド言語 | Go | Gmail API 公式クライアント・単一バイナリ配布 |
 | メール API | Gmail API（`google.golang.org/api/gmail/v1`） | `history` による差分同期、`threads`／`drafts`／`messages.send` を使う。IMAP は採用しない（OAuth スコープが粗く、スレッド・ラベル・下書きの対応が弱い） |
 | OAuth | `golang.org/x/oauth2`＋Google エンドポイント（PKCE・ループバック） | NF-S03 |
-| 資格情報ストア | `github.com/zalando/go-keyring`（Windows 資格情報マネージャー）、Android は EncryptedSharedPreferences（`androidx.security:security-crypto` 1.1.0。[Android ビルド §10](../environment/android.md#11-資格情報の保管84)） | NF-S01 |
+| 資格情報ストア | `github.com/zalando/go-keyring`（Windows 資格情報マネージャー）、Android は EncryptedSharedPreferences（`androidx.security:security-crypto` 1.1.0。[Android ビルド §11](../environment/android.md#11-資格情報の保管84)） | NF-S01 |
 | ローカル DB | SQLite（`modernc.org/sqlite`、純 Go・CGO なし） | Windows でのビルドが容易（C コンパイラ不要） |
 | クエリ生成・マイグレーション | **sqlc**（型安全なクエリ生成）＋ **goose**（SQL マイグレーションを `embed`） | |
 | MIME 構築 | `github.com/jhillyerd/enmime`（Builder） | `multipart/alternative`・添付・`In-Reply-To`／`References` |
 | レート制限 | `golang.org/x/time/rate` | アカウントごとのクォータ制御（NF 同期） |
 | ログ | 標準 `log/slog`（JSON Lines）＋ `lumberjack` によるローテーション。書き込み前に秘密・メール内容を伏せる Handler を通す | NF-S10 |
 | MCP | 公式 Go SDK `github.com/modelcontextprotocol/go-sdk`（Streamable HTTP）。既定オフ・Bearer トークン必須・送信ツールなし | NF-S13〜NF-S15、[docs/mcp.md](../mcp.md) |
-| AI | 自前の薄い `Provider` インターフェース。Anthropic・OpenAI 互換（Chat Completions）・ChatGPT プラン（Responses API）の 3 実装と、モデル一覧の取得（`ListModels`） | NF §12 |
+| AI | 自前の薄い `Provider` インターフェース。Anthropic・OpenAI 互換（Chat Completions）・ChatGPT プラン（Responses API）の 3 実装と、モデル一覧の取得（`ListModels`）。Inbox Zero の判定だけは別の `ai.Classifier`（TypeSafe AI〔Jev〕の `POST /v1/systemone` の choice 質問。文章は書かない。`internal/ai/jev.go`）で、`Provider` の実装には加えない | NF §12、NF §2 |
 | ChatGPT ログイン | `internal/siwc`（Sign in with ChatGPT の OSS 向けフロー。動的登録・PKCE・ID トークンの検証は `github.com/coreos/go-oidc/v3`） | NF §2、[API §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt) |
 | フロントエンド | **Vue 3＋TypeScript**（Composition API／`<script setup>`）、Vite、Pinia | |
 | リッチテキスト | Tiptap（ProseMirror）。太字・リンク・箇条書き | F-11 |
@@ -65,6 +65,7 @@ graph TD
   INF <-->|HTTPS| GG[Google OAuth / Gmail API]
   INF <-->|HTTPS| AI[AI プロバイダ 利用者のキー／ChatGPT プラン]
   INF <-->|HTTPS| OA[auth.openai.com ChatGPT ログイン]
+  INF <-->|HTTPS| TS[api.typesafe.ai TypeSafe AI Inbox Zero の判定]
   INF <-->|HTTPS| GH[GitHub Releases API と Release の添付ファイル 自動アップデート]
 ```
 
@@ -86,6 +87,8 @@ graph TD
 hitomado/
 ├─ main.go                 # エントリポイント（run() を呼び、失敗時は致命的エラーを表示して終了）
 ├─ run.go                  # composition root（Wails アプリ作成・単一インスタンス・依存の組み立て・サービス登録・トレイ生成。機能の有無は capability に従う）
+├─ runguard.go ほか        # run() の二重実行の防止（runguard）・多重起動の防止（singleinstance）・ウィンドウ状態の保存復元（windowstate）・バインディングの登録（services_binding）
+├─ datadir_*.go、notifsvc_*.go、oauthtracker_*.go、headless_android.go  # OS ごとの差（ビルドタグ android／!android。データの保存先・通知サービス・認可の追跡・Android のヘッドレス同期の JNI 入口）
 ├─ internal/
 │  ├─ app/                 # バインディング（サービス層）
 │  ├─ domain/              # 純粋ロジック（reply, quote, signature, senderpolicy, confirm, contacts, palette, textconv, model）
@@ -94,20 +97,30 @@ hitomado/
 │  ├─ oauth/               # ループバック＋PKCE フロー
 │  ├─ store/               # sqlc 生成コード・クエリ・goose マイグレーション
 │  ├─ secrets/             # 資格情報ストア（interface＋keyring 実装）
-│  ├─ ai/                  # Provider interface、anthropic、openai-compat
+│  ├─ ai/                  # Provider interface と 3 実装（anthropic、openai 互換、chatgpt＝Responses API）、モデル一覧、エフォート、Classifier（jev.go＝TypeSafe AI。Inbox Zero の判定）
+│  ├─ siwc/                # Sign in with ChatGPT（動的登録・PKCE・トークンの保持と更新）
+│  ├─ callbackpage/        # 認可（OAuth・Sign in with ChatGPT）の 127.0.0.1 待受が返す完了ページ
+│  ├─ capability/          # OS ごとの機能の有無（Capabilities。Desktop／Android）
+│  ├─ mcpserver/           # 内蔵 MCP サーバー（Streamable HTTP）
+│  ├─ exportfile/          # 保存先を利用者に選ばせてファイルを書く処理の OS 非依存部分
+│  ├─ headless/            # Wails に依存しない「1 回だけ同期して新着を返す」入口（Android の WorkManager 用）
+│  ├─ androidbg/           # WorkManager の Worker（Java）から Go のヘッドレス同期を呼ぶ JNI の入口
+│  ├─ asciijson/           # JNI に載せる ASCII だけの JSON の組み立て
 │  ├─ notify/              # 新着通知・トレイバッジの Notifier インターフェース（Wails 実装は platform）
 │  ├─ platform/            # Wails 接続層（メインウィンドウ・トレイ・トースト通知・ファイル／ブラウザのダイアログ・イベント発行・終了処理）
 │  ├─ events/              # フロントへ発行するイベントの名前とペイロード
 │  ├─ clock/               # 時刻の注入（System／Fake）
 │  ├─ logging/             # ログ出力（slog＋ローテーション。機密を出さない）
-│  └─ update/              # GitHub Releases 確認、Windows 版の自動アップデート（ダウンロード・SHA-256 照合・入れ替えの指示）
+│  ├─ update/              # GitHub Releases 確認、Windows 版の自動アップデート（ダウンロード・SHA-256 照合・入れ替えの指示）
+│  ├─ synctest/            # 同期・サービスのテストで共有するフェイク（Gmail・Store・Notifier など。テスト専用）
+│  └─ e2e/                 # Android の E2E 用のテスト用起動モード（ビルドタグ e2e のときだけ有効）
 ├─ frontend/               # Vue 3 + TS（src/components, src/stores, src/lib）
 └─ docs/
 ```
 
 ## 5. 実行モデル
 
-- **プロセス**: 単一プロセス。多重起動は Wails v3 の単一インスタンス機能で禁止し、2 つ目の起動は既存ウィンドウを前面に出す。**OS ごとの機能差**（Android では MCP サーバー・トレイ・多重起動の防止・ウィンドウ状態の保存復元を動かさず、アプリ内の更新は新しい版のお知らせとリンクだけ）は `internal/capability` の `Capabilities`（`run.go` が `capability.Current()` で決める。ビルドタグ `android`／`!android`）で表し、同じ値を `PlatformService.GetCapabilities` でフロントへ渡す（画面は OS 名ではなくこの値で出し分ける。[Android ビルド §10](environment/android.md#10-android-で動かさない機能)）
+- **プロセス**: 単一プロセス。多重起動は Wails v3 の単一インスタンス機能で禁止し、2 つ目の起動は既存ウィンドウを前面に出す。**OS ごとの機能差**（Android では MCP サーバー・トレイ・多重起動の防止・ウィンドウ状態の保存復元を動かさず、アプリ内の更新は新しい版のお知らせとリンクだけ）は `internal/capability` の `Capabilities`（`run.go` が `capability.Current()` で決める。ビルドタグ `android`／`!android`）で表し、同じ値を `PlatformService.GetCapabilities` でフロントへ渡す（画面は OS 名ではなくこの値で出し分ける。[Android ビルド §10](../environment/android.md#10-android-で動かさない機能)）
 - **ウィンドウ**: メインウィンドウ 1 つ。エディタはメインウィンドウ内のペイン（返信・転送はスレッド下部、新規作成は右ペイン全面）として表示する。独立ウィンドウは v0 では設けない
 - **トレイ**: ウィンドウの × は非表示化（トレイへ格納）。トレイメニュー「開く」「終了」。「終了」でのみ同期スケジューラを停止してプロセスを終了する
 - **同期**: アカウントごとに 1 ゴルーチン。`time.Ticker`（60 秒）＋手動更新シグナル。`context` でキャンセル可能。アカウント追加・削除に応じて起動・停止する
@@ -258,7 +271,7 @@ sequenceDiagram
     CS-->>FE: SENDER_MISMATCH（確認ダイアログも出さない）
   else 一致
     CS-->>FE: SendPreview（確認トークン・警告）
-    FE->>U: 送信確認ダイアログ（送信元・宛先・本文を表示）
+    FE->>U: 送信確認ダイアログ（送信元・宛先・本文を表示）。設定「送信前に確認画面を出す」がオフで警告も無いときだけ省く
     U->>FE: 「<送信元> から送信」を確定
     FE->>CS: Send(sessionId, confirmToken, content)
     CS->>CS: トークン・内容ハッシュを検証
@@ -273,6 +286,8 @@ sequenceDiagram
     CS-->>FE: SendResult
   end
 ```
+
+設定「送信前に確認画面を出す」（F-06。#313）がオフのときは、確認ダイアログを省くのはフロントの送信フローだけで、`PrepareSend` を呼んでそのトークンですぐ `Send` を呼ぶ（バックエンドの検証・送信元の強制・確認トークンは省かない）。`SendPreview.warnings` が 1 件でもあるときは、設定がオフでもダイアログを出す。`Ctrl+Enter` も同じ経路を通る。
 
 契約の詳細（トークン仕様・エラーコード）は [バインディング仕様 §5.2](../api/endpoints.md#52-送信前確認と送信確認トークン) を参照。
 
@@ -342,6 +357,35 @@ sequenceDiagram
 
 会話はフロントの `threadAiStore` だけが持ち、Go はリクエストの間しか持たない（ステートレス）。会話の長さ（最新 10 往復・20,000 文字）に収めるのはフロントで、Go は超えたものを黙って切り詰めず `VALIDATION` にする。入力の組み立て・同意・中止は §7.5 と共通。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
 
+### 7.7 Inbox Zero（不要なメールの候補の判定）
+
+```mermaid
+sequenceDiagram
+  participant FE as フロント
+  participant AI as AIService
+  participant GM as gmail.Client
+  participant CL as ai.Classifier（Jev）
+  participant IS as InboxService
+  FE->>AI: FindInboxZeroCandidates(refs, requestId)
+  AI->>AI: 検証（requestId・refs は重複を除き 100 件まで・理由が 1 つ以上オン。通信しない）
+  AI->>AI: Jev の理由（広告・通知・ニュースレター）が 1 つでもオンなら、API キー（AI_NOT_CONFIGURED）と同意（AI_CONSENT_REQUIRED）を確認して Classifier を作る
+  loop refs を最大 4 件ずつ並行に
+    AI->>GM: threads.get(format=full)（メモリ LRU を優先）
+    alt 返信済みがオンで、下書きでないメッセージに自分の送信（SENT ラベル、または差出人が受信アカウントのアドレス）がある
+      AI->>AI: 端末内で判定。候補（理由 = 返信済み）。Jev には送らない
+    else 広告・通知・未読のニュースレターのどれかがオン
+      AI->>CL: Classify(最新の下書きでないメッセージの差出人・件名・本文の先頭約 500 文字)
+      CL-->>AI: 選ばれた選択肢と全選択肢の確率
+      AI->>AI: オンの理由で確率 0.8 以上のときだけ候補（other・オフの理由・既読のニュースレターは候補にしない）
+    end
+  end
+  AI-->>FE: InboxZeroResult（candidates・examined・skipped）。アーカイブはしない
+  FE->>FE: 確認の一覧（最初は全部チェック済み）を出す
+  FE->>IS: Archive(チェックしたものだけ。Yes のときのみ)。「元に戻す」は Unarchive
+```
+
+判定とアーカイブは分かれていて、Go の `FindInboxZeroCandidates` は候補を返すだけである。アーカイブは利用者が一覧で確認して Yes を押したときに、通常のアーカイブ（F-04）と同じ `InboxService.Archive`／`Unarchive` で行う。TypeSafe AI の 401／403・429 は全体を止め、それ以外の 1 スレッドの失敗は `skipped` に数えて続ける。中止（`CancelGenerate`）は `CANCELLED` で結果を捨てる。送信先は TypeSafe AI（`api.typesafe.ai`）で固定、同意は `typesafe` として保存する（[非機能要件 §2](../requirements/non-functional.md#2-プライバシー外部通信)）。契約は [バインディング仕様 §6.3](../api/endpoints.md#63-inbox-zerofindinboxzerocandidates314)。
+
 ## 8. 主要な設計判断
 
 | 判断 | 採用 | 理由・トレードオフ |
@@ -392,3 +436,7 @@ sequenceDiagram
 | 1.23 | 2026-11-06 | §7.5（スレッドの AI 要約: `SummarizeThread` の通信フロー。スレッドは `ThreadRef` で指定し、全メッセージ・合計 40,000 文字を目安に渡す。保存しない）を追加 | #206 |
 | 1.24 | 2026-11-06 | §7.6（スレッドへの AI 質問: `AskAboutThread` の通信フロー。Go はステートレスで、会話はフロントが `history` として毎回渡す。検証は Go、会話の長さの制限はフロント）を追加 | #207 |
 | 1.25 | 2026-11-10 | Android が自動アップデートをしない理由から「署名が版ごとに変わる」を外した（APK は固定鍵で署名し、上書きインストールで更新できる） | #310 |
+| 1.26 | 2026-11-13 | §1 の通信先と §2 の AI の行・§3 の構成図に、Inbox Zero の判定先 TypeSafe AI（`ai.Classifier`。`Provider` とは別）を追加 | #314 の通信先の記載漏れ（#323・#332） |
+| 1.27 | 2026-11-13 | §7.3 に、設定「送信前に確認画面を出す」がオフ（警告なし）のときは確認ダイアログを省いて `PrepareSend` のトークンですぐ `Send` する分岐を追記 | #313 後の記載漏れ（#324・#334） |
+| 1.28 | 2026-11-13 | リンクの修正（§5 の Android ビルド §10 のパス、§2 の資格情報の保管の表示を §11 に）と、§4 のディレクトリ構成に現存するパッケージ（`capability`・`mcpserver`・`siwc`・`headless`・`androidbg`・`callbackpage`・`exportfile`・`asciijson`・`synctest`・`e2e`）とルートの OS 別ファイルを追加、`ai/` の説明を現状（chatgpt・jev）に直した | 実装のファイル構成・リンクとの乖離（#327） |
+| 1.29 | 2026-11-13 | §7.7（Inbox Zero: `FindInboxZeroCandidates` の流れ。返信済みは端末内で判定、広告・通知・ニュースレターは `ai.Classifier`〔Jev〕で判定し確率 0.8 以上だけを候補にする。アーカイブは `InboxService` 側）を追加 | 実装（`internal/app/aicore/inboxzero.go`）との整合（#333） |

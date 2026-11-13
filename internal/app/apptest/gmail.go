@@ -62,6 +62,8 @@ type FakeGmail struct {
 	Calls             []string // "Method:accountID" の呼び出し順
 
 	Err map[string]error
+	// Panic は Err と同じキーで、呼び出しを panic させる（別 goroutine の異常を再現する）。値が panic の値。
+	Panic map[string]any
 
 	seq int
 }
@@ -81,6 +83,7 @@ func NewFakeGmail() *FakeGmail {
 		History:     map[string]gmail.HistoryPage{},
 		Signatures:  map[string]string{},
 		Err:         map[string]error{},
+		Panic:       map[string]any{},
 	}
 }
 
@@ -92,6 +95,9 @@ func (f *FakeGmail) enter(method, accountID string, extra ...string) error {
 		keys = append(keys, method+":"+accountID+":"+extra[0])
 	}
 	for i := len(keys) - 1; i >= 0; i-- {
+		if v, ok := f.Panic[keys[i]]; ok {
+			panic(v)
+		}
 		if err := f.Err[keys[i]]; err != nil {
 			return err
 		}

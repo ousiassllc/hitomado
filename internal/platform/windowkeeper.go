@@ -1,11 +1,14 @@
 package platform
 
 import (
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
+
+	"github.com/ousiassllc/hitomado/internal/logging"
 )
 
 // saveDelay は移動・リサイズの連続イベントをまとめて 1 回だけ保存するための待ち時間。
@@ -18,6 +21,7 @@ type WindowKeeper struct {
 	win   *application.WebviewWindow
 	saved WindowState
 	save  func(WindowState)
+	log   *slog.Logger
 
 	mu        sync.Mutex
 	normal    Rect // 最大化していないときの直近の矩形
@@ -26,8 +30,8 @@ type WindowKeeper struct {
 }
 
 // newWindowKeeper は win の状態を追跡して save へ渡す。save は保存失敗を自分で記録する。
-func newWindowKeeper(app *application.App, win *application.WebviewWindow, saved WindowState, save func(WindowState)) *WindowKeeper {
-	k := &WindowKeeper{app: app, win: win, saved: saved, save: save, maximized: saved.Maximized}
+func newWindowKeeper(app *application.App, win *application.WebviewWindow, saved WindowState, save func(WindowState), log *slog.Logger) *WindowKeeper {
+	k := &WindowKeeper{app: app, win: win, saved: saved, save: save, log: log, maximized: saved.Maximized}
 	if r, ok := saved.Bounds(); ok {
 		k.normal = r
 	}
@@ -47,6 +51,7 @@ func newWindowKeeper(app *application.App, win *application.WebviewWindow, saved
 // restore は最初に表示された後で、画面外の位置を戻し、最大化を復元する。
 // 最大化は位置とサイズを設定した後に行う（戻したときの大きさを保存値にするため）。
 func (k *WindowKeeper) restore() {
+	defer logging.Recover(k.log, "window restore") // 別 goroutine なので、panic でアプリごと落とさない
 	if r, ok := k.saved.Bounds(); ok {
 		var areas []Rect
 		for _, s := range k.app.Screen.GetAll() {
@@ -90,7 +95,13 @@ func (k *WindowKeeper) schedule() {
 	if k.timer != nil {
 		k.timer.Stop()
 	}
-	k.timer = time.AfterFunc(saveDelay, k.Flush)
+	k.timer = time.AfterFunc(saveDelay, k.flushRecovered)
+}
+
+// flushRecovered はタイマーの goroutine から Flush する。panic はここで記録して握りつぶす（プロセスごと落とさない）。
+func (k *WindowKeeper) flushRecovered() {
+	defer logging.Recover(k.log, "window state flush")
+	k.Flush()
 }
 
 // Flush は今の状態を直ちに保存する。ウィンドウが無い（破棄済み）ときは直近に取れた値を保存する。

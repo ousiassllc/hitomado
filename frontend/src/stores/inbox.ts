@@ -9,7 +9,7 @@ import type {
 import * as InboxService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
 import { type AppError, call, list, parseBindingError } from '../lib/api'
 import { EVENTS, onEvent, type SyncUpdatedPayload } from '../lib/events'
-import { keyOf, mergeHead } from '../lib/inboxItems'
+import { keyOf, mergeHead, viewKeyOf } from '../lib/inboxItems'
 import type { InboxTab } from '../lib/inboxTabs'
 import { common } from '../lib/messages'
 import { useAccountsStore } from './accounts'
@@ -50,6 +50,8 @@ export const useInboxStore = defineStore('inbox', () => {
   let unsubscribers: Array<() => void> = []
   let reloading = false
   let reloadDirty = false
+  /** 一覧の行が属する表示条件（直近に成功した先頭からの読み込み時点）。 */
+  let loadedKey: string | undefined
   /** サーバー反映待ちで楽観的に除去した行。先頭ページの再取得で復活させない。 */
   const pendingRemoval = new Set<string>()
 
@@ -58,18 +60,13 @@ export const useInboxStore = defineStore('inbox', () => {
 
   const api = makeApi(ui, accounts.markNeedsReauth)
 
+  const viewKey = () => viewKeyOf(mode.value, searchQuery.value, tab.value, filter.value)
+
   const mutations = useInboxMutations({
     items,
     hidesRead: () => (filter.value.unreadOnly || tab.value === 'new') && mode.value === 'inbox',
     searching: () => mode.value === 'search',
-    viewKey: () =>
-      JSON.stringify([
-        mode.value,
-        searchQuery.value,
-        tab.value,
-        filter.value.unreadOnly,
-        filter.value.accountIds,
-      ]),
+    viewKey,
     pendingRemoval,
     api,
     ui,
@@ -107,17 +104,25 @@ export const useInboxStore = defineStore('inbox', () => {
   /** 先頭から読み直す（フィルタ変更・検索・初回）。 */
   async function load(): Promise<void> {
     const gen = ++generation
+    const key = viewKey()
     loading.value = true
     loadingMore.value = false // 進行中の loadMore は破棄される（その finally は世代違いで触らない）
     try {
       const page = await fetchPage()
       if (gen !== generation) return
+      loadedKey = key
       items.value = list(page.items).filter((t) => !pendingRemoval.has(keyOf(t)))
       nextCursor.value = page.nextCursor || undefined
       applyFailures(toFailures(page.failures))
       selection.pruneSelection()
     } catch (e) {
       if (gen !== generation) return
+      if (loadedKey !== key) {
+        // 条件が変わったのに読み込めなかった。前の条件の行・カーソルを新しい条件の結果として残さない。
+        items.value = []
+        nextCursor.value = undefined
+        selection.pruneSelection()
+      }
       const err = e as AppError
       if (err.code !== 'OFFLINE') {
         ui.pushAlert(

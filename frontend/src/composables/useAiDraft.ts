@@ -157,6 +157,11 @@ export function useAiDraft(deps: AiDraftDeps) {
     }
   }
 
+  /** 呼び出し元の解体（作成セッションを閉じる・ボタンのアンマウント）。生成中なら cancel() と同じく中止し、結果を捨てる。 */
+  function dispose(): void {
+    void cancel()
+  }
+
   return {
     step,
     error,
@@ -169,5 +174,6 @@ export function useAiDraft(deps: AiDraftDeps) {
     answerConsent,
     answerReplace,
     cancel,
+    dispose,
   }
 }

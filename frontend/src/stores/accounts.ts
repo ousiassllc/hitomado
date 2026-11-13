@@ -186,16 +186,22 @@ export const useAccountsStore = defineStore('accounts', () => {
     }
   }
 
+  /** 読み込む。OFFLINE 以外の失敗は再試行つきのアラートで知らせる（OFFLINE は api() が共通のオフライン表示にする）。 */
+  async function loadOrAlert(): Promise<void> {
+    try {
+      await load()
+    } catch (e) {
+      const err = parseBindingError(e)
+      if (err.code !== 'OFFLINE') ui.pushAlert(err.message, () => void loadOrAlert())
+    }
+  }
+
   /** イベント購読と初期ロード（冪等）。 */
   async function start(): Promise<void> {
     if (started) return
     started = true
     stopEvents = onEvent<AccountStatusPayload>(EVENTS.ACCOUNT_STATUS, onAccountStatus)
-    try {
-      await load()
-    } catch {
-      // 失敗の通知（オフライン表示等）は api() が済ませている。次の成功で復帰する。
-    }
+    await loadOrAlert()
     await notifyInterruptedAuth()
   }
 

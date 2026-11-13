@@ -28,6 +28,8 @@ func TestMIMEForName(t *testing.T) {
 		"x.log": "text/plain", "p.jpeg": "image/jpeg", "s.xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 		"noext": "application/octet-stream", "weird.zzzunknown": "application/octet-stream", "": "application/octet-stream",
 		"dir.pdf/": "application/octet-stream",
+		"a.md":     "text/markdown", "b.svg": "image/svg+xml", "c.7z": "application/x-7z-compressed",
+		"d.JS": "text/javascript", "e.wasm": "application/wasm",
 	}
 	for name, want := range cases {
 		assert.Equal(t, want, MIMEForName(name), "name=%q", name)

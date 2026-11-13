@@ -49,7 +49,7 @@ const frozen = computed(() => compose.sending || compose.preview !== undefined)
 const bodyFrozen = computed(() => frozen.value || compose.aiGenerating)
 
 function onKeydown(e: KeyboardEvent): void {
-  // Ctrl+Enter は送信確認を開く（確認なしの送信はできない）
+  // Ctrl+Enter は send(false) を呼ぶ（確認画面を出すかは設定と警告で決まる。useComposeSend）
   if (e.key === 'Enter' && (e.ctrlKey || e.metaKey) && !e.isComposing) {
     e.preventDefault()
     send(false)

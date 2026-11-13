@@ -1,6 +1,6 @@
 module github.com/ousiassllc/hitomado
 
-go 1.26.0
+go 1.26.11
 
 require (
 	github.com/coreos/go-oidc/v3 v3.21.0

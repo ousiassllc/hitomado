@@ -9,6 +9,7 @@ import {
   resetKit,
   responses,
   restoreMocks,
+  until,
 } from '../inboxKit'
 
 installMocks()
@@ -94,5 +95,54 @@ describe('検索の失敗ページ', () => {
     expect(s.nextCursor).toBe('c')
     await s.loadMore() // 利用者の再要求では再試行する
     expect(callsOf('Search')).toHaveLength(3)
+  })
+})
+
+describe('読み込みの失敗と一覧', () => {
+  test('検索の読み込みが失敗したら、前の受信箱の行と続きのカーソルを残さず、再試行で取り直せる', async () => {
+    responses.ListInbox = { items: base, nextCursor: 'inbox-next', failures: [] }
+    const s = useInboxStore()
+    const ui = useUiStore()
+    await s.load()
+    expect(s.items).toHaveLength(4)
+    expect(s.hasMore).toBe(true)
+
+    failures.Search = appError('INTERNAL')
+    await s.runSearch('x')
+    expect(s.items).toEqual([])
+    expect(s.hasMore).toBe(false)
+    expect(ui.alerts).toHaveLength(1)
+
+    delete failures.Search
+    responses.Search = { items: [base[0]], failures: [] }
+    ui.alerts[0].retry?.()
+    await until(() => s.items.length === 1)
+    expect(callsOf('Search')).toHaveLength(2)
+  })
+
+  test('OFFLINE の失敗でも、条件が変わっていれば前の行を残さない（通知は共通のオフライン表示に任せる）', async () => {
+    const s = useInboxStore()
+    await s.load()
+    failures.Search = appError('OFFLINE')
+    await s.runSearch('x')
+    expect(s.items).toEqual([])
+    expect(useUiStore().alerts).toHaveLength(0)
+  })
+
+  test('絞り込み（未読のみ）の読み込みが失敗したら、前の条件の行を残さない', async () => {
+    const s = useInboxStore()
+    await s.load()
+    expect(s.items).toHaveLength(4)
+    failures.ListInbox = appError('INTERNAL')
+    await s.setFilter({ accountIds: [], unreadOnly: true })
+    expect(s.items).toEqual([])
+  })
+
+  test('同じ条件の再読み込み（手動更新）が失敗しても、取得済みの行は保つ', async () => {
+    const s = useInboxStore()
+    await s.load()
+    failures.ListInbox = appError('INTERNAL')
+    await s.refresh()
+    expect(s.items).toHaveLength(4)
   })
 })

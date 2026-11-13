@@ -201,6 +201,22 @@ describe('useAiDraft', () => {
     expect(generated).toEqual([])
   })
 
+  test('dispose（作成セッションを閉じる）は生成中なら 1 回だけ中止し、後から届いた結果は採用しない', async () => {
+    const { ai, log, gens, generated } = setup()
+    const p = ai.start()
+    ai.dispose()
+    gens[0].resolve({ bodyHtml: '<p>late</p>' })
+    await p
+    expect(log).toEqual(['generate:r1', 'cancel:r1'])
+    expect(generated).toEqual([])
+  })
+
+  test('生成中でなければ dispose は何も呼ばない', async () => {
+    const { ai, log } = setup()
+    ai.dispose()
+    expect(log).toEqual([])
+  })
+
   test('生成中は二重に開始しない', async () => {
     const { ai, log, gens } = setup()
     const p = ai.start()
