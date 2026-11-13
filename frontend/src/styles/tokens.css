@@ -117,7 +117,11 @@
   --toast-h: 40px;
   --toast-offset: 24px;
 
-  /* アカウント色（帯・チップ背景 / その上の文字）。--bone・--surface に対し 4.5:1 以上、--accent-soft に対し 3:1 以上（test/palette.test.ts で検証） */
+  /* 識別色（アカウント・ラベル）を一覧のチップに出すときの沈め方（BaseChip の tint）。地は識別色を --surface に --tint-bg、枠は識別色を transparent に --tint-border だけ混ぜる。文字は --ink で、識別色を文字・塗りに使わない。 */
+  --tint-bg: 18%;
+  --tint-border: 40%;
+
+  /* アカウント色（色相の出所・色の選択肢の見本 / その上の文字）。--bone・--surface に対し 4.5:1 以上、--accent-soft に対し 3:1 以上（test/palette.test.ts で検証）。一覧のチップは直接塗らず、上の --tint-* で沈めて使う */
   --account-red: #b91c1c;
   --account-red-text: #ffffff;
   --account-orange: #a64b06;

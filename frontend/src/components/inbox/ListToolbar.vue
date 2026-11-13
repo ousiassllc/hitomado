@@ -66,7 +66,7 @@ function onLabelSelect(key: string): void {
       <BaseIconButton :label="common.toolbar.archive" :shortcut="SHORTCUT_KEYS.archive" @click="emit('archive')">
         <Archive class="icon" aria-hidden="true" />
       </BaseIconButton>
-      <BaseIconButton :label="common.toolbar.trash" :shortcut="SHORTCUT_KEYS.trash" variant="danger" @click="emit('trash')">
+      <BaseIconButton :label="common.toolbar.trash" :shortcut="SHORTCUT_KEYS.trash" @click="emit('trash')">
         <Trash class="icon" aria-hidden="true" />
       </BaseIconButton>
       <BaseMenu :items="menuItems" @select="onLabelSelect" @open="onMenuOpen">
@@ -100,7 +100,7 @@ function onLabelSelect(key: string): void {
 
 .sep {
   width: 1px;
-  height: 20px;
+  height: var(--icon-md);
   margin: 0 var(--s-1);
   background: var(--border);
 }

@@ -33,7 +33,10 @@ watch(
     >
       <component :is="open ? NavArrowDown : NavArrowRight" class="icon icon-sm toggle-mark" aria-hidden="true" />
       <span class="sender" :title="formatAddress(message.from)">{{ shortName(message.from) }}</span>
-      <span v-if="message.isUnread" class="unread-badge">{{ msg.unreadMark }}</span>
+      <template v-if="message.isUnread">
+        <span class="dot" aria-hidden="true" />
+        <span class="sr-only">{{ msg.unreadMark }}</span>
+      </template>
       <span v-if="!open && message.attachments?.length" class="clip">{{ msg.attachmentCount(message.attachments.length) }}</span>
       <span class="date">{{ formatDateTime(message.date) }}</span>
     </button>
@@ -71,10 +74,6 @@ watch(
   background: var(--surface);
 }
 
-.message-card.is-unread {
-  background: var(--surface);
-}
-
 .card-toggle {
   display: flex;
   align-items: baseline;
@@ -105,13 +104,27 @@ watch(
   min-width: 0;
 }
 
-.unread-badge {
-  padding: 0 var(--s-2);
-  border-radius: var(--r-sm);
+/* 未読は、ThreadRow と同じ 8px の点と、差出人の文字の太さだけで示す（塗りのピルは使わない） */
+.is-unread .sender {
+  font-weight: 600;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.dot {
+  flex: none;
+  align-self: center;
+  width: var(--s-2);
+  height: var(--s-2);
+  border-radius: var(--r-full);
   background: var(--accent);
-  color: var(--bone);
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
 }
 
 .clip {

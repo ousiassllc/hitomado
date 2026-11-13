@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { accountColorVar, accountTextVar } from '../../lib/palette'
+import { accountColorVar } from '../../lib/palette'
 import BaseChip from '../ui/BaseChip.vue'
 
 withDefaults(
@@ -16,8 +16,7 @@ withDefaults(
   <BaseChip
     class="account-chip"
     :class="`account-chip-${size}`"
-    :bg="accountColorVar(account.color)"
-    :fg="accountTextVar(account.color)"
+    :tint="accountColorVar(account.color)"
     :title="account.email"
   >
     <span class="account-chip-name">{{ account.displayName }}</span>
@@ -26,10 +25,6 @@ withDefaults(
 </template>
 
 <style scoped>
-.account-chip {
-  border-color: transparent;
-}
-
 .account-chip-md {
   font-size: var(--font-size-sm);
   line-height: var(--line-height-sm);

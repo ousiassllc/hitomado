@@ -62,7 +62,6 @@ describe('行間はスケールの値（T3・T4・#227）', () => {
     ['settings/oauth/OAuthClientsSettings.vue', '.inuse {'],
     ['settings/SignatureSettings.vue', '.dirty {'],
     ['settings/ai/ChatGPTAccountRow.vue', '.badge {'],
-    ['thread/MessageCard.vue', '.unread-badge {'],
   ])('1 行の状態ピル %s %s は font-size xs と対の line-height を持つ（#231）', (file, selector) => {
     const r = rule(file, selector)
     expect(r).toContain('font-size: var(--font-size-xs)')

@@ -3,15 +3,13 @@ import { Mail } from '@iconoir/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch } from 'vue'
 import type { ThreadRef, ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import { keyOf } from '../../lib/inboxItems'
+import { keyOf, rowHeightOf } from '../../lib/inboxItems'
 import { common } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'
 import BaseButton from '../ui/BaseButton.vue'
 import EmptyState from '../ui/EmptyState.vue'
 import Spinner from '../ui/Spinner.vue'
 import ThreadRow from './ThreadRow.vue'
-
-const ROW_HEIGHT = 88
 
 const props = defineProps<{
   items: ThreadSummary[]
@@ -40,14 +38,20 @@ const scroller = ref<HTMLElement | null>(null)
 const listbox = ref<HTMLElement | null>(null)
 const listId = `thread-list-${Math.random().toString(36).slice(2, 8)}`
 
+// ラベルの有無で高さが変わる。computed の中で読むので、ラベルが増減したら estimateSize も作り直される。
+const rowHeights = computed(() => props.items.map(rowHeightOf))
+
 const virtualizer = useVirtualizer(
-  computed(() => ({
-    count: props.items.length,
-    getScrollElement: () => scroller.value,
-    estimateSize: () => ROW_HEIGHT,
-    overscan: 8,
-    getItemKey: (i: number) => keyOf(props.items[i]),
-  })),
+  computed(() => {
+    const heights = rowHeights.value
+    return {
+      count: props.items.length,
+      getScrollElement: () => scroller.value,
+      estimateSize: (i: number) => heights[i],
+      overscan: 8,
+      getItemKey: (i: number) => keyOf(props.items[i]),
+    }
+  }),
 )
 
 const rows = computed(() => virtualizer.value.getVirtualItems())
@@ -183,6 +187,12 @@ function onKeydown(ev: KeyboardEvent): void {
   position: relative;
   width: 100%;
   outline: none;
+}
+
+/* キーボードカーソルの行の囲み。--focus の囲みはキーボードフォーカスのときだけ（選択・現在行の地は --accent-soft だけ。#345）。 */
+.inner:focus-visible :deep(.row.active) {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
 }
 
 .slot {

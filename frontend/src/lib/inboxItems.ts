@@ -22,6 +22,15 @@ export function viewKeyOf(
   return JSON.stringify([mode, searchQuery, tab, filter.unreadOnly, filter.accountIds])
 }
 
+// 一覧の行の高さ。padding は縦 --s-3（12）×2、差出人行・件名行は各 24（14px × line-height 1.7 の切り上げ）、間は --s-1（4）。
+// ラベルの行（チップ 21 + 間 4）があるときだけ高い。
+export const ROW_HEIGHT = 80
+export const ROW_HEIGHT_WITH_LABELS = 104
+
+export function rowHeightOf(t: ThreadSummary): number {
+  return t.labels?.length ? ROW_HEIGHT_WITH_LABELS : ROW_HEIGHT
+}
+
 export function refOf(t: ThreadRef | ThreadSummary): ThreadRef {
   return { accountId: t.accountId, threadId: t.threadId }
 }
