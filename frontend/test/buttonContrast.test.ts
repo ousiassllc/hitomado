@@ -69,7 +69,10 @@ describe('BaseButton の状態別の見た目', () => {
 })
 
 describe('SenderBadge', () => {
-  const src = readFileSync(new URL('../src/components/account/SenderBadge.vue', import.meta.url), 'utf8')
+  const src = readFileSync(
+    new URL('../src/components/account/SenderBadge.vue', import.meta.url),
+    'utf8',
+  )
 
   test('アカウント色は名前の薄いチップだけに使い、カードの地・枠・文字には使わない（#347）', () => {
     const w = mount(SenderBadge, {
