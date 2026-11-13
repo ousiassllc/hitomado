@@ -1,6 +1,8 @@
 <script setup lang="ts">
-// アカウント色は地と枠に薄く沈めるだけ（一覧のチップと同じ）。文字は常にテーマの文字色なので、どの色でも読める。
+// 枠はダイアログと同じ中立（--surface・--border）。アカウント色は名前の薄いチップ（BaseChip の tint。一覧と同じ沈め方）にだけ使い、
+// 大きな面を塗らない。メールアドレスは --ink の文字でチップの隣（収まらなければ下）に置く。名前が無いときは、アドレスをチップに入れる。
 import { accountColorVar } from '../../lib/palette'
+import BaseChip from '../ui/BaseChip.vue'
 
 defineProps<{
   from: { name?: string; email: string }
@@ -9,33 +11,39 @@ defineProps<{
 </script>
 
 <template>
-  <div class="sender-badge" :style="{ '--chip-tint': accountColorVar(color) }">
-    <div v-if="from.name" class="sender-name">{{ from.name }}</div>
-    <div class="sender-email">{{ from.email }}</div>
+  <div class="sender-badge">
+    <BaseChip class="sender-chip" :tint="accountColorVar(color)">{{ from.name || from.email }}</BaseChip>
+    <span v-if="from.name" class="sender-email">{{ from.email }}</span>
   </div>
 </template>
 
 <style scoped>
-/* 識別色は一覧のチップ（BaseChip の tint）と同じ沈め方：地は識別色を --surface に --tint-bg、枠は 1px の同系色を --tint-border。文字は常に --ink で、識別色を文字・帯に使わない。 */
 .sender-badge {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
   padding: var(--pad-card-sm);
-  border: 1px solid color-mix(in srgb, var(--chip-tint) var(--tint-border), transparent);
+  border: 1px solid var(--border);
   border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--chip-tint) var(--tint-bg), var(--surface));
+  background: var(--surface);
   color: var(--ink);
   line-height: var(--line-height-sm);
   overflow-wrap: anywhere;
 }
 
-.sender-name {
-  font-size: var(--font-size-lg);
+/* 名前（アドレスだけのときはアドレス）は省略せず折り返して全部見せる（送信元の取り違えを防ぐ）。 */
+.sender-badge .sender-chip {
+  padding: var(--s-1) var(--s-2);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  white-space: normal;
+  text-overflow: clip;
 }
 
 .sender-email {
+  min-width: 0;
   font-size: var(--font-size-sm);
-}
-
-.sender-email:only-child {
-  font-size: var(--font-size-lg);
+  color: var(--ink);
 }
 </style>

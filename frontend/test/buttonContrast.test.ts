@@ -5,6 +5,7 @@ import { mount } from '@vue/test-utils'
 import SenderBadge from '../src/components/account/SenderBadge.vue'
 import BaseButton from '../src/components/ui/BaseButton.vue'
 import { contrastRatio } from '../src/lib/contrast'
+import { rule } from './design/styleRule'
 
 const css = readFileSync(new URL('../src/styles/tokens.css', import.meta.url), 'utf8')
 const darkStart = css.indexOf('@media (prefers-color-scheme: dark)')
@@ -68,15 +69,34 @@ describe('BaseButton の状態別の見た目', () => {
 })
 
 describe('SenderBadge', () => {
-  test('アカウント色は薄い地と枠に沈めるだけで、帯・文字色には使わない（#347）', () => {
+  const src = readFileSync(new URL('../src/components/account/SenderBadge.vue', import.meta.url), 'utf8')
+
+  test('アカウント色は名前の薄いチップだけに使い、カードの地・枠・文字には使わない（#347）', () => {
     const w = mount(SenderBadge, {
       props: { from: { name: '仕事用', email: 'work@example.com' }, color: 'purple' },
     })
-    const style = (w.element as HTMLElement).getAttribute('style') ?? ''
-    expect(style).toContain('--chip-tint: var(--account-purple)')
-    expect(style).not.toContain('border-left-color')
-    expect(style).not.toMatch(/(^|[;\s])(background|color):/)
-    expect(w.text()).toContain('仕事用')
-    expect(w.text()).toContain('work@example.com')
+    // カード本体（ルート）には識別色を渡さない
+    expect(w.attributes('style')).toBeUndefined()
+    const chip = w.get('.sender-chip')
+    expect(chip.classes()).toContain('tinted')
+    expect(chip.attributes('style')).toContain('--chip-tint: var(--account-purple)')
+    expect(chip.text()).toBe('仕事用')
+    // アドレスはチップの外（隣か下）の --ink の文字
+    expect(chip.text()).not.toContain('work@example.com')
+    expect(w.get('.sender-email').text()).toBe('work@example.com')
+  })
+
+  test('名前が無いときは、アドレスをチップに入れる（識別は残し、アドレスは 1 回だけ出す）', () => {
+    const w = mount(SenderBadge, { props: { from: { email: 'work@example.com' }, color: 'teal' } })
+    expect(w.get('.sender-chip').text()).toBe('work@example.com')
+    expect(w.find('.sender-email').exists()).toBe(false)
+  })
+
+  test('カードの地はダイアログと同じ --surface、枠は --border。識別色の混色（color-mix）は持たない', () => {
+    const card = rule('account/SenderBadge.vue', '.sender-badge {')
+    expect(card).toContain('background: var(--surface)')
+    expect(card).toContain('border: 1px solid var(--border)')
+    expect(src).not.toContain('color-mix')
+    expect(src).not.toContain('--chip-tint')
   })
 })
