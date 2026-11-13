@@ -113,8 +113,11 @@ watch(model, () => void nextTick(fit))
   opacity: 0.5;
 }
 
+/* 補足の文は 1 行に収まる幅（27em ≒ 全角 27 字）が取れなければ、文字数・ボタンと同じ行に押し込まず、自分の行に出す（#349）。
+   折り返した行では、文字数とボタンを右に寄せる。 */
 .question-foot {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--s-2);
   margin-top: calc(var(--gap-help) - var(--gap-label));
@@ -123,9 +126,16 @@ watch(model, () => void nextTick(fit))
   line-height: var(--line-height-xs);
 }
 
+/* 自分の行でも収まらない幅では、文節の切れ目で折り返す（「保存しませ／ん。」のように語の途中で切らない）。 */
 .question-note {
-  flex: 1;
+  flex: 1 1 27em;
   min-width: 0;
+  word-break: auto-phrase;
+}
+
+.question-count {
+  margin-left: auto;
+  white-space: nowrap;
 }
 
 .question-count .num {

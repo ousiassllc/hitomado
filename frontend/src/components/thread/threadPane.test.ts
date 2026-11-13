@@ -47,6 +47,17 @@ describe('ThreadPane', () => {
     expect(header.text()).toContain('me@example.com')
   })
 
+  test('ヘッダ上辺にアカウント色の帯は無く、受信アカウントは薄いチップで出す（#347）', async () => {
+    ctl.responses.GetThread = detail(false)
+    const store = useThreadStore()
+    const w = mount(ThreadPane)
+    await store.open(REF)
+    await w.vm.$nextTick()
+    const header = w.get('[data-testid="thread-header"]')
+    expect(header.attributes('style')).toBeUndefined()
+    expect(header.get('.account-chip').classes()).toContain('tinted')
+  })
+
   test('最新と未読のメッセージだけ展開され、他は折りたたまれる', async () => {
     ctl.responses.GetThread = multi()
     const store = useThreadStore()

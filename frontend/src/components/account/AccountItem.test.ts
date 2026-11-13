@@ -35,3 +35,16 @@ describe('AccountItem の「要再接続」ボタン', () => {
     w.unmount()
   })
 })
+
+describe('AccountItem の識別色（#347）', () => {
+  test('左の識別帯は無く、名前は一覧と同じ薄いチップ（識別色は tint）で出す。文言はそのまま', () => {
+    const w = mountItem(false)
+    expect(w.find('.band').exists()).toBe(false)
+    const chip = w.get('.account-chip')
+    expect(chip.classes()).toContain('tinted')
+    expect(chip.attributes('style')).toContain('--chip-tint: var(--account-blue)')
+    expect(chip.text()).toBe('仕事')
+    expect(w.get('.email').text()).toBe('work@example.com')
+    w.unmount()
+  })
+})
