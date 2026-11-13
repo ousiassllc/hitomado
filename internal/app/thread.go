@@ -58,19 +58,16 @@ func (s *ThreadService) GetThread(ctx context.Context, ref dto.ThreadRef) (dto.T
 			detail.Labels = append(detail.Labels, l)
 		}
 	}
-	draftID, err := findThreadDraft(ctx, s.d, ref.AccountID, ref.ThreadID, tf.Messages)
-	if err != nil {
+	if detail.DraftID, err = findThreadDraft(ctx, s.d, ref.AccountID, ref.ThreadID, tf.Messages); err != nil {
 		return dto.ThreadDetail{}, err
 	}
-	detail.DraftID = draftID
 	return detail, nil
 }
 
-// findThreadDraft はスレッドの下書き ID を返す（無ければ空文字）。
-// DRAFT ラベルのメッセージが無ければ下書きは無いので、drafts.list の全ページ走査を避ける。
-// 検索に失敗してもスレッドは読めるようにするため、ctx の取り消し以外のエラーは握りつぶして警告に留める。
+// findThreadDraft はスレッドの下書き ID を返す（無ければ空文字）。DRAFT ラベルのメッセージが無ければ下書きは無いので、
+// drafts.list の全ページ走査を避ける。検索に失敗してもスレッドは読めるよう、ctx の取り消し以外のエラーは警告に留める。
 func findThreadDraft(ctx context.Context, d *Deps, accountID, threadID string, msgs []gmail.MessageFull) (string, error) {
-	if !hasDraftMessage(msgs) {
+	if !slices.ContainsFunc(msgs, func(m gmail.MessageFull) bool { return slices.Contains(m.LabelIDs, "DRAFT") }) {
 		return "", nil
 	}
 	draftID, ok, err := d.Gmail.FindDraftForThread(ctx, accountID, threadID)
@@ -79,16 +76,10 @@ func findThreadDraft(ctx context.Context, d *Deps, accountID, threadID string, m
 		return "", apperr.FromInfra(ctx.Err(), accountID)
 	case err != nil:
 		logger(d).Warn("スレッドの下書き検索に失敗", "accountId", accountID, "err", err)
-		return "", nil
 	case ok:
 		return draftID, nil
 	}
 	return "", nil
-}
-
-// hasDraftMessage は msgs に DRAFT ラベルのメッセージがあるかを返す。
-func hasDraftMessage(msgs []gmail.MessageFull) bool {
-	return slices.ContainsFunc(msgs, func(m gmail.MessageFull) bool { return slices.Contains(m.LabelIDs, "DRAFT") })
 }
 
 func threadMessage(m gmail.MessageFull) dto.ThreadMessage {

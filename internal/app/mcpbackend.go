@@ -98,11 +98,9 @@ func (b *mcpBackend) GetThread(ctx context.Context, accountID, threadID string) 
 	for i, m := range msgs {
 		view.Messages[i] = mcpMessage(m)
 	}
-	draftID, err := findThreadDraft(ctx, b.d, accountID, threadID, tf.Messages)
-	if err != nil {
+	if view.DraftID, err = findThreadDraft(ctx, b.d, accountID, threadID, tf.Messages); err != nil {
 		return mcpserver.ThreadView{}, err
 	}
-	view.DraftID = draftID
 	return view, nil
 }
 
