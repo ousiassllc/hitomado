@@ -38,7 +38,7 @@ const scroller = ref<HTMLElement | null>(null)
 const listbox = ref<HTMLElement | null>(null)
 const listId = `thread-list-${Math.random().toString(36).slice(2, 8)}`
 
-// ラベルの有無で高さが変わる。computed の中で読むので、ラベルが増減したら estimateSize も作り直される。
+// ラベルの有無で行の高さが変わる。virtual-core は estimateSize が変わっても測り直さない（測り直しの依存は count・getItemKey など）ので、ラベルが付く・外れる（ツールバーのラベル操作などの、その場の更新）たびに measure() で明示的に作り直す。
 const rowHeights = computed(() => props.items.map(rowHeightOf))
 
 const virtualizer = useVirtualizer(
@@ -53,6 +53,8 @@ const virtualizer = useVirtualizer(
     }
   }),
 )
+
+watch(rowHeights, () => virtualizer.value.measure())
 
 const rows = computed(() => virtualizer.value.getVirtualItems())
 const totalSize = computed(() => virtualizer.value.getTotalSize())

@@ -6,8 +6,11 @@ import { createPinia, setActivePinia } from 'pinia'
 import type { ThreadSummary } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import LabelChip from '../../src/components/inbox/LabelChip.vue'
 import ListToolbar from '../../src/components/inbox/ListToolbar.vue'
+import ThreadList from '../../src/components/inbox/ThreadList.vue'
 import MessageCard from '../../src/components/thread/MessageCard.vue'
+import { contrastRatio, parseHex } from '../../src/lib/contrast'
 import { rowHeightOf } from '../../src/lib/inboxItems'
+import { ACCOUNT_COLOR_KEYS } from '../../src/lib/palette'
 import { rule } from './styleRule'
 
 setActivePinia(createPinia())
@@ -133,5 +136,101 @@ describe('メッセージカードの未読（#345）', () => {
       props: { message: { ...(message as object), isUnread: false } as never, expanded: false },
     })
     expect(w.find('.dot').exists()).toBe(false)
+  })
+})
+
+describe('ラベルの増減で一覧の高さが追従する（#345）', () => {
+  const base = {
+    accountId: 'a1',
+    threadId: 't0',
+    subject: '件名',
+    snippet: '',
+    lastMessageAt: 0,
+    lastFrom: { name: '山田', email: 'y@example.com' },
+    messageCount: 1,
+    isUnread: false,
+    hasAttachment: false,
+    inInbox: true,
+    labels: [],
+  } as unknown as ThreadSummary
+
+  test('その場でラベルが付く・外れると、listbox の全高（.inner の height）が 24 変わる', async () => {
+    const items = [base, { ...base, threadId: 't1' }]
+    const w = mount(ThreadList, {
+      props: {
+        items,
+        checkedKeys: [],
+        loading: false,
+        hasMore: false,
+        loadingMore: false,
+        emptyText: '',
+      },
+    })
+    const total = () => (w.get('.inner').element as HTMLElement).style.height
+    expect(total()).toBe('160px')
+    const label = { id: 'L1', name: '重要' }
+    await w.setProps({ items: [{ ...items[0], labels: [label] }, items[1]] })
+    expect(total()).toBe('184px')
+    await w.setProps({ items })
+    expect(total()).toBe('160px')
+  })
+})
+
+describe('薄い地の上の --ink のコントラストと見分け（#345）', () => {
+  const darkAt = tokens.indexOf('@media (prefers-color-scheme: dark)')
+  const darkEnd = tokens.indexOf('@media (prefers-reduced-motion')
+  const hexes = (block: string) => {
+    const out: Record<string, string> = {}
+    for (const m of block.matchAll(/(--[a-z0-9-]+):\s*(#[0-9a-fA-F]{6})\s*;/g)) out[m[1]] = m[2]
+    return out
+  }
+  const light = hexes(tokens.slice(0, darkAt))
+  const dark = { ...light, ...hexes(tokens.slice(darkAt, darkEnd)) }
+  const pct = Number(tokens.match(/--tint-bg:\s*(\d+)%;/)?.[1]) / 100
+
+  // color-mix(in srgb, tint P%, surface) と同じ、sRGB の線形補間
+  function mix(tint: string, surface: string): string {
+    const t = parseHex(tint)
+    const s = parseHex(surface)
+    const c = (['r', 'g', 'b'] as const).map((k) => Math.round(t[k] * pct + s[k] * (1 - pct)))
+    return `#${c.map((v) => v.toString(16).padStart(2, '0')).join('')}`
+  }
+
+  const keys = ACCOUNT_COLOR_KEYS
+  test.each([
+    ['ライト', light],
+    ['ダーク', dark],
+  ])('%s: 10 色すべての薄い地の上で --ink は 4.5:1 以上', (_, v) => {
+    for (const key of keys) {
+      expect(
+        contrastRatio(v['--ink'], mix(v[`--account-${key}`], v['--surface'])),
+      ).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  test.each([
+    ['ライト', light],
+    ['ダーク', dark],
+  ])('%s: Gmail の極端な色（白・黒）が来ても --ink は 4.5:1 以上', (_, v) => {
+    for (const raw of ['#ffffff', '#000000']) {
+      expect(contrastRatio(v['--ink'], mix(raw, v['--surface']))).toBeGreaterThanOrEqual(4.5)
+    }
+  })
+
+  test.each([
+    ['ライト', light],
+    ['ダーク', dark],
+  ])('%s: 一覧に出る青・緑・紫・橙の薄い地は互いに別の色（地の差で見分けられる）', (_, v) => {
+    const bgs = ['blue', 'green', 'purple', 'orange'].map((k) =>
+      mix(v[`--account-${k}`], v['--surface']),
+    )
+    for (let i = 0; i < bgs.length; i++) {
+      for (let j = i + 1; j < bgs.length; j++) {
+        const a = parseHex(bgs[i])
+        const b = parseHex(bgs[j])
+        const dist = Math.max(Math.abs(a.r - b.r), Math.abs(a.g - b.g), Math.abs(a.b - b.b))
+        expect(dist).toBeGreaterThanOrEqual(6)
+      }
+    }
   })
 })
