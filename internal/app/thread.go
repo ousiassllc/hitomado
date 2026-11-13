@@ -58,21 +58,32 @@ func (s *ThreadService) GetThread(ctx context.Context, ref dto.ThreadRef) (dto.T
 			detail.Labels = append(detail.Labels, l)
 		}
 	}
-	if !hasDraftMessage(tf.Messages) {
-		// DRAFT ラベルのメッセージが無ければ下書きは無い。drafts.list の全ページ走査を避ける。
-		return detail, nil
+	draftID, err := findThreadDraft(ctx, s.d, ref.AccountID, ref.ThreadID, tf.Messages)
+	if err != nil {
+		return dto.ThreadDetail{}, err
 	}
-	draftID, ok, err := s.d.Gmail.FindDraftForThread(ctx, ref.AccountID, ref.ThreadID)
+	detail.DraftID = draftID
+	return detail, nil
+}
+
+// findThreadDraft はスレッドの下書き ID を返す（無ければ空文字）。
+// DRAFT ラベルのメッセージが無ければ下書きは無いので、drafts.list の全ページ走査を避ける。
+// 検索に失敗してもスレッドは読めるようにするため、ctx の取り消し以外のエラーは握りつぶして警告に留める。
+func findThreadDraft(ctx context.Context, d *Deps, accountID, threadID string, msgs []gmail.MessageFull) (string, error) {
+	if !hasDraftMessage(msgs) {
+		return "", nil
+	}
+	draftID, ok, err := d.Gmail.FindDraftForThread(ctx, accountID, threadID)
 	switch {
 	case err != nil && ctx.Err() != nil:
-		return dto.ThreadDetail{}, apperr.FromInfra(ctx.Err(), ref.AccountID)
+		return "", apperr.FromInfra(ctx.Err(), accountID)
 	case err != nil:
-		// 下書きの有無が分からなくてもスレッドは読めるようにする。
-		logger(s.d).Warn("スレッドの下書き検索に失敗", "accountId", ref.AccountID, "err", err)
+		logger(d).Warn("スレッドの下書き検索に失敗", "accountId", accountID, "err", err)
+		return "", nil
 	case ok:
-		detail.DraftID = draftID
+		return draftID, nil
 	}
-	return detail, nil
+	return "", nil
 }
 
 // hasDraftMessage は msgs に DRAFT ラベルのメッセージがあるかを返す。
