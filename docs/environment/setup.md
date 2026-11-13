@@ -28,9 +28,14 @@
 ```
 hitomado/
 ├─ .github/actions/build-installer/  # exe とインストーラーを作る共通手順（CI・リリースで共用）
-├─ .github/scripts/          # next-version.sh（リリースのタグ決定）とそのテスト、test-installer.ps1（インストーラーの検証）
-├─ .github/workflows/        # ci.yml, release.yml
+├─ .github/actions/setup-android/    # JDK・Android SDK・NDK の用意（ci.yml の android ジョブと release.yml で共用。§4.1）
+├─ .github/actions/build-android-apk/  # Android の release APK を作る共通手順（CI・リリースで共用。android.md §8）
+├─ .github/actions/build-macos/      # macOS の .app と zip を作る共通手順（CI・リリースで共用。§4.4）
+├─ .github/scripts/          # next-version.sh（リリースのタグ決定）とそのテスト、test-installer.ps1（インストーラーの検証）、gen-notice.ts（NOTICE の生成・検査。§4.3）、prepare-android-signing.sh（APK の署名鍵の選択）とそのテスト
+├─ .github/workflows/        # ci.yml, release.yml, android-e2e.yml（手動実行のみの Android E2E）
 ├─ build/windows/nsis/       # project.nsi（NSIS インストーラー定義）
+├─ build/darwin/             # macOS 版（.app）の Info.plist・アイコン・Taskfile（§4.4）
+├─ build/android/            # Android 版の Gradle プロジェクト・Taskfile・検査スクリプト（android.md。テンプレートからの変更点は CUSTOMIZATIONS.md）
 ├─ .golangci.yml
 ├─ .linterly.yml
 ├─ .editorconfig
@@ -116,7 +121,7 @@ flowchart LR
 | ジョブ | 実行環境 | 内容 |
 |--------|----------|------|
 | `lint` | ubuntu-latest | `go mod tidy -diff`、`golangci-lint run`、**android タグ側の Go lint**（`GOOS=android`・CGO なしの `golangci-lint run`）、`bunx biome ci`、`vue-tsc --noEmit`、`bunx linterly check`、**生成物の差分検査**（`sqlc generate` と `wails3 generate bindings` のあと `git diff --exit-code`）、**`NOTICE` の最新性検査**（`bun .github/scripts/gen-notice.ts --check`。§4.3） |
-| `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）、`go test -race ./internal/...`（ubuntu のみ。`-race` は cgo が要るのでこのステップだけ `CGO_ENABLED=1`・`-tags=purego`）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため） |
+| `test` | マトリクス: ubuntu-latest／windows-latest | `go vet ./...`、`go test ./...`（両 OS）、`go test -race ./internal/...`（ubuntu のみ。`-race` は cgo が要るのでこのステップだけ `CGO_ENABLED=1`・`-tags=purego`）。`bun test`（フロント、`frontend/` で実行）は ubuntu のみ（OS 非依存のため）。ubuntu のみで、シェルスクリプトの単体テスト 3 本も走らせる: 版番号の決定（`.github/scripts/next-version_test.sh`。§4.2）、Android の `libwails.so` の 16KB アライン検査（`build/android/scripts/check-elf-align_test.sh`。[Android ビルド](android.md)）、Android 署名鍵の選択（`.github/scripts/prepare-android-signing_test.sh`。`keytool` のため JDK 17 を入れてから実行） |
 | `vulncheck` | ubuntu-latest | `govulncheck ./...`（`CGO_ENABLED=0`・`-tags=purego`。バージョンは `env` の `GOVULNCHECK_VERSION`）。コードから到達できる標準ライブラリ・依存の既知の脆弱性があると失敗する |
 | `android` | ubuntu-latest | `pull_request` のみ（`release.yml` からの呼び出しでは動かさない）。release APK（arm64）と AAB を作って検査し、アーティファクトに上げる（使い捨ての署名鍵。PR のコードに固定鍵を渡さないので、Secrets は使わない。[Android ビルド §8](android.md)） |
 | `build` | windows-latest | `needs: [lint, test]`。`wails3 package` でインストーラーを作り（版 `0.99.1` と `0.99.2` の 2 つ）、`.github/scripts/test-installer.ps1` で **インストール → 起動中の上書き拒否 → 上書き → アンインストール** を実機で検証する（§4.3）。新しい方のインストーラーを Actions のアーティファクトに保存 |
@@ -337,3 +342,4 @@ pre-push:
 | 1.16 | 2026-11-06 | §4.3 の対応を「x64 と ARM64 の Windows 11（x64 エミュレーション）」に変更し、「ARM64 の扱い」を追加。§4.1 に `installer-arm64`（windows-11-arm）を追加 | #13 |
 | 1.17 | 2026-11-10 | Android の APK の署名を、使い捨ての鍵から Secrets の固定鍵に変更（§4.1 の `android` ジョブの説明、§4.2 の Release の説明。公開時に固定鍵が無ければ失敗する。PR の CI は使い捨ての鍵のまま）。署名鍵の選択スクリプトの単体テストを `test` ジョブに追加 | #310 |
 | 1.18 | 2026-11-13 | `go.mod` の `go` 行を修正済みのパッチ版（1.26.11）に上げ、§4.1 に `vulncheck` ジョブ（`govulncheck`）と `test` ジョブの `-race` ステップ（ubuntu）を追加 | #328、#331 |
+| 1.19 | 2026-11-14 | §2 のディレクトリ構造に `.github/actions/setup-android`・`build-android-apk`・`build-macos`、`.github/scripts` の `gen-notice.ts`・`prepare-android-signing.sh`、`android-e2e.yml`、`build/darwin/`・`build/android/` を追記。§4.1 の `test` の行に、ubuntu で走るスクリプトテスト 3 本（`next-version_test.sh`・`check-elf-align_test.sh`・`prepare-android-signing_test.sh`）を追記 | #361 |
