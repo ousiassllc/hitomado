@@ -41,7 +41,9 @@ describe('ThreadRow', () => {
     expect(text).toContain(formatDate(thread.lastMessageAt))
     expect(w.find('[aria-label="添付ファイルあり"]').exists()).toBe(true)
     expect(w.classes()).toContain('unread')
-    expect(w.find('.band').attributes('style')).toContain('var(--account-teal)')
+    // 識別色は左の帯ではなく、チップの薄い地に沈めて出す（#345）
+    expect(w.find('.band').exists()).toBe(false)
+    expect(w.find('.account-chip').attributes('style')).toContain('var(--account-teal)')
   })
 
   test('既読・添付なし・差出人名なしの表示、選択状態', () => {
@@ -84,8 +86,10 @@ describe('AccountChip', () => {
     })
     expect(w.text()).toContain('会社A')
     expect(w.text()).toContain('a@example.com')
-    expect(w.attributes('style')).toContain('var(--account-red)')
-    expect(w.attributes('style')).toContain('var(--account-red-text)')
+    // 識別色は文字・塗りには使わず、地と枠の混色の出所（--chip-tint）にだけ渡す
+    expect(w.attributes('style')).toContain('--chip-tint: var(--account-red)')
+    expect(w.attributes('style')).not.toContain('var(--account-red-text)')
+    expect(w.attributes('style')).not.toContain('color:')
   })
 })
 

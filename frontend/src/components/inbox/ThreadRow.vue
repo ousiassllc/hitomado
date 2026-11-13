@@ -4,7 +4,6 @@ import { computed } from 'vue'
 import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { formatDate } from '../../lib/format'
 import { common } from '../../lib/messages'
-import { accountColorVar } from '../../lib/palette'
 import AccountChip from '../account/AccountChip.vue'
 import LabelChip from './LabelChip.vue'
 
@@ -54,7 +53,6 @@ const label = computed(
     :aria-setsize="setsize"
     :aria-label="label"
   >
-    <span class="band" :style="{ background: account ? accountColorVar(account.color) : 'var(--border)' }" aria-hidden="true" />
     <div class="main">
       <div class="line1">
         <AccountChip v-if="account" :account="account" size="sm" />
@@ -91,6 +89,7 @@ const label = computed(
   --row-mute: var(--mute);
 }
 
+/* 現在行（開いている行・複数選択・キーボードカーソル）とホバーの地は --accent-soft だけ。行自身は囲みを描かない（キーボードのカーソル行の囲みは、listbox にキーボードフォーカスがあるときだけ ThreadList が描く）。 */
 .row:hover,
 .row.selected,
 .row.checked {
@@ -99,19 +98,14 @@ const label = computed(
 }
 
 .row.active {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
-}
-
-.band {
-  flex: none;
-  width: 6px;
+  --row-mute: var(--mute-on-soft);
+  background: var(--accent-soft);
 }
 
 .main {
   flex: 1;
   min-width: 0;
-  padding: var(--s-1) var(--s-3);
+  padding: var(--s-3) var(--pad-card-sm);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -123,7 +117,7 @@ const label = computed(
 .labels {
   display: flex;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--gap-inline);
   min-width: 0;
 }
 
