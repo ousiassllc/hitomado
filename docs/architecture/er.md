@@ -6,13 +6,15 @@
 
 - ローカル DB は **SQLite**（`modernc.org/sqlite`、WAL）。スキーマは goose のマイグレーション（`internal/store/migrations/*.sql`）で管理し、クエリは sqlc で生成する
 - **保存するのはヘッダ由来のメタデータとスニペットのみ**。メッセージ本文・添付データ・下書きは保存しない（[NF-S08](../requirements/non-functional.md#1-セキュリティ)。下書きは Gmail 側）
-- **秘密情報は DB に保存しない**。OAuth のリフレッシュトークン、OAuth クライアントの Client Secret、AI の API キー、ChatGPT ログインのトークンは OS の資格情報ストア（Windows は資格情報マネージャー、Android は Android Keystore の鍵で暗号化した EncryptedSharedPreferences）に保存する
+- **秘密情報は DB に保存しない**。OAuth のリフレッシュトークン、OAuth クライアントの Client Secret、AI の API キー、ChatGPT ログインのトークン、内蔵 MCP サーバーの Bearer トークンは OS の資格情報ストア（Windows は資格情報マネージャー、Android は Android Keystore の鍵で暗号化した EncryptedSharedPreferences）に保存する。Android の認可の途中を示す印（時刻だけ。秘密は含まない）も同じストアに置く
 
 | 資格情報キー | 内容 |
 |--------------|------|
 | `hitomado/refresh_token/<account_id>` | アカウントのリフレッシュトークン |
 | `hitomado/oauth_client_secret/<oauth_client_id>` | OAuth クライアントの Client Secret |
-| `hitomado/ai_api_key/<provider>` | AI プロバイダの API キー（`anthropic`／`openai`） |
+| `hitomado/ai_api_key/<provider>` | AI プロバイダの API キー。`<provider>` は `anthropic`／`openai`（下書きの生成）と `typesafe`（TypeSafe AI。Inbox Zero の判定に使う。下書きのプロバイダではない） |
+| `hitomado/mcp_token` | 内蔵 MCP サーバーの Bearer トークン（発行・再発行で置き換え、無効化で削除。[MCP](../mcp.md)） |
+| `hitomado/oauth_in_progress` | Android で認可（ブラウザへ移っている間）が進行中であることを示す印。値は開始時刻（RFC 3339）だけで、state・PKCE verifier などの秘密は入れない。認可の成功・失敗・キャンセル・タイムアウトで削除し、次の起動で残っていれば「認可の途中でプロセスが止められた」と検出して 1 回だけ案内する（[Android](../environment/android.md)） |
 | `hitomado/chatgpt_token/<client_id>/<kind>` | ChatGPT ログイン（Sign in with ChatGPT）のトークン。ChatGPT アカウント（クライアント登録）ごとに `<client_id>`（発行されたクライアント ID）で別のキーにし、ほかのアカウントのトークンと混ぜない。Windows 資格情報マネージャーはキーの大文字小文字を区別しないので、`<client_id>` は大文字小文字を無視して一意として扱う（大文字小文字だけが違う登録は拒否。§3.9）。`kind` は `access`（アクセストークン）／`refresh`（リフレッシュトークン）／`id`（ID トークン。任意）。1 件の上限（Windows は約 2.5KB）を超える値は `<キー>#0`、`#1`… に分割し、先頭のキーに `chunks:<個数>` を置く。v0.1.7 までの `hitomado/chatgpt_token/<kind>`（アカウント 1 件）は、最初の読み取りで新しいキーへ移して消す（消すのに失敗しても、残っている間は後の読み取りで消し直す） |
 
 - **ID**: ローカルで採番するテーブルの主キーは **ULID（TEXT）**。Gmail 由来の ID（スレッド・メッセージ・ラベル）は Gmail の文字列 ID を使い、アカウントをまたいで一意でないため **`account_id` との複合主キー**にする
@@ -333,6 +335,7 @@ erDiagram
 | `compose.send_confirm` | `true` | 送信前に確認画面を出すか（真偽。#313）。未設定・壊れた値は `true`（出す）。値は JSON として妥当な `true`／`false` |
 | `update.last_checked_at` | `1730000000000` | 最終確認日時 |
 | `window.state` | `{"x":100,"y":60,"width":1280,"height":800,"maximized":false}` | ウィンドウ状態。位置・サイズは最大化していないときの DIP 値（`x`／`y` は省略可。省略時は位置を OS に任せる）。画面外の位置は起動時に捨てる（[F-10](../requirements/functional.md)） |
+| `mcp.config` | `{"enabled":false,"host":"127.0.0.1","port":47650,"allowNonLoopback":false}` | 内蔵 MCP サーバーの設定（[MCP](../mcp.md)）。未設定・壊れた値は既定（オフ。`host` は `127.0.0.1`、`port` は `47650`）として読み、空の `host`・`port` 0 も既定で埋める。`allowNonLoopback` は loopback 以外での待ち受けを明示的に許可する。**トークンは含まない**（資格情報ストアの `hitomado/mcp_token`） |
 
 ## 4. インデックス
 
@@ -380,3 +383,4 @@ erDiagram
 | 1.17 | 2026-11-05 | §3.9 の `ai.config` に任意キー `effort`（モデルのエフォート）を追加 | #111 |
 | 1.18 | 2026-11-10 | §3.9 に `compose.send_confirm`（送信前の確認画面のオン・オフ）を追加 | #313 |
 | 1.19 | 2026-11-11 | §3.9 に `inbox_zero.reasons`（Inbox Zero の理由ごとのオン・オフ）を追加し、`ai.consent` に `typesafe`（TypeSafe AI。送信先は固定で `baseUrl` なし）の同意が入り得る旨を追記 | #314 |
+| 1.20 | 2026-11-14 | §1 の資格情報キーに `hitomado/mcp_token`・`hitomado/oauth_in_progress` を追加し、`ai_api_key` の `<provider>` に `typesafe` を追記。§3.9 に `mcp.config` を追加 | 実装との整合（#359） |
