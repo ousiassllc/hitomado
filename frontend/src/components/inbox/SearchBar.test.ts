@@ -39,3 +39,15 @@ describe('SearchBar の右端のクリア（O8）', () => {
     w.unmount()
   })
 })
+
+describe('SearchBar のプレースホルダ（#348）', () => {
+  test('クリアが出ていないあいだは、クリアの分の右 padding を空けない（has-clear は入力があるときだけ）', async () => {
+    const w = mountBar(false)
+    expect(w.get('input').classes()).not.toContain('has-clear')
+    await w.get('input').setValue('abc')
+    expect(w.get('input').classes()).toContain('has-clear')
+    await w.get(CLEAR).trigger('click')
+    expect(w.get('input').classes()).not.toContain('has-clear')
+    w.unmount()
+  })
+})

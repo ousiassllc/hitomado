@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { WarningTriangle } from '@iconoir/vue'
 import { common } from '../../lib/messages'
-import { accountColorVar } from '../../lib/palette'
 import BaseIconButton from '../ui/BaseIconButton.vue'
+import AccountChip from './AccountChip.vue'
 
 defineProps<{
   account: { id: string; displayName: string; email: string; color: string }
@@ -23,9 +23,8 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
       :title="account.email"
       @click="emit('select', $event.ctrlKey || $event.metaKey)"
     >
-      <span class="band" :style="{ background: accountColorVar(account.color) }" aria-hidden="true" />
       <span class="text">
-        <span class="name">{{ account.displayName }}</span>
+        <AccountChip class="name" :account="account" />
         <span class="email">{{ account.email }}</span>
       </span>
       <span v-if="unread > 0" class="badge" :aria-label="common.sidebar.unread(unread)">{{ unread > 999 ? '999+' : unread }}</span>
@@ -60,7 +59,7 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   flex: 1;
   min-width: 0;
   gap: var(--s-2);
-  padding: var(--s-2) var(--menu-pad-x) var(--s-2) 0;
+  padding: var(--s-2) var(--menu-pad-x);
   border: none;
   background: transparent;
   color: var(--ink);
@@ -73,14 +72,6 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   background: var(--accent-soft);
 }
 
-.band {
-  flex: none;
-  align-self: stretch;
-  width: 6px;
-  border-radius: var(--r-sm);
-  margin-right: var(--s-1);
-}
-
 .text {
   flex: 1;
   min-width: 0;
@@ -88,11 +79,9 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   flex-direction: column;
 }
 
+/* 名前は識別色の薄いチップ（一覧と同じ BaseChip の tint。帯は無い）。チップは中身の幅で、メールアドレスの上に左寄せで置く。 */
 .name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--font-size-sm);
+  align-self: flex-start;
 }
 
 .email {

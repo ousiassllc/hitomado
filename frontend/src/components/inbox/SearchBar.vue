@@ -51,6 +51,7 @@ function onClear(): void {
           ref="input"
           v-model="text"
           class="input"
+          :class="{ 'has-clear': text !== '' }"
           type="search"
           :placeholder="common.search.placeholder"
           :aria-label="common.search.label"
@@ -111,13 +112,18 @@ function onClear(): void {
   padding: 0 var(--s-3);
   /* 左の検索アイコン（--icon-md）の分だけ空ける */
   padding-left: calc(var(--s-3) + var(--icon-md) + var(--s-2));
-  /* 右のクリア（--control-h-sm）の分だけ空けて、文字と重ならないようにする */
-  padding-right: calc(var(--s-1) + var(--control-h-sm) + var(--s-1));
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--surface);
   color: var(--ink);
   font-size: var(--font-size-sm);
+  /* 狭い幅でプレースホルダが収まらないときは、字の途中で切らず「…」で省く（#348） */
+  text-overflow: ellipsis;
+}
+
+/* 右のクリア（--control-h-sm）が出ているときだけ、その分を空けて文字と重ならないようにする。出ていないあいだは空けず、プレースホルダに幅を回す（#348） */
+.input.has-clear {
+  padding-right: calc(var(--s-1) + var(--control-h-sm) + var(--s-1));
 }
 
 /* ブラウザ標準の✕は出さない（O8）。クリアは右の自前のボタンに一本化する。 */
@@ -135,6 +141,11 @@ function onClear(): void {
 @media (max-width: 640px) {
   .input {
     font-size: var(--font-size-base);
+  }
+
+  /* 入力した文字は 16px のまま（自動ズーム対策は入力欄の font-size で決まる）。プレースホルダだけ 14px にして、390px でも文言が収まるようにする（#348） */
+  .input::placeholder {
+    font-size: var(--font-size-sm);
   }
 }
 </style>

@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import type { ThreadDetail } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { common, thread as msg } from '../../lib/messages'
-import { accountColorVar } from '../../lib/palette'
 import { SHORTCUT_KEYS } from '../../lib/shortcuts'
 import { useThreadStore } from '../../stores/thread'
 import AccountChip from '../account/AccountChip.vue'
@@ -37,11 +36,10 @@ function onLabel(key: string): void {
 }
 
 const subject = computed(() => props.detail.subject || msg.noSubject)
-const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail.account.color) }))
 </script>
 
 <template>
-  <header class="thread-header" :style="bandStyle" data-testid="thread-header">
+  <header class="thread-header" data-testid="thread-header">
     <div class="title-row">
       <BackToListButton />
       <h2 class="subject" data-testid="thread-subject">{{ subject }}</h2>
@@ -89,7 +87,6 @@ const bandStyle = computed(() => ({ borderTopColor: accountColorVar(props.detail
   flex-direction: column;
   gap: var(--s-2);
   padding: var(--s-3) var(--s-4);
-  border-top: 4px solid transparent;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }

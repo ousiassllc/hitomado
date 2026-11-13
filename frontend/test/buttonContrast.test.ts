@@ -68,14 +68,14 @@ describe('BaseButton の状態別の見た目', () => {
 })
 
 describe('SenderBadge', () => {
-  test('アカウント色は左の帯だけに使い、背景や文字色には使わない', () => {
+  test('アカウント色は薄い地と枠に沈めるだけで、帯・文字色には使わない（#347）', () => {
     const w = mount(SenderBadge, {
       props: { from: { name: '仕事用', email: 'work@example.com' }, color: 'purple' },
     })
     const style = (w.element as HTMLElement).getAttribute('style') ?? ''
-    expect(style).toContain('border-left-color: var(--account-purple)')
-    expect(style).not.toContain('background')
-    expect(style).not.toMatch(/(^|[;\s])color:/)
+    expect(style).toContain('--chip-tint: var(--account-purple)')
+    expect(style).not.toContain('border-left-color')
+    expect(style).not.toMatch(/(^|[;\s])(background|color):/)
     expect(w.text()).toContain('仕事用')
     expect(w.text()).toContain('work@example.com')
   })
