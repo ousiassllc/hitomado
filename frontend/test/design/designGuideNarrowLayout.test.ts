@@ -27,6 +27,17 @@ describe('検索プレースホルダ（#348）', () => {
   })
 })
 
+describe('タッチ UI の検索（#348）', () => {
+  test('右 padding のクリア分（--tap-min）は has-clear のときだけ。常時の上書きでプレースホルダの幅を削らない', () => {
+    const css = readFileSync(new URL('../../src/styles/touch.css', import.meta.url), 'utf8')
+    const rules = [...css.matchAll(/([^{}]*\.search \.input[^{}]*)\{([^}]*)\}/g)]
+    const withPad = rules.filter(([, , body]) => body.includes('padding-right'))
+    expect(withPad).toHaveLength(1)
+    expect(withPad[0][1]).toContain('.search .input.has-clear')
+    expect(withPad[0][2]).toContain('var(--tap-min)')
+  })
+})
+
 describe('AI 補助文の行（#349）', () => {
   const form = 'thread/ai/ThreadAiQuestionForm.vue'
 

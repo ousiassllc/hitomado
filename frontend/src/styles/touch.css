@@ -76,8 +76,8 @@
   min-height: var(--tap-min);
 }
 
-/* 検索の右端のクリアは 44px になるので、入力の右 padding もその分広げる */
-:root[data-touch-ui] .search .input {
+/* 検索の右端のクリアは 44px になるので、クリアが出ているあいだだけ、入力の右 padding もその分広げる（出ていないあいだはプレースホルダに幅を回す。#348） */
+:root[data-touch-ui] .search .input.has-clear {
   padding-right: calc(var(--s-1) + var(--tap-min) + var(--s-1));
 }
 
