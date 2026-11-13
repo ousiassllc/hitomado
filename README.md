@@ -61,6 +61,18 @@ Android と macOS の試験版（検証用。警告が出る前提）は、[Andr
 
 ダウンロード元が [公式の Releases](https://github.com/ousiassllc/hitomado/releases) であることと、`SHA256SUMS.txt` のハッシュが一致することを確認してから実行してください。
 
+#### スマート アプリ コントロールが有効な Windows 11 の場合
+
+Windows 11 の**スマート アプリ コントロール（Smart App Control）が「オン」**の PC では、署名の無いインストーラーが、上の「詳細情報」→「実行」の手順が出ないまま**ブロックされて実行できない**ことがあります（v0.1.32 のインストーラーで報告があります）。現在の Microsoft の説明によると、スマート アプリ コントロールは、クラウドの判定でアプリの安全性を確信できないとき、署名が無い（または無効な）アプリを「信頼できない」としてブロックします。**アプリ 1 つだけを許可する方法は無く**、Microsoft が示す対処は、スマート アプリ コントロールをオフにするか、開発元に署名を求めることです。このアプリは署名をしない方針なので、ブロックされた場合の選択肢は次のとおりです。
+
+- **スマート アプリ コントロールをオフにして、インストールする**: Windows セキュリティ → **アプリとブラウザー コントロール** → **スマート アプリ コントロールの設定**で「オフ」にします。署名の無い他のアプリへの保護も外れます。オフにしたあとで再びオンにできるかは、Microsoft の説明がページや Windows の更新で食い違っています（「アプリとブラウザー コントロール」のページは新規インストールの Windows 11 だけで使え、リセットか再インストールが要るとし、FAQ は最近の更新で再インストールなしにオン／オフを切り替えられるとしています）。**お使いの Windows で再びオンにできるかを、オフにする前に Microsoft の最新の説明で確認してください**。
+- **スマート アプリ コントロールをオフにしない場合は、このアプリを使えません**。
+
+スマート アプリ コントロールが「評価モード」のあいだは、何もブロックされません。Windows 10 にはこの機能はありません。詳しくは Microsoft の公式ドキュメントを参照してください。
+
+- [スマート アプリ コントロールの FAQ（Smart App Control Frequently Asked Questions）](https://support.microsoft.com/en-us/windows/security/threat-malware-protection/smart-app-control-frequently-asked-questions)
+- [Windows セキュリティ アプリの「アプリとブラウザー コントロール」（App & browser control in the Windows Security App）](https://support.microsoft.com/en-us/windows/security/windows-security/app-browser-control-in-the-windows-security-app)
+
 ## Android 版（試験段階・検証用）
 
 Releases の `hitomado-vX.Y.Z-android-arm64.apk`（arm64 の実機向け。`SHA256SUMS.txt` でハッシュを確認できます）を Android 12（API 31）以上の端末へ入れて試せます。Google Play では配布していません。OAuth クライアントは [Android で使う場合の OAuth クライアント](#android-で使う場合の-oauth-クライアント)を参照してください。
