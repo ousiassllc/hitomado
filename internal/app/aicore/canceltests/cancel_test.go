@@ -219,15 +219,14 @@ func TestCancelGenerateBeforeStartSkipsChatGPTToken(t *testing.T) {
 	assert.Zero(t, f.provider.count())
 }
 
-// 生成を始めなかった ID の中止の記録は、一定時間で消える。あとから同じ ID で始めても止めない（メモリに残り続けず、別の実行も止めない）。
+// 生成を始めなかった ID の中止の記録は、TTL を過ぎると消える。あとから同じ ID で始めても止めない（メモリに残り続けず、別の実行も止めない）。
+// TTL を 0 にすると記録は直ちに期限切れになるので、待ち時間なしで決定的に確かめられる（最初の呼び出しが CANCELLED なら、期限切れが効いていない）。
 func TestCancelRecordExpires(t *testing.T) {
-	f := newFixture(t, aicore.WithCancelRecordTTL(20*time.Millisecond))
+	f := newFixture(t, aicore.WithCancelRecordTTL(0))
 	f.ready(t)
 	require.NoError(t, f.ai.CancelGenerate("stale"))
-	require.Eventually(t, func() bool {
-		_, err := f.ai.GenerateReplyDraft(t.Context(), f.sessionID, "stale", "")
-		return err == nil
-	}, 10*time.Second, 5*time.Millisecond)
+	_, err := f.ai.GenerateReplyDraft(t.Context(), f.sessionID, "stale", "")
+	require.NoError(t, err)
 }
 
 // 実行中の中止は記録を残さない（実行が終わったあと、同じ ID の次の実行は止められない）。
@@ -240,9 +239,18 @@ func TestCancelRunningLeavesNoRecord(t *testing.T) {
 		_, err := f.ai.GenerateReplyDraft(t.Context(), f.sessionID, "r1", "")
 		done <- err
 	}()
-	<-f.provider.entered
+	select {
+	case <-f.provider.entered:
+	case <-time.After(10 * time.Second):
+		t.Fatal("プロバイダの呼び出しに入らなかった")
+	}
 	require.NoError(t, f.ai.CancelGenerate("r1"))
-	requireCode(t, "CANCELLED", <-done)
+	select {
+	case err := <-done:
+		requireCode(t, "CANCELLED", err)
+	case <-time.After(10 * time.Second):
+		t.Fatal("中止しても生成が終わらなかった")
+	}
 
 	f.provider.mu.Lock()
 	f.provider.blocked = false
