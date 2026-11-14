@@ -5,6 +5,7 @@ import { useSettingsStore } from '../../../stores/settings'
 import { useThreadStore } from '../../../stores/thread'
 import { useThreadAiStore } from '../../../stores/threadAi'
 import { useUiStore } from '../../../stores/ui'
+import { draftPrecheckConfig } from '../../settings/ai/aiPrecheckConfig'
 
 /** スレッドの AI 要約・質問（F-17・F-18）の前提確認を、設定・スレッド・threadAiStore につないだもの。`ThreadPane` が 1 つだけ持つ。 */
 export function useThreadAiFlow() {
@@ -18,7 +19,7 @@ export function useThreadAiFlow() {
   })
 
   const flow = useThreadAi({
-    config: () => settings.aiConfig,
+    config: () => draftPrecheckConfig(settings.aiConfig),
     // 同意は、保存済みの設定の送信先（OpenAI 互換は Base URL も）に対して記録する。
     recordConsent: (provider) =>
       settings.recordAIConsent(provider, settings.aiConfig?.baseUrl ?? ''),
@@ -32,10 +33,8 @@ export function useThreadAiFlow() {
     },
   })
 
-  // 設定が未保存のあいだは、既定の ChatGPT プランをログイン済みとして扱わない（案内文の出し分けだけに使う）。
-  const usingChatGPT = computed(
-    () => settings.aiConfig?.configured === true && settings.aiConfig.provider === 'chatgpt',
-  )
+  // 「AI で下書き」に選んだのが ChatGPT プランのときだけ、ログインの案内にする（案内文の出し分けだけに使う）。
+  const usingChatGPT = computed(() => settings.aiConfig?.features.draft.provider === 'chatgpt')
 
   /** 「AI で要約」を押せない（生成中・API キー未設定）。 */
   const summarizeDisabled = computed(() => store.busy || flow.needsKey.value)

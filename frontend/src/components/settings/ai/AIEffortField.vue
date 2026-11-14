@@ -3,8 +3,8 @@ import { computed } from 'vue'
 import { settings as msg } from '../../../lib/messages'
 import BaseSelect, { type SelectOption } from '../../ui/BaseSelect.vue'
 
-// 「エフォート」（モデルの reasoning effort）の選択（F-08。#111）。先頭は常に「モデルの既定」（何も送らない）。
-// 出す段階は呼び出し側が決める。空ならエフォートの設定がないモデルなので、選択自体を出さない。
+// 「エフォート」（モデルの reasoning effort）の選択（F-08。#111）。「AI で下書き」の行に、モデルの選択の横（390px 幅では下）に置く。
+// 先頭は常に「モデルの既定」（何も送らない）。出す段階は呼び出し側が決める。空ならエフォートの設定がないモデルなので、選択自体を出さない。
 const props = defineProps<{
   /** 出す段階（弱い順）。 */
   efforts: string[]
@@ -31,26 +31,33 @@ const options = computed<SelectOption[]>(() => [
       :ariaLabel="msg.ai.effort"
       @update:model-value="(v) => emit('update:modelValue', v === DEFAULT ? '' : v)"
     />
-    <p class="hint">{{ msg.ai.effortHint }}</p>
   </div>
 </template>
 
 <style scoped>
 .field {
   display: flex;
-  flex-direction: column;
-  gap: var(--gap-label);
-  max-width: 320px;
+  align-items: center;
+  gap: var(--s-2);
 }
 
 .label {
-  font-size: var(--font-size-sm);
+  flex: none;
+  color: var(--mute);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
 }
 
-.hint {
-  margin: calc(var(--gap-help) - var(--gap-label)) 0 0;
-  color: var(--ink);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
+/* 390px 幅: ラベルを上に置き、選択欄は横いっぱい。 */
+@media (max-width: 640px) {
+  .field {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .label {
+    color: var(--ink);
+    font-size: var(--font-size-sm);
+  }
 }
 </style>

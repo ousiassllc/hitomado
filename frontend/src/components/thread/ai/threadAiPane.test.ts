@@ -1,6 +1,7 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { features } from '../../../../test/aiConfigKit'
 import { appError, ctl, detail, REF, until } from '../threadTestKit'
 import {
   aiCallsOf,
@@ -167,7 +168,7 @@ describe('ThreadPane の AI パネル（F-17・F-18）', () => {
   })
 
   test('キー未設定では要約・質問を送れず、設定への案内を出す', async () => {
-    const w = await open({ ...READY_CONFIG, hasApiKey: false })
+    const w = await open({ ...READY_CONFIG, apiKeyProviders: [] })
     expect(w.get(tid('act-ai-summarize')).attributes('disabled')).toBeDefined()
     expect(w.get(tid('thread-ai-need-key')).text()).toContain('API キーが未設定')
     expect(w.get(tid('thread-ai-question-input')).attributes('disabled')).toBeDefined()
@@ -177,8 +178,8 @@ describe('ThreadPane の AI パネル（F-17・F-18）', () => {
   test('設定が未保存なら初回の案内、未同意なら同意の画面（F-08 と同じ）。同意したら押された操作を続ける', async () => {
     const first = await open({
       ...READY_CONFIG,
-      configured: false,
-      hasApiKey: false,
+      features: features(),
+      apiKeyProviders: [],
       consentedProviders: [],
     })
     await first.get(tid('act-ai-summarize')).trigger('click')

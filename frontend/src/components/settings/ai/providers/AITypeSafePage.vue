@@ -1,44 +1,34 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { parseBindingError } from '../../../../lib/api'
 import { inboxZero, settings as msg } from '../../../../lib/messages'
 import { useInboxZeroStore } from '../../../../stores/inboxZero'
-import { useSettingsStore } from '../../../../stores/settings'
 import { useUiStore } from '../../../../stores/ui'
 import BaseSwitch from '../../../ui/BaseSwitch.vue'
 import AIApiKey from '../AIApiKey.vue'
+import AIConsentSection from '../AIConsentSection.vue'
 import AIDestinationBox from '../AIDestinationBox.vue'
-import { hasProviderCredential } from './aiProviders'
+import { type AiBusy, useAiConnect } from '../useAiConnect'
 import { INBOX_ZERO_REASONS, type InboxZeroReason } from './inboxZeroReasons'
 
-// TypeSafe AI（Jev）の設定ページ（#314・#315）。文章を書かないモデルなので、モデルの選択・エフォートは無く、
-// 「AI で下書き」の既定のプロバイダにもならない。ここでは API キーだけを登録・削除する（キーは資格情報ストア）。
+// TypeSafe AI（Jev）の「つなぎ先」のページ（#314・#315・#376）。文章を書かないモデルなので、モデルの選択・エフォートは無く、
+// 「AI で下書き」には選べない（Inbox Zero の「機能ごとに使う AI」にだけ選べる）。ここでは API キーの登録・削除と送信への同意を行う（キーは資格情報ストア）。
 const PROVIDER = 'typesafe'
-const store = useSettingsStore()
 const ui = useUiStore()
 const zero = useInboxZeroStore()
-onMounted(() => void zero.loadReasons())
+onMounted(() => {
+  void zero.loadReasons()
+  if (ui.takeAiConnectStart()) c.begin()
+})
 
+const provider = ref(PROVIDER)
 const keyForm = ref<InstanceType<typeof AIApiKey>>()
-const busy = ref<'key' | 'clear'>()
-const error = ref<string>()
+const busy = ref<AiBusy>()
+const errors = ref<{ key?: string; consent?: string; baseUrl?: string }>({})
+const consentOpen = ref(false)
 const label = msg.ai.providerOptions[PROVIDER] ?? PROVIDER
-const hasKey = computed(() => hasProviderCredential(PROVIDER, store.aiConfig))
 
-async function saveKey(apiKey: string): Promise<void> {
-  if (busy.value) return
-  error.value = undefined
-  busy.value = 'key'
-  try {
-    await store.setAIApiKey(PROVIDER, apiKey)
-    keyForm.value?.reset()
-    ui.pushToast('success', msg.ai.apiKeySaved)
-  } catch (e) {
-    error.value = parseBindingError(e).message
-  } finally {
-    busy.value = undefined
-  }
-}
+const c = useAiConnect({ provider, busy, errors, consentOpen, keyForm, chatgptLogin: ref(undefined) })
 
 const reasonsError = ref<string>()
 
@@ -49,21 +39,6 @@ async function toggleReason(reason: InboxZeroReason, on: boolean): Promise<void>
     await zero.setReasons({ ...zero.reasons, [reason]: on })
   } catch (e) {
     reasonsError.value = parseBindingError(e).message || inboxZero.settings.saveFailed
-  }
-}
-
-async function clearKey(): Promise<void> {
-  if (busy.value) return
-  error.value = undefined
-  busy.value = 'clear'
-  try {
-    await store.clearAIApiKey(PROVIDER)
-    keyForm.value?.reset()
-    ui.pushToast('success', msg.ai.apiKeyCleared)
-  } catch (e) {
-    error.value = parseBindingError(e).message
-  } finally {
-    busy.value = undefined
   }
 }
 </script>
@@ -78,11 +53,23 @@ async function clearKey(): Promise<void> {
     <AIApiKey
       ref="keyForm"
       :provider-label="label"
-      :has-key="hasKey"
+      :has-key="c.hasCredential.value"
       :busy="busy"
-      :error="error"
-      @save="saveKey"
-      @clear="clearKey"
+      :error="errors.key"
+      @save="c.saveKey"
+      @clear="c.clearKey"
+    />
+    <AIConsentSection
+      :text="c.consentText.value"
+      :error="errors.consent"
+      :needed="!c.consented.value"
+      :disabled="busy !== undefined"
+      :destination="c.destination.value"
+      :open="consentOpen"
+      :saving="busy === 'consent'"
+      @ask="consentOpen = true"
+      @agree="c.agree"
+      @decline="c.declineConsent"
     />
     <fieldset class="reasons" data-testid="inbox-zero-reasons">
       <legend class="sub">{{ inboxZero.settings.heading }}</legend>

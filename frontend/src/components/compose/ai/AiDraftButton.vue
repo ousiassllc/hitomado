@@ -11,6 +11,7 @@ import { useUiStore } from '../../../stores/ui'
 import AIConsentDialog from '../../settings/ai/AIConsentDialog.vue'
 import AISetupDialog from '../../settings/ai/AISetupDialog.vue'
 import { aiDestination } from '../../settings/ai/aiDestination'
+import { draftPrecheckConfig } from '../../settings/ai/aiPrecheckConfig'
 import BaseButton from '../../ui/BaseButton.vue'
 import BaseDialog from '../../ui/BaseDialog.vue'
 import Spinner from '../../ui/Spinner.vue'
@@ -33,7 +34,7 @@ onMounted(() => {
 })
 
 const ai = useAiDraft({
-  config: () => settings.aiConfig,
+  config: () => draftPrecheckConfig(settings.aiConfig),
   hasBody: () => hasUserBody(compose.content.bodyHtml),
   // 同意は、保存済みの設定の送信先（OpenAI 互換は Base URL も）に対して記録する。
   recordConsent: (provider) => settings.recordAIConsent(provider, settings.aiConfig?.baseUrl ?? ''),
@@ -75,11 +76,11 @@ watch(
 
 const destination = computed(() => {
   const c = settings.aiConfig
-  return c ? aiDestination(c.provider, c.baseUrl) : undefined
+  return c ? aiDestination(c.features.draft.provider, c.baseUrl) : undefined
 })
 
-// 設定が未保存のあいだは、既定の ChatGPT プランをログイン済みとして扱わない（案内文の出し分けだけに使う）。
-const usingChatGPT = computed(() => settings.aiConfig?.configured === true && settings.aiConfig.provider === 'chatgpt')
+// 「AI で下書き」に選んだのが ChatGPT プランのときだけ、ログインの案内にする（案内文の出し分けだけに使う）。
+const usingChatGPT = computed(() => settings.aiConfig?.features.draft.provider === 'chatgpt')
 const needText = computed(() => (usingChatGPT.value ? msg.ai.needLogin : msg.ai.needKey))
 // 無効なボタンの理由は title（OS 標準のツールチップ）ではなく、見えている .ai-note をボタンにつなぐ（#264）。
 const noteId = useId()

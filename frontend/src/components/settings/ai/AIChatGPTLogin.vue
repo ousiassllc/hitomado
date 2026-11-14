@@ -15,7 +15,6 @@ import ChatGPTPlanNotice from './ChatGPTPlanNotice.vue'
 // ここではパスワードも Cookie も扱わない。トークンは Go 側の資格情報ストアにだけあり、画面には渡らない。
 // 複数の ChatGPT アカウント（クライアント登録）を保存でき、下書きに使うアカウントを選べる。
 const props = defineProps<{ signedIn: boolean; email: string; accounts: ChatGPTAccount[] }>()
-const emit = defineEmits<{ accountChanged: [] }>()
 
 const store = useSettingsStore()
 const ui = useUiStore()
@@ -54,7 +53,6 @@ async function login(accountId: string): Promise<void> {
   try {
     await store.signInChatGPT(accountId)
     ui.pushToast('success', msg.ai.chatgpt.signedIn)
-    emit('accountChanged')
   } catch (e) {
     const err = parseBindingError(e)
     // 利用者が自分で中止したときは、エラーとして出さない。
@@ -86,7 +84,6 @@ async function select(a: ChatGPTAccount): Promise<void> {
   try {
     await store.selectChatGPTAccount(a.id)
     ui.pushToast('success', msg.ai.chatgpt.switched(label(a)))
-    emit('accountChanged')
   } catch (e) {
     const err = parseBindingError(e)
     if (err.details?.reason === 'account_signed_out') {

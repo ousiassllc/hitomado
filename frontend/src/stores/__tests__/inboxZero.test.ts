@@ -5,6 +5,7 @@ import type {
   InboxZeroCandidate,
   ThreadSummary,
 } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { features } from '../../../test/aiConfigKit'
 import {
   appError,
   callsOf,
@@ -99,10 +100,7 @@ async function setup(opts: { count?: number; consented?: boolean; keyed?: boolea
   const settings = useSettingsStore()
   useInboxZeroStore().reasons = { ...ALL_ON }
   settings.aiConfig = {
-    provider: 'chatgpt',
-    model: '',
-    configured: false,
-    hasApiKey: false,
+    features: features(),
     apiKeyProviders: keyed ? ['typesafe'] : [],
     consentedProviders: consented ? ['typesafe'] : [],
     chatgptSignedIn: false,

@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { features } from '../../../test/aiConfigKit'
 import { useInboxStore } from '../../stores/inbox'
 import { useInboxZeroStore } from '../../stores/inboxZero'
 import { useSettingsStore } from '../../stores/settings'
@@ -26,10 +27,7 @@ function setup(opts: { items?: number; keyed?: boolean } = {}) {
   }))
   const settings = useSettingsStore()
   settings.aiConfig = {
-    provider: 'chatgpt',
-    model: '',
-    configured: false,
-    hasApiKey: false,
+    features: features(),
     apiKeyProviders: opts.keyed === false ? [] : ['typesafe'],
     consentedProviders: ['typesafe'],
     chatgptSignedIn: false,

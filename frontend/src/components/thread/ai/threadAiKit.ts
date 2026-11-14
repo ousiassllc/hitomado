@@ -33,10 +33,10 @@ export function result(text: string, included = 1, total = 1): ThreadAIResult {
 
 /** 設定済み・同意済みの AI 設定（前提確認を通る）。 */
 export const READY_CONFIG = {
-  provider: 'anthropic',
-  model: 'claude-x',
-  configured: true,
-  hasApiKey: true,
+  features: {
+    draft: { provider: 'anthropic', model: 'claude-x' },
+    inboxZero: { provider: '', model: '' },
+  },
   apiKeyProviders: ['anthropic'],
   consentedProviders: ['anthropic'],
   chatgptSignedIn: false,

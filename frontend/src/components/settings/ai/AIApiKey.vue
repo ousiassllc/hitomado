@@ -9,7 +9,7 @@ import SettingsInput from '../SettingsInput.vue'
 const props = defineProps<{
   providerLabel: string
   hasKey: boolean
-  busy?: 'config' | 'key' | 'clear' | 'models' | 'consent'
+  busy?: 'key' | 'clear' | 'consent' | 'baseUrl'
   error?: string
 }>()
 const emit = defineEmits<{ save: [apiKey: string]; clear: [] }>()

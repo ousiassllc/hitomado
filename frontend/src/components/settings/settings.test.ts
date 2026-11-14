@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import type { AIConfig } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import type { Capabilities } from '../../../bindings/github.com/ousiassllc/hitomado/internal/capability'
+import { features } from '../../../test/aiConfigKit'
 import { useAccountsStore } from '../../stores/accounts'
 import { useNotificationsStore } from '../../stores/notifications'
 import { usePlatformStore } from '../../stores/platform'
@@ -51,56 +52,32 @@ describe('OAuthClientsSettings', () => {
   })
 })
 
-/** 保存済み（configured）の AI 設定。 */
-function savedConfig(
-  provider: string,
-  model: string,
-  hasApiKey: boolean,
-  apiKeyProviders: string[],
-  extra: Partial<AIConfig> = {},
-): AIConfig {
-  return {
-    provider,
-    model,
-    configured: true,
-    hasApiKey,
-    apiKeyProviders,
-    consentedProviders: [],
-    chatgptSignedIn: false,
-    chatgptAccounts: [],
-    ...extra,
-  }
-}
-
 describe('AISettings', () => {
   test('保存済みの送信先（プロバイダ・Base URL）を常に表示する', async () => {
     const pinia = setup()
     const settings = useSettingsStore()
-    settings.aiConfig = savedConfig('openai', 'gpt-x', true, ['openai'], {
+    const cfg: AIConfig = {
+      features: features({ provider: 'openai', model: 'gpt-x' }),
       baseUrl: 'https://llm.example.com/v1',
-    })
-    const w = mount(AISettings, { global: { plugins: [pinia] } })
+      apiKeyProviders: ['openai'],
+      consentedProviders: [],
+      chatgptSignedIn: false,
+      chatgptAccounts: [],
+    }
+    settings.aiConfig = cfg
+    const w = mount(AISettings, { props: { provider: 'openai' }, global: { plugins: [pinia] } })
     const dest = w.get('[data-testid="ai-destination"]').text()
     expect(dest).toContain('OpenAI 互換')
     expect(dest).toContain('https://llm.example.com/v1')
+    w.unmount()
 
-    settings.aiConfig = savedConfig('anthropic', 'm', false, [])
-    await w.vm.$nextTick()
-    expect(w.get('[data-testid="ai-destination"]').text()).toContain('https://api.anthropic.com')
-  })
-})
-
-describe('AISettings モデル名', () => {
-  test('モデル名が空なら入力を促す注記を表示し、入力済みなら出さない', async () => {
-    const pinia = setup()
-    const settings = useSettingsStore()
-    settings.aiConfig = savedConfig('anthropic', '', false, [])
-    const w = mount(AISettings, { props: { provider: 'anthropic' }, global: { plugins: [pinia] } })
-    expect(w.text()).toContain('モデルを入力してください')
-
-    settings.aiConfig = savedConfig('anthropic', 'm', false, [])
-    await w.vm.$nextTick()
-    expect(w.text()).not.toContain('モデルを入力してください')
+    const other = mount(AISettings, {
+      props: { provider: 'anthropic' },
+      global: { plugins: [pinia] },
+    })
+    expect(other.get('[data-testid="ai-destination"]').text()).toContain(
+      'https://api.anthropic.com',
+    )
   })
 })
 

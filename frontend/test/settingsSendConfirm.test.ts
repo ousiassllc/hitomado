@@ -29,7 +29,14 @@ beforeEach(() => {
   setActivePinia(createPinia())
   resetKit()
   Object.assign(responses, {
-    GetAIConfig: { provider: 'anthropic', model: 'm', hasApiKey: false, consentedProviders: null },
+    GetAIConfig: {
+      features: {
+        draft: { provider: 'anthropic', model: 'm' },
+        inboxZero: { provider: '', model: '' },
+      },
+      apiKeyProviders: null,
+      consentedProviders: null,
+    },
     GetAppInfo: baseInfo,
     SetSendConfirmEnabled: undefined,
   })

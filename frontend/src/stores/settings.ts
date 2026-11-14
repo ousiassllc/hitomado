@@ -163,16 +163,21 @@ export const useSettingsStore = defineStore('settings', () => {
     started = false
   }
 
-  /** AI 設定を保存する。effort は空で「モデルの既定」（#111）。渡さなければ前の値は引き継がず「既定」に戻る。 */
-  async function setAIConfig(
+  /** 機能（draft／inboxZero）で使う AI・モデルを保存する（#376）。effort は draft だけで、空は「モデルの既定」（#111）。 */
+  async function setAIFeature(
+    feature: string,
     provider: string,
     model: string,
-    baseUrl: string,
     effort = '',
   ): Promise<void> {
     aiConfig.value = normalizeAIConfig(
-      await call(AIService.SetAIConfig(provider, model, baseUrl, effort)),
+      await call(AIService.SetAIFeature(feature, provider, model, effort)),
     )
+  }
+
+  /** OpenAI 互換の Base URL（つなぎ先の設定）を保存する。空は OpenAI の既定の送信先。 */
+  async function setAIBaseURL(baseUrl: string): Promise<void> {
+    aiConfig.value = normalizeAIConfig(await call(AIService.SetAIBaseURL(baseUrl)))
   }
 
   async function setAIApiKey(provider: string, apiKey: string): Promise<void> {
@@ -188,11 +193,7 @@ export const useSettingsStore = defineStore('settings', () => {
     aiConfig.value = normalizeAIConfig(await call(AIService.RecordAIConsent(provider, baseUrl)))
   }
 
-  /**
-   * 選んだ送信先（provider と、OpenAI 互換の baseUrl）のモデル一覧を取得する。保存前の設定でも取得できる。
-   * 取得できないときも例外にせず、reason つきの空の一覧が入る（手入力へ切り替える）。同意前の送信先は Go が取得を送らず
-   * reason=consent_required を返す。
-   */
+  /** 送信先（provider と、OpenAI 互換の baseUrl）のモデル一覧を取得する。取得できないときも例外にせず、reason つきの空の一覧が入る（手入力へ切り替える）。 */
   async function loadAIModels(provider: string, baseUrl = ''): Promise<AIModelList> {
     const r = await call(AIService.ListAIModels(provider, baseUrl))
     const res = { ...r, models: list(r.models) }
@@ -304,7 +305,8 @@ export const useSettingsStore = defineStore('settings', () => {
     start,
     stop,
     openExternal,
-    setAIConfig,
+    setAIFeature,
+    setAIBaseURL,
     setAIApiKey,
     clearAIApiKey,
     recordAIConsent,

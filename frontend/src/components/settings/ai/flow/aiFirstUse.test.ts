@@ -1,6 +1,8 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import type { AIConfig } from '../../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { features } from '../../../../../test/aiConfigKit'
 import { useSettingsStore } from '../../../../stores/settings'
 import { useUiStore } from '../../../../stores/ui'
 import AiDraftButton from '../../../compose/ai/AiDraftButton.vue'
@@ -12,13 +14,10 @@ beforeEach(() => {
 
 const el = (testid: string) => document.body.querySelector<HTMLElement>(`[data-testid="${testid}"]`)
 
-function mountButton(cfg: Record<string, unknown>) {
+function mountButton(cfg: Partial<AIConfig>) {
   const store = useSettingsStore()
   store.aiConfig = {
-    provider: 'chatgpt',
-    model: '',
-    configured: false,
-    hasApiKey: false,
+    features: features(),
     apiKeyProviders: [],
     consentedProviders: [],
     chatgptSignedIn: false,
@@ -37,7 +36,7 @@ function mountButton(cfg: Record<string, unknown>) {
   return { w, store, calls }
 }
 
-describe('「AI で下書き」: AI の設定がまっさらなときの初回の案内（#104）', () => {
+describe('「AI で下書き」: 「AI で下書き」に使う AI を選んでいないときの初回の案内（#104・#376）', () => {
   test('押すと、ChatGPT でログインする案内が出る。ボタンは無効にならず、自動では何も作らない', async () => {
     const { w, calls } = mountButton({})
     const btn = w.get('button')
@@ -87,11 +86,8 @@ describe('「AI で下書き」: AI の設定がまっさらなときの初回�
 
   test('保存済みの設定では案内を出さず、従来どおり（同意→生成）。同意は保存済みの送信先に記録する', async () => {
     const { w, calls, store } = mountButton({
-      provider: 'openai',
-      model: 'gpt-x',
+      features: features({ provider: 'openai', model: 'gpt-x' }),
       baseUrl: 'https://llm.example/v1',
-      configured: true,
-      hasApiKey: true,
       apiKeyProviders: ['openai'],
     })
     const consents: string[][] = []
@@ -111,7 +107,7 @@ describe('「AI で下書き」: AI の設定がまっさらなときの初回�
   })
 
   test('保存済みでキー未設定は、従来どおりボタンを無効にして設定へ誘導する', async () => {
-    const { w } = mountButton({ provider: 'anthropic', model: 'm', configured: true })
+    const { w } = mountButton({ features: features({ provider: 'anthropic', model: 'm' }) })
     expect(w.get('button').attributes('disabled')).toBeDefined()
     expect(w.text()).toContain('API キーが未設定')
     w.unmount()
