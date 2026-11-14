@@ -146,3 +146,33 @@ func TestBridgeStoreOtherFailuresAreNotNotFound(t *testing.T) {
 
 	require.ErrorIs(t, s.Delete("k"), boom)
 }
+
+// Java は鍵の喪失・失敗の原因（例外クラス名の連鎖）を、コードの後ろに ":" で続けて返す（#369）。
+// 種類の判定は ":" の前だけで行い、原因はエラーの文言（ログ）に残す。
+func TestBridgeStoreKeepsJavaCauseForKeyLost(t *testing.T) {
+	const cause = "java.lang.SecurityException>java.security.InvalidKeyException"
+	f := newFakeJava()
+	f.failErr = errors.New(bridgeErrPrefix + bridgeCodeKeyLost + ":" + cause)
+	s := newBridgeStore(f)
+
+	_, err := s.Get(RefreshTokenKey("a"))
+	require.ErrorIs(t, err, ErrKeyLost)
+	require.ErrorIs(t, err, ErrNotFound, "原因が付いても鍵の喪失は「値が無い」と同じに扱える")
+	assert.Contains(t, err.Error(), cause)
+}
+
+func TestBridgeStoreCauseDoesNotChangeKindOfOtherFailures(t *testing.T) {
+	for _, code := range []string{"failed:android.security.KeyStoreException", "key_lost_not_really:x", "empty key"} {
+		f := newFakeJava()
+		f.failErr = errors.New(bridgeErrPrefix + code)
+		_, err := newBridgeStore(f).Get("k")
+		require.Error(t, err, code)
+		assert.NotErrorIs(t, err, ErrKeyLost, code)
+		assert.NotErrorIs(t, err, ErrNotFound, code)
+	}
+	// 失敗コードに付いた原因は、文言から追える（原因の例外クラス名だけで、値は含まない）。
+	f := newFakeJava()
+	f.failErr = errors.New(bridgeErrPrefix + "failed:android.security.KeyStoreException")
+	_, err := newBridgeStore(f).Get("k")
+	assert.Contains(t, err.Error(), "failed:android.security.KeyStoreException")
+}

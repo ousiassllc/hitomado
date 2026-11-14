@@ -5,6 +5,7 @@ import type { Account } from '../../../../bindings/github.com/ousiassllc/hitomad
 import { isClientRejectedMessage } from '../../../lib/clientRejected'
 import { settings as msg } from '../../../lib/messages'
 import { isScopeInsufficientMessage } from '../../../lib/scopeInsufficient'
+import { isTokenRevokedMessage } from '../../../lib/tokenRevoked'
 import AccountChip from '../../account/AccountChip.vue'
 import BaseButton from '../../ui/BaseButton.vue'
 import BaseIconButton from '../../ui/BaseIconButton.vue'
@@ -55,6 +56,11 @@ const clientRejected = computed(
   () => props.status === 'needs_reauth' && isClientRejectedMessage(props.statusMessage),
 )
 
+/** Google がトークンを無効にした（invalid_grant）。原因の案内を行の下に出す。 */
+const tokenRevoked = computed(
+  () => props.status === 'needs_reauth' && isTokenRevokedMessage(props.statusMessage),
+)
+
 const statusText = computed(() => {
   if (clientRejected.value) return props.statusMessage
   if (props.status === 'needs_reauth' && isScopeInsufficientMessage(props.statusMessage)) {
@@ -98,6 +104,8 @@ const statusText = computed(() => {
         <ArrowDown class="icon" aria-hidden="true" />
       </BaseIconButton>
     </div>
+
+    <p v-if="tokenRevoked" class="hint">{{ msg.accounts.tokenRevokedHint }}</p>
 
     <div class="name">
       <SettingsInput
@@ -169,6 +177,13 @@ const statusText = computed(() => {
   border-radius: var(--r-full);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
+}
+
+.hint {
+  margin: 0;
+  color: var(--mute);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
 }
 
 .name {

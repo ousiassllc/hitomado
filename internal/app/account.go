@@ -57,6 +57,10 @@ func (s *AccountService) RemoveAccount(ctx context.Context, accountID string) er
 	if token != "" {
 		if err := s.d.OAuth.Revoke(ctx, token); err != nil {
 			logger(s.d).Info("トークンの revoke に失敗（無視）", "accountId", accountID, "err", err)
+		} else {
+			// Google 側では同じ利用者・同じ OAuth クライアントの認可が共有されうる。別の端末で同じ Google アカウントを同じクライアントで
+			// 使っていると、そちらが invalid_grant（要再接続）になる原因になりうるので、時刻を残して突き合わせられるようにする（#369）。
+			logger(s.d).Info("アカウントのトークンを Google 側で revoke しました", "accountId", accountID, "purpose", "remove_account")
 		}
 	}
 	forgetAccounts(s.d, accountID)
