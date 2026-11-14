@@ -20,12 +20,15 @@ type Capabilities struct {
 	SupportsWindowState bool   `json:"supportsWindowState"` // ウィンドウの位置・サイズ・最大化の保存と復元
 	SingleInstance      bool   `json:"singleInstance"`      // 多重起動の防止（2 つ目のプロセスは既存ウィンドウを前面に出して終了する）
 	TouchUI             bool   `json:"touchUi"`             // タッチ操作中心の画面（幅に応じて 1 画面ずつ進む表示・44px のタップ領域）。有効なら最小ウィンドウ幅の制限も外す
+	SupportsMascot      bool   `json:"supportsMascot"`      // 画面の端に残るマスコット（別ウィンドウ。#372）。Windows のみ。Android は別の方式（docs/environment/android.md）
 }
 
 // Desktop はデスクトップ OS（Windows など）の機能。MCP・トレイ・更新確認・ウィンドウ状態・多重起動の防止はすべて有効で、タッチ UI は無効（3 ペイン固定）。
+// マスコットのウィンドウは Windows のみ（ほかのデスクトップ OS は未検証）。
 func Desktop(os string) Capabilities {
 	return Capabilities{
 		OS: os, SupportsMCP: true, SupportsTray: true, SupportsAutoUpdate: true, SupportsWindowState: true, SingleInstance: true,
+		SupportsMascot: os == "windows",
 	}
 }
 

@@ -14,6 +14,10 @@ const (
 	BeforeQuit = "app:before-quit"
 	// FilesDropped はウィンドウへのファイルドロップ（ペイロード {files: string[]}）。ドロップ先は data-file-drop-target 属性の要素のみ。
 	FilesDropped = "files-dropped"
+	// AgentUpdated はエージェントモードの確認待ち・質問待ちの件数や設定が変わったとき（ペイロード AgentUpdatedPayload）。
+	AgentUpdated = "agent:updated"
+	// AgentOpenPanel はマスコットの押下などで、メインウィンドウのエージェントのパネルを開かせる（ペイロードなし）。
+	AgentOpenPanel = "agent:open-panel"
 )
 
 // SyncUpdatedPayload は差分同期・リセット同期でキャッシュが更新されたことを表す。
@@ -54,6 +58,13 @@ type UpdateStatusPayload struct {
 	Stage   string `json:"stage"`
 	Version string `json:"version,omitempty"`
 	Message string `json:"message,omitempty"`
+}
+
+// AgentUpdatedPayload は確認待ち・質問待ちの合計件数（本文・件名は載せない）と、エージェント・マスコットの設定。
+type AgentUpdatedPayload struct {
+	PendingCount  int  `json:"pendingCount"`
+	Enabled       bool `json:"enabled"`
+	MascotEnabled bool `json:"mascotEnabled"`
 }
 
 // Emitter はイベント発行の抽象。実装は main（Wails）とテストのフェイク。

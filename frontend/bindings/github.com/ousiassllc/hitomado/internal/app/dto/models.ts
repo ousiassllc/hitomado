@@ -122,6 +122,94 @@ export interface AccountPatch {
 }
 
 /**
+ * AgentItem はエージェントが扱った新着 1 件（パネルの 1 行）。
+ */
+export interface AgentItem {
+    "id": string;
+    "accountId": string;
+
+    /**
+     * 受信アカウントの表示名（空ならアドレス）
+     */
+    "accountName": string;
+
+    /**
+     * 受信アカウントのアドレス
+     */
+    "accountEmail": string;
+    "threadId": string;
+
+    /**
+     * AgentStatus*
+     */
+    "status": string;
+    "subject": string;
+
+    /**
+     * 新着の差出人（表示名。無ければアドレス）
+     */
+    "from": string;
+
+    /**
+     * ReasonKind は判断の理由の種類（log にも出す固定値）。Reason は理由の一言（画面用の日本語）。
+     */
+    "reasonKind": string;
+    "reason": string;
+
+    /**
+     * DraftID・DraftPreview・To は Status が ready／later／done で下書きがあるときだけ。DraftPreview は本文の最初の数行（プレーンテキスト）。
+     */
+    "draftId"?: string;
+    "draftPreview"?: string;
+    "to": model$0.Address[] | null;
+
+    /**
+     * Questions は Status が asking のときの、利用者に聞くこと（1〜3 件）。
+     */
+    "questions": string[] | null;
+
+    /**
+     * UpdatedAt は Unix ミリ秒。
+     */
+    "updatedAt": number;
+}
+
+/**
+ * AgentOverview は ListAgentItems の結果。
+ */
+export interface AgentOverview {
+    /**
+     * PendingCount は確認待ち（ready）と質問待ち（asking）の合計。ナビ・マスコットのバッジに使う。
+     */
+    "pendingCount": number;
+
+    /**
+     * Items は新しい順（UpdatedAt 降順）。null にしない。
+     */
+    "items": AgentItem[] | null;
+}
+
+/**
+ * AgentSettings はエージェントモードの設定。既定はすべてオフ。
+ */
+export interface AgentSettings {
+    /**
+     * Enabled はエージェントモード。オンのときだけ、新着メールを AI が自動で判断して下書きを作る。
+     */
+    "enabled": boolean;
+
+    /**
+     * MascotEnabled は画面の端のマスコット（Windows のみ）。Enabled がオンのときだけ表示する。
+     */
+    "mascotEnabled": boolean;
+
+    /**
+     * AIReady は AI（プロバイダ・モデル・キー／ログイン・同意）が設定済みで、エージェントを動かせるか。偽なら設定の AI へ案内する。
+     */
+    "aiReady": boolean;
+}
+
+/**
  * AppInfo はアプリ情報。
  */
 export interface AppInfo {

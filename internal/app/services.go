@@ -9,6 +9,7 @@ type Services struct {
 	Thread  *ThreadService
 	Compose *ComposeService
 	AI      *AIService
+	Agent   *AgentService
 	App     *AppService
 	Log     *LogService
 	MCP     *MCPService
@@ -28,6 +29,7 @@ func NewServices(d *Deps) *Services {
 		Thread:  NewThreadService(d),
 		Compose: compose,
 		AI:      NewAIService(d, compose),
+		Agent:   NewAgentService(d),
 		App:     NewAppService(d),
 		Log:     NewLogService(d),
 		MCP:     NewMCPService(d, newMCPBackend(d, inbox)),

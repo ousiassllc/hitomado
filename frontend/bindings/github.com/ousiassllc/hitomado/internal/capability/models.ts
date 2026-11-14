@@ -40,4 +40,9 @@ export interface Capabilities {
      * タッチ操作中心の画面（幅に応じて 1 画面ずつ進む表示・44px のタップ領域）。有効なら最小ウィンドウ幅の制限も外す
      */
     "touchUi": boolean;
+
+    /**
+     * 画面の端に残るマスコット（別ウィンドウ。#372）。Windows のみ。Android は別の方式（docs/environment/android.md）
+     */
+    "supportsMascot": boolean;
 }

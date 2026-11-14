@@ -49,6 +49,12 @@ type AIModelsLister func(ctx context.Context, provider, baseURL, credential stri
 // ClassifierFactory は TypeSafe AI（Jev。Inbox Zero の判定。#314）の API キーから Classifier を作る（テストではフェイクに差し替える）。
 type ClassifierFactory func(apiKey string) ai.Classifier
 
+// MascotWindow は画面の端のマスコット（Windows の別ウィンドウ）。メインウィンドウを閉じても残る。nil は対応しない OS。
+type MascotWindow interface {
+	// SetVisible はマスコットを出す・消す（冪等）。
+	SetVisible(visible bool)
+}
+
 // Deps はサービス層が使う外部依存。具象は main.go（composition root）で組み立てる。
 type Deps struct {
 	Store    store.Store
@@ -85,6 +91,12 @@ type Deps struct {
 
 	// OAuthTracker は認可の途中でプロセスが止められたことを次の起動で検出する（Android のみ。nil＝検出しない）。
 	OAuthTracker *oauth.Tracker
+
+	// Mascot は画面の端のマスコット（エージェントモードとマスコットの設定が両方オンのときだけ出す。nil 可）。
+	Mascot MascotWindow
+
+	// ShowMainWindow はメインウィンドウを表示して前面に出す（マスコットの押下など。nil 可）。
+	ShowMainWindow func()
 
 	// RequestQuit はアプリの終了を要求する（トレイの「終了」と同じ。未保存の下書きの保存を待ってから終了する。nil 可）。
 	RequestQuit func()
