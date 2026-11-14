@@ -8,6 +8,7 @@ import {
   type ShortcutAction,
 } from '../lib/shortcuts'
 import { useComposeStore } from '../stores/compose'
+import { useDraftsStore } from '../stores/drafts'
 import { useInboxStore } from '../stores/inbox'
 import { useUiStore } from '../stores/ui'
 
@@ -17,6 +18,7 @@ const G_TIMEOUT_MS = 1500
 export function useShortcuts(): void {
   const inbox = useInboxStore()
   const compose = useComposeStore()
+  const drafts = useDraftsStore()
   const ui = useUiStore()
   let pendingG = false
   let gTimer: ReturnType<typeof setTimeout> | undefined
@@ -63,8 +65,22 @@ export function useShortcuts(): void {
     forward: () => openReply('forward'),
     compose: () => void compose.open({ mode: 'new' }),
     search: () => document.querySelector<HTMLElement>(`[${SEARCH_INPUT_ATTR}]`)?.focus(),
-    goInbox: () => void inbox.clearSearch(),
+    goInbox: () => {
+      drafts.hide()
+      void inbox.clearSearch()
+    },
   }
+
+  /** 下書きの一覧を出している間は、見えていない受信箱の行を対象にする操作（移動・開く・アーカイブなど）を受け付けない。 */
+  const INBOX_LIST_ACTIONS: ReadonlySet<ShortcutAction> = new Set([
+    'next',
+    'prev',
+    'open',
+    'archive',
+    'trash',
+    'markRead',
+    'markUnread',
+  ])
 
   function onKeydown(ev: KeyboardEvent): void {
     if (ev.defaultPrevented || ev.isComposing) return
@@ -76,6 +92,7 @@ export function useShortcuts(): void {
     if (!r.action) return
     // Esc は何も閉じるものが無いときに他の処理（ブラウザ既定）を妨げない
     if (r.action !== 'escape') ev.preventDefault()
+    if (drafts.active && INBOX_LIST_ACTIONS.has(r.action)) return
     handlers[r.action]()
   }
 

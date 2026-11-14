@@ -43,6 +43,8 @@ export function installMocks(): void {
     CloseCompose: binding('CloseCompose'),
     DiscardCompose: binding('DiscardCompose'),
     SuggestContacts: binding('SuggestContacts'),
+    ListDrafts: binding('ListDrafts'),
+    DiscardDraft: binding('DiscardDraft'),
   }))
   mock.module(`${B}/accountservice`, () => ({}))
   mock.module(`${B}/appservice`, () => ({
@@ -68,6 +70,7 @@ export const { useComposeStore } = await import('../compose')
 export const { useUiStore } = await import('../ui')
 export const { useAccountsStore } = await import('../accounts')
 export const { useInboxStore } = await import('../inbox')
+export const { useDraftsStore } = await import('../drafts')
 export const { useSettingsStore } = await import('../settings')
 
 export const SIG_A = '<p>Aの署名</p>'

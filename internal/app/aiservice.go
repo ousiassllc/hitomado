@@ -8,8 +8,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 )
 
-// AIService は AI 設定・同意・下書き生成・スレッドの要約と質問（バインディング仕様 §6）。
-// Wails のバインディング面で、実装は aicore に委譲する。
+// AIService は AI 設定・同意・下書き生成・スレッドの要約と質問（バインディング仕様 §6）。Wails のバインディング面で、実装は aicore に委譲する。
 type AIService struct {
 	core                *aicore.Service
 	aicore.InboxZeroAPI // Inbox Zero（#314）のバインディング面。aicore.Service に委譲する

@@ -9,8 +9,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 )
 
-// ComposeService は作成セッション・下書き・送信前確認・送信・宛先候補（バインディング仕様 §5）。
-// Wails のバインディング面で、実装は composecore に委譲する。
+// ComposeService は作成セッション・下書き・送信前確認・送信・宛先候補（バインディング仕様 §5）。Wails のバインディング面で、実装は composecore に委譲する。
 type ComposeService struct {
 	core                     *composecore.Service
 	composecore.DraftListAPI // 下書きの一覧と、一覧からの破棄（#366）
