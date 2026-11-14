@@ -1,6 +1,6 @@
 // Inbox Zero（#314）。ボタンを押すと、今のタブに読み込まれているメール（最大 100 件）を Go が判断して候補を返し、
-// 候補を「差出人・件名」のチェックつき一覧で確認する。「アーカイブする（Yes）」のときだけ、チェックの入ったものをアーカイブする
-// （アーカイブ・元に戻すは受信箱の通常のアーカイブと同じ。inbox.archive）。「やめる（No）」は何も変えない。
+// 候補を「差出人・件名」のチェックつき一覧で確認する。「アーカイブする」のときだけ、チェックの入ったものをアーカイブする
+// （アーカイブ・元に戻すは受信箱の通常のアーカイブと同じ。inbox.archive）。「やめる」は何も変えない。
 // 広告・通知・ニュースレターの判断に使う AI は、設定の「機能ごとに使う AI」で Inbox Zero に選んだもの（#377）。
 // 選んだ AI へ送るのは、その AI・送信先への同意をもらってから（同意前は Go も送らない）。返信済み・カレンダーは端末内の判断で、AI も同意も要らない。
 import { defineStore } from 'pinia'
@@ -184,7 +184,7 @@ export const useInboxZeroStore = defineStore('inboxZero', () => {
     checked.value = next
   }
 
-  /** 「アーカイブする（Yes）」。チェックの入ったものだけをアーカイブし、件数と「元に戻す」のスナックバーは通常のアーカイブが出す。 */
+  /** 「アーカイブする」。チェックの入ったものだけをアーカイブし、件数と「元に戻す」のスナックバーは通常のアーカイブが出す。 */
   async function confirm(): Promise<void> {
     if (phase.value !== 'review') return
     const refs = checkedCandidates.value.map((c) => c.ref)
@@ -193,7 +193,7 @@ export const useInboxZeroStore = defineStore('inboxZero', () => {
     await inbox.archive(refs)
   }
 
-  /** 「やめる（No）」・閉じる・同意のキャンセル。何も変えない。判断の最中なら Go の呼び出しを中止する。 */
+  /** 「やめる」・閉じる・同意のキャンセル。何も変えない。判断の最中なら Go の呼び出しを中止する。 */
   function cancel(): void {
     const id = phase.value === 'checking' ? requestId : undefined
     reset()

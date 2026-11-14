@@ -12,7 +12,8 @@ import Spinner from '../ui/Spinner.vue'
 //   consent : 初めて使うとき、Inbox Zero に選んだ AI へ送る内容への同意（同意前は送らない）。
 //   checking: 判断中（最大 100 通を 1 通ずつ選んだ AI へ問い合わせる間）。「やめる」・× ・Esc（Android の戻るも）で判断を中止し、結果を捨てる（#343）。
 //   review : 候補の確認の一覧。「差出人・件名」だけをチェックボックスつきで出し（最初は全部チェック済み）、
-//            「アーカイブする（Yes）」でチェックの入ったものだけをアーカイブする。「やめる（No）」・閉じる・Esc は何も変えない。
+//            「アーカイブする」でチェックの入ったものだけをアーカイブする。「やめる」・閉じる・Esc は何も変えない。
+//            390px では、見出しの上に小さい「Inbox Zero」のラベルを置き、ボタンは全幅の縦並び（上が「アーカイブする」）にする（#377）。
 const zero = useInboxZeroStore()
 const t = msg
 
@@ -68,8 +69,10 @@ function onReviewOpen(open: boolean): void {
   <BaseDialog
     :open="reviewOpen"
     size="md"
+    :eyebrow="t.dialogEyebrow"
     :title="t.dialogTitle"
     :description="t.dialogDescription"
+    stack-footer
     @update:open="onReviewOpen"
   >
     <p class="count" data-testid="inbox-zero-count" aria-live="polite">

@@ -23,18 +23,22 @@ const props = withDefaults(
   defineProps<{
     open: boolean
     title: string
+    /** 見出しの上に出す小さいラベル（製品・機能の名前など）。見出し（title）だけがダイアログの名前になる。 */
+    eyebrow?: string
     description?: string
     /** 中断できない処理の間（送信中・保存中）。外側クリック・Esc・× で閉じない。 */
     busy?: boolean
     size?: 'sm' | 'md' | 'lg'
     /** 本文にフォーカスできる要素が無いとき（テキストだけの確認など）の領域名。指定すると本文が Tab で入れる region になり、キーボードでスクロールできる（ガイド B6）。 */
     bodyLabel?: string
+    /** 狭い幅（640px 以下）で、フッターのボタンを全幅の縦並びにする（下のボタンが先頭＝見た目の上）。広い幅は右寄せの横並びのまま。 */
+    stackFooter?: boolean
     /** 変わったら、本文がはみ出していればスクロールバーを 1 秒出す（設定のタブを切り替えたとき）。 */
     scrollKey?: string
     /** 本文の続きがある側の端に 16px のフェードを置く（設定）。 */
     scrollFade?: boolean
   }>(),
-  { description: undefined, busy: false, size: 'md', bodyLabel: undefined, scrollKey: undefined, scrollFade: false },
+  { eyebrow: undefined, description: undefined, busy: false, stackFooter: false, size: 'md', bodyLabel: undefined, scrollKey: undefined, scrollFade: false },
 )
 
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
@@ -74,7 +78,10 @@ function guard(e: Event): void {
         @interact-outside="guard"
       >
         <header class="dlg-head">
-          <DialogTitle class="dlg-title">{{ title }}</DialogTitle>
+          <div class="dlg-heading">
+            <p v-if="eyebrow" class="dlg-eyebrow" data-testid="dialog-eyebrow">{{ eyebrow }}</p>
+            <DialogTitle class="dlg-title">{{ title }}</DialogTitle>
+          </div>
           <DialogClose v-if="!locked" v-ripple class="dlg-close" :aria-label="common.close"><Xmark class="icon" aria-hidden="true" /></DialogClose>
         </header>
         <DialogDescription v-if="description" class="dlg-desc">{{ description }}</DialogDescription>
@@ -88,7 +95,7 @@ function guard(e: Event): void {
         >
           <slot />
         </div>
-        <footer v-if="$slots.footer" class="dlg-foot"><slot name="footer" /></footer>
+        <footer v-if="$slots.footer" class="dlg-foot" :class="{ 'dlg-foot-stack': stackFooter }"><slot name="footer" /></footer>
       </DialogContent>
     </DialogPortal>
   </DialogRoot>
@@ -156,6 +163,17 @@ function guard(e: Event): void {
   gap: var(--s-3);
 }
 
+.dlg-heading {
+  min-width: 0;
+}
+
+.dlg-eyebrow {
+  margin: 0 0 var(--s-1);
+  color: var(--mute);
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-xs);
+}
+
 .dlg-title {
   margin: 0;
   font-size: var(--font-size-lg);
@@ -214,5 +232,13 @@ function guard(e: Event): void {
   justify-content: flex-end;
   gap: var(--gap-inline);
   margin-top: var(--gap-field);
+}
+
+/* 狭い幅では、ボタンを全幅の縦並びにする。DOM は左（やめる）→右（実行）の順のまま、column-reverse で実行を上にする。 */
+@media (max-width: 640px) {
+  .dlg-foot-stack {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
 }
 </style>

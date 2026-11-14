@@ -129,7 +129,7 @@ describe('Inbox Zero の確認の一覧（#314）', () => {
     return { ...ctx, w }
   }
 
-  test('差出人と件名だけをチェックボックスつきで出し、最初は全部チェック済み。Yes／No のボタンがある', async () => {
+  test('差出人と件名だけをチェックボックスつきで出し、最初は全部チェック済み。見出しは「アーカイブする候補」で、上に小さい「Inbox Zero」のラベルがある', async () => {
     document.body.innerHTML = ''
     const { w } = openReview()
     await w.vm.$nextTick()
@@ -143,10 +143,13 @@ describe('Inbox Zero の確認の一覧（#314）', () => {
     expect(list).toContain('広告社')
     expect(list).toContain('半額セール')
     expect(list).toContain('GitHub')
-    expect(dlg.querySelector('[data-testid="inbox-zero-yes"]')?.textContent).toBe(
-      'アーカイブする（Yes）',
+    expect(dlg.querySelector('[data-testid="inbox-zero-yes"]')?.textContent).toBe('アーカイブする')
+    expect(dlg.querySelector('[data-testid="inbox-zero-no"]')?.textContent).toBe('やめる')
+    expect(dlg.querySelector('[role="dialog"]')?.textContent).not.toMatch(/（Yes）|（No）/)
+    expect(dlg.querySelector('[data-testid="dialog-eyebrow"]')?.textContent).toBe('Inbox Zero')
+    expect(dlg.querySelector('h2, [role="dialog"] [id^="reka-dialog-title"]')?.textContent).toBe(
+      'アーカイブする候補',
     )
-    expect(dlg.querySelector('[data-testid="inbox-zero-no"]')?.textContent).toBe('やめる（No）')
     expect(dlg.querySelector('[data-testid="inbox-zero-count"]')?.textContent).toContain(
       '2 件中 2 件を選択中',
     )

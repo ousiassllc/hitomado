@@ -173,7 +173,7 @@ describe('Inbox Zero: 判断と確認の一覧', () => {
     expect(callsOf('Unarchive')[0].args).toEqual([[{ accountId: 'a1', threadId: 't1' }]])
   })
 
-  test('「やめる（No）」では何も変えない（アーカイブしない・一覧もそのまま）', async () => {
+  test('「やめる」では何も変えない（アーカイブしない・一覧もそのまま）', async () => {
     const { inbox, zero, ui } = await setup()
     aiCtl.find = { candidates: [cand(1), cand(2)], examined: 3, skipped: 0 }
     await zero.start()
