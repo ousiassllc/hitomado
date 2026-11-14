@@ -81,26 +81,24 @@ func (s *Service) FindInboxZeroCandidates(ctx context.Context, refs []dto.Thread
 	if len(refs) > inboxZeroMaxRefs {
 		return dto.InboxZeroResult{}, apperr.New(apperr.Validation, fmt.Sprintf("一度に調べられるスレッドは %d 件までです。", inboxZeroMaxRefs))
 	}
-	reasons, err := s.loadInboxZeroReasons(ctx)
+	runCtx, finish, err := s.begin(ctx, requestID)
 	if err != nil {
 		return dto.InboxZeroResult{}, err
+	}
+	defer finish()
+	reasons, err := s.loadInboxZeroReasons(runCtx)
+	if err != nil {
+		return dto.InboxZeroResult{}, s.precheckError(runCtx, err)
 	}
 	if !reasons.Ad && !reasons.Notification && !reasons.Newsletter && !reasons.Replied {
 		return dto.InboxZeroResult{}, apperr.New(apperr.Validation, "不要なメールの理由を 1 つ以上オンにしてください。")
 	}
 	run := &inboxZeroRun{s: s, reasons: reasons, jevReasons: reasons.Ad || reasons.Notification || reasons.Newsletter}
 	if run.jevReasons {
-		if err := run.setupClassifier(ctx); err != nil {
-			return dto.InboxZeroResult{}, err
+		if err := run.setupClassifier(runCtx); err != nil {
+			return dto.InboxZeroResult{}, s.precheckError(runCtx, err)
 		}
 	}
-
-	runCtx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-	if err := s.register(requestID, cancel); err != nil {
-		return dto.InboxZeroResult{}, err
-	}
-	defer s.unregister(requestID)
 
 	if reasons.Replied {
 		if run.emails, err = s.accountEmails(runCtx, refs); err != nil {

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/ousiassllc/hitomado/internal/ai"
@@ -49,17 +50,15 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID, 
 	if mode != model.ModeReply && mode != model.ModeReplyAll {
 		return dto.ReplyDraft{}, apperr.New(apperr.Validation, "AI 下書きは返信・全員に返信でのみ使えます。")
 	}
-	cfg, key, err := s.precheck(ctx)
+	runCtx, finish, err := s.begin(ctx, requestID)
 	if err != nil {
 		return dto.ReplyDraft{}, err
 	}
-
-	runCtx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-	if err := s.register(requestID, cancel); err != nil {
-		return dto.ReplyDraft{}, err
+	defer finish()
+	cfg, key, err := s.precheck(runCtx)
+	if err != nil {
+		return dto.ReplyDraft{}, s.precheckError(runCtx, err)
 	}
-	defer s.unregister(requestID)
 
 	in, err := s.buildInput(runCtx, ref)
 	if err != nil {
@@ -103,6 +102,9 @@ func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key, effort 
 // callProvider はプロバイダを作って call を呼ぶ。プロバイダのエラーは生のまま返す（呼び出し側が分類する）。
 // 中止・期限切れ（ctx の終了）と、プロバイダを作れないエラーだけは、ここで AppError にする。
 func (s *Service) callProvider(ctx context.Context, cfg storedAIConfig, key string, call providerCall) (string, error) {
+	if ctx.Err() != nil { // 中止済みなら、プロバイダを作らず・何も送らない
+		return "", s.mapError(ctx, context.Cause(ctx), "")
+	}
 	provider, err := s.d.AI(cfg.Provider, cfg.Model, cfg.BaseURL, key)
 	if err != nil {
 		if errors.Is(err, ai.ErrInvalidBaseURL) {
@@ -260,29 +262,63 @@ func (s *Service) mapError(ctx context.Context, err error, accountID string) err
 	return apperr.FromInfra(err, accountID)
 }
 
-func (s *Service) register(requestID string, cancel context.CancelCauseFunc) error {
+// begin は requestID の実行を登録し、その実行用の context と、終わったときに呼ぶ finish を返す。
+// 前提の検査（トークン更新の通信を含む）より前に呼び、検査にも runCtx を渡すこと。CancelGenerate が効く窓を作る。
+// 同じ requestID が実行中なら VALIDATION。登録の前に CancelGenerate が届いていたら、その記録を消費して CANCELLED。
+func (s *Service) begin(ctx context.Context, requestID string) (runCtx context.Context, finish func(), err error) {
+	runCtx, cancel := context.WithCancelCause(ctx)
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.pruneCancelled()
+	if _, ok := s.cancelled[requestID]; ok {
+		delete(s.cancelled, requestID)
+		cancel(errCancelledByUser)
+		return nil, nil, apperr.Wrap(apperr.Cancelled, "AI の生成を中止しました。", errCancelledByUser)
+	}
 	if _, dup := s.inflight[requestID]; dup {
-		return apperr.New(apperr.Validation, "同じリクエスト ID の生成が実行中です。")
+		cancel(nil)
+		return nil, nil, apperr.New(apperr.Validation, "同じリクエスト ID の生成が実行中です。")
 	}
 	s.inflight[requestID] = cancel
-	return nil
+	return runCtx, func() {
+		cancel(nil)
+		s.mu.Lock()
+		delete(s.inflight, requestID)
+		s.mu.Unlock()
+	}, nil
 }
 
-func (s *Service) unregister(requestID string) {
-	s.mu.Lock()
-	delete(s.inflight, requestID)
-	s.mu.Unlock()
+// pruneCancelled は cancelTTL を過ぎた中止の記録を捨てる。s.mu を持って呼ぶ。
+func (s *Service) pruneCancelled() {
+	now := time.Now()
+	for id, at := range s.cancelled {
+		if now.Sub(at) >= s.cancelTTL {
+			delete(s.cancelled, id)
+		}
+	}
 }
 
-// CancelGenerate は実行中の生成を中止する（GenerateReplyDraft・SummarizeThread・AskAboutThread・FindInboxZeroCandidates は CANCELLED で終わる）。未知の ID は何もしない。
+// CancelGenerate は生成を中止する（GenerateReplyDraft・SummarizeThread・AskAboutThread・FindInboxZeroCandidates は CANCELLED で終わる）。
+// 実行中ならその実行を止める。まだ登録されていない ID は、cancelTTL の間だけ「中止済み」と覚え、同じ ID の開始を CANCELLED にする
+// （前提の検査中や、呼び出しより先に届いた中止を取りこぼさない）。
 func (s *Service) CancelGenerate(requestID string) error {
 	s.mu.Lock()
 	cancel := s.inflight[requestID]
+	if cancel == nil {
+		s.pruneCancelled()
+		s.cancelled[requestID] = time.Now()
+	}
 	s.mu.Unlock()
 	if cancel != nil {
 		cancel(errCancelledByUser)
 	}
 	return nil
+}
+
+// precheckError は precheck の失敗を返す形にする。実行が中止されていれば（ChatGPT のトークン更新の途中を含む）CANCELLED にする。
+func (s *Service) precheckError(runCtx context.Context, err error) error {
+	if runCtx.Err() != nil {
+		return s.mapError(runCtx, err, "")
+	}
+	return err
 }

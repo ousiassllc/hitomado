@@ -76,6 +76,27 @@ func TestMCPReadTools(t *testing.T) {
 	assert.True(t, res.IsError)
 }
 
+// DRAFT ラベルのメッセージが無いスレッドでは drafts.list を走査しない（画面側 GetThread と同じ）。
+// DRAFT メッセージがあるスレッドでは下書き ID を返す。
+func TestMCPGetThreadSearchesDraftOnlyWithDraftMessage(t *testing.T) {
+	m := newMCPEnv(t)
+	a := m.AddAccount(t, "me@a.example")
+	m.PutThread(t, a.ID, "t1", apptest.Msg("m1", "t1", at(1), "INBOX"))
+	m.PutThread(t, a.ID, "t2", apptest.Msg("m2", "t2", at(1), "INBOX"), apptest.Msg("m2d", "t2", at(2), "DRAFT"))
+	m.Gmail.Drafts[apptest.Key(a.ID, "d1")] = gmail.DraftFull{ID: "d1", ThreadID: "t2"}
+	st := m.enable(t)
+	cs := connect(t, st.Endpoint, m.issueToken(t))
+
+	var thread mcpserver.ThreadView
+	structured(t, call(t, cs, "get_thread", map[string]any{"accountId": a.ID, "threadId": "t1"}), &thread)
+	assert.Empty(t, thread.DraftID)
+	assert.Zero(t, m.Gmail.CallCount("FindDraftForThread"), "DRAFT メッセージが無ければ drafts.list を走査しない")
+
+	structured(t, call(t, cs, "get_thread", map[string]any{"accountId": a.ID, "threadId": "t2"}), &thread)
+	assert.Equal(t, "d1", thread.DraftID)
+	assert.Equal(t, 1, m.Gmail.CallCount("FindDraftForThread"))
+}
+
 func TestMCPGetLogsFiltersByLevelAndLimit(t *testing.T) {
 	m := newMCPEnv(t)
 	st := m.enable(t)

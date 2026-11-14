@@ -98,14 +98,8 @@ func (b *mcpBackend) GetThread(ctx context.Context, accountID, threadID string) 
 	for i, m := range msgs {
 		view.Messages[i] = mcpMessage(m)
 	}
-	draftID, ok, err := b.d.Gmail.FindDraftForThread(ctx, accountID, threadID)
-	switch {
-	case err != nil && ctx.Err() != nil:
-		return mcpserver.ThreadView{}, apperr.FromInfra(ctx.Err(), accountID)
-	case err != nil:
-		logger(b.d).Warn("スレッドの下書き検索に失敗", "accountId", accountID, "err", err)
-	case ok:
-		view.DraftID = draftID
+	if view.DraftID, err = findThreadDraft(ctx, b.d, accountID, threadID, tf.Messages); err != nil {
+		return mcpserver.ThreadView{}, err
 	}
 	return view, nil
 }

@@ -40,6 +40,8 @@ type Fake struct {
 	LastSignInOptions                         siwc.SignInOptions
 	LastSignOutID                             string
 	OnRefresh                                 func() // ForceRefresh の中で呼ぶ（テストが中止などを差し込む）
+	// OnAccess は AccessToken の先頭で呼ぶ。非 nil のエラーを返すと AccessToken もそれを返す（トークン更新中のブロック・中断を再現する）。
+	OnAccess func(ctx context.Context) error
 }
 
 var _ siwc.Auth = (*Fake)(nil)
@@ -132,7 +134,12 @@ func (f *Fake) activeAccount() *Account {
 }
 
 // AccessToken は使用中のアカウントの Token を返す（未ログインは ErrNotSignedIn）。
-func (f *Fake) AccessToken(context.Context) (string, error) {
+func (f *Fake) AccessToken(ctx context.Context) (string, error) {
+	if f.OnAccess != nil {
+		if err := f.OnAccess(ctx); err != nil { // ロックの外で呼ぶ（更新中のブロックを再現する）
+			return "", err
+		}
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.AccessCalls++

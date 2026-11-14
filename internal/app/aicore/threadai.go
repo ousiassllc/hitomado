@@ -91,16 +91,15 @@ func validateHistory(history []dto.ThreadAITurn) ([]ai.ThreadTurn, error) {
 // runThreadAI は要約・質問に共通の流れ（前提の確認→スレッドの取得→プロバイダの呼び出し）を行う。
 // call は組み立てた入力から 1 回のプロバイダ呼び出しを作る。結果が空なら AI_FAILED。
 func (s *Service) runThreadAI(ctx context.Context, ref dto.ThreadRef, requestID string, call func(ai.ThreadInput) providerCall) (dto.ThreadAIResult, error) {
-	cfg, key, err := s.precheck(ctx)
+	runCtx, finish, err := s.begin(ctx, requestID)
 	if err != nil {
 		return dto.ThreadAIResult{}, err
 	}
-	runCtx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-	if err := s.register(requestID, cancel); err != nil {
-		return dto.ThreadAIResult{}, err
+	defer finish()
+	cfg, key, err := s.precheck(runCtx)
+	if err != nil {
+		return dto.ThreadAIResult{}, s.precheckError(runCtx, err)
 	}
-	defer s.unregister(requestID)
 
 	in, total, err := s.buildThreadInput(runCtx, ref)
 	if err != nil {

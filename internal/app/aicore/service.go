@@ -36,6 +36,10 @@ const defaultProvider = providerChatGPT
 // aiGenerateTimeout はプロバイダ呼び出しのタイムアウト（API §6）。
 const aiGenerateTimeout = 60 * time.Second
 
+// cancelRecordTTL は、登録前に届いた中止要求を覚えておく既定の時間。requestID は呼び出しごとに一意なので、
+// 生成の呼び出しより少し先に中止が届く窓（と、完了後に届いた中止を忘れるまで）を覆えば足りる。
+const cancelRecordTTL = time.Minute
+
 // SessionLookup は返信系セッションの種別と元スレッドの参照（composecore.Service が実装する）。
 type SessionLookup interface {
 	ThreadRef(sessionID string) (model.Mode, dto.ThreadRef, error)
@@ -48,8 +52,13 @@ type Service struct {
 
 	timeout time.Duration
 
+	cancelTTL time.Duration
+
 	mu       sync.Mutex
 	inflight map[string]context.CancelCauseFunc // requestID → cancel
+	// cancelled は、実行の登録より前に CancelGenerate が届いた requestID → 中止要求の時刻。
+	// begin が見つけたら消費して CANCELLED にする。cancelTTL を過ぎた記録は捨てる（begin・CancelGenerate のたびに掃除する）。
+	cancelled map[string]time.Time
 }
 
 // Option は Service の任意の設定。
@@ -58,9 +67,13 @@ type Option func(*Service)
 // WithTimeout はプロバイダ呼び出しのタイムアウトを変える（既定は 60 秒。テストで短縮するのに使う）。
 func WithTimeout(d time.Duration) Option { return func(s *Service) { s.timeout = d } }
 
+// WithCancelRecordTTL は、登録前に届いた中止要求を覚えておく時間を変える（既定は 1 分。テストで短縮するのに使う）。
+func WithCancelRecordTTL(d time.Duration) Option { return func(s *Service) { s.cancelTTL = d } }
+
 // New は Service を作る。返信系セッションの参照に sessions を使う。
 func New(d *deps.Deps, sessions SessionLookup, opts ...Option) *Service {
-	s := &Service{d: d, sessions: sessions, timeout: aiGenerateTimeout, inflight: map[string]context.CancelCauseFunc{}}
+	s := &Service{d: d, sessions: sessions, timeout: aiGenerateTimeout, cancelTTL: cancelRecordTTL,
+		inflight: map[string]context.CancelCauseFunc{}, cancelled: map[string]time.Time{}}
 	for _, o := range opts {
 		o(s)
 	}
