@@ -94,6 +94,39 @@ describe('drafts store（下書きの一覧。#366）', () => {
     expect(drafts.loading).toBe(false)
   })
 
+  test('読み込みの最中に破棄した行は、破棄より前の状態の応答でも復活しない', async () => {
+    setup()
+    const drafts = useDraftsStore()
+    listing([draft(), draft({ draftId: 'd2' })])
+    drafts.show()
+    await flush()
+    let release: () => void = () => {}
+    h.gates.ListDrafts = new Promise<void>((r) => {
+      release = r
+    })
+    const reloading = drafts.load()
+    delete h.gates.ListDrafts
+    h.responses.DiscardDraft = undefined
+    expect(await drafts.discard(draft())).toBe(true)
+    release()
+    await reloading
+    expect(drafts.items.map((d) => d.draftId)).toEqual(['d2'])
+  })
+
+  test('新しい読み込み・一覧を閉じたときは、進行中の読み込みを中止する（Go 側を走らせ続けない）', async () => {
+    setup()
+    const drafts = useDraftsStore()
+    const cancelled: string[] = []
+    h.cancelHooks.ListDrafts = () => cancelled.push('c')
+    h.gates.ListDrafts = new Promise<void>(() => {})
+    void drafts.load()
+    void drafts.load()
+    expect(cancelled).toHaveLength(1)
+    drafts.hide()
+    expect(cancelled).toHaveLength(2)
+    expect(drafts.loading).toBe(false)
+  })
+
   test('新規の下書きは、送信元アカウントつきの new セッションで開く', async () => {
     const { compose } = setup()
     h.responses.OpenCompose = session({ mode: 'new', senderLocked: false, accountId: 'a2' })

@@ -31,15 +31,31 @@ export const useDraftsStore = defineStore('drafts', () => {
   const truncated = ref(false)
 
   let generation = 0
+  /** 進行中の読み込み（新しい読み込み・一覧を閉じたときに中止する。1 回の読み込みが Gmail を何度も呼ぶため、古いものを走らせ続けない）。 */
+  let pending: { cancel?: () => void } | undefined
+  /** 読み込みの最中に破棄した下書き（応答が破棄より前の状態でも、行を復活させない）。新しい読み込みの開始で空にする。 */
+  const discarded = new Set<string>()
+  const keyOf = (d: { accountId: string; draftId: string }) => `${d.accountId}/${d.draftId}`
+
+  function cancelPending(): void {
+    pending?.cancel?.()
+    pending = undefined
+  }
 
   /** 一覧を読み直す。新しい読み込みが始まったら、古い応答は捨てる。 */
   async function load(): Promise<void> {
     const gen = ++generation
+    cancelPending()
+    discarded.clear()
     loading.value = true
     try {
-      const r = await call(ComposeService.ListDrafts([...inbox.filter.accountIds]))
+      const request = ComposeService.ListDrafts([...inbox.filter.accountIds])
+      pending = request
+      const r = await call(request)
       if (gen !== generation) return
-      items.value = list(r.items).map((d) => ({ ...d, to: list(d.to) }))
+      items.value = list(r.items)
+        .filter((d) => !discarded.has(keyOf(d)))
+        .map((d) => ({ ...d, to: list(d.to) }))
       truncated.value = r.truncated
       for (const f of toFailures(r.failures)) reportFailure(f)
     } catch (e) {
@@ -48,7 +64,10 @@ export const useDraftsStore = defineStore('drafts', () => {
       applyErrorEffects(err, { setOnline: ui.setOnline, markNeedsReauth: accounts.markNeedsReauth })
       if (err.code !== 'OFFLINE') ui.pushAlert(msg.loadFailedAll, () => void load())
     } finally {
-      if (gen === generation) loading.value = false
+      if (gen === generation) {
+        loading.value = false
+        pending = undefined
+      }
     }
   }
 
@@ -67,6 +86,9 @@ export const useDraftsStore = defineStore('drafts', () => {
 
   function hide(): void {
     active.value = false
+    generation++ // 進行中の読み込みの応答は捨て、Go 側の呼び出しも中止する
+    cancelPending()
+    loading.value = false
   }
 
   /** 行を開く。返信の下書きは元のスレッドの返信として（スレッドも開く）、新規の下書きは作成画面で復元する（F-12）。 */
@@ -88,7 +110,14 @@ export const useDraftsStore = defineStore('drafts', () => {
    * （そうしないと、開いたままの作成画面が下書きを作り直してしまう）。成功したら true。
    */
   async function discard(d: DraftSummary): Promise<boolean> {
-    if (isOpen(d)) return compose.discard()
+    if (isOpen(d)) {
+      const ok = await compose.discard()
+      if (ok) {
+        discarded.add(keyOf(d))
+        ui.pushToast('success', msg.discarded)
+      }
+      return ok
+    }
     try {
       await call(
         ComposeService.DiscardDraft({
@@ -103,9 +132,8 @@ export const useDraftsStore = defineStore('drafts', () => {
       ui.pushAlert(`${msg.discardFailed}${err.message ? `（${err.message}）` : ''}`)
       return false
     }
-    items.value = items.value.filter(
-      (x) => !(x.accountId === d.accountId && x.draftId === d.draftId),
-    )
+    discarded.add(keyOf(d))
+    items.value = items.value.filter((x) => keyOf(x) !== keyOf(d))
     ui.pushToast('success', msg.discarded)
     const open = inbox.selectedRef
     if (open && open.accountId === d.accountId && open.threadId === d.threadId) void thread.reload() // 開いているスレッドの「下書きを開く」を消す

@@ -71,7 +71,11 @@ export function useShortcuts(): void {
     },
   }
 
-  /** 下書きの一覧を出している間は、見えていない受信箱の行を対象にする操作（移動・開く・アーカイブなど）を受け付けない。 */
+  /**
+   * 下書きの一覧を出している間は、見えていない受信箱の行を対象にする操作（移動・開く・アーカイブなど）を受け付けない。
+   * ただし、一覧から返信の下書きを開いて、そのスレッドが見えているとき（複数選択なし・カーソルが開いているスレッド）は、
+   * そのスレッドへのアーカイブ・削除・既読・未読は受け付ける。
+   */
   const INBOX_LIST_ACTIONS: ReadonlySet<ShortcutAction> = new Set([
     'next',
     'prev',
@@ -81,6 +85,22 @@ export function useShortcuts(): void {
     'markRead',
     'markUnread',
   ])
+
+  const THREAD_ACTIONS: ReadonlySet<ShortcutAction> = new Set([
+    'archive',
+    'trash',
+    'markRead',
+    'markUnread',
+  ])
+
+  /** 下書きの一覧の間に、見えている（開いている）スレッドだけが操作の対象か。 */
+  function targetsOpenThread(): boolean {
+    return (
+      inbox.selectedKey !== undefined &&
+      inbox.checkedKeys.length === 0 &&
+      inbox.cursorKey === inbox.selectedKey
+    )
+  }
 
   function onKeydown(ev: KeyboardEvent): void {
     if (ev.defaultPrevented || ev.isComposing) return
@@ -92,7 +112,9 @@ export function useShortcuts(): void {
     if (!r.action) return
     // Esc は何も閉じるものが無いときに他の処理（ブラウザ既定）を妨げない
     if (r.action !== 'escape') ev.preventDefault()
-    if (drafts.active && INBOX_LIST_ACTIONS.has(r.action)) return
+    if (drafts.active && INBOX_LIST_ACTIONS.has(r.action)) {
+      if (!THREAD_ACTIONS.has(r.action) || !targetsOpenThread()) return
+    }
     handlers[r.action]()
   }
 

@@ -62,6 +62,20 @@ describe('下書きの一覧を出している間のショートカット', () =
     for (const name of ['Archive', 'Trash', 'MarkRead']) expect(callsOf(name)).toHaveLength(0)
   })
 
+  test('返信の下書きを開いてスレッドが見えているときは、そのスレッドへのアーカイブ・既読は動く。j / k は動かない', async () => {
+    const { inbox, drafts } = await setup()
+    inbox.select(ref('a1', 't1'))
+    drafts.active = true
+    press('j')
+    expect(inbox.selectedKey).toBe('a1:t1')
+    press('I', { shiftKey: true })
+    await until(() => callsOf('MarkRead').length === 1)
+    expect(callsOf('MarkRead')[0].args[0]).toEqual([ref('a1', 't1')])
+    press('e')
+    await until(() => callsOf('Archive').length === 1)
+    expect(callsOf('Archive')[0].args[0]).toEqual([ref('a1', 't1')])
+  })
+
   test('一覧を出していなければ、同じキーが動く（受信箱の従来の操作は変わらない）', async () => {
     const { inbox } = await setup()
     inbox.toggleChecked(ref('a1', 't1'))
