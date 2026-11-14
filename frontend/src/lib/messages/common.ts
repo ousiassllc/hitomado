@@ -64,7 +64,7 @@ export const common = {
     emptyUnread: '未読のスレッドはありません。',
     emptyCategory: 'このカテゴリのスレッドはありません。',
     emptySearch: '一致するスレッドがありません。',
-    emptyDrafts: '下書きはありません。',
+    emptyDrafts: '下書きの一覧は準備中です。',
     emptySent: '送信済みのメールはありません。',
     emptyArchive: 'アーカイブしたメールはありません。',
     loadMore: 'さらに読み込む',

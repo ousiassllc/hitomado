@@ -92,20 +92,20 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
   font-size: var(--font-size-xs);
 }
 
-/* --accent-soft 地（選択・ホバー）の上では --mute が AA 4.5:1 に届かないので --ink にする（名前とは文字サイズで区別が残る）。 */
-.item.selected .email,
-.item.selected .count,
-.main:hover .email,
-.main:hover .count {
-  color: var(--ink);
-}
-
 .count {
   flex: none;
   color: var(--mute);
   font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
+}
+
+/* --accent-soft 地（選択・ホバー）の上では --mute が AA 4.5:1 に届かないので --ink にする（名前とは文字サイズで区別が残る）。 */
+.item.selected .email,
+.item.selected .count,
+.main:hover .email,
+.main:hover .count {
+  color: var(--ink);
 }
 
 /* 要再接続は他の箇所と同じく警告色（--danger は使わない）。 */

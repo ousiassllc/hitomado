@@ -85,7 +85,7 @@
   --control-h: 40px;
   --control-h-sm: 32px;
 
-  /* モバイルナビの上部バー（ドロワーを開く ThreadListPane の .head）の最小高さ。ガイド §6 のトップバー高さ 52–56 の下限 */
+  /* モバイルナビの上部バー（ThreadListPane の .head）の最小高さ。ガイド §6 のトップバー高さ 52–56 の下限 */
   --topbar-h: 52px;
   /* スマホの下 4 タブ（BottomTabs）の最小高さ。タップ領域 44px にアイコン・文字の段を足した高さ */
   --tabbar-h: 64px;

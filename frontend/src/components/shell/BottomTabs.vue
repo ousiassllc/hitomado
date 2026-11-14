@@ -5,6 +5,7 @@ import { useUnreadTotal } from '../../composables/useUnreadTotal'
 import type { InboxView } from '../../lib/inboxViews'
 import { common, nav } from '../../lib/messages'
 import { useInboxStore } from '../../stores/inbox'
+import { useLayoutStore } from '../../stores/layout'
 import { useUiStore } from '../../stores/ui'
 import BaseMenu, { type MenuItem } from '../ui/BaseMenu.vue'
 import CountBadge from '../ui/CountBadge.vue'
@@ -14,20 +15,24 @@ import AgentMascot from './AgentMascot.vue'
 // バッジは受信箱の未読数だけ（エージェントの確認待ちは、中身ができてから）。その他は 送信済み・アーカイブ・設定・アカウントを追加。
 // エージェントは中身ができるまでは「準備中」のパネルを開く。
 const inbox = useInboxStore()
+const layout = useLayoutStore()
 const ui = useUiStore()
 const unread = useUnreadTotal()
 
 type Tab = 'inbox' | 'drafts' | 'agent' | 'more'
 
-/** 選ばれているタブ。エージェントのパネルが開いていればそれ、そうでなければ見る場所（送信済み・アーカイブは「その他」の中）。 */
-const current = computed<Tab>(() => {
+/** 選ばれているタブ。エージェントのパネルが開いていればそれ、検索中は無し、そうでなければ見る場所（送信済み・アーカイブは「その他」の中）。 */
+const current = computed<Tab | undefined>(() => {
   if (ui.agentOpen) return 'agent'
+  if (inbox.mode === 'search') return undefined
   const v = inbox.view
   return v === 'inbox' || v === 'drafts' ? v : 'more'
 })
 
+/** 場所を見せる。1 画面ずつのときは、開いているスレッドを閉じて一覧へ戻す（エージェントのパネルから戻るときも）。 */
 function show(view: InboxView): void {
   ui.closeAgent()
+  if (layout.isStack) inbox.select(undefined)
   void inbox.setView(view)
 }
 
@@ -58,7 +63,7 @@ function onMore(key: string): void {
       <span class="face"><EditPencil class="icon icon-md" aria-hidden="true" /></span>
       {{ nav.tabs.drafts }}
     </button>
-    <button type="button" class="tab" :aria-current="current === 'agent' ? 'page' : undefined" data-testid="tab-agent" @click="ui.openAgent()">
+    <button type="button" class="tab" aria-controls="agent-panel" :aria-expanded="ui.agentOpen" data-testid="tab-agent" @click="ui.openAgent()">
       <span class="face"><AgentMascot :size="26" /></span>
       {{ nav.tabs.agent }}
     </button>
@@ -103,7 +108,8 @@ function onMore(key: string): void {
 }
 
 /* 選んでいるタブは --ink の文字と、アイコンの下地（--accent-soft のピル）。 */
-.tab[aria-current='page'] {
+.tab[aria-current='page'],
+.tab[aria-expanded='true'] {
   color: var(--ink);
 }
 
@@ -117,7 +123,8 @@ function onMore(key: string): void {
   border-radius: var(--r-full);
 }
 
-.tab[aria-current='page'] .face {
+.tab[aria-current='page'] .face,
+.tab[aria-expanded='true'] .face {
   background: var(--accent-soft);
 }
 

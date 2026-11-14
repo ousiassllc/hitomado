@@ -13,7 +13,6 @@ import { keyOf, mergeHead, viewKeyOf } from '../lib/inboxItems'
 import { refreshAccounts } from '../lib/inboxRefresh'
 import type { InboxTab } from '../lib/inboxTabs'
 import * as views from '../lib/inboxViews'
-import { common } from '../lib/messages'
 import { useAccountsStore } from './accounts'
 import { makeApi } from './apiCall'
 import { type Failure, toFailures } from './inboxFailures'
@@ -70,13 +69,13 @@ export const useInboxStore = defineStore('inbox', () => {
   const mutations = useInboxMutations({
     items,
     hidesRead: () => views.hidesReadOf(mode.value, view.value, tab.value, filter.value.unreadOnly),
-    searching: () => mode.value === 'search',
+    searching: () => mode.value === 'search' || view.value !== 'inbox',
     viewKey,
     pendingRemoval,
     api,
     ui,
     afterRemoval: selection.afterRemoval,
-    reload: () => void reloadHead(),
+    reload: () => void (mode.value === 'inbox' && view.value !== 'inbox' ? load() : reloadHead()),
   })
 
   function applyFailures(fs: Failure[]): void {
@@ -87,11 +86,13 @@ export const useInboxStore = defineStore('inbox', () => {
     }
   }
 
-  function fetchPage(cursor?: string): Promise<ThreadPage> {
+  async function fetchPage(cursor?: string): Promise<ThreadPage> {
     const base = { accountIds: [...filter.value.accountIds], limit: PAGE_SIZE, cursor }
     if (mode.value === 'search') return api(InboxService.Search({ q: searchQuery.value, ...base }))
-    const q = views.viewSearchQuery(view.value, filter.value.unreadOnly)
-    if (q !== undefined) return api(InboxService.Search({ q, ...base }))
+    const other = await views.fetchViewPage(view.value, filter.value.unreadOnly, (q) =>
+      api(InboxService.Search({ q, ...base })),
+    )
+    if (other) return other
     return api(
       InboxService.ListInbox({ unreadOnly: filter.value.unreadOnly, tab: tab.value, ...base }),
     )

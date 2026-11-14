@@ -37,6 +37,13 @@
   min-height: var(--tap-min);
 }
 
+/* サイドバーの行（タッチ UI の 1024px 以上のタブレットでも出る）は、見た目の高さ（--menu-item-h）のまま当たり判定を 44px にする */
+:root[data-touch-ui] .place,
+:root[data-touch-ui] .add,
+:root[data-touch-ui] .settings {
+  min-height: var(--tap-min);
+}
+
 :root[data-touch-ui] .chip-remove {
   /* チップ（宛先）の中のボタンは、見た目の大きさを保ちつつ当たり判定だけ広げる */
   position: relative;

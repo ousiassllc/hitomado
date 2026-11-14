@@ -4,6 +4,7 @@ import type { Label } from '../../../bindings/github.com/ousiassllc/hitomado/int
 import * as InboxService from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
 import { call, list, parseBindingError } from '../../lib/api'
 import { keyOf } from '../../lib/inboxItems'
+import { viewShowsUnreadOnly } from '../../lib/inboxViews'
 import { common } from '../../lib/messages'
 import { useComposeStore } from '../../stores/compose'
 import { useInboxStore } from '../../stores/inbox'
@@ -89,6 +90,7 @@ async function toggleLabel(labelId: string): Promise<void> {
       :refreshing="inbox.refreshing"
       :searching="inbox.mode === 'search'"
       :unread-only="inbox.filter.unreadOnly"
+      :unread-only-available="viewShowsUnreadOnly(inbox.view)"
       :compact="layout.isStack"
       :label-enabled="labelEnabled"
       :labels="labelItems"

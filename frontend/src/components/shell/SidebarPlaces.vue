@@ -19,7 +19,8 @@ const places = [
   { view: 'archive', icon: Archive },
 ] as const satisfies readonly { view: InboxView; icon: unknown }[]
 
-const current = computed(() => inbox.view)
+/** 今いる場所。検索中は全メールが対象なので、どの場所も強調しない。 */
+const current = computed(() => (inbox.mode === 'search' ? undefined : inbox.view))
 </script>
 
 <template>

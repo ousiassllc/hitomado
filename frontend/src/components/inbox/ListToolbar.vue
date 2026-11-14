@@ -16,6 +16,8 @@ const props = defineProps<{
   searching?: boolean
   /** 未読のみ（一覧の上のトグル。サイドバーにあったものをここへ移した） */
   unreadOnly: boolean
+  /** 見ている場所で未読のみが効くか（送信済み・下書きは効かないのでスイッチを出さない） */
+  unreadOnlyAvailable?: boolean
   /** 対象が全て同じアカウントのときだけラベルを変更できる */
   labelEnabled: boolean
   /** checked = 対象のスレッドすべてに付いているラベル */
@@ -89,7 +91,7 @@ function onLabelSelect(key: string): void {
     <div v-if="searching" class="mode">
       <button type="button" class="back" @click="emit('backToInbox')">{{ common.toolbar.backToInbox }}</button>
     </div>
-    <div v-else class="unread-only">
+    <div v-else-if="unreadOnlyAvailable !== false" class="unread-only">
       <span>{{ common.filter.unreadOnly }}</span>
       <BaseSwitch :model-value="unreadOnly" :ariaLabel="common.filter.unreadOnly" @update:model-value="(v) => emit('update:unreadOnly', v)" />
     </div>

@@ -63,7 +63,10 @@ export function useShortcuts(): void {
     forward: () => openReply('forward'),
     compose: () => void compose.open({ mode: 'new' }),
     search: () => document.querySelector<HTMLElement>(`[${SEARCH_INPUT_ATTR}]`)?.focus(),
-    goInbox: () => void inbox.setView('inbox'),
+    goInbox: () => {
+      ui.closeAgent()
+      void inbox.setView('inbox')
+    },
   }
 
   function onKeydown(ev: KeyboardEvent): void {

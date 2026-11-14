@@ -25,8 +25,4 @@ export const nav = {
     agent: 'エージェント',
     more: 'その他',
   },
-  more: {
-    label: 'その他',
-    close: '閉じる',
-  },
 } as const

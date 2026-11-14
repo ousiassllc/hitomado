@@ -50,6 +50,8 @@ const columns = computed(() => {
 const composingNew = computed(() => compose.session?.mode === 'new')
 /** 下 4 タブを出すか。1 画面ずつのときは、一覧（かエージェントのパネル）のときだけ（スレッド・作成は画面いっぱいに使う）。 */
 const showTabs = computed(() => layout.hasTabBar && (!layout.isStack || screen.value === 'list' || ui.agentOpen))
+/** スマホでエージェントのパネルが開いているとき、下のペインは操作させない（Tab・読み上げが裏の一覧へ届かないよう inert にする）。 */
+const behindAgent = computed(() => ui.agentOpen && layout.hasTabBar)
 /** 1 画面ずつのとき、作成・返信は画面全体を覆う ComposePane（下の ThreadPane は残して、戻ったときに読んでいた位置を保つ）。 */
 const covering = computed(() => screen.value === 'compose' || screen.value === 'reply')
 
@@ -59,7 +61,7 @@ function onWindowResize(): void {
   listWidth.value = clampList(listWidth.value, inlineSidebarWidth(), total.value)
 }
 
-/** 一覧の幅の計算に使うサイドバーの幅（ドロワーのときは 0）。 */
+/** 一覧の幅の計算に使うサイドバーの幅（サイドバーが無いときは 0）。 */
 function inlineSidebarWidth(): number {
   return layout.isWide ? sidebarWidth.value : 0
 }
@@ -88,7 +90,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="shell" :class="`layout-${layout.mode}`">
+  <div class="shell" :class="[`layout-${layout.mode}`, { 'has-tabs': showTabs }]">
     <BannerStack />
     <!-- ダイアログが開いている間は、アラートはダイアログの中に出る（BaseDialog） -->
     <AlertStack v-if="ui.overlays.length === 0" class="shell-alerts" />
@@ -104,7 +106,7 @@ onBeforeUnmount(() => {
           @resize="resizeSidebar"
         />
       </div>
-      <div class="col" :class="{ off: layout.isStack && screen !== 'list' }">
+      <div class="col" :class="{ off: layout.isStack && screen !== 'list' }" :inert="behindAgent">
         <ThreadListPane />
         <PaneSplitter
           v-if="!layout.isStack"
@@ -116,7 +118,7 @@ onBeforeUnmount(() => {
           @resize="resizeList"
         />
       </div>
-      <main class="detail" :class="{ off: layout.isStack && screen === 'list' }" :aria-label="common.shell.detail">
+      <main class="detail" :class="{ off: layout.isStack && screen === 'list' }" :aria-label="common.shell.detail" :inert="behindAgent">
         <template v-if="layout.isStack">
           <ThreadPane :class="{ off: covering }" />
           <ComposePane v-if="covering" class="cover" />
@@ -152,6 +154,11 @@ onBeforeUnmount(() => {
 
 .layout-wide {
   min-width: 960px;
+}
+
+/* 下タブが出ている間は、トースト（画面下中央）をタブの上へ上げる。 */
+.has-tabs {
+  --toast-bottom-extra: var(--tabbar-h);
 }
 
 /* モバイル幅（Android）では、ソフトキーボードで縮む表示領域の高さに合わせる。 */

@@ -161,6 +161,18 @@ describe('1 画面ずつの遷移（狭幅）', () => {
     expect(nav.screen.value).toBe('thread')
   })
 
+  test('受信箱以外の見る場所（下書きなど）では、戻るで受信箱へ戻り、絞り込みは保つ。その次は戻る先なし', async () => {
+    const { nav, inbox } = setup(true, 390)
+    h.responses.ListInbox = { items: [], failures: [] }
+    await inbox.setFilter({ accountIds: ['a1'], unreadOnly: false })
+    await inbox.setView('drafts')
+    expect(nav.goBack()).toBe(true)
+    await flushPromises()
+    expect(inbox.view).toBe('inbox')
+    expect(inbox.filter.accountIds).toEqual(['a1'])
+    expect(nav.goBack()).toBe(false)
+  })
+
   test('検索結果の一覧では、戻るで受信箱へ戻る', async () => {
     const { nav, inbox } = setup(true, 390)
     h.responses.ListInbox = { items: [], failures: [] }

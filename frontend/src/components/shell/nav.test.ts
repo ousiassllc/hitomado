@@ -68,7 +68,7 @@ describe('スマホの下 4 タブ', () => {
 
     await w.get('[data-testid=tab-agent]').trigger('click')
     expect(ui.agentOpen).toBe(true)
-    expect(w.get('[data-testid=tab-agent]').attributes('aria-current')).toBe('page')
+    expect(w.get('[data-testid=tab-agent]').attributes('aria-expanded')).toBe('true')
     expect(w.get('[data-testid=tab-drafts]').attributes('aria-current')).toBeUndefined()
 
     // 場所のタブを押すとエージェントのパネルは閉じる
@@ -80,7 +80,7 @@ describe('スマホの下 4 タブ', () => {
 describe('スマホのアカウントのチップ', () => {
   test('先頭は「全アカウント」。押したチップを加える／外し、見る場所と未読のみは変えない', async () => {
     const { inbox } = await ready()
-    await inbox.setView('drafts')
+    await inbox.setView('sent')
     const w = mount(AccountChips)
     const chips = w.findAll('button.chip')
     expect(chips.map((c) => c.text())).toEqual(['全アカウント', '仕事', '私用'])
@@ -90,9 +90,9 @@ describe('スマホのアカウントのチップ', () => {
     await chips[2]?.trigger('click')
     await flushPromises()
     expect(inbox.filter.accountIds).toEqual(['a1', 'a2'])
-    expect(inbox.view).toBe('drafts')
+    expect(inbox.view).toBe('sent')
     const last = callsOf('Search').at(-1)?.args[0] as { q: string; accountIds: string[] }
-    expect(last.q).toBe('in:drafts')
+    expect(last.q).toBe('in:sent')
     expect(last.accountIds).toEqual(['a1', 'a2'])
 
     await chips[1]?.trigger('click')
