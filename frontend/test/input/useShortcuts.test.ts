@@ -169,6 +169,16 @@ describe('g → i と検索', () => {
     await until(() => inbox.mode === 'inbox')
   })
 
+  test('g → i は、送信済みなど受信箱以外の場所からも受信箱へ戻し、開いているエージェントのパネルも閉じる', async () => {
+    const { inbox, ui } = await setup()
+    await inbox.setView('sent')
+    ui.openAgent()
+    press('g')
+    press('i')
+    await until(() => inbox.view === 'inbox')
+    expect(ui.agentOpen).toBe(false)
+  })
+
   test('/ で検索窓（data-search-input）にフォーカスする', async () => {
     await setup()
     const input = document.body.appendChild(document.createElement('input'))
