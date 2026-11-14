@@ -19,6 +19,14 @@ const (
 	newDraftMaxRecipient = 20
 )
 
+// NewDraftAPI は新規作成の AI 下書き（#365）のバインディング面（AIService が埋め込んで公開する。実装は Service）。
+type NewDraftAPI interface {
+	// GenerateNewDraft は new セッションの本文を、AI への指示（必須）と入力済みの件名・宛先から生成する（F-08。#365）。保存しない。
+	GenerateNewDraft(ctx context.Context, sessionID, requestID, instruction string, content dto.NewDraftContext) (dto.ReplyDraft, error)
+}
+
+var _ NewDraftAPI = (*Service)(nil)
+
 // GenerateNewDraft は new セッションの本文を、利用者の指示から生成する（F-08。#365）。スレッドが無いので、
 // AI への指示と、入力済みなら件名・宛先（To のみ）・送信元アカウントの表示名と署名から作る。署名は本文に含めない。
 // 指示は必須（前後の空白を除いて空なら、通信せず VALIDATION）。そのほかの前提・中止・タイムアウト・上限は GenerateReplyDraft と同じで、

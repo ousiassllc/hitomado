@@ -14,7 +14,6 @@ import type {
   ExportLogsResult,
   MCPConfig,
   MCPStatus,
-  NewDraftContext,
   UpdateInfo,
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { aiModelsKey, normalizeAIConfig } from '../lib/aiConfig'
@@ -223,23 +222,12 @@ export const useSettingsStore = defineStore('settings', () => {
   }
 
   /** 返信の下書きを生成する（cancelGenerate で中止できる。requestId は呼び出しごとに一意）。instruction は任意の「AI への指示」（保存しない）。 */
-  async function generateReplyDraft(
-    sessionId: string,
-    requestId: string,
-    instruction = '',
-  ): Promise<{ bodyHtml: string }> {
-    return await call(AIService.GenerateReplyDraft(sessionId, requestId, instruction))
-  }
+  const generateReplyDraft = (sessionId: string, requestId: string, instruction = '') =>
+    call(AIService.GenerateReplyDraft(sessionId, requestId, instruction))
 
-  /** 新規作成の下書きを生成する（#365）。instruction は必須の「AI への指示」、content は作成画面に入力済みの件名・宛先（どちらも保存しない）。 */
-  async function generateNewDraft(
-    sessionId: string,
-    requestId: string,
-    instruction: string,
-    content: NewDraftContext,
-  ): Promise<{ bodyHtml: string }> {
-    return await call(AIService.GenerateNewDraft(sessionId, requestId, instruction, content))
-  }
+  /** 新規作成の下書きを生成する（#365）。instruction は必須の「AI への指示」、content は入力済みの件名・宛先。どちらも保存しない。 */
+  const generateNewDraft = (...args: Parameters<typeof AIService.GenerateNewDraft>) =>
+    call(AIService.GenerateNewDraft(...args))
 
   async function cancelGenerate(requestId: string): Promise<void> {
     await call(AIService.CancelGenerate(requestId))

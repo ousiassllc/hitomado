@@ -13,6 +13,16 @@ import (
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
+// DraftListAPI は下書きの一覧と、一覧からの破棄（#366）のバインディング面（ComposeService が埋め込んで公開する。実装は Service）。
+type DraftListAPI interface {
+	// ListDrafts は accountIDs（空は全アカウント）の Gmail の下書きを、更新の新しい順の 1 つの一覧で返す。
+	ListDrafts(ctx context.Context, accountIDs []string) (dto.DraftList, error)
+	// DiscardDraft は一覧から選んだ下書きを Gmail から削除する（作成セッションを開かない）。
+	DiscardDraft(ctx context.Context, ref dto.DraftRef) error
+}
+
+var _ DraftListAPI = (*Service)(nil)
+
 // draftListLimit は ListDrafts が 1 アカウントから読む下書きの上限（先頭から。Gmail は更新の新しい順に返す）。
 const draftListLimit = 100
 

@@ -13,12 +13,13 @@ import (
 type AIService struct {
 	core                *aicore.Service
 	aicore.InboxZeroAPI // Inbox Zero（#314）のバインディング面。aicore.Service に委譲する
+	aicore.NewDraftAPI  // 新規作成の AI 下書き（#365）のバインディング面。aicore.Service に委譲する
 }
 
 // NewAIService は AIService を作る。返信系セッションの参照に compose を使う。
 func NewAIService(d *Deps, compose *ComposeService) *AIService {
 	core := aicore.New((*deps.Deps)(d), compose.core)
-	return &AIService{core: core, InboxZeroAPI: core}
+	return &AIService{core: core, InboxZeroAPI: core, NewDraftAPI: core}
 }
 
 func (s *AIService) GetAIConfig(ctx context.Context) (dto.AIConfig, error) {
@@ -78,11 +79,6 @@ func (s *AIService) ListAIModels(ctx context.Context, provider, baseURL string) 
 // instruction は任意の「AI への指示」（空・空白だけは指示なし。2,000 文字まで。保存しない）。
 func (s *AIService) GenerateReplyDraft(ctx context.Context, sessionID, requestID, instruction string) (dto.ReplyDraft, error) {
 	return s.core.GenerateReplyDraft(ctx, sessionID, requestID, instruction)
-}
-
-// GenerateNewDraft は new セッションの本文を、AI への指示（必須）と入力済みの件名・宛先から生成する（F-08。#365）。保存しない。
-func (s *AIService) GenerateNewDraft(ctx context.Context, sessionID, requestID, instruction string, content dto.NewDraftContext) (dto.ReplyDraft, error) {
-	return s.core.GenerateNewDraft(ctx, sessionID, requestID, instruction, content)
 }
 
 // CancelGenerate は実行中の生成を中止する（GenerateReplyDraft・SummarizeThread・AskAboutThread・FindInboxZeroCandidates は CANCELLED で終わる）。

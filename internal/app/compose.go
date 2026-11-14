@@ -11,11 +11,15 @@ import (
 
 // ComposeService は作成セッション・下書き・送信前確認・送信・宛先候補（バインディング仕様 §5）。
 // Wails のバインディング面で、実装は composecore に委譲する。
-type ComposeService struct{ core *composecore.Service }
+type ComposeService struct {
+	core                     *composecore.Service
+	composecore.DraftListAPI // 下書きの一覧と、一覧からの破棄（#366）
+}
 
 // NewComposeService は ComposeService を作る。
 func NewComposeService(d *Deps) *ComposeService {
-	return &ComposeService{core: composecore.New((*deps.Deps)(d))}
+	core := composecore.New((*deps.Deps)(d))
+	return &ComposeService{core: core, DraftListAPI: core}
 }
 
 func (s *ComposeService) OpenCompose(ctx context.Context, req dto.OpenComposeRequest) (dto.ComposeSession, error) {
@@ -52,16 +56,6 @@ func (s *ComposeService) CloseCompose(ctx context.Context, sessionID string) err
 
 func (s *ComposeService) DiscardCompose(ctx context.Context, sessionID string) error {
 	return s.core.DiscardCompose(ctx, sessionID)
-}
-
-// ListDrafts は accountIDs（空は全アカウント）の Gmail の下書きを、更新の新しい順の 1 つの一覧で返す。
-func (s *ComposeService) ListDrafts(ctx context.Context, accountIDs []string) (dto.DraftList, error) {
-	return s.core.ListDrafts(ctx, accountIDs)
-}
-
-// DiscardDraft は一覧から選んだ下書きを Gmail から削除する（作成セッションを開かない）。
-func (s *ComposeService) DiscardDraft(ctx context.Context, ref dto.DraftRef) error {
-	return s.core.DiscardDraft(ctx, ref)
 }
 
 func (s *ComposeService) SuggestContacts(ctx context.Context, accountID, prefix string, limit int) ([]model.Address, error) {
