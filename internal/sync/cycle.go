@@ -41,6 +41,7 @@ type cycle struct {
 
 	// 新着の観測口（SetNewMailObserver）の候補。差分同期で観測口が設定されているときだけ集める（observe）。
 	observe         bool
+	observedAdded   map[string]struct{} // history の messagesAdded のメッセージ ID（通知の設定に依らない。候補はこの中だけ）
 	observed        []NewMailCandidate
 	observedDropped int // 上限を超えて捨てた候補の数
 }

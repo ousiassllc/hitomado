@@ -24,7 +24,7 @@ func TestQueueOverflowDropsAndLogsCountOnly(t *testing.T) {
 		f.putInbound(t, f.a, id, "m-"+id)
 		cands = append(cands, syncer.NewMailCandidate{ThreadID: id, MessageID: "m-" + id})
 	}
-	f.svc.Agent.OnNewMail(t.Context(), f.a.ID, cands) // ワーカーを起こす前に積む（最初の 50 件だけが入る）
+	f.svc.Agent.OnNewMail(t.Context(), f.a.ID, cands, 0) // ワーカーを起こす前に積む（最初の 50 件だけが入る）
 	f.start(t)
 	f.waitItems(t, 50)
 	f.stop()

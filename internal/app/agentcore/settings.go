@@ -15,6 +15,9 @@ type storedSettings struct {
 	Enabled       bool  `json:"enabled"`
 	MascotEnabled bool  `json:"mascotEnabled"`
 	AgreedAt      int64 `json:"agreedAt,omitempty"` // オンにしたときの同意の時刻（Unix ミリ秒）
+	// AgreedDestination はオンにしたときの AI のプロバイダ＋送信先（照合キー）。現在の送信先がこれと違うあいだは動かさない
+	// （再同意＝オフ→オンで保存し直す）。空は、この項目が無かった頃の保存値で、今の設定を受け入れる。
+	AgreedDestination string `json:"agreedDestination,omitempty"`
 }
 
 func (s *Service) loadSettings(ctx context.Context) (storedSettings, error) {
@@ -51,12 +54,38 @@ func (s *Service) applyMascot(cfg storedSettings) {
 }
 
 // settingsDTO は設定に AI の状態を添えて返す形にする。
+// AI の状態を確かめられなくても（ストアの読み取りの失敗など）失敗にせず、AIReady を偽にする（ログはエラーの種類だけ）。
 func (s *Service) settingsDTO(ctx context.Context, cfg storedSettings) (dto.AgentSettings, error) {
+	return dto.AgentSettings{Enabled: cfg.Enabled, MascotEnabled: cfg.MascotEnabled, AIReady: s.aiUsable(ctx, cfg)}, nil
+}
+
+// aiUsable は AI が使える状態か。エージェントがオンのときは、オンにしたときと同じプロバイダ・送信先であることも要る
+// （切り替えたあとは、新しい送信先への同意として、オフ→オンをやり直すまで使わない）。確かめられないときはログを残して偽。
+func (s *Service) aiUsable(ctx context.Context, cfg storedSettings) bool {
 	ready, err := s.d.AI.Ready(ctx)
 	if err != nil {
-		return dto.AgentSettings{}, err
+		s.log.Warn("agent: ai readiness check failed", "kind", errKind(err))
+		return false
 	}
-	return dto.AgentSettings{Enabled: cfg.Enabled, MascotEnabled: cfg.MascotEnabled, AIReady: ready}, nil
+	if !ready || !cfg.Enabled || cfg.AgreedDestination == "" {
+		return ready
+	}
+	dest, err := s.d.AI.CurrentDestination(ctx)
+	if err != nil {
+		s.log.Warn("agent: ai destination check failed", "kind", errKind(err))
+		return false
+	}
+	return dest == cfg.AgreedDestination
+}
+
+// enabled はエージェントがオンか。確かめられないときはログを残して偽。
+func (s *Service) enabled(ctx context.Context) bool {
+	cfg, err := s.loadSettings(ctx)
+	if err != nil {
+		s.log.Warn("agent: load settings failed", "kind", errKind(err))
+		return false
+	}
+	return cfg.Enabled
 }
 
 // GetSettings はエージェントモード・マスコットの設定と、AI が使える状態かを返す。
@@ -81,9 +110,11 @@ func (s *Service) SetEnabled(ctx context.Context, enabled, agreed bool) (dto.Age
 		if !agreed {
 			return dto.AgentSettings{}, apperr.New(apperr.Validation, "エージェントモードをオンにするには、新着メールの内容を設定済みの AI へ送ることへの同意が必要です。")
 		}
-		if err := s.d.AI.AgreeCurrent(ctx); err != nil {
+		dest, err := s.d.AI.AgreeCurrent(ctx)
+		if err != nil {
 			return dto.AgentSettings{}, err
 		}
+		cfg.AgreedDestination = dest
 		if !cfg.Enabled {
 			cfg.AgreedAt = s.d.Clock.Now().UnixMilli()
 		}

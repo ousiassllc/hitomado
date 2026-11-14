@@ -46,13 +46,20 @@ func TestReadyRequiresConfigAndConsent(t *testing.T) {
 // AgreeCurrent は、設定済みなら現在のプロバイダ・送信先への同意を記録し、未設定は AI_NOT_CONFIGURED。
 func TestAgreeCurrentRecordsConsentForTheConfiguredDestination(t *testing.T) {
 	f := newAIFixture(t)
-	requireCode(t, "AI_NOT_CONFIGURED", f.ai.AgreeCurrent(t.Context()))
+	_, err := f.ai.AgreeCurrent(t.Context())
+	requireCode(t, "AI_NOT_CONFIGURED", err)
+	_, err = f.ai.CurrentDestination(t.Context())
+	requireCode(t, "AI_NOT_CONFIGURED", err)
 
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
+	_, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
-	require.NoError(t, f.ai.AgreeCurrent(t.Context()))
+	dest1, err := f.ai.AgreeCurrent(t.Context())
+	require.NoError(t, err)
+	cur, err := f.ai.CurrentDestination(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, dest1, cur)
 	ready, err := f.ai.Ready(t.Context())
 	require.NoError(t, err)
 	assert.True(t, ready)
@@ -60,7 +67,9 @@ func TestAgreeCurrentRecordsConsentForTheConfiguredDestination(t *testing.T) {
 	// 別の送信先へ設定を変えたあとは、その送信先に対する同意を記録する。
 	_, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://other.example/v1", "")
 	require.NoError(t, err)
-	require.NoError(t, f.ai.AgreeCurrent(t.Context()))
+	dest2, err := f.ai.AgreeCurrent(t.Context())
+	require.NoError(t, err)
+	assert.NotEqual(t, dest1, dest2, "送信先が変われば照合キーも変わる")
 	ready, err = f.ai.Ready(t.Context())
 	require.NoError(t, err)
 	assert.True(t, ready)
@@ -76,7 +85,7 @@ func TestJudgeThreadAndDraftReplyTextPreconditionsAndInput(t *testing.T) {
 
 	_, err := f.ai.JudgeThread(t.Context(), ref)
 	requireCode(t, "AI_NOT_CONFIGURED", err)
-	_, err = f.ai.DraftReplyText(t.Context(), ref, "")
+	_, err = f.ai.DraftReplyText(t.Context(), ref, "", nil)
 	requireCode(t, "AI_NOT_CONFIGURED", err)
 
 	_, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
@@ -85,7 +94,7 @@ func TestJudgeThreadAndDraftReplyTextPreconditionsAndInput(t *testing.T) {
 	require.NoError(t, err)
 	_, err = f.ai.JudgeThread(t.Context(), ref)
 	requireCode(t, "AI_CONSENT_REQUIRED", err)
-	_, err = f.ai.DraftReplyText(t.Context(), ref, "")
+	_, err = f.ai.DraftReplyText(t.Context(), ref, "", nil)
 	requireCode(t, "AI_CONSENT_REQUIRED", err)
 	assert.Empty(t, f.provider.judgeInputs, "前提を満たすまで通信しない")
 	assert.Empty(t, f.provider.inputs)
@@ -102,15 +111,16 @@ func TestJudgeThreadAndDraftReplyTextPreconditionsAndInput(t *testing.T) {
 	assert.Equal(t, [4]string{"openai", "gpt-test", "https://llm.example/v1", testAPIKey},
 		[4]string{f.factory.provider, f.factory.model, f.factory.baseURL, f.factory.key})
 
-	text, err := f.ai.DraftReplyText(t.Context(), ref, "  利用者の回答  ")
+	text, err := f.ai.DraftReplyText(t.Context(), ref, "  利用者の回答  ", []string{"日程は？"})
 	require.NoError(t, err)
 	assert.Equal(t, "ok", text)
 	require.Len(t, f.provider.inputs, 1)
 	assert.Equal(t, "利用者の回答", f.provider.inputs[0].Instruction)
+	assert.Equal(t, []string{"日程は？"}, f.provider.inputs[0].Questions)
 	assert.Contains(t, f.provider.inputs[0].SignatureText, "Sig A", "署名は重複して書かせないためだけに渡す")
 
 	f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) { return "  ", nil }
-	_, err = f.ai.DraftReplyText(t.Context(), ref, "")
+	_, err = f.ai.DraftReplyText(t.Context(), ref, "", nil)
 	requireCode(t, "AI_FAILED", err)
 
 	_, err = f.ai.JudgeThread(t.Context(), dto.ThreadRef{AccountID: f.a.ID, ThreadID: "none"})

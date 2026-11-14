@@ -36,8 +36,8 @@ func (s *AgentService) Wait() { s.core.Wait() }
 // OnNewMail は同期の新着の観測口（syncer.Scheduler.SetNewMailObserver に渡す）。エージェントがオフのときは何もしない。
 //
 //wails:ignore
-func (s *AgentService) OnNewMail(ctx context.Context, accountID string, cands []syncer.NewMailCandidate) {
-	s.core.OnNewMail(ctx, accountID, cands)
+func (s *AgentService) OnNewMail(ctx context.Context, accountID string, cands []syncer.NewMailCandidate, dropped int) {
+	s.core.OnNewMail(ctx, accountID, cands, dropped)
 }
 
 // GetAgentSettings はエージェントモード・マスコットの設定と、AI が使える状態かを返す。既定はすべてオフ。

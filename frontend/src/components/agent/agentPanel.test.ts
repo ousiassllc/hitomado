@@ -201,6 +201,83 @@ describe('エージェントのパネル', () => {
     w.unmount()
   })
 
+  test('下書きが Gmail 側で消えていた（NOT_FOUND）なら、知らせたうえで確認済みにして片付ける', async () => {
+    const { w } = await openPanel([agentItem('r1')])
+    const compose = useComposeStore()
+    compose.open = (async () => {
+      compose.openFailure = { code: 'NOT_FOUND', message: '下書きがありません', retryable: false }
+      return false
+    }) as never
+    responses.ConfirmAgentItem = agentItem('r1', { status: 'done' })
+    await card(w, 'r1').get('[data-testid=agent-open-draft]').trigger('click')
+    await flushPromises()
+    expect(callsOf('ConfirmAgentItem')[0]?.args).toEqual(['r1'])
+    expect(w.find('[data-testid=agent-item-r1]').exists()).toBe(false)
+    w.unmount()
+  })
+
+  test('「閉じる」は失敗・返信不要・あとでの行にだけ出て、確認済みにして一覧から外す。確認待ち・質問には出さない', async () => {
+    const { w } = await openPanel([
+      agentItem('r1'),
+      agentItem('q1', { status: 'asking', draftId: undefined, questions: ['q'] }),
+      agentItem('f1', { status: 'failed', draftId: undefined }),
+      agentItem('s1', { status: 'skipped', draftId: undefined }),
+      agentItem('l1', { status: 'later' }),
+      agentItem('l2', { status: 'later', draftId: undefined, questions: ['q'] }),
+    ])
+    const dismiss = (id: string) => card(w, id).find('[data-testid=agent-dismiss]')
+    expect(dismiss('r1').exists()).toBe(false)
+    expect(dismiss('q1').exists()).toBe(false)
+    for (const id of ['f1', 's1', 'l1', 'l2']) expect(dismiss(id).text()).toBe('閉じる')
+
+    responses.ConfirmAgentItem = (id: unknown) => agentItem(String(id), { status: 'done' })
+    await dismiss('s1').trigger('click')
+    await flushPromises()
+    expect(callsOf('ConfirmAgentItem')[0]?.args).toEqual(['s1'])
+    expect(w.find('[data-testid=agent-item-s1]').exists()).toBe(false)
+    w.unmount()
+  })
+
+  test('回答欄は 1000 文字まで。折りたたみの中の件名は h3、区分の見出しの下は h4', async () => {
+    const { w } = await openPanel([
+      agentItem('q1', { status: 'asking', draftId: undefined, questions: ['q'] }),
+      agentItem('l1', { status: 'later' }),
+    ])
+    expect(w.get('[data-testid=agent-answer]').attributes('maxlength')).toBe('1000')
+    expect(card(w, 'q1').get('.subject').element.tagName).toBe('H4')
+    expect(card(w, 'l1').get('.subject').element.tagName).toBe('H3')
+    w.unmount()
+  })
+
+  test('確認待ちの件数を、見えない aria-live の領域で知らせる', async () => {
+    const { w } = await openPanel([agentItem('r1'), agentItem('r2')])
+    const live = w.get('[data-testid=agent-live]')
+    expect(live.attributes('aria-live')).toBe('polite')
+    expect(live.text()).toBe('確認待ち 2件')
+    responses.ListAgentItems = agentOverview([agentItem('r1')])
+    await useAgentStore().load()
+    expect(live.text()).toBe('確認待ち 1件')
+    w.unmount()
+  })
+
+  test('回答の入力中に一覧が読み直されても、質問が同じなら入力を保つ。質問が変われば消す', async () => {
+    const q = (questions: string[]) =>
+      agentItem('q1', { status: 'asking', draftId: undefined, questions })
+    const { w } = await openPanel([q(['日程は？'])])
+    await w.get('[data-testid=agent-answer]').setValue('来週')
+
+    responses.ListAgentItems = agentOverview([q(['日程は？'])]) // agent:updated で別の配列に差し替わる
+    await useAgentStore().load()
+    await flushPromises()
+    expect((w.get('[data-testid=agent-answer]').element as HTMLTextAreaElement).value).toBe('来週')
+
+    responses.ListAgentItems = agentOverview([q(['金額は？'])])
+    await useAgentStore().load()
+    await flushPromises()
+    expect((w.get('[data-testid=agent-answer]').element as HTMLTextAreaElement).value).toBe('')
+    w.unmount()
+  })
+
   test('下書きが無いのに開こうとしたら、アラートで知らせて何も開かない', async () => {
     const { w, ui } = await openPanel([agentItem('r1', { draftId: undefined })])
     const open = mock(async (_req: unknown) => true)

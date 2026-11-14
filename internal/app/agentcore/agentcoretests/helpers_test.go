@@ -45,6 +45,7 @@ type fakeAI struct {
 	judges       int
 	generates    int
 	instructions []string
+	lastQuestion []string // 最後の GenerateReply に渡された質問（指示とは別のブロック）
 	judgeFn      func(call int) (ai.ReplyJudgment, error)
 	generateFn   func(call int, in ai.ReplyInput) (string, error)
 }
@@ -64,6 +65,7 @@ func (p *fakeAI) GenerateReply(_ context.Context, in ai.ReplyInput) (string, err
 	p.mu.Lock()
 	p.generates++
 	p.instructions = append(p.instructions, in.Instruction)
+	p.lastQuestion = in.Questions
 	call, fn := p.generates, p.generateFn
 	p.mu.Unlock()
 	if fn != nil {
@@ -93,6 +95,12 @@ func (p *fakeAI) lastInstruction() string {
 		return ""
 	}
 	return p.instructions[len(p.instructions)-1]
+}
+
+func (p *fakeAI) lastQuestions() []string {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.lastQuestion
 }
 
 // syncBuffer は並行に書ける bytes.Buffer（ログの捕捉用）。
@@ -139,6 +147,8 @@ type fixture struct {
 	mascot *fakeMascot
 	a, b   store.Account
 	cancel context.CancelFunc
+	// sentinels は drain が積んだ番兵の数。
+	sentinels int
 }
 
 // newFixture は 2 アカウント（それぞれ別の署名）と、受信箱のスレッド t1（a 宛て）・u1（b 宛て）を持つ環境を作る。
@@ -215,14 +225,15 @@ func (f *fixture) start(t *testing.T) {
 	})
 }
 
-// stop はワーカーを止めて完了を待つ（それまでに積まれた分の処理が済んだことの保証にも使う）。
+// stop はワーカーを止めて終了を待つ。キャンセルされたワーカーは、積まれた分の処理を終えずに止まりうる
+// （処理が済んだことの保証にはならない）。「何も作られない」ことの検証には使わず、drain を使う。
 func (f *fixture) stop() {
 	f.cancel()
 	f.svc.Agent.Wait()
 }
 
 func (f *fixture) newMail(accountID, threadID, messageID string) {
-	f.svc.Agent.OnNewMail(context.Background(), accountID, []syncer.NewMailCandidate{{ThreadID: threadID, MessageID: messageID}})
+	f.svc.Agent.OnNewMail(context.Background(), accountID, []syncer.NewMailCandidate{{ThreadID: threadID, MessageID: messageID}}, 0)
 }
 
 // waitItems は一覧の件数が n になるまで待つ（ワーカーが 1 件処理して保存するたびに 1 件増える。上限つきの条件待ち）。

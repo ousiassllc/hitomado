@@ -12,7 +12,7 @@ import { useAutosave } from '../composables/useAutosave'
 import { useComposeLifecycle } from '../composables/useComposeLifecycle'
 import { useComposeSend } from '../composables/useComposeSend'
 import { useSignatureSwap } from '../composables/useSignatureSwap'
-import { call, list, parseBindingError } from '../lib/api'
+import { type AppError, call, list, parseBindingError } from '../lib/api'
 import { describeComposeError, draftAttachmentWarning } from '../lib/composeErrors'
 import {
   type EditableContent,
@@ -54,6 +54,8 @@ export const useComposeStore = defineStore('compose', () => {
   const aiInstruction = ref('')
   /** 送信・確認・セッション操作のエラー（エディタ上部に表示）。 */
   const error = ref<string>()
+  /** 直近の `open` が失敗したときの AppError（成功・開始で消える。エージェントが下書きの NOT_FOUND を見分ける）。 */
+  const openFailure = ref<AppError>()
   const saveError = ref<string>()
   const attachmentError = ref<string>()
 
@@ -171,6 +173,7 @@ export const useComposeStore = defineStore('compose', () => {
     if (opening) return false
     if (sameTarget(req)) return true
     opening = true
+    openFailure.value = undefined
     try {
       if (session.value && !(await close())) return false
       const s = normalizeSession(
@@ -189,6 +192,7 @@ export const useComposeStore = defineStore('compose', () => {
       if (warning) ui.pushAlert(warning)
       return true
     } catch (e) {
+      openFailure.value = parseBindingError(e)
       ui.pushAlert(fail(e) || msg.openFailed)
       return false
     } finally {
@@ -275,6 +279,7 @@ export const useComposeStore = defineStore('compose', () => {
     aiGenerating,
     aiInstruction,
     error,
+    openFailure,
     saveError,
     attachmentError,
     signatureConflict: sigSwap.conflict,

@@ -13,8 +13,11 @@ import BaseButton from '../ui/BaseButton.vue'
 
 // エージェントのパネルの 1 行（新着 1 件）。状態ごとに出すものを変える: 質問（答えの入力）・確認待ち（下書きの抜粋）・
 // あとで・返信不要（「やっぱり返信する」）・失敗（「やり直す」）。送信の操作は無い（下書きを開いて、送るのは利用者）。
-const props = defineProps<{ item: AgentItem }>()
+/** heading: 件名の見出しレベル。区分の見出し（h3）の下は h4、折りたたみの中（区分の見出しが無い）は h3 にして、レベルを飛ばさない。 */
+const props = withDefaults(defineProps<{ item: AgentItem; heading?: 'h3' | 'h4' }>(), { heading: 'h4' })
 
+/** 回答 1 件の最大文字数（Go 側の上限と同じ）。 */
+const MAX_ANSWER_CHARS = 1000
 const msg = agent.panel
 const store = useAgentStore()
 const accounts = useAccountsStore()
@@ -25,7 +28,12 @@ const idBase = useId()
 
 const questions = computed(() => list(props.item.questions))
 const answers = ref<string[]>([])
-watch(questions, (q) => (answers.value = q.map(() => '')), { immediate: true })
+// 質問の中身が変わったときだけ入力を消す（agent:updated で一覧が読み直されて配列が作り直されても、入力中の答えは残す）。
+watch(
+  () => questions.value.join('\u0000'),
+  () => (answers.value = questions.value.map(() => '')),
+  { immediate: true },
+)
 const answerable = computed(
   () => questions.value.length > 0 && answers.value.every((a) => a.trim() !== ''),
 )
@@ -43,6 +51,8 @@ const showDraft = computed(
 )
 /** 「開いて確認」を出す: 確認待ち、または下書きのある「あとで」。確認待ちで下書きが見つからないときは、押したときに知らせる。 */
 const canOpen = computed(() => props.item.status === 'ready' || showDraft.value)
+/** 「閉じる」: 返信不要・失敗・あとでの行を、確認済みにして一覧から外す。 */
+const canDismiss = computed(() => ['skipped', 'failed', 'later'].includes(props.item.status))
 const canDefer = computed(() => props.item.status === 'asking' || props.item.status === 'ready')
 /** 判断を直せる: 返信不要・失敗、または質問も下書きも無い「あとで」。 */
 const canReconsider = computed(
@@ -78,6 +88,7 @@ function submitAnswers(): void {
 /**
  * 「開いて確認」。返信の作成画面を、エージェントが作った下書きつきで開く。開けたらパネルを閉じて（作成画面を隠さない）確認済みにする。
  * 開けなかった（下書きが無い・取得に失敗）ときは、作成画面側のエラーか、下書きが無い旨のアラートで知らせる。
+ * 下書きが Gmail 側で消えていた（NOT_FOUND）ときは、行が確認待ちに残り続けないよう、知らせたうえで確認済みにして片付ける。
  */
 async function openDraft(): Promise<void> {
   if (busy.value) return
@@ -89,7 +100,10 @@ async function openDraft(): Promise<void> {
   opening.value = true
   try {
     const ref = { accountId, threadId }
-    if (!(await compose.open({ mode: 'reply_all', ref, draftId }))) return
+    if (!(await compose.open({ mode: 'reply_all', ref, draftId }))) {
+      if (compose.openFailure?.code === 'NOT_FOUND') await store.confirm(props.item.id)
+      return
+    }
     inbox.select(ref)
     ui.closeAgent()
     await store.confirm(props.item.id)
@@ -101,7 +115,7 @@ async function openDraft(): Promise<void> {
 
 <template>
   <li class="card" :data-status="item.status" :data-testid="`agent-item-${item.id}`">
-    <h4 class="subject">{{ subject }}</h4>
+    <component :is="heading" class="subject">{{ subject }}</component>
     <p class="meta">{{ msg.from(item.from) }}</p>
     <p v-if="showDraft && recipients" class="meta">{{ msg.to(recipients) }}</p>
     <p class="meta account">
@@ -123,6 +137,7 @@ async function openDraft(): Promise<void> {
           v-model="answers[i]"
           class="question-input"
           rows="2"
+          :maxlength="MAX_ANSWER_CHARS"
           :placeholder="msg.answerPlaceholder"
           :disabled="busy"
           data-testid="agent-answer"
@@ -135,6 +150,9 @@ async function openDraft(): Promise<void> {
         <BaseButton v-if="canDefer" size="sm" :disabled="busy" data-testid="agent-defer" @click="store.defer(item.id)">
           {{ msg.defer }}
         </BaseButton>
+        <BaseButton v-if="canDismiss" variant="ghost" size="sm" :disabled="busy" data-testid="agent-dismiss" @click="store.confirm(item.id)">
+        {{ msg.dismiss }}
+      </BaseButton>
       </div>
     </form>
 
@@ -147,6 +165,9 @@ async function openDraft(): Promise<void> {
       </BaseButton>
       <BaseButton v-if="canDefer" size="sm" :disabled="busy" data-testid="agent-defer" @click="store.defer(item.id)">
         {{ msg.defer }}
+      </BaseButton>
+      <BaseButton v-if="canDismiss" variant="ghost" size="sm" :disabled="busy" data-testid="agent-dismiss" @click="store.confirm(item.id)">
+        {{ msg.dismiss }}
       </BaseButton>
     </div>
   </li>

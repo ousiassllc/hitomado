@@ -30,15 +30,27 @@ func (s *Service) Ready(ctx context.Context) (bool, error) {
 	}
 }
 
-// AgreeCurrent は AI が設定済み（同意は問わない）のとき、現在のプロバイダ・送信先への同意を記録する（RecordAIConsent と同じ保存）。
-// 未設定は AI_NOT_CONFIGURED。エージェントモードをオンにするときの同意に使う。
-func (s *Service) AgreeCurrent(ctx context.Context) error {
+// CurrentDestination は現在のプロバイダ・送信先（同意の照合キー。値の中身は呼び出し側で解釈しない）を返す。
+// 設定済みでなければ AI_NOT_CONFIGURED。エージェントモードがオンにしたときの送信先のままかを確かめるのに使う。
+func (s *Service) CurrentDestination(ctx context.Context) (string, error) {
 	cfg, _, err := s.precheckConfigured(ctx)
 	if err != nil {
-		return err
+		return "", err
 	}
-	_, err = s.RecordAIConsent(ctx, cfg.Provider, currentBaseURL(cfg, cfg.Provider))
-	return err
+	return destination(cfg.Provider, currentBaseURL(cfg, cfg.Provider)), nil
+}
+
+// AgreeCurrent は AI が設定済み（同意は問わない）のとき、現在のプロバイダ・送信先への同意を記録し（RecordAIConsent と同じ保存）、
+// その送信先（CurrentDestination と同じ値）を返す。未設定は AI_NOT_CONFIGURED。エージェントモードをオンにするときの同意に使う。
+func (s *Service) AgreeCurrent(ctx context.Context) (string, error) {
+	cfg, _, err := s.precheckConfigured(ctx)
+	if err != nil {
+		return "", err
+	}
+	if _, err = s.RecordAIConsent(ctx, cfg.Provider, currentBaseURL(cfg, cfg.Provider)); err != nil {
+		return "", err
+	}
+	return destination(cfg.Provider, currentBaseURL(cfg, cfg.Provider)), nil
 }
 
 // JudgeThread は ref のスレッドの最後のメッセージに返信が要るかを AI に判断させる。
@@ -62,8 +74,9 @@ func (s *Service) JudgeThread(ctx context.Context, ref dto.ThreadRef) (ai.ReplyJ
 }
 
 // DraftReplyText は ref のスレッドへの返信本文（プレーンテキスト。署名・引用を含まない）を AI で作る。
-// instruction は AI への指示（利用者の回答など。呼び出し側が組み立てる。空なら指示なし）。
-func (s *Service) DraftReplyText(ctx context.Context, ref dto.ThreadRef, instruction string) (string, error) {
+// instruction は AI への指示（利用者の回答など。呼び出し側が組み立てる。空なら指示なし）。questions は利用者へ確認した質問
+// （メール由来で信頼できない。指示とは別のブロックで参考情報として渡る。無ければ nil）。
+func (s *Service) DraftReplyText(ctx context.Context, ref dto.ThreadRef, instruction string, questions []string) (string, error) {
 	cfg, key, err := s.precheck(ctx)
 	if err != nil {
 		return "", s.precheckError(ctx, err)
@@ -73,6 +86,7 @@ func (s *Service) DraftReplyText(ctx context.Context, ref dto.ThreadRef, instruc
 		return "", s.mapError(ctx, err, ref.AccountID)
 	}
 	in.Instruction = strings.TrimSpace(instruction)
+	in.Questions = questions
 	in.Effort = cfg.Effort
 	text, err := s.generate(ctx, cfg, key, in.Effort, func(ctx context.Context, p ai.Provider) (string, error) {
 		return p.GenerateReply(ctx, in)

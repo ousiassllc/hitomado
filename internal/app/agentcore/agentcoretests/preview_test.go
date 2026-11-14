@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ousiassllc/hitomado/internal/app"
-	"github.com/ousiassllc/hitomado/internal/app/apptest"
-	"github.com/ousiassllc/hitomado/internal/gmail"
 )
 
 // restart はアプリの再起動に相当する新しいサービス一式（メモリのキャッシュは空。Store・Gmail は同じ）を返す。
@@ -54,17 +52,13 @@ func TestPreviewAfterRestartIsBuiltFromGmailDraft(t *testing.T) {
 	f.requireNeverSent(t)
 }
 
-// 下書きが取れない（失敗・消えた）ときも一覧は成功し、その行のプレビューだけ空。ログはアカウント ID とエラーの種類だけ。
+// 下書きが取れない（NotFound 以外の失敗）ときも一覧は成功し、その行のプレビューだけ空。項目の状態は変えない。ログはアカウント ID とエラーの種類だけ。
 func TestListItemsSucceedsWhenGetDraftFails(t *testing.T) {
 	for name, tc := range map[string]struct {
 		inject func(f *fixture, draftID string)
 		kind   string
 	}{
 		"error": {func(f *fixture, _ string) { f.Gmail.Err["GetDraft"] = errors.New("boom " + secretDraft) }, "internal"},
-		"gone": {func(f *fixture, id string) {
-			f.Gmail.Err["GetDraft"] = gmail.ErrNotFound
-			delete(f.Gmail.Drafts, apptest.Key(f.a.ID, id))
-		}, "not_found"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t)
@@ -87,6 +81,7 @@ func TestListItemsSucceedsWhenGetDraftFails(t *testing.T) {
 			for _, it := range o.Items {
 				assert.NotEmpty(t, it.DraftID)
 				assert.Empty(t, it.DraftPreview)
+				assert.Equal(t, "ready", it.Status, "失敗では項目を倒さない")
 			}
 			assert.Contains(t, f.logs.String(), "draft preview failed")
 			assert.Contains(t, f.logs.String(), f.a.ID)

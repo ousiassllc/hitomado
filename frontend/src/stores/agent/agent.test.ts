@@ -18,7 +18,7 @@ import {
 installMocks()
 afterAll(restoreMocks)
 
-const { useAgentStore } = await import('../agent')
+const { useAgentStore } = await import('./index')
 const { useUiStore } = await import('../ui')
 
 beforeEach(resetKit)

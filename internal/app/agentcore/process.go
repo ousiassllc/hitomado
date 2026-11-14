@@ -27,41 +27,37 @@ const (
 	reasonDraftFailed = "返信の下書きを作れませんでした"
 )
 
-// OnNewMail は同期の新着の観測口（syncer.NewMailObserver）。エージェントがオフ・AI が使えないときは何もしない
-// （スレッド取得も AI 呼び出しもしない）。オンなら待ち行列に積むだけで、待たない（同期のゴルーチンから呼ばれるため）。
-func (s *Service) OnNewMail(ctx context.Context, accountID string, cands []syncer.NewMailCandidate) {
-	if !s.active(ctx) {
+// OnNewMail は同期の新着の観測口（syncer.NewMailObserver）。エージェントがオフのときは何もしない（スレッド取得も AI 呼び出しもしない）。
+// オンなら待ち行列に積むだけで、待たない（同期のゴルーチンから呼ばれるため。AI が使えるかは process の先頭で確かめる）。
+// dropped は同期側の上限を超えて渡されなかった候補の数で、オンのときだけ件数をログに残す。
+func (s *Service) OnNewMail(ctx context.Context, accountID string, cands []syncer.NewMailCandidate, dropped int) {
+	if !s.enabled(ctx) {
 		return
 	}
-	dropped := 0
+	full := 0
 	for _, c := range cands {
 		select {
 		case s.queue <- work{accountID: accountID, threadID: c.ThreadID, messageID: c.MessageID}:
 		default:
-			dropped++
+			full++
 		}
 	}
+	if full > 0 {
+		s.log.Warn("agent: queue full; dropped new mail", "account", accountID, "count", full)
+	}
 	if dropped > 0 {
-		s.log.Warn("agent: queue full; dropped new mail", "account", accountID, "count", dropped)
+		s.log.Warn("agent: too many new mail candidates; dropped", "account", accountID, "count", dropped)
 	}
 }
 
-// active はエージェントがオンで、AI が使える状態か。確かめられないときはログだけ残して偽。
+// active はエージェントがオンで、AI が使える状態（オンにしたときと同じ送信先）か。確かめられないときはログだけ残して偽。
 func (s *Service) active(ctx context.Context) bool {
 	cfg, err := s.loadSettings(ctx)
 	if err != nil {
 		s.log.Warn("agent: load settings failed", "kind", errKind(err))
 		return false
 	}
-	if !cfg.Enabled {
-		return false
-	}
-	ready, err := s.d.AI.Ready(ctx)
-	if err != nil {
-		s.log.Warn("agent: ai readiness check failed", "kind", errKind(err))
-		return false
-	}
-	return ready
+	return cfg.Enabled && s.aiUsable(ctx, cfg)
 }
 
 // Start は古い項目の削除・マスコットの表示の反映をして、待ち行列を 1 件ずつ処理するワーカーを起動する（冪等）。
@@ -105,7 +101,8 @@ func (s *Service) processSafe(ctx context.Context, w work) {
 
 // process は新着 1 通を、判断→（返信が要るなら）質問または下書きづくりまで進めて、結果を保存する。
 func (s *Service) process(ctx context.Context, w work) {
-	if !s.active(ctx) { // 待っている間にオフにされた・AI が使えなくなった
+	if !s.active(ctx) { // 待っている間にオフにされた・AI が使えなくなった（オンにしたときと違う送信先に切り替えた場合も）
+		s.log.Debug("agent: skipped; agent is off or AI is unusable", "account", w.accountID)
 		return
 	}
 	exists, err := s.d.Store.AgentItemExists(ctx, w.accountID, w.threadID, w.messageID)
@@ -160,9 +157,9 @@ func (s *Service) hasUserDraft(ctx context.Context, ref dto.ThreadRef) bool {
 }
 
 // buildDraft は返信本文を AI で作って Gmail の下書きにし、item を ready にする（保存はしない）。失敗したときは item を変えない。
-func (s *Service) buildDraft(ctx context.Context, item *store.AgentItem, instruction string) error {
+func (s *Service) buildDraft(ctx context.Context, item *store.AgentItem, instruction string, questions []string) error {
 	ref := dto.ThreadRef{AccountID: item.AccountID, ThreadID: item.ThreadID}
-	text, err := s.d.AI.DraftReplyText(ctx, ref, instruction)
+	text, err := s.d.AI.DraftReplyText(ctx, ref, instruction, questions)
 	if err != nil {
 		return err
 	}
@@ -179,7 +176,7 @@ func (s *Service) buildDraft(ctx context.Context, item *store.AgentItem, instruc
 // createDrafted は新着の返信下書きを作り、ready として保存する。失敗したときは failed として保存する。
 func (s *Service) createDrafted(ctx context.Context, item store.AgentItem) {
 	item.ID = store.NewID() // プレビューのキャッシュのキー（下書きを作る前に決めておく）
-	if err := s.buildDraft(ctx, &item, ""); err != nil {
+	if err := s.buildDraft(ctx, &item, "", nil); err != nil {
 		if ctx.Err() != nil {
 			return // 終了による中断
 		}

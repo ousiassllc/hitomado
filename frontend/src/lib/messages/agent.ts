@@ -40,11 +40,8 @@ export const agent = {
     openDraft: '開いて確認',
     reconsider: 'やっぱり返信する',
     retry: 'やり直す',
-    working: '処理中',
+    dismiss: '閉じる',
     noDraft: '開ける下書きがありません。',
-    failedBody: '判断または下書き作りに失敗しました。',
-    questionsLabel: '質問',
-    previewLabel: '下書き',
     count: (label: string, n: number) => `${label}（${n}件）`,
   },
   settings: {

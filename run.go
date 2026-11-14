@@ -165,7 +165,7 @@ func run() error {
 		}),
 		Background: platform.NewBackground(logger),
 		// エージェントのマスコット（Windows の別ウィンドウ。メインを閉じても残る。#372）。対応しない OS では何もしない。
-		Mascot:         platform.NewMascot(wapp, caps, nil, logger),
+		Mascot:         platform.NewMascot(wapp, caps, logger),
 		ShowMainWindow: func() { platform.ShowMainWindow(win) },
 		OpenRequests:   platform.NewOpenRequests(wapp, emitter),
 		Logger:         logger, DataDir: dir, Version: version, Capabilities: caps,

@@ -31,12 +31,15 @@ const (
 type AI interface {
 	// Ready は AI（プロバイダ・モデル・キー／ログイン・同意）が使える状態か。
 	Ready(ctx context.Context) (bool, error)
-	// AgreeCurrent は AI が設定済みのとき、現在のプロバイダ・送信先への同意を記録する。未設定は AI_NOT_CONFIGURED。
-	AgreeCurrent(ctx context.Context) error
+	// AgreeCurrent は AI が設定済みのとき、現在のプロバイダ・送信先への同意を記録し、その送信先（照合キー）を返す。未設定は AI_NOT_CONFIGURED。
+	AgreeCurrent(ctx context.Context) (destination string, err error)
+	// CurrentDestination は現在のプロバイダ・送信先（AgreeCurrent が返すのと同じ形の照合キー）。未設定は AI_NOT_CONFIGURED。
+	CurrentDestination(ctx context.Context) (string, error)
 	// JudgeThread は最後のメッセージに返信が要るかを判断する。
 	JudgeThread(ctx context.Context, ref dto.ThreadRef) (ai.ReplyJudgment, error)
-	// DraftReplyText は返信本文（プレーンテキスト）を作る。instruction は利用者の回答など（空なら指示なし）。
-	DraftReplyText(ctx context.Context, ref dto.ThreadRef, instruction string) (string, error)
+	// DraftReplyText は返信本文（プレーンテキスト）を作る。instruction は利用者の回答（空なら指示なし）。
+	// questions は利用者へ確認した質問（メール由来で信頼できない。指示ではなく参考情報として渡る。無ければ nil）。
+	DraftReplyText(ctx context.Context, ref dto.ThreadRef, instruction string, questions []string) (string, error)
 }
 
 // ReplyDrafter は返信の Gmail 下書きを作る入口（composecore.Service.CreateReplyDraft）。下書きを作るだけで、送信はできない。

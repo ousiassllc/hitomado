@@ -26,10 +26,8 @@ type Mascot struct {
 	win *application.WebviewWindow // 初めて出すときに作り、以後は作り直さず隠す・出すだけ
 }
 
-// NewMascot はマスコットを返す（この時点ではウィンドウを作らない）。
-// メインウィンドウを前面に出す関数（3 つ目の引数）は受け取るだけで使わない。マスコットの押下は OpenAgentPanel
-// （Go 側が ShowMainWindow を呼ぶ）で足りるため。
-func NewMascot(app *application.App, caps capability.Capabilities, _ func(), log *slog.Logger) *Mascot {
+// NewMascot はマスコットを返す（この時点ではウィンドウを作らない）。マスコットの押下は OpenAgentPanel（Go 側が ShowMainWindow を呼ぶ）。
+func NewMascot(app *application.App, caps capability.Capabilities, log *slog.Logger) *Mascot {
 	return &Mascot{app: app, caps: caps, log: log}
 }
 
@@ -85,6 +83,8 @@ func (m *Mascot) create() *application.WebviewWindow {
 		opts.X, opts.Y = x, y
 	}
 	w := m.app.Window.NewWithOptions(opts)
+	// Windows は生成時に最小幅が効かず OS の既定の最小幅になりうるので、生成直後に大きさを確定させる。
+	w.SetSize(MascotSize, MascotSize)
 	// 画面の構成が変わっても、出すたびに右下へ置き直す（起動の早い時期に画面の一覧が空だったときも、ここで直る）。
 	w.OnWindowEvent(events.Common.WindowShow, func(*application.WindowEvent) {
 		go m.place(w)

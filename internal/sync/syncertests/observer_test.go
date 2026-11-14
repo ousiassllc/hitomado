@@ -25,12 +25,13 @@ type observed struct {
 type observedCall struct {
 	accountID string
 	cands     []syncer.NewMailCandidate
+	dropped   int
 }
 
-func (o *observed) observe(_ context.Context, accountID string, cands []syncer.NewMailCandidate) {
+func (o *observed) observe(_ context.Context, accountID string, cands []syncer.NewMailCandidate, dropped int) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	o.calls = append(o.calls, observedCall{accountID, append([]syncer.NewMailCandidate(nil), cands...)})
+	o.calls = append(o.calls, observedCall{accountID, append([]syncer.NewMailCandidate(nil), cands...), dropped})
 }
 
 func (o *observed) got() []observedCall {
@@ -118,7 +119,7 @@ func TestObserverReceivesPrimaryInboxNewMailOnly(t *testing.T) {
 	assert.Equal(t, syncer.NewMailCandidate{ThreadID: "t-plain", MessageID: "m-plain"}, calls[0].cands[0])
 }
 
-func TestObserverCapsCandidatesPerCycleAndLogsOnlyTheCount(t *testing.T) {
+func TestObserverCapsCandidatesPerCycleAndReportsTheDroppedCount(t *testing.T) {
 	h, o := observeHarness(t)
 	var threads []gmail.ThreadMeta
 	for i := range 8 {
@@ -130,9 +131,23 @@ func TestObserverCapsCandidatesPerCycleAndLogsOnlyTheCount(t *testing.T) {
 	h.waitActive("a", 1)
 
 	assert.Equal(t, []string{"t0", "t1", "t2", "t3", "t4"}, o.threads(), "先頭 5 件だけ渡す")
-	h.skips.mu.Lock()
-	defer h.skips.mu.Unlock()
-	assert.EqualValues(t, 3, h.skips.dropped, "超過分は件数だけログに残して捨てる")
+	require.Len(t, o.got(), 1)
+	assert.Equal(t, 3, o.got()[0].dropped, "超過分は件数だけ渡す（ログに出すかは観測口が決める）")
+}
+
+// history の messagesAdded に無いメッセージ（ラベル変更などで初めてローカルに入った既存のメッセージ）は、候補にならない。
+func TestObserverIgnoresMessagesNotInHistoryAdded(t *testing.T) {
+	h, o := observeHarness(t)
+	h.deltaWith(thread("t-added", msg("m-added", "t-added", "INBOX")))
+	h.gm.Edit("a", func(a *synctest.Script) {
+		// 受信箱へ戻されたスレッド: 変更スレッドには入るが messagesAdded は無い（ローカルには新規に保存される）。
+		a.History.ChangedThreadIDs = append(a.History.ChangedThreadIDs, "t-relabeled")
+		a.Threads["t-relabeled"] = thread("t-relabeled", msg("m-relabeled", "t-relabeled", "INBOX"))
+	})
+	h.s.Start("a")
+	h.waitActive("a", 1)
+
+	assert.Equal(t, []string{"t-added"}, o.threads())
 }
 
 func TestObserverPicksTheLatestNewMessageOfAThread(t *testing.T) {
@@ -228,7 +243,7 @@ func TestObserverDoesNotDependOnNotifySetting(t *testing.T) {
 // 観測口が panic しても同期は止まらない（同期状態は保存され、周期は成功で終わる）。
 func TestObserverPanicDoesNotBreakTheCycle(t *testing.T) {
 	h, _ := observeHarness(t)
-	h.s.SetNewMailObserver(func(context.Context, string, []syncer.NewMailCandidate) { panic("observer bug") })
+	h.s.SetNewMailObserver(func(context.Context, string, []syncer.NewMailCandidate, int) { panic("observer bug") })
 	h.deltaWith(thread("t1", msg("m1", "t1", "INBOX")))
 	h.s.Start("a")
 	h.waitActive("a", 1)

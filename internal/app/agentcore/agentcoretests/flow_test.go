@@ -39,7 +39,8 @@ func TestOnButAINotReadyDoesNothing(t *testing.T) {
 
 	f.newMail(f.a.ID, "t1", "m1") // AI 未設定
 	f.configure(t)
-	f.newMail(f.a.ID, "t1", "m1") // 設定済み・同意なし
+	f.newMail(f.a.ID, "t1", "m1")     // 設定済み・同意なし
+	f.waitLog(t, "agent: skipped", 2) // 2 件とも、使えない状態として見送られた（ワーカーが処理した）
 	f.stop()
 
 	judges, _ := f.ai.counts()

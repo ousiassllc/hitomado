@@ -599,10 +599,10 @@ type AgentOverview = { pendingCount: number; items: AgentItem[] };  // pendingCo
 | `GetAgentSettings()` | — | `AgentSettings` | エージェント・マスコットの設定（既定はすべてオフ）。`aiReady` は AI（プロバイダ・モデル・キー／ChatGPT のログイン・同意）が使える状態か |
 | `SetAgentEnabled(enabled, agreed)` | `boolean, boolean` | `AgentSettings` | オン・オフ。オンにするには `agreed`（新着メールの内容を設定済みの AI へ自動で送ることへの同意）が真であること（偽は `VALIDATION`）で、AI が設定済みであること（未設定は `AI_NOT_CONFIGURED`）。通ると現在のプロバイダ・送信先への同意（`RecordAIConsent` と同じ保存）も記録する。オフは `agreed` 不要 |
 | `SetAgentMascot(enabled)` | `boolean` | `AgentSettings` | 画面の端のマスコット（Windows）のオン・オフ。エージェントがオンで、かつマスコットがオンのときだけ出る |
-| `ListAgentItems()` | — | `AgentOverview` | 扱った新着の一覧 |
+| `ListAgentItems()` | — | `AgentOverview` | 扱った新着の一覧。`draftPreview`（下書きの最初の数行）は、確認待ち・あとでの行だけ、Gmail から取り直してメモリに持つ（DB には保存しない。オフのときは空。取得に失敗した行は空で返し、同じ下書きは 5 分間取り直さない）。下書きが Gmail から消えた（削除・送信済み）確認待ち・あとでの行は、確認済みにして一覧から外す |
 | `AnswerAgentQuestions(itemId, answers)` | `string, string[]` | `AgentItem` | 質問への答えを受けて下書きを作る（作り直す）。`answers` は質問と同じ順・同じ件数（各 1〜1,000 文字）。回答は DB に残さない。存在しない ID は `NOT_FOUND` |
 | `DeferAgentItem(itemId)` | `string` | `AgentItem` | 確認待ち・質問待ちを「あとで」にする |
-| `ConfirmAgentItem(itemId)` | `string` | `AgentItem` | 利用者が下書きを開いて確認したことを記録する（確認済みにする） |
+| `ConfirmAgentItem(itemId)` | `string` | `AgentItem` | 利用者が下書きを開いて確認した（または「閉じる」）ことを記録する（確認済みにして一覧から外す） |
 | `ReconsiderAgentItem(itemId)` | `string` | `AgentItem` | 「やっぱり返信する」。返信不要・失敗したものを、返信が要る前提で下書き作り（必要なら質問）からやり直す |
 | `OpenAgentPanel()` | — | — | メインウィンドウを前面に出し、`agent:open-panel` を発行する（マスコットの押下） |
 

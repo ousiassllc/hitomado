@@ -27,8 +27,17 @@ func (s *Service) ListItems(ctx context.Context) (dto.AgentOverview, error) {
 	}
 	out := dto.AgentOverview{Items: make([]dto.AgentItem, 0, len(items))}
 	accounts := map[string]store.Account{}
-	previews := s.previewsFor(ctx, items)
+	previews, gone := s.previewsFor(ctx, items)
+	finished := map[string]struct{}{} // 下書きが Gmail から無くなり、確認済みにした項目（一覧には出さない）
+	for _, it := range gone {
+		if s.finishGone(ctx, it) {
+			finished[it.ID] = struct{}{}
+		}
+	}
 	for _, it := range items {
+		if _, ok := finished[it.ID]; ok {
+			continue
+		}
 		acct, ok := accounts[it.AccountID]
 		if !ok {
 			if acct, err = s.d.Store.GetAccount(ctx, it.AccountID); err != nil {
@@ -62,7 +71,7 @@ func (s *Service) AnswerQuestions(ctx context.Context, itemID string, answers []
 			}
 		}
 		next := *item
-		if err := s.buildDraft(ctx, &next, answersInstruction(item.Questions, trimmed)); err != nil {
+		if err := s.buildDraft(ctx, &next, answersInstruction(trimmed), item.Questions); err != nil {
 			s.log.Warn("agent: draft failed", "account", item.AccountID, "thread", item.ThreadID, "kind", errKind(err))
 			return err
 		}
@@ -71,15 +80,19 @@ func (s *Service) AnswerQuestions(ctx context.Context, itemID string, answers []
 	})
 }
 
-// answersInstruction は質問と利用者の回答を、返信本文を作る AI への指示にする（利用者本人が書いた回答であり、スレッド内の文章より優先する）。
-func answersInstruction(questions, answers []string) string {
+// answersInstruction は利用者の回答を、返信本文を作る AI への指示にする（利用者本人が書いたもので、スレッド内の文章より優先する）。
+// 番号は質問（別ブロックの参考情報）と対応する。回答の中の < > は無害にし、指示のブロックを閉じられないようにする。
+// 質問はメールの内容から AI が作った信頼できない文章なので、指示には入れない（ai.ReplyInput.Questions で別に渡す）。
+func answersInstruction(answers []string) string {
 	var b strings.Builder
-	b.WriteString("次は、返信を書くために利用者本人へ確認した質問と、その回答です。回答の内容を返信に反映してください。\n")
-	for i := range questions {
-		fmt.Fprintf(&b, "質問: %s\n回答: %s\n", questions[i], answers[i])
+	b.WriteString("次は、返信を書くために利用者本人へ確認した質問への回答です（番号は別に示す質問と対応します）。回答の内容を返信に反映してください。\n")
+	for i, a := range answers {
+		fmt.Fprintf(&b, "回答%d: %s\n", i+1, tagEscaper.Replace(a))
 	}
 	return b.String()
 }
+
+var tagEscaper = strings.NewReplacer("<", "&lt;", ">", "&gt;")
 
 // Defer は確認待ち・質問待ちを「あとで」にする。
 func (s *Service) Defer(ctx context.Context, itemID string) (dto.AgentItem, error) {
@@ -132,7 +145,7 @@ func (s *Service) Reconsider(ctx context.Context, itemID string) (dto.AgentItem,
 			*item = next
 			return s.saveStrict(ctx, item)
 		}
-		if err := s.buildDraft(ctx, &next, ""); err != nil {
+		if err := s.buildDraft(ctx, &next, "", nil); err != nil {
 			s.log.Warn("agent: draft failed", "account", item.AccountID, "thread", item.ThreadID, "kind", errKind(err))
 			return err
 		}
@@ -162,7 +175,11 @@ func (s *Service) withItem(ctx context.Context, itemID string, fn func(item *sto
 	if err != nil {
 		return dto.AgentItem{}, apperr.FromInfra(err, item.AccountID)
 	}
-	return itemDTO(item, acct, s.previewsFor(ctx, []store.AgentItem{item})[item.ID]), nil
+	previews, gone := s.previewsFor(ctx, []store.AgentItem{item})
+	if len(gone) > 0 && s.markDone(ctx, item) {
+		item.Status = store.AgentStatusDone // 下書きが Gmail から無くなっていた（削除・スレッド画面から送信）
+	}
+	return itemDTO(item, acct, previews[item.ID]), nil
 }
 
 // saveStrict は利用者の操作の結果を保存する（失敗はエラーで返す）。保存したら agent:updated を発行する。

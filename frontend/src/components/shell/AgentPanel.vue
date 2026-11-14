@@ -49,6 +49,8 @@ onBeforeUnmount(() => {
         <Xmark class="icon" aria-hidden="true" />
       </BaseIconButton>
     </header>
+    <!-- 件数が変わったことを読み上げる（見えない。画面の更新は agent:updated で起きるので、利用者の操作とは限らない）。 -->
+    <p v-if="store.enabled" class="sr-only" role="status" aria-live="polite" data-testid="agent-live">{{ agent.entry.pending(store.pendingCount) }}</p>
     <div class="body">
       <EmptyState v-if="!store.enabled" data-testid="agent-off">
         <template #icon><AgentMascot :size="48" /></template>
@@ -75,7 +77,7 @@ onBeforeUnmount(() => {
           :collapsible="sec.collapsible"
           :data-testid="`agent-section-${sec.status}`"
         >
-          <AgentItemCard v-for="item in itemsOf(sec.status)" :key="item.id" :item="item" />
+          <AgentItemCard v-for="item in itemsOf(sec.status)" :key="item.id" :item="item" :heading="sec.collapsible ? 'h3' : 'h4'" />
         </AgentSection>
       </template>
     </div>
@@ -120,6 +122,15 @@ onBeforeUnmount(() => {
   min-height: 0;
   padding: var(--pad-card-sm);
   overflow-y: auto;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 .state-title {

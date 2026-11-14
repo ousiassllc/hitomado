@@ -32,10 +32,11 @@ type NewMailCandidate struct {
 
 // NewMailObserver は差分同期で届いた新着の候補を受け取る。flush と同じタイミング（反映済みのスレッドの分。周期が失敗しても）で、
 // 同期のゴルーチンから呼ばれる。同期を止めないよう、中で待たない（キューに積むだけにする）こと。
-type NewMailObserver func(ctx context.Context, accountID string, cands []NewMailCandidate)
+// dropped は上限（1 周期・1 アカウントあたり 5 件）を超えて渡さなかった候補の数（ログに出すかは受け手が決める）。
+type NewMailObserver func(ctx context.Context, accountID string, cands []NewMailCandidate, dropped int)
 
 // SetNewMailObserver は新着の観測口を設定する（nil で外す）。差分同期の新着だけが対象で、初回同期・リセット同期では呼ばない。
-// 候補の条件: INBOX を持ち、SENT・DRAFT・SPAM・TRASH・CATEGORY_PROMOTIONS／SOCIAL／UPDATES／FORUMS を持たない・
+// 候補の条件: history の messagesAdded に含まれる新規メッセージで（ラベル変更などで初めてローカルに入った既存のメッセージは含めない）、INBOX を持ち、SENT・DRAFT・SPAM・TRASH・CATEGORY_PROMOTIONS／SOCIAL／UPDATES／FORUMS を持たない・
 // 差出人がアカウント自身でない・24 時間以内・スレッドに下書き（DRAFT）が無い。1 周期・1 アカウントあたり最大 5 件。
 // 未設定（nil）のときは何も変わらない。
 func (s *Scheduler) SetNewMailObserver(fn NewMailObserver) {
@@ -53,7 +54,7 @@ func (s *Scheduler) collectObserved(cyc *cycle, f fetched, newIDs []string) {
 	}
 	latest := -1
 	for i, m := range f.meta.Messages {
-		if slices.Contains(newIDs, m.ID) {
+		if _, added := cyc.observedAdded[m.ID]; added && slices.Contains(newIDs, m.ID) {
 			latest = i
 		}
 	}
@@ -79,13 +80,10 @@ func (s *Scheduler) collectObserved(cyc *cycle, f fetched, newIDs []string) {
 
 // notifyObserver は集めた候補を観測口へ渡す。観測口の panic は同期を止めないよう、ここで受ける。
 func (s *Scheduler) notifyObserver(ctx context.Context, cyc *cycle) {
-	if cyc.observedDropped > 0 {
-		s.log.Info("new mail candidates dropped", "account", cyc.acct.ID, "count", cyc.observedDropped)
-	}
 	fn := s.observer.Load()
 	if fn == nil || len(cyc.observed) == 0 {
 		return
 	}
 	defer logging.Recover(s.log, "new mail observer")
-	(*fn)(ctx, cyc.acct.ID, cyc.observed)
+	(*fn)(ctx, cyc.acct.ID, cyc.observed, cyc.observedDropped)
 }

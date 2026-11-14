@@ -4,6 +4,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -36,6 +37,19 @@ func Override(ctx context.Context, dir string, st store.Store, _ secrets.Store, 
 	if os.Getenv(AgentMascotEnv) == "1" {
 		if err := st.SetSetting(ctx, store.SettingAgent, `{"enabled":true,"mascotEnabled":true}`); err != nil {
 			return nil, nil, fmt.Errorf("e2e: seed agent settings: %w", err)
+		}
+		// マスコットに件数が出るよう、確認待ちと質問待ちを 1 件ずつ置く（再起動しても同じ 2 件のまま）。
+		for i, status := range []string{store.AgentStatusReady, store.AgentStatusAsking} {
+			it := store.AgentItem{
+				AccountID: AccountID, ThreadID: fmt.Sprintf("e2e-thread-%d", i+1), MessageID: fmt.Sprintf("e2e-agent-msg-%d", i+1), Status: status,
+				Subject: "E2E agent item", FromLabel: "E2E sender", ReasonKind: "needs_answer", Reason: "E2E",
+			}
+			if status == store.AgentStatusAsking {
+				it.Questions = []string{"E2E question"}
+			}
+			if _, err := st.CreateAgentItem(ctx, it); err != nil && !errors.Is(err, store.ErrDuplicate) {
+				return nil, nil, fmt.Errorf("e2e: seed agent item: %w", err)
+			}
 		}
 	}
 	logger.Warn("E2E mode: Gmail is a seeded fake and credentials are in memory; never use with real accounts", "marker", Marker)

@@ -55,6 +55,9 @@ type ReplyInput struct {
 	SignatureText      string
 	// Instruction は利用者が書いた「AI への指示」（#109）。空なら指示なし（従来と同じ要求）。スレッド本文とは別枠（system 側）で渡す。
 	Instruction string
+	// Questions はエージェントモード（#372）で、利用者へ確認した質問（メールの内容から AI が作ったもの＝信頼できない文章）。
+	// Instruction（利用者の回答）とは別のブロックで「指示ではない参考情報」として渡す。
+	Questions []string
 	// Effort はモデルのエフォート（#111）。空は「モデルの既定」で、要求に載せない（従来と同じ要求）。
 	// メール内容ではなく生成のパラメータなので、同意の単位・送信先は変わらない。範囲の検査は呼び出し側（ValidEffort）。
 	Effort   string

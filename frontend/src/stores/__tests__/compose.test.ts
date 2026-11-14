@@ -70,6 +70,11 @@ describe('open', () => {
     expect(await compose.open({ mode: 'new' })).toBe(false)
     expect(compose.session).toBeUndefined()
     expect(ui.alerts.at(-1)?.kind).toBe('error')
+    expect(compose.openFailure?.code).toBe('NOT_FOUND')
+    delete h.failures.OpenCompose
+    h.responses.OpenCompose = session()
+    expect(await compose.open({ mode: 'new' })).toBe(true)
+    expect(compose.openFailure).toBeUndefined()
   })
 
   test('別のセッションが開いていれば保存して閉じてから開く', async () => {
