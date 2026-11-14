@@ -103,6 +103,28 @@ func HasAttachment(p *gmailapi.MessagePart) bool {
 	return false
 }
 
+// HasCalendar は MIME ツリーにカレンダーの招待・通知のパート（iCalendar。text/calendar・application/ics、または .ics のファイル名）があるか。
+// Google カレンダー・Outlook の招待・返信・変更・取り消しは、本文と並べてこのパートを持つ。小さいパートは添付 ID を持たず本文に入るため、
+// Walk（添付・本文の分類）ではなく、パートの種類だけを見る。
+func HasCalendar(p *gmailapi.MessagePart) bool {
+	if p == nil {
+		return false
+	}
+	switch strings.ToLower(p.MimeType) {
+	case "text/calendar", "application/ics":
+		return true
+	}
+	if strings.HasSuffix(strings.ToLower(p.Filename), ".ics") {
+		return true
+	}
+	for _, c := range p.Parts {
+		if HasCalendar(c) {
+			return true
+		}
+	}
+	return false
+}
+
 // dispositionOf は Content-Disposition の種別（attachment／inline／空）を小文字で返す。
 func dispositionOf(headers []*gmailapi.MessagePartHeader) string {
 	v := HeaderValue(headers, "Content-Disposition")

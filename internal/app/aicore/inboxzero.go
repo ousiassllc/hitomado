@@ -14,15 +14,16 @@ import (
 	"github.com/ousiassllc/hitomado/internal/logging"
 )
 
-// Inbox Zero（#314）の定数。
+// Inbox Zero（#314・#377）の定数。
 const (
 	// inboxZeroMaxRefs は 1 回に調べるスレッド数の上限（重複を除く）。
 	inboxZeroMaxRefs = 100
-	// inboxZeroConcurrency は TypeSafe AI への同時リクエスト数の上限。
+	// inboxZeroConcurrency は AI への同時リクエスト数の上限。
 	inboxZeroConcurrency = 4
-	// inboxZeroBodyRunes は TypeSafe AI へ送る本文の長さ（先頭からの文字数）。
+	// inboxZeroBodyRunes は AI へ送る本文の長さ（先頭からの文字数）。
 	inboxZeroBodyRunes = 500
-	// inboxZeroThreshold は候補にする確率の下限。選ばれた選択肢の確率（probabilities[choice]）に当てる（confidence ではない）。
+	// inboxZeroThreshold は候補にする確率の下限。選ばれた選択肢の確率（probabilities[choice]）に当てる。
+	// Jev は確率を返し、チャット系のモデルは自己申告の確信度（0〜1）を返す。どちらも同じ下限で、確信が足りなければ候補にしない。
 	inboxZeroThreshold = 0.8
 )
 
@@ -32,28 +33,30 @@ const (
 	labelUnread = "UNREAD"
 )
 
-// jevCriteria は TypeSafe AI へ渡す選択肢（この順）。無効にした理由も含めて常に全部を渡す
+// classifyCriteria は判定の AI へ渡す選択肢（この順。Jev でもチャット系のモデルでも同じ）。無効にした理由も含めて常に全部を渡す
 // （無効な理由のメールを「その他」へ寄せず、その理由として選ばせたうえで候補から外すため）。
-var jevCriteria = []ai.Criterion{
+// カレンダーは AI に聞かず端末内で先に判定するので、選択肢に含めない。
+var classifyCriteria = []ai.Criterion{
 	{Name: dto.InboxZeroReasonAd, Description: "商品・サービス・イベントなどを宣伝・販売促進する広告のメール（セール、キャンペーン、クーポン、新商品の案内など）。"},
 	{Name: dto.InboxZeroReasonNotification, Description: "サービスやシステムが自動で送る通知だけのメール（ログイン通知、配送状況、利用明細、SNS の更新通知など）で、返信も対応も求めないもの。"},
 	{Name: dto.InboxZeroReasonNewsletter, Description: "定期的に配信されるニュースレター・メールマガジン・記事やブログの更新まとめ。"},
-	{Name: jevOther, Description: "通常のメール・個人宛て・重要なもの・判断できない。"},
+	{Name: choiceOther, Description: "通常のメール・個人宛て・重要なもの・判断できない。"},
 }
 
-// jevOther は「どれにも当てはまらない」選択肢の名前。候補にならない。
-const jevOther = "other"
+// choiceOther は「どれにも当てはまらない」選択肢の名前。候補にならない。
+const choiceOther = "other"
 
-const jevInstructions = "このメールの種類として、最も当てはまるものを 1 つ選んでください。"
+const classifyInstructions = "このメールの種類として、最も当てはまるものを 1 つ選んでください。"
 
 // inboxZeroRun は FindInboxZeroCandidates 1 回分の実行の状態。
 type inboxZeroRun struct {
 	s       *Service
 	reasons dto.InboxZeroReasons
-	// jevReasons は TypeSafe AI で判定する理由が 1 つでもオンか。
-	jevReasons bool
-	// classifier は jevReasons が真のときだけ作る。
+	// aiReasons は AI で判定する理由（広告・通知・ニュースレター）が 1 つでもオンか。
+	aiReasons bool
+	// classifier は aiReasons が真のときだけ作る。provider はその AI（エラーの文面の分類に使う）。
 	classifier ai.Classifier
+	provider   string
 	// emails はアカウント ID → そのアカウントのメールアドレス（replied がオンのときだけ）。
 	emails map[string]string
 
@@ -70,9 +73,9 @@ type slot struct {
 }
 
 // FindInboxZeroCandidates は refs（フロントが読み込み済みの一覧）のうち、設定でオンの理由に当てはまる「不要なメール」の候補を返す。
-// 返信済みは端末内だけで判定し、広告・通知・ニュースレターは TypeSafe AI（Jev）で判定する（確率が高いものだけ）。
-// 前提（キー・同意）は通信とスレッドの読み込みの前に確かめる。TypeSafe AI の理由がすべてオフなら、キーも同意も要らない。
-// 中止（CancelGenerate・ctx）は CANCELLED。TypeSafe AI の 401／403・429 は全体を止め、それ以外の失敗は該当スレッドを skipped にする。
+// 返信済み・カレンダーは端末内だけで判定し、広告・通知・ニュースレターは Inbox Zero に選んだ AI・モデルで判定する（確率・確信度が高いものだけ）。
+// 前提（選んだ AI のキー・ログインと同意）は通信とスレッドの読み込みの前に確かめる。AI の理由がすべてオフなら、AI の前提は要らない。
+// 中止（CancelGenerate・ctx）は CANCELLED。AI の 401／403・429・利用上限は全体を止め、それ以外の失敗は該当スレッドを skipped にする。
 func (s *Service) FindInboxZeroCandidates(ctx context.Context, refs []dto.ThreadRef, requestID string) (dto.InboxZeroResult, error) {
 	if err := validateRequestID(requestID); err != nil {
 		return dto.InboxZeroResult{}, err
@@ -90,11 +93,11 @@ func (s *Service) FindInboxZeroCandidates(ctx context.Context, refs []dto.Thread
 	if err != nil {
 		return dto.InboxZeroResult{}, s.precheckError(runCtx, err)
 	}
-	if !reasons.Ad && !reasons.Notification && !reasons.Newsletter && !reasons.Replied {
+	if !reasons.Ad && !reasons.Notification && !reasons.Newsletter && !reasons.Replied && !reasons.Calendar {
 		return dto.InboxZeroResult{}, apperr.New(apperr.Validation, "不要なメールの理由を 1 つ以上オンにしてください。")
 	}
-	run := &inboxZeroRun{s: s, reasons: reasons, jevReasons: reasons.Ad || reasons.Notification || reasons.Newsletter}
-	if run.jevReasons {
+	run := &inboxZeroRun{s: s, reasons: reasons, aiReasons: reasons.Ad || reasons.Notification || reasons.Newsletter}
+	if run.aiReasons {
 		if err := run.setupClassifier(runCtx); err != nil {
 			return dto.InboxZeroResult{}, s.precheckError(runCtx, err)
 		}
@@ -122,23 +125,17 @@ func dedupeRefs(refs []dto.ThreadRef) []dto.ThreadRef {
 	return out
 }
 
-// setupClassifier は TypeSafe AI のキーと同意を確かめ（通信の前）、Classifier を作る。
+// setupClassifier は Inbox Zero に選んだ AI の前提（つながっている・同意済み）を確かめ（通信の前）、Classifier を作る。
 func (r *inboxZeroRun) setupClassifier(ctx context.Context) error {
-	key, ok, err := r.s.apiKey(providerTypeSafe)
+	sel, key, err := r.s.precheckInboxZero(ctx)
 	if err != nil {
 		return err
 	}
-	if !ok {
-		return apperr.New(apperr.AINotConfigured, "TypeSafe AI のキーを設定画面で登録してください。")
-	}
-	consented, err := r.s.hasConsent(ctx, providerTypeSafe, "")
+	cl, err := r.s.d.Classifier(sel.Provider, sel.Model, sel.BaseURL, key)
 	if err != nil {
-		return err
+		return initError(err)
 	}
-	if !consented {
-		return apperr.New(apperr.AIConsentRequired, "メールの件名・差出人・本文の先頭が TypeSafe AI へ送信されることへの同意が必要です。")
-	}
-	r.classifier = r.s.d.Classifier(key)
+	r.classifier, r.provider = cl, sel.Provider
 	return nil
 }
 
@@ -224,6 +221,8 @@ func (r *inboxZeroRun) judgeSafe(ctx context.Context, ref dto.ThreadRef) (sl slo
 }
 
 // judge は 1 スレッドを判定する。ctx が終わっていたら何も記録しない（結果は使われない）。
+// 理由の優先順位は、返信済み（オンのとき）→ カレンダー → AI。カレンダーの招待・通知は、カレンダーがオフなら候補にせず
+// （AI にも聞かず、広告・通知など別の理由に寄せない）、オンなら「カレンダー」を理由にする。判定はどれもスレッドの最後の 1 通（下書きを除く）を見る。
 func (r *inboxZeroRun) judge(ctx context.Context, ref dto.ThreadRef) slot {
 	thread, err := r.s.d.Threads.Get(ctx, ref.AccountID, ref.ThreadID)
 	if err != nil {
@@ -242,11 +241,18 @@ func (r *inboxZeroRun) judge(ctx context.Context, ref dto.ThreadRef) slot {
 	}
 	latest := msgs[len(msgs)-1]
 	cand := dto.InboxZeroCandidate{Ref: ref, From: senderLabel(latest), Subject: latest.Subject}
-	if r.reasons.Replied && hasOwnMessage(msgs, r.emails[ref.AccountID]) {
+	if r.reasons.Replied && isOwnMessage(latest, r.emails[ref.AccountID]) {
 		cand.Reason = dto.InboxZeroReasonReplied
 		return slot{cand: &cand}
 	}
-	reasons := r.jevEligible(msgs)
+	if isCalendarMail(latest) {
+		if !r.reasons.Calendar {
+			return slot{}
+		}
+		cand.Reason = dto.InboxZeroReasonCalendar
+		return slot{cand: &cand}
+	}
+	reasons := r.aiEligible(msgs)
 	if len(reasons) == 0 {
 		return slot{}
 	}
@@ -261,18 +267,19 @@ func (r *inboxZeroRun) judge(ctx context.Context, ref dto.ThreadRef) slot {
 	return slot{cand: &cand}
 }
 
-// classifyFailure は TypeSafe AI の失敗を扱う。認証（401／403）・レート制限（429）は全体を止め、それ以外は該当スレッドだけ skipped にする。
+// classifyFailure は AI の失敗を扱う。認証（401／403）・レート制限（429）・ChatGPT の利用上限・対象外は、
+// どのスレッドでも同じ結果になるので全体を止め、それ以外は該当スレッドだけ skipped にする。
 func (r *inboxZeroRun) classifyFailure(err error) slot {
-	if errors.Is(err, ai.ErrUnauthorized) || errors.Is(err, ai.ErrRateLimited) {
-		r.fail(r.s.mapProviderError(providerTypeSafe, "", err))
+	if errors.Is(err, ai.ErrUnauthorized) || errors.Is(err, ai.ErrRateLimited) || errors.Is(err, ai.ErrUsageLimit) || errors.Is(err, ai.ErrNotEligible) {
+		r.fail(r.s.mapProviderError(r.provider, "", err))
 		return slot{}
 	}
 	return slot{skipped: true}
 }
 
-// jevEligible は TypeSafe AI の判定で候補にできる理由（オンのもの。ニュースレターはスレッドが未読のときだけ）。
-func (r *inboxZeroRun) jevEligible(msgs []gmail.MessageFull) []string {
-	if !r.jevReasons {
+// aiEligible は AI の判定で候補にできる理由（オンのもの。ニュースレターはスレッドが未読のときだけ）。
+func (r *inboxZeroRun) aiEligible(msgs []gmail.MessageFull) []string {
+	if !r.aiReasons {
 		return nil
 	}
 	var reasons []string
@@ -288,12 +295,12 @@ func (r *inboxZeroRun) jevEligible(msgs []gmail.MessageFull) []string {
 	return reasons
 }
 
-// classify は latest を TypeSafe AI に判定させる。eligible のどれかを高い確率で選んだときだけ、その理由を ok=true で返す。
+// classify は latest を AI に判定させる。eligible のどれかを高い確率で選んだときだけ、その理由を ok=true で返す。
 // 選ばれた選択肢が対象外（オフの理由・other・未読でないニュースレター）なら、2 番目の候補には落とさず ok=false。
 func (r *inboxZeroRun) classify(ctx context.Context, latest gmail.MessageFull, eligible []string) (reason string, ok bool, err error) {
 	callCtx, stop := context.WithTimeout(ctx, r.s.timeout)
 	defer stop()
-	ans, err := r.classifier.Classify(callCtx, ai.ClassifyInput{State: jevState(latest), Instructions: jevInstructions, Criteria: jevCriteria})
+	ans, err := r.classifier.Classify(callCtx, ai.ClassifyInput{State: classifyState(latest), Instructions: classifyInstructions, Criteria: classifyCriteria})
 	if err != nil {
 		return "", false, err
 	}

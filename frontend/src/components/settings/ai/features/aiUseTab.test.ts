@@ -169,6 +169,20 @@ describe('「機能ごとに使う AI」の状態（#376）', () => {
     expect(useUiStore().aiTab).toBe('connect')
   })
 
+  test('(2) 何もつないでいなくても、Inbox Zero の理由のオン・オフ（AI を使わない理由を含む）は出る', async () => {
+    const { w } = open({
+      apiKeyProviders: [],
+      consentedProviders: [],
+      features: features(),
+      chatgptSignedIn: false,
+      chatgptAccounts: [],
+    })
+    await flushPromises()
+    expect(w.find('[data-testid="ai-use-empty"]').exists()).toBe(true)
+    expect(w.find('[data-testid="inbox-zero-reason-calendar"]').exists()).toBe(true)
+    expect(w.find('[data-testid="inbox-zero-reason-replied"]').exists()).toBe(true)
+  })
+
   test('(3) その機能で使える AI が無い行は「使える AI がありません」＋「AI をつなぐ」。ほかの行はそのまま', async () => {
     const { w } = open({
       apiKeyProviders: ['typesafe'],

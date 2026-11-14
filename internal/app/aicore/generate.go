@@ -111,10 +111,7 @@ func (s *Service) callProvider(ctx context.Context, cfg SelectedAI, key string, 
 	}
 	provider, err := s.d.AI(cfg.Provider, cfg.Model, cfg.BaseURL, key)
 	if err != nil {
-		if errors.Is(err, ai.ErrInvalidBaseURL) {
-			return "", apperr.Wrap(apperr.Validation, "Base URL が使えません。設定を確認してください。", err)
-		}
-		return "", apperr.Wrap(apperr.AIFailed, "AI プロバイダを初期化できません。設定を確認してください。", err)
+		return "", initError(err)
 	}
 	callCtx, stop := context.WithTimeout(ctx, s.timeout)
 	defer stop()
@@ -126,6 +123,14 @@ func (s *Service) callProvider(ctx context.Context, cfg SelectedAI, key string, 
 		return "", err
 	}
 	return text, nil
+}
+
+// initError はプロバイダ（分類器）を作れなかったエラーを AppError にする。
+func initError(err error) error {
+	if errors.Is(err, ai.ErrInvalidBaseURL) {
+		return apperr.Wrap(apperr.Validation, "Base URL が使えません。設定を確認してください。", err)
+	}
+	return apperr.Wrap(apperr.AIFailed, "AI プロバイダを初期化できません。設定を確認してください。", err)
 }
 
 // mapProviderError はプロバイダのエラーを AppError にする。ChatGPT の 401 は API キーではなくログインの問題として伝える。

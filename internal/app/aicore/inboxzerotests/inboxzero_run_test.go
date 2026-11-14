@@ -1,4 +1,4 @@
-package aicoretests
+package inboxzerotests
 
 import (
 	"context"
@@ -53,13 +53,17 @@ func TestInboxZeroValidationAndDedupe(t *testing.T) {
 	assert.Equal(t, []dto.ThreadRef{b, a}, []dto.ThreadRef{res.Candidates[0].Ref, res.Candidates[1].Ref})
 }
 
-// Jev の理由がオンでキーが無ければ AI_NOT_CONFIGURED（返信下書き用の設定は前提にならない）、同意が無ければ AI_CONSENT_REQUIRED。通信しない。
+// AI の理由がオンで、Inbox Zero の AI が未選択かつ Jev のキーも無ければ AI_NOT_CONFIGURED（返信下書き用の設定は前提にならない）、
+// 同意が無ければ AI_CONSENT_REQUIRED。通信しない。
 func TestInboxZeroPreconditions(t *testing.T) {
 	f := newIZFixture(t)
 	ref := f.mail(t, "t-ad")
 	_, err := f.find(ref)
-	assert.Contains(t, requireError(t, "AI_NOT_CONFIGURED", err).Message, "TypeSafe AI のキー")
-	f.ready(t)
+	assert.Contains(t, requireError(t, "AI_NOT_CONFIGURED", err).Message, "機能ごとに使う AI")
+	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey) // 返信下書き用の設定（OpenAI）は、Inbox Zero の AI にならない
+	require.NoError(t, err)
+	_, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureDraft, "openai", "gpt-test", "")
+	require.NoError(t, err)
 	_, err = f.ai.RecordAIConsent(t.Context(), "typesafe", "")
 	require.NoError(t, err)
 	_, err = f.find(ref)

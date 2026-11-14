@@ -5,7 +5,7 @@ import "github.com/ousiassllc/hitomado/internal/domain/model"
 // AI を使う機能の ID（SetAIFeature の feature。AIFeatures のキーと同じ）。
 const (
 	AIFeatureDraft     = "draft"     // 「AI で下書き」（返信・新規作成。要約・質問も同じ設定を使う）
-	AIFeatureInboxZero = "inboxZero" // Inbox Zero の判定（#377 が使う）
+	AIFeatureInboxZero = "inboxZero" // Inbox Zero の判定（#377）
 )
 
 // AIFeatureSetting は機能 1 つで使う AI・モデルの選択（#376）。保存した値をそのまま返し、つないでいるかは確かめない

@@ -21,14 +21,45 @@ func (s *Service) precheck(ctx context.Context, feature string) (SelectedAI, str
 	if err != nil {
 		return sel, "", err
 	}
-	label := featureLabels[feature]
 	if !saved {
-		return sel, "", apperr.New(apperr.AINotConfigured, label+"で使う AI とモデルを、設定画面の「機能ごとに使う AI」で選んでください。")
+		return sel, "", errNotSelected(feature)
 	}
+	return s.precheckSelected(ctx, feature, sel)
+}
+
+// errNotSelected は feature で使う AI が未選択のときのエラー（選ぶ場所の案内）。
+func errNotSelected(feature string) error {
+	return apperr.New(apperr.AINotConfigured, featureLabels[feature]+"で使う AI とモデルを、設定画面の「機能ごとに使う AI」で選んでください。")
+}
+
+// precheckInboxZero は Inbox Zero で使う AI の前提条件を検査する（precheck と同じ）。未選択のときだけ、TypeSafe AI のキーがあれば
+// TypeSafe AI を使う（#314 の利用者は、Inbox Zero の AI を選ぶ前から TypeSafe AI で動いていたため。選んでいる AI は、つながっていなくても切り替えない）。
+func (s *Service) precheckInboxZero(ctx context.Context) (SelectedAI, string, error) {
+	sel, saved, err := s.FeatureAI(ctx, dto.AIFeatureInboxZero)
+	if err != nil {
+		return sel, "", err
+	}
+	if !saved {
+		_, ok, err := s.apiKey(providerTypeSafe)
+		if err != nil {
+			return sel, "", err
+		}
+		if !ok {
+			return sel, "", errNotSelected(dto.AIFeatureInboxZero)
+		}
+		sel = SelectedAI{Provider: providerTypeSafe}
+	}
+	return s.precheckSelected(ctx, dto.AIFeatureInboxZero, sel)
+}
+
+// precheckSelected は選んだ AI（sel）がつながっていて、モデルがあり、同意済みかを検査し、使うキーを返す。
+func (s *Service) precheckSelected(ctx context.Context, feature string, sel SelectedAI) (SelectedAI, string, error) {
+	label := featureLabels[feature]
 	// ChatGPT のトークンは、同意の確認が済むまで取得（更新）しない。まずはログイン済みかだけを見る。
 	var (
 		key string
 		ok  bool
+		err error
 	)
 	if sel.Provider == providerChatGPT {
 		var gpt siwc.Status

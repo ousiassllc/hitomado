@@ -93,6 +93,8 @@ type MessageFull struct {
 	BodyText     string
 	Attachments  []model.AttachmentInfo
 	InlineImages map[string]InlinePart // key は mimeparse.NormalizeCID 済みの Content-ID（山括弧・cid: なし、小文字、%デコード済み）
+	// HasCalendar はカレンダーの招待・通知のパート（text/calendar・application/ics・.ics の添付）を含むか（Inbox Zero の判定用。#377）。
+	HasCalendar bool
 }
 
 // ThreadFull は threads.get(format=full)。Messages は時系列昇順（下書きも含む。呼び出し側が DRAFT を除く）。

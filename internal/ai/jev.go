@@ -31,13 +31,15 @@ type ClassifyInput struct {
 	Criteria     []Criterion
 }
 
-// ClassifyAnswer は choice 質問の答え。Choice は確率が最も高い選択肢、Probabilities は全選択肢の確率（合計 1）。
+// ClassifyAnswer は choice 質問の答え。Choice は選ばれた選択肢、Probabilities はその確率。
+// Jev は全選択肢の確率（合計 1）を返す。チャット系のモデルは確率を返せないので、自己申告の確信度（0〜1）を Choice の分だけ載せる。
 type ClassifyAnswer struct {
 	Choice        string
 	Probabilities map[string]float64
 }
 
-// Classifier は文章を分類する TypeSafe AI（Jev。#314）。返信下書きの Provider とは別物（文章は書かない）。
+// Classifier は文章を分類する AI。TypeSafe AI（Jev。#314）と、チャット系のモデル（NewClassifierFor。#377）が実装する。
+// 返信下書きの Provider とは別物（文章は書かない）。
 // エラーは Provider と同じ分類（ErrUnauthorized・ErrRateLimited・ErrFailed）で、キー・要求・応答の本文は含まない。
 type Classifier interface {
 	Classify(ctx context.Context, in ClassifyInput) (ClassifyAnswer, error)

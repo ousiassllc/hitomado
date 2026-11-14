@@ -9,9 +9,11 @@ import AIStatusChip from '../providers/AIStatusChip.vue'
 import { AI_PROVIDERS, isConnected } from '../providers/aiProviders'
 import AIFeatureRow from './AIFeatureRow.vue'
 import { modelsKeyFor } from './aiFeatures'
+import InboxZeroReasons from './InboxZeroReasons.vue'
 
 // 「機能ごとに使う AI」タブ（#376）。機能ごとに 1 行（AI で下書き・Inbox Zero・エージェント＝準備中）。
-// 何もつないでいない（選んでいるものも無い）ときは、タブ全体にひとつだけ案内を出して「つなぎ先」へ誘導する。
+// 何もつないでいない（選んでいるものも無い）ときは、一覧の代わりにひとつだけ案内を出して「つなぎ先」へ誘導する。
+// 一覧の下に、Inbox Zero で不要とみなす理由のオン・オフ（#377）。AI を使わない理由（返信済み・カレンダー）だけなら、AI をつながなくても使える。
 const store = useSettingsStore()
 const ui = useUiStore()
 const t = msg.ai.use
@@ -86,6 +88,7 @@ function fix(provider: string): void {
         </div>
       </li>
     </ul>
+    <InboxZeroReasons />
   </section>
 </template>
 

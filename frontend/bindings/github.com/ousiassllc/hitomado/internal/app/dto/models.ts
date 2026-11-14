@@ -379,7 +379,7 @@ export interface InboxZeroCandidate {
     "subject": string;
 
     /**
-     * Reason は候補にした理由（ad／notification／newsletter／replied）。
+     * Reason は候補にした理由（ad／notification／newsletter／replied／calendar）。
      */
     "reason": string;
 }
@@ -389,24 +389,30 @@ export interface InboxZeroCandidate {
  */
 export interface InboxZeroReasons {
     /**
-     * Ad は広告・宣伝のメール（TypeSafe AI が判定）。
+     * Ad は広告・宣伝のメール（機能ごとに使う AI の「Inbox Zero」に選んだ AI が判定）。
      */
     "ad": boolean;
 
     /**
-     * Notification は通知だけのメール（TypeSafe AI が判定）。
+     * Notification は通知だけのメール（選んだ AI が判定）。
      */
     "notification": boolean;
 
     /**
-     * Newsletter は未読のニュースレター（TypeSafe AI が判定。スレッドが未読のときだけ）。
+     * Newsletter は未読のニュースレター（選んだ AI が判定。スレッドが未読のときだけ）。
      */
     "newsletter": boolean;
 
     /**
-     * Replied は返信済みのメール（スレッドに自分のメッセージがある。端末内で判定し、TypeSafe AI は使わない）。
+     * Replied は返信済みのメール（スレッドの最後の 1 通（下書きを除く）が自分の送信。端末内で判定し、AI は使わない）。
      */
     "replied": boolean;
+
+    /**
+     * Calendar はカレンダーの招待・通知のメール（最後の 1 通（下書きを除く）が iCalendar のパートを持つ、または Google カレンダーからのもの。
+     * 端末内で判定し、AI は使わない。#377）。
+     */
+    "calendar": boolean;
 }
 
 /**
@@ -424,7 +430,7 @@ export interface InboxZeroResult {
     "examined": number;
 
     /**
-     * Skipped は TypeSafe AI の判定に失敗して候補にしなかったスレッドの数。
+     * Skipped は AI の判定に失敗して候補にしなかったスレッドの数。
      */
     "skipped": number;
 }

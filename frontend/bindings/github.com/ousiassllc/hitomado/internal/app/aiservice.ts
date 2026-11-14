@@ -48,7 +48,8 @@ export function ClearAIApiKey(provider: string): $CancellablePromise<dto$0.AICon
 
 /**
  * FindInboxZeroCandidates は refs（読み込み済みの一覧。重複を除いて 100 件まで）から、オンの理由に当てはまるアーカイブ候補を返す。
- * 返信済みは端末内で判定し、広告・通知・ニュースレターは TypeSafe AI（件名・差出人・本文の先頭 500 文字を送る。キーと同意が前提）で判定する。
+ * 返信済み・カレンダーは端末内で判定し、広告・通知・ニュースレターは「機能ごとに使う AI」の Inbox Zero に選んだ AI・モデル
+ * （件名・差出人・本文の先頭 500 文字を送る。つながっていることと同意が前提）で判定する。AI を使う理由がすべてオフなら AI の前提は要らない。
  * 中止は CancelGenerate（CANCELLED）。アーカイブは行わない（InboxService.Archive を使う）。
  */
 export function FindInboxZeroCandidates(refs: dto$0.ThreadRef[] | null, requestID: string): $CancellablePromise<dto$0.InboxZeroResult> {
@@ -125,7 +126,7 @@ export function SetAIFeature(feature: string, provider: string, model: string, e
 }
 
 /**
- * SetInboxZeroReasons は「不要なメール」の理由ごとのオン・オフを保存する（広告・通知・ニュースレター・返信済み）。
+ * SetInboxZeroReasons は「不要なメール」の理由ごとのオン・オフを保存する（広告・通知・ニュースレター・返信済み・カレンダー）。
  */
 export function SetInboxZeroReasons(reasons: dto$0.InboxZeroReasons): $CancellablePromise<dto$0.InboxZeroSettings> {
     return $Call.ByID(1259288786, reasons);

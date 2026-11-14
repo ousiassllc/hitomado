@@ -1,7 +1,8 @@
 // Inbox Zero（#314）。ボタンを押すと、今のタブに読み込まれているメール（最大 100 件）を Go が判断して候補を返し、
 // 候補を「差出人・件名」のチェックつき一覧で確認する。「アーカイブする（Yes）」のときだけ、チェックの入ったものをアーカイブする
 // （アーカイブ・元に戻すは受信箱の通常のアーカイブと同じ。inbox.archive）。「やめる（No）」は何も変えない。
-// Jev へ送るのは、初めて使うときに同意をもらってから（同意前は Go も送らない）。
+// 広告・通知・ニュースレターの判断に使う AI は、設定の「機能ごとに使う AI」で Inbox Zero に選んだもの（#377）。
+// 選んだ AI へ送るのは、その AI・送信先への同意をもらってから（同意前は Go も送らない）。返信済み・カレンダーは端末内の判断で、AI も同意も要らない。
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { AIService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
@@ -9,16 +10,18 @@ import type {
   InboxZeroCandidate,
   InboxZeroReasons,
 } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { hasProviderCredential } from '../../lib/aiConfig'
 import { call, list, parseBindingError } from '../../lib/api'
 import { keyOf, refOf } from '../../lib/inboxItems'
-import { inboxZero as msg } from '../../lib/messages'
+import { inboxZero as msg, settings as settingsMsg } from '../../lib/messages'
 import { useInboxStore } from '../inbox'
 import { useSettingsStore } from '../settings'
 import { useUiStore } from '../ui'
 
 /** 1 回に判断するメールの上限（Go も同じ値で検証する）。 */
 export const INBOX_ZERO_MAX = 100
-const PROVIDER = 'typesafe'
+/** Inbox Zero の AI が未選択のときの互換の既定（Go の precheckInboxZero と同じ。#314 の利用者は Jev で動いていた）。 */
+const LEGACY_PROVIDER = 'typesafe'
 
 export type InboxZeroPhase = 'idle' | 'consent' | 'checking' | 'review'
 
@@ -27,12 +30,13 @@ export const useInboxZeroStore = defineStore('inboxZero', () => {
   const settings = useSettingsStore()
   const ui = useUiStore()
 
-  /** 「不要」とみなす理由のオン・オフ。読み込み前・読み込めないときは Go の既定（4 つともオン）と同じ。 */
+  /** 「不要」とみなす理由のオン・オフ。読み込み前・読み込めないときは Go の既定（5 つともオン）と同じ。 */
   const reasons = ref<InboxZeroReasons>({
     ad: true,
     notification: true,
     newsletter: true,
     replied: true,
+    calendar: true,
   })
   const phase = ref<InboxZeroPhase>('idle')
   const candidates = ref<InboxZeroCandidate[]>([])
@@ -40,12 +44,24 @@ export const useInboxZeroStore = defineStore('inboxZero', () => {
   const skipped = ref(0)
   let requestId: string | undefined
 
-  /** Jev に聞く理由（広告・通知・ニュースレター）が 1 つでもオンか。返信済みだけなら Jev は要らない。 */
-  const needsJev = computed(() => {
+  /** AI に聞く理由（広告・通知・ニュースレター）が 1 つでもオンか。返信済み・カレンダーだけなら AI は要らない。 */
+  const needsAI = computed(() => {
     const r = reasons.value
     return r.ad || r.notification || r.newsletter
   })
-  const anyReason = computed(() => needsJev.value || reasons.value.replied)
+  const anyReason = computed(() => needsAI.value || reasons.value.replied || reasons.value.calendar)
+
+  /**
+   * 判断に使う AI（Inbox Zero に選んだもの）。未選択のときだけ、Jev のキーがあれば Jev（#314 からの互換）。
+   * 選んでいる AI がつながっていなくても、ほかの AI には切り替えない。設定の読み込み前は undefined。
+   */
+  const selectedAI = computed<string | undefined>(() => {
+    const cfg = settings.aiConfig
+    if (!cfg) return undefined
+    const chosen = cfg.features.inboxZero.provider
+    if (chosen !== '') return chosen
+    return hasProviderCredential(LEGACY_PROVIDER, cfg) ? LEGACY_PROVIDER : undefined
+  })
 
   /** 押せない理由（押せるときは undefined）。ボタンはこの文言をツールチップとタップ時のトーストで出す。 */
   const blockedReason = computed<string | undefined>(() => {
@@ -53,10 +69,22 @@ export const useInboxZeroStore = defineStore('inboxZero', () => {
     if (inbox.items.length === 0) return msg.blockedEmpty
     const cfg = settings.aiConfig
     // 設定の読み込み前は止めない（押したときの検査は Go が行う）。
-    if (needsJev.value && cfg && !list(cfg.apiKeyProviders).includes(PROVIDER)) {
-      return msg.blockedNoKey
+    if (needsAI.value && cfg) {
+      const p = selectedAI.value
+      if (p === undefined) return msg.blockedNoAI
+      if (!hasProviderCredential(p, cfg)) {
+        return msg.blockedNotConnected(settingsMsg.ai.providerList.names[p] ?? p)
+      }
     }
     return undefined
+  })
+
+  /** 判断に使う AI の同意の対象（プロバイダと、OpenAI 互換の Base URL。未選択は undefined）。 */
+  const consentTarget = computed(() => {
+    const p = selectedAI.value
+    if (p === undefined) return undefined
+    const baseUrl = p === 'openai' ? (settings.aiConfig?.baseUrl ?? '') : ''
+    return { provider: p, baseUrl }
   })
 
   const checkedCandidates = computed(() =>
@@ -93,7 +121,12 @@ export const useInboxZeroStore = defineStore('inboxZero', () => {
       ui.pushToast('info', blocked)
       return
     }
-    if (needsJev.value && !list(settings.aiConfig?.consentedProviders).includes(PROVIDER)) {
+    const target = consentTarget.value
+    if (
+      needsAI.value &&
+      target &&
+      !list(settings.aiConfig?.consentedProviders).includes(target.provider)
+    ) {
       phase.value = 'consent'
       return
     }
@@ -102,9 +135,10 @@ export const useInboxZeroStore = defineStore('inboxZero', () => {
 
   /** 同意して続ける。同意を保存してから判断を始める。 */
   async function agree(): Promise<void> {
-    if (phase.value !== 'consent') return
+    const target = consentTarget.value
+    if (phase.value !== 'consent' || !target) return
     try {
-      await settings.recordAIConsent(PROVIDER)
+      await settings.recordAIConsent(target.provider, target.baseUrl)
     } catch (e) {
       reset()
       ui.pushAlert(parseBindingError(e).message)
@@ -174,7 +208,9 @@ export const useInboxZeroStore = defineStore('inboxZero', () => {
     candidates,
     checked,
     skipped,
-    needsJev,
+    needsAI,
+    selectedAI,
+    consentTarget,
     blockedReason,
     checkedCandidates,
     start,
