@@ -110,3 +110,16 @@ export function featureChoices(
   }
   return { options, manual, loading, noneAvailable: connected.length === 0 }
 }
+
+/**
+ * 選べる AI が TypeSafe AI（Jev）だけか（モデルも選ぶものが無いので、固定表示にして保存する）。ほかのつないである AI のモデル一覧を
+ * 取得している途中・手入力待ちのあいだは、まだ Jev だけとは言えない（取得の途中で Jev を勝手に保存しない）。
+ */
+export function isJevOnly(c: FeatureChoices): boolean {
+  return (
+    !c.loading &&
+    c.manual.length === 0 &&
+    c.options.length === 1 &&
+    c.options[0]?.value === optionValue('typesafe', '')
+  )
+}

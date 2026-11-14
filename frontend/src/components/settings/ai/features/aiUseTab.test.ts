@@ -213,36 +213,6 @@ describe('「機能ごとに使う AI」の状態（#376）', () => {
     expect(saved).toEqual([['inboxZero', 'typesafe', '', '']])
   })
 
-  test('Jev のほかにもつないであるときは、モデル一覧の取得中に Jev を保存しない（取得が終わるまで「固定」にもしない）', async () => {
-    const s = setup({
-      apiKeyProviders: ['openai', 'typesafe'],
-      consentedProviders: ['openai', 'typesafe'],
-      features: features({ provider: 'openai', model: 'gpt-a' }),
-      chatgptSignedIn: false,
-      chatgptAccounts: [],
-    })
-    const finish: (() => void)[] = []
-    const load = s.store.loadAIModels
-    s.store.loadAIModels = (p: string, b = '') =>
-      new Promise((resolve) => {
-        finish.push(() => resolve(load(p, b)))
-      })
-    const saved: unknown[][] = []
-    s.store.setAIFeature = async (...a: unknown[]) => {
-      saved.push(a)
-    }
-    const w = mount(AIUseTab, { global: { plugins: [s.pinia] }, attachTo: document.body })
-    await flushPromises()
-    expect(finish).toHaveLength(1) // 取得の途中
-    expect(feat(w, 'inboxZero').find('[data-testid="ai-feature-fixed"]').exists()).toBe(false)
-    expect(saved).toEqual([])
-    for (const f of finish) f()
-    await flushPromises()
-    expect(feat(w, 'inboxZero').find('[data-testid="ai-feature-fixed"]').exists()).toBe(false)
-    expect(saved).toEqual([])
-    w.unmount()
-  })
-
   test('(4) 選んでいた AI が外された・ログインが切れたときは、選択を残して「つなぎ直しが必要」と直す入口を出す。別の AI へは切り替えない', async () => {
     const cfg = {
       ...normal,

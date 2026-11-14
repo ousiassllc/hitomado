@@ -13,6 +13,7 @@ import { isConnected } from '../providers/aiProviders'
 import {
   type AIFeatureId,
   featureChoices,
+  isJevOnly,
   modelListFor,
   optionValue,
   parseOption,
@@ -38,19 +39,8 @@ const hasSaved = computed(() => saved.value.provider !== '')
 const needsReconnect = computed(() => hasSaved.value && !isConnected(saved.value.provider, cfg.value))
 const empty = computed(() => choices.value.noneAvailable && !hasSaved.value)
 
-/**
- * Inbox Zero で選べる AI が TypeSafe AI（Jev）だけのときは、モデルも選ぶものが無いので固定表示にする（選択はここで保存する）。
- * ほかのつないである AI のモデル一覧を取得している途中・手入力待ちのあいだは、まだ Jev だけとは言えないので固定にしない
- * （取得の途中で Jev を勝手に保存しない）。
- */
-const fixedJev = computed(
-  () =>
-    props.feature === 'inboxZero' &&
-    !choices.value.loading &&
-    choices.value.manual.length === 0 &&
-    choices.value.options.length === 1 &&
-    choices.value.options[0]?.value === optionValue('typesafe', ''),
-)
+/** Inbox Zero で選べる AI が TypeSafe AI（Jev）だけのときは固定表示にする（選択はここで保存する）。 */
+const fixedJev = computed(() => props.feature === 'inboxZero' && isJevOnly(choices.value))
 
 const busy = ref(false)
 const error = ref<string>()
