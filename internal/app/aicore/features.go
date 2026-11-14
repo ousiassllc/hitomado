@@ -134,6 +134,16 @@ func (s *Service) FeatureAI(ctx context.Context, feature string) (sel SelectedAI
 	return sel, chosen.Provider != "", nil
 }
 
+// FeaturesAPI は機能ごとに使う AI・つなぎ先の設定（#376）のバインディング面（AIService が埋め込んで公開する。実装は Service）。
+type FeaturesAPI interface {
+	// SetAIFeature は機能（draft／inboxZero）で使う AI・モデル・エフォートを保存する。
+	SetAIFeature(ctx context.Context, feature, provider, model, effort string) (dto.AIConfig, error)
+	// SetAIBaseURL は OpenAI 互換の Base URL（つなぎ先の設定）を保存する。
+	SetAIBaseURL(ctx context.Context, baseURL string) (dto.AIConfig, error)
+}
+
+var _ FeaturesAPI = (*Service)(nil)
+
 // SetAIFeature は feature（draft／inboxZero）で使う AI・モデルを保存し、保存後の設定を返す。
 // 選べるプロバイダは draft が anthropic／openai／chatgpt、inboxZero はそれに typesafe を足したもの（範囲外は VALIDATION）。
 // typesafe はモデルを持たない（model は無視して空で保存する）。それ以外は model が必須。

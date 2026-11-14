@@ -119,7 +119,7 @@ export function SetAIBaseURL(baseURL: string): $CancellablePromise<dto$0.AIConfi
 }
 
 /**
- * SetAIFeature は機能（draft／inboxZero）で使う AI・モデルを保存する（機能ごとに使う AI。#376）。
+ * SetAIFeature は機能（draft／inboxZero）で使う AI・モデル・エフォートを保存する。
  */
 export function SetAIFeature(feature: string, provider: string, model: string, effort: string): $CancellablePromise<dto$0.AIConfig> {
     return $Call.ByID(1650750743, feature, provider, model, effort);
