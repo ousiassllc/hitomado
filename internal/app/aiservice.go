@@ -8,17 +8,17 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 )
 
-// AIService は AI 設定・同意・下書き生成・スレッドの要約と質問（バインディング仕様 §6）。
-// Wails のバインディング面で、実装は aicore に委譲する。
+// AIService は AI 設定・同意・下書き生成・スレッドの要約と質問（バインディング仕様 §6）。Wails のバインディング面で、実装は aicore に委譲する。
 type AIService struct {
 	core                *aicore.Service
 	aicore.InboxZeroAPI // Inbox Zero（#314）のバインディング面。aicore.Service に委譲する
+	aicore.NewDraftAPI  // 新規作成の AI 下書き（#365）のバインディング面。aicore.Service に委譲する
 }
 
 // NewAIService は AIService を作る。返信系セッションの参照に compose を使う。
 func NewAIService(d *Deps, compose *ComposeService) *AIService {
 	core := aicore.New((*deps.Deps)(d), compose.core)
-	return &AIService{core: core, InboxZeroAPI: core}
+	return &AIService{core: core, InboxZeroAPI: core, NewDraftAPI: core}
 }
 
 func (s *AIService) GetAIConfig(ctx context.Context) (dto.AIConfig, error) {

@@ -17,8 +17,8 @@ Hitomado は HTTP サーバーを持たない。フロントエンド（Vue）�
 | `AccountService` | OAuth クライアント・アカウントの管理、署名、通知設定 |
 | `InboxService` | 統合受信箱、検索、未読件数、スレッド操作、ラベル |
 | `ThreadService` | スレッド詳細、添付保存、リンクを開く |
-| `ComposeService` | 作成セッション、下書き、送信前確認、送信、宛先候補 |
-| `AIService` | AI 設定・同意・下書き生成・スレッドの要約・スレッドへの質問・Inbox Zero（アーカイブ候補の判定） |
+| `ComposeService` | 作成セッション、下書き（保存・一覧・一覧からの破棄）、送信前確認、送信、宛先候補 |
+| `AIService` | AI 設定・同意・下書き生成（返信・新規作成）・スレッドの要約・スレッドへの質問・Inbox Zero（アーカイブ候補の判定） |
 | `AppService` | アプリ設定（受信箱フィルタ等）、バージョン、更新確認 |
 | `LogService` | フロントのエラーの記録、ログフォルダを開く、ログの書き出し |
 | `MCPService` | 内蔵 MCP サーバーの設定・トークン・状態 |
@@ -253,6 +253,26 @@ type ComposeAttachment = {
   source: 'local' | 'forwarded'; // 復元した下書きの添付は 'local'
 };
 
+// 下書きの一覧（ListDrafts）の 1 件（#366）
+type DraftSummary = {
+  accountId: string;
+  draftId: string;
+  threadId: string;           // 返信の下書きは元のスレッド。新規の下書きは、その下書きだけのスレッド
+  updatedAt: number;          // 下書きのメッセージの internalDate（保存のたびに新しくなる）
+  to: Address[];              // To のみ（空でも null にしない）
+  subject: string;
+  snippet: string;            // 本文の先頭（Gmail の snippet。HTML のエスケープを戻したプレーンテキスト）
+  isReply: boolean;           // In-Reply-To がある＝返信の下書き
+};
+
+type DraftList = {
+  items: DraftSummary[];      // updatedAt の新しい順
+  failures: AccountFailure[]; // 取得に失敗したアカウント（ほかのアカウントの items は返す）
+  truncated: boolean;         // アカウントごとの上限（先頭から 100 件）を超える下書きがあって切り捨てた
+};
+
+type DraftRef = { accountId: string; draftId: string; threadId: string }; // threadId は、破棄した下書きをスレッド表示のキャッシュに残さないために使う
+
 type SendPreview = {
   confirmToken: string;      // 5 分有効・1 回限り
   expiresAt: number;
@@ -283,6 +303,8 @@ type SendResult = { messageId: string; threadId: string; archived: boolean; arch
 | `Send(sessionId, confirmToken, content)` | string ×2, `ComposeContent` | `SendResult` | トークンを検証して送信する（§5.2）。成功時はセッションを閉じ、下書きを削除、連絡先候補を加算する |
 | `CloseCompose(sessionId)` | string | — | セッションを破棄（下書きは残す）。未保存の変更の保存はフロントが先に `SaveDraft` する |
 | `DiscardCompose(sessionId)` | string | — | セッションを破棄し、Gmail 下書きがあれば削除する |
+| `ListDrafts(accountIds)` | `string[]`（空は全アカウント） | `DraftList` | `accountIds` のアカウントの Gmail の下書き（`users.drafts`）を、**更新の新しい順の 1 つの一覧**で返す（F-12。#366）。アカウントごとに並列で、`drafts.list` で ID を集め（先頭から 100 件まで。超えたら `truncated`）、各下書きを `drafts.get`（`format=metadata`。宛先・件名・snippet・`In-Reply-To` だけ。本文は読まない）で読む。一覧のあとで削除された下書き（404）は含めない。**一部のアカウントの失敗は `failures` に入れ、ほかの `items` は返す**（要再接続は `NEEDS_REAUTH`）。未知のアカウント ID は無視。保存せず、内容をログに出さない。開く操作は `OpenCompose`（新規の下書きは `mode: 'new'`＋`accountId`＋`draftId`、返信の下書き（`isReply`）は `mode: 'reply_all'`＋`ref`＋`draftId`） |
+| `DiscardDraft(ref)` | `DraftRef` | — | 一覧から選んだ Gmail の下書きを削除する（作成セッションは使わない）。`accountId`・`draftId` が空なら `VALIDATION`、未登録のアカウントは `NOT_FOUND`。Gmail 側で既に無い（404）ときは成功。削除に失敗したときはエラーで返し、下書きは残る。成功したらスレッド表示のキャッシュを捨てる。いま作成セッションで開いている下書きは、フロントが `DiscardCompose` で破棄する（開いたままの画面が下書きを作り直さないため） |
 | `SuggestContacts(accountId, prefix, limit)` | string, string, number | `Address[]` | `contacts` から、メールアドレスまたは表示名の前方一致で候補を返す。順位は [ER §3.8](../architecture/er.md) |
 
 ### 5.1 OpenCompose の初期値
@@ -431,9 +453,10 @@ type InboxZeroResult = {
 | `AckChatGPTPlanNotice(accountId)` | string | `AIConfig` | 「You're using your ChatGPT plan」の確認を済みにする（`planNoticePending` が下りる。何度呼んでも同じ。未登録の ID は `NOT_FOUND`） |
 | `RemoveChatGPTAccount(accountId)` | string | `AIConfig` | ログアウト済みの ChatGPT アカウントの登録（`client_id`・本人情報）を忘れる。ログイン中のアカウントは `VALIDATION`（先にログアウト）。未登録の ID は `NOT_FOUND` |
 | `GenerateReplyDraft(sessionId, requestId, instruction?)` | string ×3 | `{ bodyHtml: string }` | 返信系セッション（`reply`／`reply_all`）のスレッドから下書きを生成する。署名・引用は含めない。`new`／`forward` は `VALIDATION`。`instruction` は利用者が書いた「AI への指示」（省略・空・空白だけは指示なし＝従来の下書き。前後の空白は除く。2,000 文字（rune 数）を超えると、通信せず `VALIDATION`）。保存はしない（ログ・DB・資格情報ストアのいずれにも残さない） |
+| `GenerateNewDraft(sessionId, requestId, instruction, content)` | string ×3, `{ subject: string; to: Address[] }` | `{ bodyHtml: string }` | 新規作成セッション（`new`）の下書きを生成する（F-08。#365）。スレッドが無いので、**`instruction`（AI への指示）が必須**（前後の空白を除いて空なら、通信せず `VALIDATION`。2,000 文字（rune 数）を超えても `VALIDATION`）。`content` は作成画面に入力済みの件名と宛先（To のみ。Cc・Bcc は渡さない）で、どちらも空でよい（件名は 500 文字、宛先は 20 件までを渡し、アドレスが空の宛先は捨てる。CR/LF は空白に畳む）。送信元アカウントの表示名と署名は、セッションの送信元から Go が読む（未選択なら無し）。署名は本文に含めない。`reply`／`reply_all`／`forward` と、存在しないセッションは `VALIDATION`／`SESSION_NOT_FOUND`。前提（`AI_NOT_CONFIGURED`・`AI_CONSENT_REQUIRED`）・タイムアウト・中止（`CancelGenerate`）・失敗は `GenerateReplyDraft` と同じ。指示・件名・宛先は保存せず、ログ・エラー文面に残さない。プロンプトでは、指示は system 指示側の専用ブロックに、件名・宛先は user メッセージに入れる（新規作成用の文言で、スレッドの本文を前提にしない） |
 | `SummarizeThread(ref, requestId)` | `ThreadRef`, string | `ThreadAIResult` | 開いているスレッドの要約を生成する（F-17。#206）。`ref` のスレッドを `threads.get(format=full)`（メモリ LRU を優先）で読み、全メッセージを入力にする（下記「スレッド AI の入力」）。`text` は経緯・現在の状況・受信アカウントの利用者に求められている対応を含む短い箇条書き。保存しない。スレッドが無ければ `NOT_FOUND`、アカウントが要再接続なら `NEEDS_REAUTH` |
 | `AskAboutThread(ref, requestId, question, history)` | `ThreadRef`, string, string, `ThreadAITurn[]` | `ThreadAIResult` | 開いているスレッドの内容を文脈に、利用者の質問へ答える（F-18。#207）。入力は「スレッド AI の入力」（`SummarizeThread` と同じ全メッセージ）に、`history`（そのスレッドで今までに交わした質問と回答）と今回の `question` を加えたもの。`text` は回答（日本語のプレーンテキスト）。保存しない。`question` は前後の空白を除いて空なら `VALIDATION`、2,000 文字（rune 数）を超えると通信せず `VALIDATION`。`history` は `null`・空でもよい。形が正しくないとき（先頭が `assistant`・`user` と `assistant` が交互でない・最後が `user`・`text` が空）、20 件（10 往復）を超えるとき、`text` の合計が 20,000 文字を超えるときは、通信せず `VALIDATION`（古い往復を外すのはフロントの責務で、Go は黙って切り詰めない）。スレッドが無ければ `NOT_FOUND`、アカウントが要再接続なら `NEEDS_REAUTH` |
-| `CancelGenerate(requestId)` | string | — | 生成を中止（`GenerateReplyDraft`・`SummarizeThread`・`AskAboutThread`・`FindInboxZeroCandidates` は `CANCELLED` で reject）。**生成が始まる前に届いても効く**（#352）: 各メソッドは、前提の検査（ChatGPT のトークン更新の通信を含む）の前に `requestId` を登録するので、検査の最中の中止はその通信を中断して `CANCELLED` になる。まだ登録されていない `requestId` の中止は 1 分間だけ「中止済み」と覚え、同じ `requestId` の開始を、プロバイダ（TypeSafe AI を含む）へ何も送らず `CANCELLED` にする（記録は 1 回で消費し、1 分で捨てる。`requestId` は呼び出しごとに一意） |
+| `CancelGenerate(requestId)` | string | — | 生成を中止（`GenerateReplyDraft`・`GenerateNewDraft`・`SummarizeThread`・`AskAboutThread`・`FindInboxZeroCandidates` は `CANCELLED` で reject）。**生成が始まる前に届いても効く**（#352）: 各メソッドは、前提の検査（ChatGPT のトークン更新の通信を含む）の前に `requestId` を登録するので、検査の最中の中止はその通信を中断して `CANCELLED` になる。まだ登録されていない `requestId` の中止は 1 分間だけ「中止済み」と覚え、同じ `requestId` の開始を、プロバイダ（TypeSafe AI を含む）へ何も送らず `CANCELLED` にする（記録は 1 回で消費し、1 分で捨てる。`requestId` は呼び出しごとに一意） |
 | `GetInboxZeroSettings()` | — | `InboxZeroSettings` | Inbox Zero の「不要なメール」の理由ごとのオン・オフ（`app_settings.inbox_zero.reasons`）。未設定・壊れた保存値は 4 つとも `true`（#314） |
 | `SetInboxZeroReasons(reasons)` | `InboxZeroReasons` | `InboxZeroSettings` | 理由ごとのオン・オフを保存して返す。全部オフも保存できる（そのとき `FindInboxZeroCandidates` が `VALIDATION`）。通信しない |
 | `FindInboxZeroCandidates(refs, requestId)` | `ThreadRef[]`, string | `InboxZeroResult` | `refs`（フロントが読み込み済みの、現在のタブの一覧）のうち、オンの理由に当てはまる「アーカイブ候補」を返す（§6.3）。アーカイブはしない（フロントが `InboxService.Archive`／`Unarchive` を使う）。MCP からは呼べない |
@@ -601,7 +624,7 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 外部 API | 用途 | 主なエンドポイント／スコープ |
 |----------|------|------------------------------|
 | Google OAuth 2.0 | 認可・更新・revoke | `https://accounts.google.com/o/oauth2/v2/auth`、`https://oauth2.googleapis.com/token`、`https://oauth2.googleapis.com/revoke`、`https://openidconnect.googleapis.com/v1/userinfo`。スコープ: `https://www.googleapis.com/auth/gmail.modify`、`openid`、`email`、`profile` |
-| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash／untrash`、`users.messages.send`、`users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ。§5.2）、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`、`users.labels.list／get`、`users.settings.sendAs.get`（署名の取得。`FetchGmailSignature`）（いずれも `gmail.modify` スコープ内） |
+| Gmail API v1 | メール取得・操作・送信 | `users.getProfile`、`users.history.list`、`users.threads.list／get／modify／trash／untrash`、`users.messages.send`、`users.messages.list／get`（`Send` の応答を受け取れなかったときの送信結果の確認のみ。§5.2）、`users.messages.attachments.get`、`users.drafts.create／update／get／delete／list`（`get` は `format=full`（`OpenCompose`）と `format=metadata`（下書きの一覧 `ListDrafts`））、`users.labels.list／get`、`users.settings.sendAs.get`（署名の取得。`FetchGmailSignature`）（いずれも `gmail.modify` スコープ内） |
 | AI プロバイダ | 下書き生成・スレッドの要約・スレッドへの質問 | Anthropic Messages API／OpenAI 互換 Chat Completions（Base URL 指定可）／ChatGPT プラン（Responses API） |
 | GitHub Releases API | 更新確認 | `GET /repos/ousiassllc/hitomado/releases/latest`（未認証） |
 | GitHub Release の添付ファイル | Windows 版の自動アップデート（NF-D03） | `GET https://github.com/ousiassllc/hitomado/releases/download/vX.Y.Z/hitomado-vX.Y.Z-windows-amd64-setup.exe` と `.../SHA256SUMS.txt`（未認証。`release-assets.githubusercontent.com` へ 302。HTTPS・`github.com`／`*.githubusercontent.com` のみ） |
@@ -668,3 +691,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.44 | 2026-11-13 | §1.2 の `AI_FAILED` の `details.reason` を、`usage_limit_exceeded` と `effort_rejected`（エフォートの拒否。`message` が設定で既定に戻す案内）の 2 つに直し、`ATTACHMENT_IO` に `details.filename` を追記。§6 の `effort` の渡し方に `details.reason = "effort_rejected"` を追記 | 実装（`internal/app/aicore/generate.go:136-137`・`apperr.go:59`・`composecore/compose_attach.go:25-28`）との整合（#325・#335） |
 | 1.45 | 2026-11-14 | `CancelGenerate` が、生成の登録より前（前提の検査・ChatGPT のトークン更新の最中、または呼び出しより先に届いた場合）でも効くことを追記 | #352 |
 | 1.46 | 2026-11-14 | `invalid_grant` による `NEEDS_REAUTH` の `status_message` を専用の文言にし（画面が原因の案内を足す）、再接続待ちに切り替えるときのログ「account needs reauth」（`reason`・`trigger`・`origin` など）を §10 に追記 | #369 |
+| 1.47 | 2026-11-14 | `AIService.GenerateNewDraft`（新規作成の AI 下書き。指示が必須・入力済みの件名と宛先（To）を渡す）を追加し、`CancelGenerate` の対象に加えた。`ComposeService` に `ListDrafts`（全アカウントの Gmail の下書きを更新の新しい順に 1 つの一覧で。先頭 100 件まで・一部の失敗は `failures`）・`DiscardDraft`（一覧からの破棄）と型 `DraftSummary`／`DraftList`／`DraftRef` を追加。§10 の `users.drafts.get` に `format=metadata` を追記 | #365・#366 |

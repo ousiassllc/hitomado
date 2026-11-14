@@ -36,7 +36,9 @@ const title = computed(() => {
       return msg.titleNew
   }
 })
-const canAi = computed(() => session.value?.mode === 'reply' || session.value?.mode === 'reply_all')
+const isNewMail = computed(() => session.value?.mode === 'new')
+/** 「AI で下書き」は返信・全員に返信・新規作成で出す（転送は出さない）。 */
+const canAi = computed(() => isNewMail.value || session.value?.mode === 'reply' || session.value?.mode === 'reply_all')
 /** 作成画面に出すエラー（送信などの失敗と、下書き保存の失敗）。 */
 const errors = computed(() =>
   [compose.error, compose.saveError === undefined ? undefined : `${msg.saveFailed}（${compose.saveError}）`].filter(
@@ -108,6 +110,7 @@ function send(archive: boolean): void {
       v-if="canAi"
       :key="session.sessionId"
       :session-id="session.sessionId"
+      :new-mail="isNewMail"
       @generated="compose.insertGenerated"
     />
 

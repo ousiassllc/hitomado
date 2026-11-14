@@ -6,7 +6,11 @@ import { compose as msg } from '../../../lib/messages'
 // 「AI への指示」の入力欄（F-08。#109）。内容に応じて 2〜6 行まで伸び、超えたら内部スクロールする。
 // 値は呼び出し側（composeStore の作成セッション）が持つ。ここでは保存しない。
 const model = defineModel<string>({ required: true })
-defineProps<{ disabled?: boolean }>()
+defineProps<{
+  disabled?: boolean
+  /** 指示が必須（新規作成の AI 下書き。#365）。ラベルに「必須」を足し、例文も新規作成向けにする。 */
+  required?: boolean
+}>()
 
 const MIN_ROWS = 2
 const MAX_ROWS = 6
@@ -31,19 +35,22 @@ function fit(): void {
 }
 
 onMounted(fit)
+// 必須の指示が空のまま押されたとき、呼び出し側が入力欄へフォーカスを戻す（#365）。
+defineExpose({ focus: () => area.value?.focus() })
 watch(model, () => void nextTick(fit))
 </script>
 
 <template>
   <div class="instruction" data-testid="ai-instruction">
-    <label class="instruction-label" :for="inputId">{{ msg.ai.instruction.label }}</label>
+    <label class="instruction-label" :for="inputId">{{ required ? msg.ai.instruction.labelRequired : msg.ai.instruction.label }}</label>
     <textarea
       :id="inputId"
       ref="area"
       v-model="model"
       class="instruction-input"
       :rows="MIN_ROWS"
-      :placeholder="msg.ai.instruction.placeholder"
+      :placeholder="required ? msg.ai.instruction.placeholderNew : msg.ai.instruction.placeholder"
+      :aria-required="required || undefined"
       :disabled="disabled"
       data-testid="ai-instruction-input"
     />

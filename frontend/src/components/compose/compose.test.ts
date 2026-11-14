@@ -126,10 +126,13 @@ describe('ComposePane', () => {
     w.unmount()
   })
 
-  test('新規作成には「AI で下書き」を出さない', async () => {
-    const { w } = await mountPane(newSession('a1'))
-    expect(w.text()).not.toContain('AI で下書き')
-    w.unmount()
+  test('「AI で下書き」は新規作成・返信に出し、転送には出さない（#365）', async () => {
+    const created = await mountPane(newSession('a1'))
+    expect(created.w.text()).toContain('AI で下書き')
+    created.w.unmount()
+    const forward = await mountPane({ ...newSession('a1'), mode: 'forward', senderLocked: true })
+    expect(forward.w.text()).not.toContain('AI で下書き')
+    forward.w.unmount()
   })
 
   test('Ctrl+Enter の案内は常時テキストにせず、送信ボタンのツールチップに出す', async () => {

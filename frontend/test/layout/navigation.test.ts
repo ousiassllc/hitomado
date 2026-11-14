@@ -33,6 +33,16 @@ describe('backActionOf', () => {
     expect(backActionOf({ ...base, searching: true })).toBe('clearSearch')
   })
 
+  test('下書きの一覧は、戻るで受信箱へ戻る。作成・スレッドが前面なら、それが先に閉じる（#366）', () => {
+    expect(backActionOf({ ...base, draftsOpen: true })).toBe('closeDrafts')
+    expect(backActionOf({ ...base, draftsOpen: true, threadOpen: true })).toBe('closeThread')
+    expect(backActionOf({ ...base, draftsOpen: true, composeMode: 'new' })).toBe('closeCompose')
+    expect(
+      backActionOf({ ...base, draftsOpen: true, threadOpen: true, composeMode: 'reply_all' }),
+    ).toBe('closeCompose')
+    expect(backActionOf({ ...base, draftsOpen: true, menuOpen: true })).toBe('closeMenu')
+  })
+
   test('オーバーレイ（ダイアログ・メニュー）、ドロワーは画面より先に閉じる', () => {
     expect(
       backActionOf({ ...base, threadOpen: true, composeMode: 'reply', overlayOpen: true }),

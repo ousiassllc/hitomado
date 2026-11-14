@@ -224,7 +224,9 @@ graph TD
   AppShell --> AddAccountDialog
 
   Sidebar --> AccountList --> AccountItem --> AccountChip
+  Sidebar --> SidebarViews
   Sidebar --> FilterBar
+  ThreadListPane --> DraftList --> DraftRow --> AccountChip
   ThreadListPane --> SearchBar
   ThreadListPane --> InboxTabs
   ThreadListPane --> ListToolbar
@@ -281,6 +283,7 @@ graph TD
 | `SenderBadge` | 送信元の表示（名前・アドレス）。枠はダイアログと同じ中立（地 `--surface`・枠 `1px --border`。識別色で面を塗らない）。識別は名前の薄いチップ（`BaseChip` の `tint`。一覧の `AccountChip` と同じ沈め方）だけで、アドレスは `--ink` の文字でチップの隣（収まらなければ下）に置く。名前が無いときはアドレスをチップに入れる。帯は無い。確認ダイアログで使う | props: `from`, `color` | — |
 | `AccountList`／`AccountItem` | アカウント一覧、選択（単一／複数／すべて）、未読件数、`needs_reauth` の警告アイコン。各行はアカウント名の `AccountChip`（識別色の薄いチップ）とアドレスで、左の識別帯は無い | emits: `select(ids)`、`reconnect(id)` | `accountsStore`、`inboxStore.unreadCounts` |
 | `FilterBar` | 未読のみ切替、フィルタのクリア | emits: `change` | `inboxStore.filter`（`AppService.SetInboxFilter`） |
+| `SidebarViews` | サイドバーの「受信箱」「下書き」の入口（#366。F-12）。アカウント一覧の上に、`AccountList` の行と同じ寸法（`--menu-item-h`・`--menu-pad-x`）で並べる。いまの表示（`draftsStore.active`）の行が `--accent-soft` 地・`aria-current="page"`。「下書き」で `draftsStore.show()`（一覧を読み込んで出す）、「受信箱」で `hide()`。ドロワーで開いているときは、選んだあと閉じる | — | `draftsStore`、`uiStore.closeMenu` |
 | `AppShell` | レイアウト（§5.1）。サイドバーのドロワーとスクラムはフェード＋小さな移動で出入りし、`--z-drawer`。左ドロワーの幅は画面幅の 78%（上限 320px。ガイドのモバイルナビ）。Windows は常に 3 ペイン（最小幅 960px）。Android は幅で 3 ペイン／2 ペイン／1 画面ずつ（サイドバーはドロワー）。ペイン幅のリサイズ（3 ペイン）。Android の戻るボタンの受け口（`window.hitomadoHandleBack`）を登録 | — | `layoutStore`、`uiStore`、`platformStore` |
 | `BackToListButton` | 1 画面ずつのとき、`ThreadHeader` の件名の左に出す「←」（スレッドを閉じて一覧へ） | — | `layoutStore`、`inboxStore` |
 | `BannerStack` | オフライン、要再接続、更新あり、同期エラーのバナー（優先度順に最大 2 件）。OAuth クライアントの拒否（`needs_reauth` で `statusMessage` が Go の案内文「OAuth クライアントの設定（Client ID／Secret）…」）のアカウントは、再接続ではなく、その `statusMessage` と「OAuth クライアントを確認」ボタン（設定ダイアログの OAuth クライアントタブを開く）を出す | — | `uiStore`、`accountsStore`（`statuses`・`statusMessages`） |
@@ -300,6 +303,16 @@ graph TD
 | `ThreadList` | 仮想スクロール（`@tanstack/vue-virtual`）。続きがある間（`hasMore`）は末尾に「さらに読み込む」ボタン（`secondary`・`sm`）を出し、押すと `loadMore` を通知する（無限スクロールにしない。ガイド O7）。一覧が 0 件（未読のみで該当なし等）でも利用者が続きを読める。行選択・キーボード移動。`role="listbox"` はスクロール領域（`.list`）の中の内側要素（`.inner`）で、option（`ThreadRow`）だけを持ち、`tabindex`・`aria-activedescendant`・矢印キー処理もそこにある。「さらに読み込む」・空表示・読み込み中は listbox の外（スクロール領域の直下）。各 option は `aria-posinset`（`index + 1`）・`aria-setsize`（件数。続きがあって総数が分からない間は `-1`）を持つ（#337） | props: `items`, `selectedKey`, `loading`, `loadingMore`, `hasMore` | `inboxStore` |
 | `ThreadRow` | 1 行表示（アカウントチップ、差出人、件名、スニペット、日時、未読、添付アイコン、ユーザーラベル）。未読は差出人・件名を `--ink`、既読の差出人は日時・スニペット・件数・既読の件名と同じ `--row-mute`（通常は `--mute`、ホバー・選択・複数選択の `--accent-soft` 地では `--mute-on-soft`。#316）。`needs_reauth` アカウントの行は、警告アイコン＋「再接続が必要なアカウントです」を件名の前に出し（`aria-label` にも含める）、文字を `--mute` にする（薄くはしない）。ただし差出人と件名は同じ `--row-mute` にして、通常時は `--mute` のまま、ホバー・選択・複数選択の `--accent-soft` 地では `--mute-on-soft` にする（`--mute` のままだと AA 4.5:1 に届かないため）。行の padding は縦 `--s-3`・横 `--pad-card-sm`（`--s-4`）、行内の間隔は `--gap-inline`。識別色の帯は無い（#345） | props: `thread`, `selected`, `account` | — |
 | `LabelChip` | ユーザー作成ラベルのチップ。Gmail で利用者が設定した背景色・文字色（`Label.colorBg`／`colorFg`。Gmail から取得してそのまま保存）のうち `colorBg` だけを `BaseChip` の `tint` に渡し、薄い地と枠に沈める（`colorFg` は使わず、生の色は塗らない。#345）。色の指定が無いラベルは `BaseChip` の既定（`--bone`／`--ink`）。ラベル名は常に文字で出し（`title` にも同じ名前）、色だけに頼らない | props: `label` | — |
+
+### 3.5.1 下書きの一覧（`components/drafts`。F-12。#366）
+
+`ThreadListPane` は、`draftsStore.active` のあいだ、検索・タブ・ツールバー・`ThreadList` の代わりに `DraftList` を出す（アカウントの選択は両方に効く）。
+
+| コンポーネント | 責務 | Props／Emits | バインディング／ストア |
+|----------------|------|--------------|------------------------|
+| `DraftList` | 全アカウントの Gmail の下書きの一覧。上部に見出し「下書き」と更新ボタン（`BaseIconButton`。読み込み中は無効）、本体は `ul`（`aria-label`＝「下書きの一覧」）。0 件は `EmptyState`（「下書きはありません。」）、初回の読み込み中は `Spinner`、上限（100 件）で切り捨てたときは一覧の下に注記。破棄は `ConfirmDialog`（「この下書きを破棄しますか？」「Gmail に保存済みの下書きが削除されます。元に戻せません。」「破棄する」）を挟み、確認中は `busy`（閉じない） | — | `draftsStore`、`accountsStore` |
+| `DraftRow` | 1 行（`ThreadRow` と同じ見た目の規則）。1 行目: `AccountChip`（`sm`）・宛先（To の名前、無ければアドレス。複数は「、」。無ければ「(宛先なし)」）・更新日時（`formatDate`。`--font-mono`）、2 行目: 件名（無ければ「(件名なし)」）・本文の先頭（無ければ「(本文なし)」。`--row-mute`）。行の本体は「開く」ボタン（`aria-label`＝アカウント・宛先・件名。作成画面で開いている下書きの行は `aria-current` と `--accent-soft` 地）、右端に「下書きを破棄」のごみ箱（`BaseIconButton`）。ホバー・フォーカス・現在行の地は `--accent-soft` だけで、補助文字は `--mute-on-soft`（`ThreadRow` と同じ） | emits: `open`、`discard` | — |
+
 
 ### 3.6 スレッド表示（`components/thread`）
 
@@ -325,8 +338,8 @@ graph TD
 | `RecipientChip` | 宛先 1 件のチップ（`RecipientField` が並べる）。表示名・アドレス、形式が正しくないときの警告アイコンと状態ピルの色、削除ボタン（× 。touch.css の `.chip-remove::before` で当たり判定だけ広げる。リップルの面は DOM 順でその前に出し、当たり判定の外周の押下は button 本体の `pointerdown` で受けて同じ面にリップルを出す） | props: `address`, `disabled`／emits: `remove` | — |
 | `RichTextEditor` | Tiptap。太字・リンク・箇条書き（ツールバーは Iconoir の `Bold`・`Link`・`List`。文字のアイコンは使わない）。署名ブロックを `data-hitomado-signature` として保持（署名・引用は長文になりうるので文字は `--ink`。引用の左線は `1px solid --mute`）。貼り付けは書式をクリーニング | props/emits: `v-model:html` | — |
 | `AttachmentBar` | 添付の一覧・削除・追加ボタン・ドラッグ＆ドロップ。合計サイズ表示と上限エラー | | `ComposeService.AddAttachments／RemoveAttachment` |
-| `AiDraftButton` | 「AI で下書き」。AI の設定が未保存（`aiConfig.configured` が偽）→初回の案内（ChatGPT でログインする「Continue with ChatGPT」・「別のプロバイダを選ぶ」・「あとで」。[§3.9.1](#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）。保存済みでキー未設定（ChatGPT プランは未ログイン）→設定へ誘導。利用枠の超過（`AI_FAILED` の `details.reason`）は「Manage usage」を主なアクションにしたコンパクトな案内 `UsageLimitNotice`（ChatGPT の見出しを残す。失敗メッセージだけにしない）、未同意→同意ダイアログ（`AIConsentDialog`。設定画面と共通）、生成中→キャンセル可（作成セッションを閉じる・破棄してアンマウントされるときも `CancelGenerate` で中止し、結果は挿入しない。#342）、本文入力済み→置換確認 | emits: `generated(bodyHtml)` | `AIService.GenerateReplyDraft／CancelGenerate／RecordAIConsent`（`settingsStore` 経由） |
-| `AiDraftInstruction` | 「AI への指示」（F-08。#109）。`AiDraftButton` の下に常に開いている複数行の入力欄（開閉はしない。2,000 文字の残り表示。空・空白だけなら指示なしの従来の下書き）。値は `composeStore` の作成セッションにだけ持つ（`localStorage` などには保存しない）。入力欄は内容に応じて 2〜6 行まで伸びる（超えたら内部スクロール） | props/emits: `v-model` | `composeStore.aiInstruction`（`AIService.GenerateReplyDraft` の `instruction`） |
+| `AiDraftButton` | 「AI で下書き」。AI の設定が未保存（`aiConfig.configured` が偽）→初回の案内（ChatGPT でログインする「Continue with ChatGPT」・「別のプロバイダを選ぶ」・「あとで」。[§3.9.1](#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）。保存済みでキー未設定（ChatGPT プランは未ログイン）→設定へ誘導。利用枠の超過（`AI_FAILED` の `details.reason`）は「Manage usage」を主なアクションにしたコンパクトな案内 `UsageLimitNotice`（ChatGPT の見出しを残す。失敗メッセージだけにしない）、未同意→同意ダイアログ（`AIConsentDialog`。設定画面と共通）、生成中→キャンセル可（作成セッションを閉じる・破棄してアンマウントされるときも `CancelGenerate` で中止し、結果は挿入しない。#342）、本文入力済み→置換確認 **新規作成（#365。`newMail`）**: `ComposePane` が `new` のセッションにも置く（転送には置かない）。生成は `AIService.GenerateNewDraft`（指示と、`composeStore.content` の件名・宛先（To）を渡す）。**指示が空・空白だけのときは、設定・同意・置換の確認より前に何もせず**（`useAiDraft` の `instructionMissing`）、指示欄の下に案内（`.ai-hint`。お知らせ＝`--info` の細枠と薄い地・`role="status"`・見出し「お知らせ」）を出して指示欄へフォーカスを戻す。指示を入力すると案内は消える。同意の説明は新規作成の送信内容（指示・件名・宛先）を含む。 | emits: `generated(bodyHtml)` | `AIService.GenerateReplyDraft／CancelGenerate／RecordAIConsent`（`settingsStore` 経由） |
+| `AiDraftInstruction` | 「AI への指示」（F-08。#109・#365）。`AiDraftButton` の下に常に開いている複数行の入力欄（開閉はしない。2,000 文字の残り表示。返信は、空・空白だけなら指示なしの従来の下書き）。`required`（新規作成）のときは、ラベルを「AI への指示（必須）」、例文を新規作成向けにし、`aria-required` を付ける。`focus()` を公開する（指示が空のまま押されたとき、`AiDraftButton` がフォーカスを戻す）。値は `composeStore` の作成セッションにだけ持つ（`localStorage` などには保存しない）。入力欄は内容に応じて 2〜6 行まで伸びる（超えたら内部スクロール） | props/emits: `v-model` | `composeStore.aiInstruction`（`AIService.GenerateReplyDraft`／`GenerateNewDraft` の `instruction`） |
 | `SendConfirmDialog` | `PrepareSend` の結果を表示（設定「送信前に確認画面を出す」がオフで警告も無いときは出さず、`useComposeSend` が `PrepareSend` の確認トークンですぐ `Send` する。#313）。送信元（`SenderBadge`）、宛先・件名・添付数・本文（改行を保ち署名・引用を除いたプレビュー）、`warnings`（他の自アカウント宛・件名なし・本文なし。他の自アカウント宛は送信元より目立たせる）。確定ボタン「<アドレス> から送信」。ダイアログ表示中はエディタ操作不可 | props: `preview`, `busy` | `composeStore.confirmSend`（`ComposeService.Send`） |
 | `SignatureConflictDialog` | 新規作成で送信元を切り替えたとき、署名部分が編集済みなら差し替える前に確認する（F-07）。「編集した署名を残す」「差し替える」。`ComposePane` が配置する | — | `composeStore.signatureConflict`／`resolveSignatureConflict` |
 
@@ -409,6 +422,7 @@ AI の設定の入口は 2 つ（作成画面の「AI で下書き」と設定�
 | `accountsStore` | `accounts`、`oauthClients`、`statuses`（一時状態を含む）、`statusMessages`（アカウントごとの状態の理由。`account:status` の `message` と `Account.statusMessage` から取り込む） | `load`、`add`、`remove`、`update`、`setSignature`、`reorder`、`start`（起動時の `load` が OFFLINE 以外で失敗したら再試行つきのアラート。#340） | `account:status` |
 | `inboxStore` | `filter`、`tab`（受信箱のタブ。セッション中だけ保持・保存しない。起動時は `all`）、`mode`（`inbox`／`search`）、`items`、`nextCursor`、`unreadCounts`、`selection`、`loading`、`failures` | `load`、`loadMore`、`refresh`、`runSearch`、`clearSearch`、`archive`／`trash`（**楽観的更新、失敗時は元に戻してエラーアラート。成功したら「元に戻す」つきのスナックバーを出し、押すと `Unarchive`／`Untrash` で Gmail 側も戻して一覧へ差し戻す。取り消しの失敗は「元に戻せませんでした。」＋理由のエラーアラート（再試行つき）。ただしスレッドが無い（`NOT_FOUND`）ときは「スレッドが見つかりません。一覧から除去しました。」だけを出す。ゴミ箱の取り消しは、受信箱にあったスレッドだけ `INBOX` も付け直す。アーカイブは `INBOX` を外すだけなので、受信箱に無かったスレッド（検索結果）は取り消す対象が無く、そのアーカイブには「元に戻す」を付けない（通常のトースト）**）／`markRead`（楽観的更新、失敗時は元に戻してエラーアラート）、`setFilter`、`setTab`（カーソルを捨てて先頭から取り直す。検索中は値だけ変える） | `sync:updated`（先頭ページと未読件数を再取得し、スクロール位置・選択を維持） |
 | `threadStore` | `current`（`ThreadDetail`）、`loading`、`error` | `open(ref)`、`close`、`reload`、`start`（イベント購読の開始。冪等）。`GetThread` が `NOT_FOUND`（他端末で削除済み）のときは、表示を閉じ、一覧から除き、「スレッドが見つかりません」を**エラーのアラート**（`AlertStack`。O3: 失敗の理由にトーストを使わない）で出す。`start` は購読を始めたあとに `NotifyService.TakePendingOpenThread` を **1 回**呼ぶ（Android で通知のタップによる起動のとき、フロントの準備前に届いた `notify:open-thread` は取りこぼされるため、保留されたスレッドをここで受け取って開く。要求が無い・取り出せないときは何もしない） | `sync:updated`（開いているスレッドが `changedThreadIds` に含まれたら `reload`）、`notify:open-thread`（`inboxStore.select` してそのスレッドを `open`。ウィンドウを前面に出すのは Go 側（`notify.Notifier`）） |
+| `draftsStore`（#366） | `active`（下書きの一覧を開いている）、`items`（`DraftSummary[]`。`to` の null は空にする）、`loading`、`truncated` | `show`（開いて読み込む）、`hide`、`load`（`ComposeService.ListDrafts`。絞り込み中のアカウントだけ。新しい読み込みが始まったら古い応答は捨てる。アカウント別の失敗は要再接続・オフラインを共通の表示に任せ、それ以外は再試行つきのアラート）、`open(draft)`（新規の下書きは `composeStore.open({ mode: 'new', accountId, draftId })`、返信の下書きはスレッドを選んで `{ mode: 'reply_all', ref, draftId }`）、`isOpen`（作成画面で開いている下書きか）、`discard`（開いている下書きは `composeStore.discard`、それ以外は `DiscardDraft`。成功したら一覧から外してトースト、失敗は理由つきのアラートで一覧に残す）。作成セッションの終了・絞り込みの変更で読み直す | — |
 | `threadAiStore` | `summary`（`ThreadAIResult`／なし）、`turns`（`{ role: 'user'｜'assistant'; text }[]`。会話の全体。画面に出す）、`droppedFromContext`（文脈から外した往復があるか）、`draft`（書きかけの質問）、`status`（`idle`／`summarizing`／`asking`／`error`。**同時に 1 つだけ**）、`error`、`threadKey`（`accountId:threadId`。どのスレッドの結果か）。**すべてメモリのみ（`localStorage`・設定・ログに保存しない）** | `summarize(ref)`（`useThreadAi` の前提確認を通ったあと `AIService.SummarizeThread` を呼ぶ）、`ask(ref, question)`（同じ前提確認のあと、`turns` から**最新 10 往復・合計 20,000 文字に収めた `history`** を作って `AIService.AskAboutThread` を呼ぶ。成功したら質問と回答を `turns` に加える。中止・失敗では加えず、`draft` に質問を戻す）、`cancel`、`newConversation`（`turns` と `droppedFromContext` を消す。要約は残す）、`reset`。**`threadStore.open`／`close`／アーカイブ・ゴミ箱などで開いているスレッドが一覧から除かれたときに `reset` を呼び（要約・会話・`draft` をすべて消す）、進行中の生成は `CancelGenerate` で中止する**。結果が返ったとき `threadKey` が今のスレッドと違えば捨てる（切り替え後に前のスレッドの要約・回答が出ない）。`sync:updated` による同じスレッドの再読み込みでは `reset` しない | — |
 | `composeStore` | `session`、`content`、`attachments`、`preview`、`dirty`、`saving`、`sending` | `open`（新規作成は `withDefaultSender` で、受信箱のフィルタが単一アカウントならその送信元を初期値にして `OpenCompose` を呼ぶ）、`setSender`、`save`、`prepareSend`、`confirmSend`、`close`、`discard` | — |
 | `settingsStore` | `aiConfig`、`aiModels`（送信先＝プロバイダ（OpenAI 互換は Base URL も）ごとの最後に取得した一覧）、`appInfo`、`update`、`updateStatus`（自動アップデートの進み） | `load`、`setAIConfig`、`loadAIModels`、`signInChatGPT`／`cancelSignInChatGPT`／`selectChatGPTAccount`／`signOutChatGPT`／`removeChatGPTAccount`／`ackChatGPTPlanNotice`／`generateReplyDraft`／`cancelGenerate`、`checkUpdate`、`setAutoUpdateEnabled`、`restartToUpdate` | `update:available`、`update:status`（新しい版のバナーを `lib/updateBanner` で組む） |
@@ -440,7 +454,7 @@ AI の設定の入口は 2 つ（作成画面の「AI で下書き」と設定�
 | `lib/updateBanner` | 新しい版のバナーの組み立て（自動アップデート中はダウンロード中・「再起動して更新」・失敗、それ以外はダウンロードページのリンク）。純関数 |
 | `lib/composeModel` | `composeStore` が使う型と、バインディング値の正規化（`null` → 空配列） |
 | `lib/dropFiles` | Wails のファイルドロップ。Go 側が発行する `files-dropped` のペイロードからパス一覧を取り出す。`AttachmentBar` が受けて `ComposeService.AddAttachments` を呼ぶ（F-14） |
-| `lib/messages/` | UI 文言の集約（領域ごとに `common`／`compose`／`settings`／`thread`。`index.ts` が再エクスポート） |
+| `lib/messages/` | UI 文言の集約（領域ごとに `common`／`compose`／`drafts`／`settings`／`thread`。`index.ts` が再エクスポート） |
 | `composables/useShortcuts` | §4 のキーボードショートカット登録・コンテキスト判定 |
 | `composables/useWailsEvents` | `sync:updated` などのイベント購読と解除 |
 | `composables/useAutosave` | §3.7 の自動保存 |
@@ -471,10 +485,11 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | `f` | 転送 | スレッド |
 | `c` | 新規作成 | 全体 |
 | `/` | 検索窓にフォーカス | 全体 |
-| `g` → `i` | 受信箱（検索解除）へ | 全体 |
+| `g` → `i` | 受信箱（検索解除。下書きの一覧は閉じる）へ | 全体 |
 | `Ctrl+Enter` | エディタ内で送信（既定は確認ダイアログを開く。設定「送信前に確認画面を出す」がオフで警告も無いときは、そのまま送信する。送信元の固定と確認トークンは変わらない。F-06） | エディタ |
 
 - 操作系キー（`e`、`#`）を押したとき、対象が複数選択なら選択全体に作用する
+- 下書きの一覧（`draftsStore.active`）を出している間は、見えていない受信箱の行が対象の操作（`j`／`k`／`Enter`・`o`／`e`／`#`／`Shift+i`／`Shift+u`）は動かさない（見えていない行を黙ってアーカイブ・削除しない）
 - 破壊的操作は `#`（ゴミ箱）のみ。完全削除はない。ゴミ箱は Gmail 側で 30 日復元できる
 
 ## 5. レイアウト・テーマ・アクセシビリティ
@@ -490,7 +505,7 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | `stack` | `touchUi` で幅 640px 未満 | 1 画面ずつ。一覧・スレッド・返信（新規作成）は同じ場所に重ね、出ていない画面は `visibility: hidden`（スクロール位置を保つ）。返信・新規作成は `ComposePane` が詳細ペインの全面を覆う。ダイアログ（`BaseDialog`）は全画面にしない（幅は `min(サイズ, 100vw - 32px)`） |
 
 - **遷移専用の状態は持たない**。どの画面か（`lib/navigation.ts` の `screenOf`）は、`inboxStore.selectedRef`（開いているスレッド）と `composeStore.session`（作成中）から導く。そのため、幅を変えても選択・書きかけの下書きは残る（`threadStack`・`navigation` のテスト）
-- **戻る**（`composables/useNavigation.ts` の `goBack`、順序は `lib/navigation.ts` の `backActionOf`）: オーバーレイ（ダイアログ・メニュー）→ ドロワー → 返信・新規作成を閉じる（`composeStore.close`＝自動保存して閉じる）→ スレッドを閉じる → 検索結果を閉じる。戻る先が無ければ `false`
+- **戻る**（`composables/useNavigation.ts` の `goBack`、順序は `lib/navigation.ts` の `backActionOf`）: オーバーレイ（ダイアログ・メニュー）→ ドロワー → 返信・新規作成を閉じる（`composeStore.close`＝自動保存して閉じる）→ スレッドを閉じる → 下書きの一覧を閉じる（`draftsStore.hide`。#366）→ 検索結果を閉じる。戻る先が無ければ `false`
 - **Android の戻るボタン**: `MainActivity.java` の `OnBackPressedCallback` が `window.hitomadoHandleBack()`（`lib/androidBack.ts`。`AppShell` が `touchUi` のときだけ登録）を `evaluateJavascript` で呼ぶ。`true` ならアプリは何もしない。`false`・関数が無い・失敗のときは WebView の履歴、無ければ `moveTaskToBack(true)`。`window.history` を使わないのは、履歴の積み方と Android 側の `canGoBack` の設定が一致しないと戻るがアプリ終了になるため、Activity とフロントの間を 1 つの関数に絞った方が確実なため
 - **タッチ**（`styles/touch.css`。`html[data-touch-ui]` のときだけ効くので Windows 版は変わらない）: タップ領域 44px 以上（`--tap-min`。ガイドのコントロール高さ 40／32 からの逸脱として [§5.3 逸脱](#逸脱)に明記。見た目を保つスイッチ・チップの削除ボタンは当たり判定だけ疑似要素で広げる）。ツールチップ（`BaseTooltip`）はタッチ UI では出さない（hover もキーボードショートカットも無いため）。hover だけで出る操作は無い。1 画面ずつの一覧では、選択中のスレッドへの操作ボタン（既読・アーカイブ等）を出さず（スレッド画面にある）、キーボード用のカーソル枠も出さない
 - **safe area**: Activity が insets（system bars・display cutout・IME）を WebView の周りの余白（`main_container` の padding）に当てる。CSS の `env(safe-area-inset-*)` は使わない（Android の WebView では信頼できないため）。バーの背景は `app_background`（`--bone` と同じ値）で、アイコンの明暗はテーマに追従する。[Android ビルド §16](../environment/android.md#16-スマホ向けの画面87)
@@ -588,11 +603,11 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | F-05 返信・転送 | `ReplyBar`、`ComposePane`、`SenderField` | `ComposeService`、`domain/reply`、`domain/quote`、`domain/senderpolicy` |
 | F-06 送信前確認 | `SendConfirmDialog`、`SenderBadge` | `ComposeService`（`PrepareSend`／`Send`）、`domain/confirm` |
 | F-07 署名 | `SignatureSettings`、`lib/signature` | `AccountService.SetSignature`／`FetchGmailSignature`、`domain/signature` |
-| F-08 AI 下書き | `AiDraftButton`、`AISettings` | `AIService`、`ai.Provider` |
+| F-08 AI 下書き（返信・新規作成） | `AiDraftButton`、`AiDraftInstruction`、`AISettings` | `AIService`（`GenerateReplyDraft`・`GenerateNewDraft`）、`ai.Provider` |
 | F-09 検索 | `SearchBar`、`inboxStore.runSearch` | `InboxService.Search` |
 | F-10 通知・トレイ | `threadStore`（`notify:open-thread`・`TakePendingOpenThread`）、`AccountsSettings`（通知切替）、`GeneralSettings`・`notificationsStore`（通知の許可。Android） | `sync.detector`、`notify.Notifier`、`NotifyService`（`notifycore`）、`platform.Notifier`／`platform.Tray`、`run.go`（トレイ生成・単一インスタンス） |
 | F-11 新規作成 | `ComposePane`、`SenderField`、`RecipientField`、`RichTextEditor` | `ComposeService` |
-| F-12 下書き保存 | `useAutosave`、`composeStore` | `ComposeService.SaveDraft`、`gmail.Client`（drafts） |
+| F-12 下書き保存・下書きの一覧 | `useAutosave`、`composeStore`、`DraftList`、`SidebarViews`、`draftsStore` | `ComposeService.SaveDraft`／`ListDrafts`／`DiscardDraft`、`gmail.Client`（drafts） |
 | F-13 オートコンプリート | `RecipientField` | `ComposeService.SuggestContacts`、`domain/contacts`、`store` |
 | F-14 添付送信 | `AttachmentBar` | `ComposeService.AddAttachments`、`gmail/mime.go` |
 | F-15 MCP・ログ | `McpSettings`、`LogSettings` | `MCPService`、`mcpserver`、`LogService`、`logging` |
@@ -725,3 +740,4 @@ OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了�
 | 2.18 | 2026-11-13 | 一覧の識別色・未読・削除・余白を静かにした。`BaseChip` は `bg`／`fg` をやめ `tint`（識別色）を受け取り、地は識別色を `--surface` に 18%（`--tint-bg`）・枠は 40%（`--tint-border`）・字は `--ink`。`AccountChip`／`LabelChip` がそれを使い、`ThreadRow` の 6px の識別帯は削除。キーボードカーソル行は地が `--accent-soft`、`--focus` の囲みは listbox にキーボードフォーカスがあるときだけ。`ListToolbar` の削除は通常時インク色（`danger` をやめる）。`MessageCard` の「未読」黒ピルを、点と差出人の太さに変更。`ThreadRow` の padding を縦 `--s-3`・横 `--pad-card-sm` に、行の高さを 80px（ラベルありは 104px）に | #345 |
 | 2.19 | 2026-11-13 | 識別色の残りの帯をやめ、一覧と同じ薄いチップに揃えた。`AccountItem` は左の 6px の帯をやめて名前を `AccountChip` にし、`ThreadHeader` は上辺 4px のアカウント色の帯をやめ（受信アカウントは既存の `AccountChip`）、`SenderBadge` は左の 8px の帯をやめ、枠は中立（`--surface`・`--border`）のまま識別を名前の薄いチップだけにした（枠全体を識別色で塗ると面積が大きく主張しすぎるため。文言は変更なし）。`SearchBar` は右 padding のクリア分を入力があるときだけ空け、640px 以下のプレースホルダを `--font-size-sm` にして、390px で末尾が欠けないようにした。`ThreadAiQuestionForm` のフッタを折り返せるようにし、補助文は自分の行に出して文字数・「質問する」に食い込まないようにした | #347・#348・#349 |
 | 2.20 | 2026-11-14 | §3.9 `GeneralSettings` に通知の許可の表示と操作 2 つを、§3.10 に `notificationsStore` を追加し、`notify:open-thread` の購読と起動時の `TakePendingOpenThread` が `threadStore`（`uiStore` ではない）の責務である旨に直し、§6 の F-10 の行を合わせた | 実装との整合（#360） |
+| 2.21 | 2026-11-14 | §3.7 の `AiDraftButton`・`AiDraftInstruction` を新規作成に対応（指示が必須・空なら生成も確認も始めず案内を出して入力欄へ戻す。転送は対象外）。§3.4 に `SidebarViews`、§3.5.1 に `DraftList`・`DraftRow`（下書きの一覧）、§3.10 に `draftsStore` を追加し、§4 のショートカット（下書きの一覧を出している間の扱い）と §6 の対応表を更新した | #365・#366 |

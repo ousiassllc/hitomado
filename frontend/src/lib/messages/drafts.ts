@@ -1,0 +1,25 @@
+// 下書きの一覧（F-12。#366）の文言。
+export const drafts = {
+  /** サイドバーの入口 */
+  nav: { label: '表示', inbox: '受信箱', drafts: '下書き' },
+  label: '下書きの一覧',
+  title: '下書き',
+  refresh: '更新',
+  refreshing: '更新中…',
+  empty: '下書きはありません。',
+  noRecipient: '(宛先なし)',
+  noSubject: '(件名なし)',
+  noBody: '(本文なし)',
+  to: (names: string) => `宛先: ${names}`,
+  replyMark: '返信',
+  open: (account: string, to: string, subject: string) => `${account} ${to}、${subject}`,
+  discard: '下書きを破棄',
+  discardTitle: 'この下書きを破棄しますか？',
+  discardDetail: 'Gmail に保存済みの下書きが削除されます。元に戻せません。',
+  discardConfirm: '破棄する',
+  discarded: '下書きを破棄しました。',
+  discardFailed: '下書きを破棄できませんでした。',
+  loadFailedAll: '下書きを読み込めませんでした。',
+  loadFailed: (name: string) => `${name} の下書きを読み込めませんでした。`,
+  truncated: (n: number) => `各アカウントの新しい ${n} 件までを表示しています。`,
+} as const

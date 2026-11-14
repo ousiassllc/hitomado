@@ -12,6 +12,7 @@ import FilterBar from '../account/FilterBar.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseIconButton from '../ui/BaseIconButton.vue'
 import BaseTooltip from '../ui/BaseTooltip.vue'
+import SidebarViews from './SidebarViews.vue'
 
 const ui = useUiStore()
 const accounts = useAccountsStore()
@@ -58,6 +59,7 @@ async function reconnect(id: string): Promise<void> {
         </BaseButton>
       </BaseTooltip>
     </div>
+    <SidebarViews />
     <div class="accounts">
       <AccountList @select="onSelect" @reconnect="reconnect" />
     </div>

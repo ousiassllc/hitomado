@@ -1,5 +1,5 @@
 // 「AI で下書き」の状態遷移（F-08）。AI の設定が未保存→初回の案内（ChatGPT でログイン／別のプロバイダ）、キー未設定→設定へ誘導、
-// 未同意→同意、本文入力済み→置換確認、生成中→キャンセル可。
+// 未同意→同意、本文入力済み→置換確認、生成中→キャンセル可。新規作成は指示が必須で、空なら何も始めずに案内する（#365）。
 // 自動生成はしない: start() は利用者のボタン操作からのみ呼ぶ。結果は onGenerated に渡すだけで、失敗時は本文を変えない。
 import { computed, ref } from 'vue'
 import {
@@ -27,6 +27,8 @@ export interface AiDraftDeps {
   generate: (requestId: string) => Promise<{ bodyHtml: string }>
   /** 「AI への指示」が使えないときの理由（上限超過など）。あれば生成を始めずにエラー表示する（本文は変えない）。 */
   instructionError?: () => string | undefined
+  /** 「AI への指示」が必須で、まだ空のとき真（新規作成。#365）。真なら生成を始めず、指示を書く案内を出す（同意・置換確認にも進まない）。 */
+  instructionMissing?: () => boolean
   cancel: (requestId: string) => Promise<void>
   onGenerated: (bodyHtml: string) => void
   newRequestId: () => string
@@ -42,6 +44,8 @@ export function useAiDraft(deps: AiDraftDeps) {
   const error = ref<string>()
   /** ChatGPT プランの利用枠の超過（AI_FAILED の details.reason）。error の代わりに、使用状況の画面を開く導線つきの案内を出す。 */
   const usageLimit = ref(false)
+  /** 指示が必須なのに空のまま押された（新規作成。#365）。エラーではなく、指示を書くよう案内する。指示が入ったら呼び出し側が false に戻す。 */
+  const needsInstruction = ref(false)
   let requestId: string | undefined
   let cancelled = false
 
@@ -101,6 +105,11 @@ export function useAiDraft(deps: AiDraftDeps) {
     if (step.value !== 'idle') return
     error.value = undefined
     usageLimit.value = false
+    needsInstruction.value = false
+    if (deps.instructionMissing?.() === true) {
+      needsInstruction.value = true
+      return
+    }
     const invalid = deps.instructionError?.()
     if (invalid !== undefined) {
       error.value = invalid
@@ -166,6 +175,7 @@ export function useAiDraft(deps: AiDraftDeps) {
     step,
     error,
     usageLimit,
+    needsInstruction,
     needsSetup,
     needsKey,
     needsConsent,
