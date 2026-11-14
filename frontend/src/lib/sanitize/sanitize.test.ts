@@ -244,10 +244,10 @@ describe('buildSrcdoc のスクロールバー（#291・#378）', () => {
     expect(doc).toContain('.os-root')
   })
 
-  test('Android のタッチ UI では属性を付けない（OS の重ねて出るバーを使う）', () => {
+  test('Android のタッチ UI では data-overlay-scroll を付けず data-touch-ui を付ける（OS の重ねて出るバーを使い、scrollbar.css の太いバーも描かない）', () => {
     document.documentElement.setAttribute('data-touch-ui', '')
     try {
-      expect(buildSrcdoc('', { allowImages: false })).toContain('<html>')
+      expect(buildSrcdoc('', { allowImages: false })).toContain('<html data-touch-ui>')
     } finally {
       document.documentElement.removeAttribute('data-touch-ui')
     }

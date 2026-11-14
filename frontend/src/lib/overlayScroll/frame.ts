@@ -37,9 +37,12 @@ export function frameScrollbarCss(): string {
   return `:root{${vars}}${scrollbarCss}${overlayCss}`
 }
 
-/** srcdoc の `<html>` に付ける属性。付いているとネイティブのバーを隠す。タッチ UI では付けない。 */
+/**
+ * srcdoc の `<html>` に付ける属性。`data-overlay-scroll` はネイティブのバーを隠す目印。タッチ UI（Android）では付けず、代わりに親と同じ
+ * `data-touch-ui` を付ける（iframe は別文書で親の属性を受けないので、付けないと scrollbar.css の `:root:not([data-touch-ui])` が効き、OS の重ねて出るバーではなく太いバーを描く）。
+ */
 export function frameRootAttr(): string {
-  return nativeOverlay() ? '' : ' data-overlay-scroll'
+  return nativeOverlay() ? ' data-touch-ui' : ' data-overlay-scroll'
 }
 
 /** 読み込んだ iframe の文書に取り付ける。外すときの関数を返す。バーを自前で描かない（タッチ UI・属性なし）ときは undefined。 */
