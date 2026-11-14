@@ -6,45 +6,33 @@
 import * as model$0 from "../../domain/model/models.js";
 
 /**
- * AIConfig は AI 設定。API キー・トークン自体は返さない。BaseURL は openai のみ。
+ * AIConfig は AI 設定。「つなぎ先」（ログイン・API キー・同意・Base URL）と「機能ごとに使う AI」（#376）を 1 つにまとめて返す。
+ * API キー・トークン自体は返さない。
  */
 export interface AIConfig {
     /**
-     * anthropic / openai / chatgpt
+     * BaseURL は OpenAI 互換の Base URL（つなぎ先の設定）。空は OpenAI の既定の送信先。
      */
-    "provider": string;
-    "model": string;
     "baseUrl"?: string;
 
     /**
-     * Effort は下書きの生成に渡すモデルのエフォート（reasoning effort。#111）。空は「モデルの既定」（プロバイダへ送らない）。
-     * anthropic は low／medium／high／xhigh／max、openai／chatgpt は low／medium／high。範囲外の保存値は空として返す。
+     * Features は機能ごとに使う AI・モデル。
      */
-    "effort"?: string;
+    "features": AIFeatures;
 
     /**
-     * Configured は AI の設定（プロバイダ・モデル）を一度でも保存したか。false の間、provider は既定（chatgpt）で、画面は初めて使うときの案内を出す。
-     */
-    "configured": boolean;
-
-    /**
-     * HasAPIKey は現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。
-     */
-    "hasApiKey": boolean;
-
-    /**
-     * APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai／typesafe。chatgpt は ChatGPTSignedIn）。保存前に選んだプロバイダのキーの有無を出すのに使う。null にしない。
+     * APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai／typesafe。chatgpt は ChatGPTSignedIn）。null にしない。
      */
     "apiKeyProviders": string[] | null;
 
     /**
-     * ConsentedProviders は送信先への同意済みのプロバイダ（anthropic／openai／chatgpt／typesafe）。typesafe（Inbox Zero の判定。#314）は
-     * 既定のプロバイダに関わらず、同意していれば含む。openai は現在の Base URL の送信先への同意だけが有効。null にしない。
+     * ConsentedProviders は送信先への同意済みのプロバイダ（anthropic／openai／chatgpt／typesafe）。
+     * openai は現在の Base URL の送信先への同意だけが有効。null にしない。
      */
     "consentedProviders": string[] | null;
 
     /**
-     * ChatGPTSignedIn は選択中のプロバイダに関わらず、使用中の ChatGPT アカウントがログイン済みか。ChatGPTEmail はそのメールアドレス（表示用）。
+     * ChatGPTSignedIn は使用中の ChatGPT アカウントがログイン済みか。ChatGPTEmail はそのメールアドレス（表示用）。
      */
     "chatgptSignedIn": boolean;
     "chatgptEmail"?: string;
@@ -53,6 +41,36 @@ export interface AIConfig {
      * ChatGPTAccounts は保存済みの ChatGPT アカウント（登録順。トークンは含まない）。
      */
     "chatgptAccounts": ChatGPTAccount[] | null;
+}
+
+/**
+ * AIFeatureSetting は機能 1 つで使う AI・モデルの選択（#376）。保存した値をそのまま返し、つないでいるかは確かめない
+ * （つないでいない AI を選んでいても、選択は残す。画面が「つなぎ直しが必要」を出す）。
+ */
+export interface AIFeatureSetting {
+    /**
+     * Provider は選んだプロバイダ（anthropic／openai／chatgpt。Inbox Zero は typesafe も）。空は未選択。
+     */
+    "provider": string;
+
+    /**
+     * Model は選んだモデル。typesafe（モデルを選ばない）と未選択は空。
+     */
+    "model": string;
+
+    /**
+     * Effort は生成に渡すモデルのエフォート（reasoning effort。#111。「AI で下書き」だけ）。空は「モデルの既定」（プロバイダへ送らない）。
+     * anthropic は low／medium／high／xhigh／max、openai／chatgpt は low／medium／high。範囲外の保存値は空として返す。
+     */
+    "effort"?: string;
+}
+
+/**
+ * AIFeatures は機能ごとに使う AI・モデル。
+ */
+export interface AIFeatures {
+    "draft": AIFeatureSetting;
+    "inboxZero": AIFeatureSetting;
 }
 
 /**
