@@ -14,6 +14,7 @@ import type {
   ExportLogsResult,
   MCPConfig,
   MCPStatus,
+  NewDraftContext,
   UpdateInfo,
 } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { aiModelsKey, normalizeAIConfig } from '../lib/aiConfig'
@@ -230,6 +231,16 @@ export const useSettingsStore = defineStore('settings', () => {
     return await call(AIService.GenerateReplyDraft(sessionId, requestId, instruction))
   }
 
+  /** 新規作成の下書きを生成する（#365）。instruction は必須の「AI への指示」、content は作成画面に入力済みの件名・宛先（どちらも保存しない）。 */
+  async function generateNewDraft(
+    sessionId: string,
+    requestId: string,
+    instruction: string,
+    content: NewDraftContext,
+  ): Promise<{ bodyHtml: string }> {
+    return await call(AIService.GenerateNewDraft(sessionId, requestId, instruction, content))
+  }
+
   async function cancelGenerate(requestId: string): Promise<void> {
     await call(AIService.CancelGenerate(requestId))
   }
@@ -317,6 +328,7 @@ export const useSettingsStore = defineStore('settings', () => {
     removeChatGPTAccount,
     ackChatGPTPlanNotice,
     generateReplyDraft,
+    generateNewDraft,
     cancelGenerate,
     setUpdateCheckEnabled,
     setAutoUpdateEnabled,
