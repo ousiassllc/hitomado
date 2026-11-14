@@ -181,6 +181,13 @@ function guard(e: Event): void {
   background: var(--accent-soft);
 }
 
+/* × のフォーカスリングは青（--focus）でなく、ライトはインク・ダークはボーン色（#376・#377）。--accent がそれ（ライト #050505・ダーク #f5f5f4）。
+   キーボード（:focus-visible）のときだけ描く。マウスのクリックでは出さない。 */
+.dlg-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .dlg-desc {
   margin: var(--s-2) 0 0;
   color: var(--mute);
