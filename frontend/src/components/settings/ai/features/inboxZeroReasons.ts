@@ -10,10 +10,3 @@ export const INBOX_ZERO_REASONS = [
 ] as const
 
 export type InboxZeroReason = (typeof INBOX_ZERO_REASONS)[number]
-
-/** AI に聞く理由（1 つでもオンなら、Inbox Zero に選んだ AI が使える必要がある）。 */
-export const INBOX_ZERO_AI_REASONS: readonly InboxZeroReason[] = [
-  'ad',
-  'notification',
-  'newsletter',
-]
