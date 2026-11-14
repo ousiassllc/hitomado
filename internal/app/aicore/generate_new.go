@@ -54,7 +54,7 @@ func (s *Service) GenerateNewDraft(ctx context.Context, sessionID, requestID, in
 		return dto.ReplyDraft{}, err
 	}
 	defer finish()
-	cfg, key, err := s.precheck(runCtx)
+	cfg, key, err := s.precheck(runCtx, dto.AIFeatureDraft)
 	if err != nil {
 		return dto.ReplyDraft{}, s.precheckError(runCtx, err)
 	}

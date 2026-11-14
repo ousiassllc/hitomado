@@ -16,6 +16,7 @@ import (
 
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/aicore"
+	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/app/composecore/composetest"
 	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
@@ -67,7 +68,7 @@ func newFixture(t *testing.T) *fixture {
 // ready は設定・キー・同意をすべて済ませる。
 func (f *fixture) ready(t *testing.T) {
 	t.Helper()
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
@@ -154,7 +155,7 @@ func TestGenerateNewDraftPreconditions(t *testing.T) {
 	requireCode(t, "AI_NOT_CONFIGURED", gen())
 	_, err := f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
-	_, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "", "")
+	_, err = apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "", "")
 	require.NoError(t, err)
 	requireCode(t, "AI_CONSENT_REQUIRED", gen())
 	assert.Empty(t, f.provider.inputs)

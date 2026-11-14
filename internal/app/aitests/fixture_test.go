@@ -38,7 +38,7 @@ func newAIFixture(t *testing.T) *aiFixture {
 // ready は OpenAI 互換（readyBaseURL）の設定・キー・同意をすべて済ませる。
 func (f *aiFixture) ready(t *testing.T) {
 	t.Helper()
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", readyBaseURL, "")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", readyBaseURL, "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
@@ -52,7 +52,7 @@ func (f *aiFixture) chatgptReady(t *testing.T) {
 	f.ChatGPT.Token = chatgptToken
 	_, err := f.ai.SignInChatGPT(t.Context(), "")
 	require.NoError(t, err)
-	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "", "")
+	_, err = apptest.SetDraftAI(f.ai, t.Context(), "chatgpt", "gpt-plan", "", "")
 	require.NoError(t, err)
 	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt", "")
 	require.NoError(t, err)

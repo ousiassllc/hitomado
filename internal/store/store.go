@@ -213,7 +213,6 @@ type Store interface {
 // 設定キー（ER §3.9）。
 const (
 	SettingInboxFilter = "inbox.filter"
-	SettingAIConfig    = "ai.config"
 	SettingAIConsent   = "ai.consent"
 	SettingAIChatGPT   = "ai.chatgpt"
 	SettingUpdateCheck = "update.check_enabled"
@@ -225,4 +224,8 @@ const (
 	SettingSendConfirm = "compose.send_confirm"
 	// SettingInboxZero は Inbox Zero で使う「不要なメール」の理由ごとのオン・オフ（JSON オブジェクト。未設定は全部オン。#314）。
 	SettingInboxZero = "inbox_zero.reasons"
+	// SettingAIFeatures は機能ごとに使う AI・モデル（JSON オブジェクト。キーは機能 ID の draft／inboxZero。#376）。
+	SettingAIFeatures = "ai.features"
+	// SettingAIConnection は AI のつなぎ先の設定（OpenAI 互換の Base URL。#376）。
+	SettingAIConnection = "ai.connection"
 )

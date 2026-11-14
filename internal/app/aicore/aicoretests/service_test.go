@@ -73,7 +73,7 @@ func newAIFixture(t *testing.T) *aiFixture {
 // ready は設定・キー・同意をすべて済ませる。
 func (f *aiFixture) ready(t *testing.T) {
 	t.Helper()
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
@@ -85,24 +85,20 @@ func TestAIConfigDefaultsAndRoundTrip(t *testing.T) {
 	f := newAIFixture(t)
 	cfg, err := f.ai.GetAIConfig(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, "chatgpt", cfg.Provider, "未保存の既定は ChatGPT プラン（#104）")
-	assert.False(t, cfg.Configured)
-	assert.Empty(t, cfg.Model)
-	assert.False(t, cfg.HasAPIKey)
+	assert.Equal(t, dto.AIFeatures{}, cfg.Features, "未保存は、どの機能も未選択")
+	assert.Empty(t, cfg.BaseURL)
 	assert.NotNil(t, cfg.APIKeyProviders)
 	assert.Empty(t, cfg.APIKeyProviders)
 	assert.NotNil(t, cfg.ConsentedProviders)
 	assert.Empty(t, cfg.ConsentedProviders)
 
-	cfg, err = f.ai.SetAIConfig(t.Context(), "openai", " gpt-x ", "https://llm.example/v1", "")
+	cfg, err = apptest.SetDraftAI(f.ai, t.Context(), "openai", " gpt-x ", "https://llm.example/v1", "")
 	require.NoError(t, err)
-	assert.True(t, cfg.Configured)
-	assert.Equal(t, "gpt-x", cfg.Model)
+	assert.Equal(t, dto.AIFeatureSetting{Provider: "openai", Model: "gpt-x"}, cfg.Features.Draft)
 	assert.Equal(t, "https://llm.example/v1", cfg.BaseURL)
 
 	cfg, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
-	assert.True(t, cfg.HasAPIKey)
 	assert.Equal(t, []string{"openai"}, cfg.APIKeyProviders)
 	got, err := f.Secrets.Get(secrets.AIAPIKeyKey("openai"))
 	require.NoError(t, err)
@@ -110,50 +106,64 @@ func TestAIConfigDefaultsAndRoundTrip(t *testing.T) {
 
 	cfg, err = f.ai.ClearAIApiKey(t.Context(), "openai")
 	require.NoError(t, err)
-	assert.False(t, cfg.HasAPIKey)
-
-	cfg, err = f.ai.SetAIConfig(t.Context(), "anthropic", "claude", "https://ignored.example", "")
-	require.NoError(t, err)
-	assert.Empty(t, cfg.BaseURL, "baseUrl は openai のみ")
+	assert.Empty(t, cfg.APIKeyProviders)
+	assert.Equal(t, "openai", cfg.Features.Draft.Provider, "接続を外しても、選んだ AI は残す（別の AI へ切り替えない）")
+	assert.Equal(t, "gpt-x", cfg.Features.Draft.Model)
 }
 
-// 保存済みのプロバイダ（anthropic・openai・chatgpt）は、既定が ChatGPT になっても変わらない（#104）。
-func TestSavedProviderIsNotReplacedByTheDefault(t *testing.T) {
-	for _, p := range []string{"anthropic", "openai", "chatgpt"} {
-		f := newAIFixture(t)
-		_, err := f.ai.SetAIConfig(t.Context(), p, "m-"+p, "", "")
-		require.NoError(t, err)
-		cfg, err := f.ai.GetAIConfig(t.Context())
-		require.NoError(t, err)
-		assert.Equal(t, p, cfg.Provider)
-		assert.Equal(t, "m-"+p, cfg.Model)
-		assert.True(t, cfg.Configured, p)
-	}
-
-	// 旧バージョンが保存した値（モデル名と Base URL つきの openai）もそのまま読む。
+// 機能ごとの選択は独立に保存され、Base URL（つなぎ先の設定）はプロバイダに共通。
+func TestAIFeaturesAreIndependent(t *testing.T) {
 	f := newAIFixture(t)
-	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.config", `{"provider":"openai","model":"gpt-old","baseUrl":"https://llm.example/v1"}`))
+	_, err := f.ai.SetAIFeature(t.Context(), dto.AIFeatureDraft, "anthropic", "claude", "high")
+	require.NoError(t, err)
+	cfg, err := f.ai.SetAIFeature(t.Context(), dto.AIFeatureInboxZero, "chatgpt", "gpt-plan", "")
+	require.NoError(t, err)
+	assert.Equal(t, dto.AIFeatureSetting{Provider: "anthropic", Model: "claude", Effort: "high"}, cfg.Features.Draft)
+	assert.Equal(t, dto.AIFeatureSetting{Provider: "chatgpt", Model: "gpt-plan"}, cfg.Features.InboxZero)
+
+	// TypeSafe AI（Jev）は Inbox Zero だけに選べ、モデルを持たない。
+	cfg, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureInboxZero, "typesafe", "ignored", "")
+	require.NoError(t, err)
+	assert.Equal(t, dto.AIFeatureSetting{Provider: "typesafe"}, cfg.Features.InboxZero)
+	assert.Equal(t, "claude", cfg.Features.Draft.Model, "もう一方の機能は変わらない")
+	_, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureDraft, "typesafe", "", "")
+	requireCode(t, "VALIDATION", err)
+}
+
+// 旧バージョンの ai.config は、store のマイグレーションが「AI で下書き」の選択とつなぎ先の設定へ移す（store の migrate_ai_features_test）。
+// 移したあとの値は、そのまま読める。
+func TestMigratedFeaturesAreRead(t *testing.T) {
+	f := newAIFixture(t)
+	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.features", `{"draft":{"provider":"openai","model":"gpt-old"}}`))
+	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.connection", `{"openaiBaseUrl":"https://llm.example/v1"}`))
 	cfg, err := f.ai.GetAIConfig(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, "openai", cfg.Provider)
-	assert.Equal(t, "gpt-old", cfg.Model)
+	assert.Equal(t, dto.AIFeatureSetting{Provider: "openai", Model: "gpt-old"}, cfg.Features.Draft)
+	assert.Empty(t, cfg.Features.InboxZero.Provider)
 	assert.Equal(t, "https://llm.example/v1", cfg.BaseURL)
-	assert.True(t, cfg.Configured)
 
-	// 未知のプロバイダの保存値は、未保存と同じ既定（ChatGPT）で扱う。
-	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.config", `{"provider":"gemini","model":"x"}`))
+	// その機能で選べないプロバイダ（手で書き換えられた値）は未選択として読む。
+	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.features", `{"draft":{"provider":"gemini","model":"x"},"inboxZero":{"provider":"typesafe"}}`))
 	cfg, err = f.ai.GetAIConfig(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, "chatgpt", cfg.Provider)
-	assert.False(t, cfg.Configured)
+	assert.Empty(t, cfg.Features.Draft.Provider)
+	assert.Equal(t, "typesafe", cfg.Features.InboxZero.Provider)
+	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.features", `{"draft":{"provider":"typesafe"}}`))
+	cfg, err = f.ai.GetAIConfig(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, cfg.Features.Draft.Provider, "TypeSafe AI は「AI で下書き」に選べない")
 }
 
 func TestAIConfigValidation(t *testing.T) {
 	f := newAIFixture(t)
-	_, err := f.ai.SetAIConfig(t.Context(), "gemini", "m", "", "")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "gemini", "m", "", "")
+	requireCode(t, "VALIDATION", err)
+	_, err = f.ai.SetAIFeature(t.Context(), "agent", "openai", "m", "")
+	requireCode(t, "VALIDATION", err)
+	_, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureDraft, "openai", "  ", "")
 	requireCode(t, "VALIDATION", err)
 	for _, u := range []string{"ftp://x.example", "not a url", "https://", "javascript:alert(1)"} {
-		_, err = f.ai.SetAIConfig(t.Context(), "openai", "m", u, "")
+		_, err = f.ai.SetAIBaseURL(t.Context(), u)
 		requireCode(t, "VALIDATION", err)
 	}
 	_, err = f.ai.SetAIApiKey(t.Context(), "gemini", "k")
@@ -204,7 +214,7 @@ func TestGeneratePreconditions(t *testing.T) {
 	require.NoError(t, err)
 	requireCode(t, "AI_NOT_CONFIGURED", gen()) // model が空
 
-	_, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "", "")
+	_, err = apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "", "")
 	require.NoError(t, err)
 	requireCode(t, "AI_CONSENT_REQUIRED", gen())
 

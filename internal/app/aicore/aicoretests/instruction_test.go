@@ -67,7 +67,7 @@ func TestInstructionIsNotLoggedOrStored(t *testing.T) {
 	assert.NotContains(t, err.Error(), sensitive)
 	assert.NotContains(t, f.logs.String(), sensitive)
 
-	cfg, ok, err := f.Store.GetSetting(t.Context(), store.SettingAIConfig)
+	cfg, ok, err := f.Store.GetSetting(t.Context(), store.SettingAIFeatures)
 	require.NoError(t, err)
 	require.True(t, ok)
 	assert.NotContains(t, cfg, sensitive)

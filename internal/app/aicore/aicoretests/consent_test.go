@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ousiassllc/hitomado/internal/ai"
+	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
@@ -33,13 +34,13 @@ func TestBaseURLRejectsUserinfoQueryFragment(t *testing.T) {
 		"https://llm.example/v1#frag",
 		"https://llm.example/v1#",
 	} {
-		_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", u, "")
+		_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "m", u, "")
 		ae := requireError(t, "VALIDATION", err)
 		assert.NotContains(t, ae.Message, "secret")
 		assert.NotContains(t, ae.Message, "pass")
 	}
 	for _, u := range []string{"http://localhost:1234/v1", "https://llm.example/v1/"} {
-		_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", u, "")
+		_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "m", u, "")
 		require.NoError(t, err, u)
 	}
 }
@@ -52,15 +53,15 @@ func TestConsentIsInvalidatedWhenBaseURLHostChanges(t *testing.T) {
 	assert.Equal(t, []string{"openai"}, f.consented(t))
 
 	// 同じ送信先（パス・大文字小文字・既定ポート違い）なら同意は維持される。
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://LLM.example:443/v2/", "")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "https://LLM.example:443/v2/", "")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"openai"}, f.consented(t))
 
 	// ホストが変わると同意は無効（保存からも外れる）。API キーは維持される。
-	cfg, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://other.example/v1", "")
+	cfg, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "https://other.example/v1", "")
 	require.NoError(t, err)
 	assert.Empty(t, cfg.ConsentedProviders)
-	assert.True(t, cfg.HasAPIKey)
+	assert.Equal(t, []string{"openai"}, cfg.APIKeyProviders)
 	requireCode(t, "AI_CONSENT_REQUIRED", f.generate(t, s.SessionID))
 	v, ok, err := f.Store.GetSetting(t.Context(), store.SettingAIConsent)
 	require.NoError(t, err)
@@ -68,7 +69,7 @@ func TestConsentIsInvalidatedWhenBaseURLHostChanges(t *testing.T) {
 	assert.NotContains(t, v, "openai")
 
 	// 元のホストに戻しても、改めて同意するまでは有効にならない。
-	_, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
+	_, err = apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	assert.Empty(t, f.consented(t))
 	requireCode(t, "AI_CONSENT_REQUIRED", f.generate(t, s.SessionID))
@@ -81,7 +82,7 @@ func TestConsentIsInvalidatedWhenBaseURLHostChanges(t *testing.T) {
 
 func TestConsentIsInvalidatedWhenSchemeDowngradesToHTTP(t *testing.T) {
 	f := newAIFixture(t)
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://localhost:8443/v1", "")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "https://localhost:8443/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
@@ -91,7 +92,7 @@ func TestConsentIsInvalidatedWhenSchemeDowngradesToHTTP(t *testing.T) {
 	s := f.open(t, "reply")
 	require.NoError(t, f.generate(t, s.SessionID))
 
-	cfg, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "http://localhost:8443/v1", "")
+	cfg, err = apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "http://localhost:8443/v1", "")
 	require.NoError(t, err)
 	assert.Empty(t, cfg.ConsentedProviders, "https→http では同意は失効する")
 	requireCode(t, "AI_CONSENT_REQUIRED", f.generate(t, s.SessionID))
@@ -99,13 +100,13 @@ func TestConsentIsInvalidatedWhenSchemeDowngradesToHTTP(t *testing.T) {
 
 func TestConsentIsPerDestinationHost(t *testing.T) {
 	f := newAIFixture(t)
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", "https://a.example/v1", "")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "m", "https://a.example/v1", "")
 	require.NoError(t, err)
 	cfg, err := f.ai.RecordAIConsent(t.Context(), "openai", "https://a.example/v1")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"openai"}, cfg.ConsentedProviders)
 
-	_, err = f.ai.SetAIConfig(t.Context(), "openai", "m", "", "")
+	_, err = apptest.SetDraftAI(f.ai, t.Context(), "openai", "m", "", "")
 	require.NoError(t, err)
 	assert.Empty(t, f.consented(t), "OpenAI 既定の送信先は a.example とは別")
 }
@@ -113,31 +114,46 @@ func TestConsentIsPerDestinationHost(t *testing.T) {
 func TestLegacyConsentIsTheDefaultDestination(t *testing.T) {
 	f := newAIFixture(t)
 	require.NoError(t, f.Store.SetSetting(t.Context(), store.SettingAIConsent, `{"provider":"openai","agreedAt":1730000000000}`))
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", "", "")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "m", "", "")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"openai"}, f.consented(t), "旧形式は openai の既定 URL への同意")
 
-	_, err = f.ai.SetAIConfig(t.Context(), "openai", "m", "https://llm.example/v1", "")
+	_, err = apptest.SetDraftAI(f.ai, t.Context(), "openai", "m", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	assert.Empty(t, f.consented(t), "旧形式の同意はカスタム Base URL には効かない")
 }
 
-func TestConsentDroppedWhenSwitchingProviderClearsBaseURL(t *testing.T) {
+// Base URL（つなぎ先の設定）を変えると、openai の同意は送信先が変わるので無効になる。ほかのプロバイダの同意は残る。
+func TestConsentDroppedWhenBaseURLChanges(t *testing.T) {
 	f := newAIFixture(t)
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", "https://llm.example/v1", "")
+	_, err := f.ai.SetAIBaseURL(t.Context(), "https://llm.example/v1")
 	require.NoError(t, err)
 	_, err = f.ai.RecordAIConsent(t.Context(), "openai", "https://llm.example/v1")
 	require.NoError(t, err)
 	_, err = f.ai.RecordAIConsent(t.Context(), "anthropic", "")
 	require.NoError(t, err)
 
-	cfg, err := f.ai.SetAIConfig(t.Context(), "anthropic", "claude", "https://ignored.example", "")
+	cfg, err := f.ai.SetAIBaseURL(t.Context(), "https://other.example/v1")
 	require.NoError(t, err)
 	assert.Equal(t, []string{"anthropic"}, cfg.ConsentedProviders, "anthropic の同意は維持。openai は送信先が変わるため無効")
 
-	cfg, err = f.ai.SetAIConfig(t.Context(), "openai", "m", "https://llm.example/v1", "")
+	cfg, err = f.ai.SetAIBaseURL(t.Context(), "https://llm.example/v1")
 	require.NoError(t, err)
-	assert.Equal(t, []string{"anthropic"}, cfg.ConsentedProviders, "openai は再同意が必要。anthropic の同意は残るが現在の設定では未使用")
+	assert.Equal(t, []string{"anthropic"}, cfg.ConsentedProviders, "openai は再同意が必要")
+}
+
+// 「AI で下書き」に別のプロバイダを選んでも、つなぎ先（Base URL・同意）は変わらない。
+func TestSelectingAnotherProviderKeepsTheConnection(t *testing.T) {
+	f := newAIFixture(t)
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "m", "https://llm.example/v1", "")
+	require.NoError(t, err)
+	_, err = f.ai.RecordAIConsent(t.Context(), "openai", "https://llm.example/v1")
+	require.NoError(t, err)
+
+	cfg, err := apptest.SetDraftAI(f.ai, t.Context(), "anthropic", "claude", "", "")
+	require.NoError(t, err)
+	assert.Equal(t, "https://llm.example/v1", cfg.BaseURL)
+	assert.Equal(t, []string{"openai"}, cfg.ConsentedProviders)
 }
 
 func TestConsentTimestampKeptOnRerecord(t *testing.T) {
@@ -157,7 +173,7 @@ func TestConsentTimestampKeptOnRerecord(t *testing.T) {
 func TestBaseURLHTTPOnlyForLoopbackOnSet(t *testing.T) {
 	f := newAIFixture(t)
 	for _, u := range []string{"http://localhost", "http://127.0.0.1:11434/v1", "http://[::1]:8080", "https://llm.example/v1"} {
-		_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", u, "")
+		_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "m", u, "")
 		require.NoError(t, err, u)
 	}
 	for _, u := range []string{
@@ -165,17 +181,17 @@ func TestBaseURLHTTPOnlyForLoopbackOnSet(t *testing.T) {
 		"http://127.0.0.1.evil.com", "http://0.0.0.0:8080", "http://127.1", "http://[::ffff:127.0.0.1]:8080",
 		"http://localhost./v1", "http://user:pass@localhost:8080/v1",
 	} {
-		_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", u, "")
+		_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "m", u, "")
 		ae := requireError(t, "VALIDATION", err)
 		assert.NotContains(t, ae.Message, "evil")
 		assert.NotContains(t, ae.Message, "pass")
 		assert.NotContains(t, ae.Message, "192.168")
 	}
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "m", "http://llm.example/v1", "")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "m", "http://llm.example/v1", "")
 	ae := requireError(t, "VALIDATION", err)
 	assert.Equal(t, "http:// は localhost／127.0.0.1／::1 のときだけ使えます。", ae.Message)
-	_, err = f.ai.SetAIConfig(t.Context(), "anthropic", "m", "http://llm.example/v1", "")
-	require.NoError(t, err, "anthropic では Base URL を無視する")
+	_, err = apptest.SetDraftAI(f.ai, t.Context(), "anthropic", "m", "http://llm.example/v1", "")
+	require.NoError(t, err, "openai 以外を選ぶときは Base URL を使わない")
 }
 
 func TestSavedInsecureBaseURLIsRejectedBeforeConnecting(t *testing.T) {
@@ -183,8 +199,8 @@ func TestSavedInsecureBaseURLIsRejectedBeforeConnecting(t *testing.T) {
 	f.ready(t)
 	s := f.open(t, "reply")
 	// 旧バージョンが保存した非 loopback の http:// 設定（同意は旧形式で保存済み）。
-	require.NoError(t, f.Store.SetSetting(t.Context(), store.SettingAIConfig,
-		`{"provider":"openai","model":"gpt-test","baseUrl":"http://llm.example/v1"}`))
+	require.NoError(t, f.Store.SetSetting(t.Context(), store.SettingAIConnection,
+		`{"openaiBaseUrl":"http://llm.example/v1"}`))
 	require.NoError(t, f.Store.SetSetting(t.Context(), store.SettingAIConsent,
 		`{"providers":[{"provider":"openai","baseUrl":"http://llm.example/v1","agreedAt":1}]}`))
 

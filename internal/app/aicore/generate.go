@@ -16,7 +16,6 @@ import (
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/domain/textconv"
 	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/siwc"
 )
 
 // AI に渡すコンテキストの上限（NF §12）。
@@ -55,7 +54,7 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID, 
 		return dto.ReplyDraft{}, err
 	}
 	defer finish()
-	cfg, key, err := s.precheck(runCtx)
+	cfg, key, err := s.precheck(runCtx, dto.AIFeatureDraft)
 	if err != nil {
 		return dto.ReplyDraft{}, s.precheckError(runCtx, err)
 	}
@@ -69,7 +68,7 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID, 
 }
 
 // generateDraft は組み立て済みの入力 in から下書きの本文を生成する（返信・新規作成で共通。in.Effort は設定のエフォートにする）。
-func (s *Service) generateDraft(ctx context.Context, cfg storedAIConfig, key string, in ai.ReplyInput) (dto.ReplyDraft, error) {
+func (s *Service) generateDraft(ctx context.Context, cfg SelectedAI, key string, in ai.ReplyInput) (dto.ReplyDraft, error) {
 	in.Effort = cfg.Effort
 	text, err := s.generate(ctx, cfg, key, in.Effort, func(ctx context.Context, p ai.Provider) (string, error) {
 		return p.GenerateReply(ctx, in)
@@ -88,7 +87,7 @@ type providerCall func(ctx context.Context, p ai.Provider) (string, error)
 
 // generate はプロバイダを作って call を 1 回呼ぶ。ChatGPT で 401 を受けたときだけ、トークンを更新して 1 度だけやり直す
 // （更新できなければ再ログインを案内する）。effort は要求に載せたエフォート（拒否されたときの案内用）。返すエラーは AppError。
-func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key, effort string, call providerCall) (string, error) {
+func (s *Service) generate(ctx context.Context, cfg SelectedAI, key, effort string, call providerCall) (string, error) {
 	text, err := s.callProvider(ctx, cfg, key, call)
 	if err == nil || cfg.Provider != providerChatGPT || !errors.Is(err, ai.ErrUnauthorized) || ctx.Err() != nil {
 		return text, s.mapProviderError(cfg.Provider, effort, err)
@@ -106,7 +105,7 @@ func (s *Service) generate(ctx context.Context, cfg storedAIConfig, key, effort 
 
 // callProvider はプロバイダを作って call を呼ぶ。プロバイダのエラーは生のまま返す（呼び出し側が分類する）。
 // 中止・期限切れ（ctx の終了）と、プロバイダを作れないエラーだけは、ここで AppError にする。
-func (s *Service) callProvider(ctx context.Context, cfg storedAIConfig, key string, call providerCall) (string, error) {
+func (s *Service) callProvider(ctx context.Context, cfg SelectedAI, key string, call providerCall) (string, error) {
 	if ctx.Err() != nil { // 中止済みなら、プロバイダを作らず・何も送らない
 		return "", s.mapError(ctx, context.Cause(ctx), "")
 	}
@@ -147,58 +146,6 @@ func (s *Service) mapProviderError(provider, effort string, err error) error {
 		return apperr.Wrap(apperr.AIFailed, "ChatGPT のログインを確認できませんでした。設定画面でログインし直してください。", err)
 	}
 	return apperr.FromInfra(err, "")
-}
-
-// precheck は前提条件（キー・モデル設定済み→同意済み）を検査する。キーはここ以外に渡さない。
-func (s *Service) precheck(ctx context.Context) (storedAIConfig, string, error) {
-	cfg, err := s.loadConfig(ctx)
-	if err != nil {
-		return cfg, "", err
-	}
-	// ChatGPT のトークンは、同意の確認が済むまで取得（更新）しない。まずはログイン済みかだけを見る。
-	var (
-		key string
-		ok  bool
-	)
-	if cfg.Provider == providerChatGPT {
-		var gpt siwc.Status
-		gpt, err = s.chatGPTStatus(ctx)
-		ok = gpt.SignedIn
-	} else {
-		key, ok, err = s.apiKey(cfg.Provider)
-	}
-	if err != nil {
-		return cfg, "", err
-	}
-	if !ok || strings.TrimSpace(cfg.Model) == "" {
-		if cfg.Provider == providerChatGPT {
-			return cfg, "", apperr.New(apperr.AINotConfigured, "ChatGPT にログインし、モデルを設定画面で設定してください。")
-		}
-		return cfg, "", apperr.New(apperr.AINotConfigured, "AI の API キーとモデルを設定画面で設定してください。")
-	}
-	if cfg.BaseURL != "" && cfg.Provider == providerOpenAI {
-		// 保存済みの旧設定（非 loopback の http:// など）は、接続前に分かりやすく拒否する。
-		if err := validateBaseURL(cfg.BaseURL); err != nil {
-			return cfg, "", apperr.Wrap(apperr.Validation, "保存済みの Base URL は使えません。設定画面で https:// の URL（または localhost の http://）に直してください。", err)
-		}
-	}
-	consented, err := s.loadConsent(ctx, cfg)
-	if err != nil {
-		return cfg, "", err
-	}
-	if !slices.Contains(consented, cfg.Provider) {
-		return cfg, "", apperr.New(apperr.AIConsentRequired, "スレッドの内容が AI プロバイダへ送信されることへの同意が必要です。")
-	}
-	if cfg.Provider == providerChatGPT {
-		key, ok, err = s.credential(ctx, cfg.Provider)
-		if err != nil {
-			return cfg, "", err
-		}
-		if !ok {
-			return cfg, "", apperr.New(apperr.AINotConfigured, "ChatGPT にログインし、モデルを設定画面で設定してください。")
-		}
-	}
-	return cfg, key, nil
 }
 
 // buildInput はスレッドから AI への入力を作る（DRAFT を除き、テキスト化し、5 件・20,000 文字へ切り詰める）。

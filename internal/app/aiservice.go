@@ -8,7 +8,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 )
 
-// AIService は AI 設定・同意・下書き生成・スレッドの要約と質問（バインディング仕様 §6）。Wails のバインディング面で、実装は aicore に委譲する。
+// AIService は AI のつなぎ先・機能ごとに使う AI・同意・下書き生成・スレッドの要約と質問（バインディング仕様 §6）。Wails のバインディング面で、実装は aicore に委譲する。
 type AIService struct {
 	core                *aicore.Service
 	aicore.InboxZeroAPI // Inbox Zero（#314）のバインディング面。aicore.Service に委譲する
@@ -25,8 +25,14 @@ func (s *AIService) GetAIConfig(ctx context.Context) (dto.AIConfig, error) {
 	return s.core.GetAIConfig(ctx)
 }
 
-func (s *AIService) SetAIConfig(ctx context.Context, provider, model, baseURL, effort string) (dto.AIConfig, error) {
-	return s.core.SetAIConfig(ctx, provider, model, baseURL, effort)
+// SetAIFeature は機能（draft／inboxZero）で使う AI・モデルを保存する（機能ごとに使う AI。#376）。
+func (s *AIService) SetAIFeature(ctx context.Context, feature, provider, model, effort string) (dto.AIConfig, error) {
+	return s.core.SetAIFeature(ctx, feature, provider, model, effort)
+}
+
+// SetAIBaseURL は OpenAI 互換の Base URL（つなぎ先の設定）を保存する。
+func (s *AIService) SetAIBaseURL(ctx context.Context, baseURL string) (dto.AIConfig, error) {
+	return s.core.SetAIBaseURL(ctx, baseURL)
 }
 
 func (s *AIService) SetAIApiKey(ctx context.Context, provider, apiKey string) (dto.AIConfig, error) {

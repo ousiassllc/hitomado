@@ -78,8 +78,8 @@ func TestSettings(t *testing.T) {
 	assert.Equal(t, 1, count(t, s, `SELECT COUNT(*) FROM app_settings`))
 
 	// json_valid の CHECK で不正な JSON は拒否される。
-	require.Error(t, s.SetSetting(ctx, store.SettingAIConfig, `{not json`))
-	_, ok, err = s.GetSetting(ctx, store.SettingAIConfig)
+	require.Error(t, s.SetSetting(ctx, store.SettingAIFeatures, `{not json`))
+	_, ok, err = s.GetSetting(ctx, store.SettingAIFeatures)
 	require.NoError(t, err)
 	assert.False(t, ok)
 }
