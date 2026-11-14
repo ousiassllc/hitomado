@@ -192,6 +192,39 @@ jobs:
           retention-days: 1
           if-no-files-found: error
 
+  # Windows 実機（windows-latest）で、エージェントのマスコット（別ウィンドウ。#372）が、メインウィンドウを閉じたあとも残ることを確かめる。
+  # E2E ビルド（タグ e2e。Gmail はシード済みのフェイク。リリースには入らない）の exe を、エージェントとマスコットがオンの状態で起動する。
+  # 前後のスクリーンショットとウィンドウの一覧を成果物に残す。
+  mascot-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.14
+      - name: Build the frontend
+        working-directory: frontend
+        run: |
+          bun install --frozen-lockfile
+          bun run build
+      - name: Build the E2E exe
+        shell: bash
+        env:
+          CGO_ENABLED: "0"
+        run: go build -tags e2e -ldflags="-H windowsgui" -o bin/hitomado-e2e.exe .
+      - name: The mascot stays after the main window is closed
+        shell: pwsh
+        run: .github/scripts/test-mascot.ps1 -Exe "$PWD\bin\hitomado-e2e.exe" -OutDir "$PWD\mascot-evidence"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-mascot-evidence
+          path: mascot-evidence
+          if-no-files-found: warn
+
   # ARM64 の Windows 11 の実機（windows-11-arm）で、x64 版のインストーラーと exe を通す（#13）。
   # 同じ x64 の成果物を、build ジョブで作ったものから受け取って使う（ARM64 版のビルドは無い）。
   installer-arm64:

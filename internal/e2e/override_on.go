@@ -4,7 +4,9 @@ package e2e
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
+	"os"
 
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/secrets"
@@ -18,6 +20,10 @@ const Marker = "hitomado-e2e-backend-v1"
 // Enabled は E2E 用ビルドのとき true。
 const Enabled = true
 
+// AgentMascotEnv が "1" のとき、エージェントモードとマスコットをオンにした状態で起動する。Windows の CI（.github/scripts/test-mascot.ps1）が、
+// マスコットの別ウィンドウがメインウィンドウを閉じても残ることを確かめるための入口（AI は未設定のまま。新着の処理は動かない）。
+const AgentMascotEnv = "HITOMADO_E2E_AGENT_MASCOT"
+
 // Override は渡された secrets・gmail を捨て、メモリ上の資格情報と、シード済みのフェイク Gmail に差し替える。
 // 初回（アカウントが無いとき）は OAuth クライアントとアカウントを 1 件ずつ DB に作る。
 // 同期は通常どおりこのフェイクに対して走り、スレッド一覧が DB に入る。
@@ -26,6 +32,11 @@ func Override(ctx context.Context, dir string, st store.Store, _ secrets.Store, 
 	fake, err := Seed(ctx, st, sec, timeNow())
 	if err != nil {
 		return nil, nil, err
+	}
+	if os.Getenv(AgentMascotEnv) == "1" {
+		if err := st.SetSetting(ctx, store.SettingAgent, `{"enabled":true,"mascotEnabled":true}`); err != nil {
+			return nil, nil, fmt.Errorf("e2e: seed agent settings: %w", err)
+		}
 	}
 	logger.Warn("E2E mode: Gmail is a seeded fake and credentials are in memory; never use with real accounts", "marker", Marker)
 	return sec, NewRecordingGmail(fake, dir), nil
