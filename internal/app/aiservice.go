@@ -80,6 +80,11 @@ func (s *AIService) GenerateReplyDraft(ctx context.Context, sessionID, requestID
 	return s.core.GenerateReplyDraft(ctx, sessionID, requestID, instruction)
 }
 
+// GenerateNewDraft は new セッションの本文を、AI への指示（必須）と入力済みの件名・宛先から生成する（F-08。#365）。保存しない。
+func (s *AIService) GenerateNewDraft(ctx context.Context, sessionID, requestID, instruction string, content dto.NewDraftContext) (dto.ReplyDraft, error) {
+	return s.core.GenerateNewDraft(ctx, sessionID, requestID, instruction, content)
+}
+
 // CancelGenerate は実行中の生成を中止する（GenerateReplyDraft・SummarizeThread・AskAboutThread・FindInboxZeroCandidates は CANCELLED で終わる）。
 func (s *AIService) CancelGenerate(requestID string) error { return s.core.CancelGenerate(requestID) }
 

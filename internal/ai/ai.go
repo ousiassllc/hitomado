@@ -49,16 +49,25 @@ type AttachmentRef struct {
 	Size     int64
 }
 
-// ReplyInput は返信下書き生成の入力。送信コンテキストは直近 5 メッセージ・合計 20,000 文字以内（呼び出し側が切り詰める）。
+// ReplyInput は下書き生成の入力。既定は返信下書きで、送信コンテキストは直近 5 メッセージ・合計 20,000 文字以内（呼び出し側が切り詰める）。
+// New があれば新規作成のメールの下書き（スレッドが無いので Messages は空。プロンプトは新規作成用になる）。
 type ReplyInput struct {
 	AccountDisplayName string
 	SignatureText      string
-	// Instruction は利用者が書いた「AI への指示」（#109）。空なら指示なし（従来と同じ要求）。スレッド本文とは別枠（system 側）で渡す。
+	// Instruction は利用者が書いた「AI への指示」（#109）。返信では空なら指示なし（従来と同じ要求）。新規作成では必須（呼び出し側が検査する）。スレッド本文とは別枠（system 側）で渡す。
 	Instruction string
 	// Effort はモデルのエフォート（#111）。空は「モデルの既定」で、要求に載せない（従来と同じ要求）。
 	// メール内容ではなく生成のパラメータなので、同意の単位・送信先は変わらない。範囲の検査は呼び出し側（ValidEffort）。
 	Effort   string
 	Messages []ContextMessage // 時系列昇順
+	// New は新規作成のメールの入力済みの件名・宛先（#365）。nil なら返信下書き。
+	New *NewMailContext
+}
+
+// NewMailContext は新規作成のメールの下書きに渡す、入力済みの件名と宛先（To のみ。Cc・Bcc は渡さない）。どちらも空でよい。
+type NewMailContext struct {
+	Subject string
+	To      []string // 「名前 <アドレス>」（名前が無ければアドレスだけ）
 }
 
 // ThreadInput はスレッドの AI 要約（F-17）の入力。Messages は呼び出し側が全メッセージ・合計 40,000 文字に収める（時系列昇順）。

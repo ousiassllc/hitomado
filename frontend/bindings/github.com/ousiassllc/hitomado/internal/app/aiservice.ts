@@ -57,6 +57,13 @@ export function FindInboxZeroCandidates(refs: dto$0.ThreadRef[] | null, requestI
 }
 
 /**
+ * GenerateNewDraft は new セッションの本文を、AI への指示（必須）と入力済みの件名・宛先から生成する（F-08。#365）。保存しない。
+ */
+export function GenerateNewDraft(sessionID: string, requestID: string, instruction: string, content: dto$0.NewDraftContext): $CancellablePromise<dto$0.ReplyDraft> {
+    return $Call.ByID(2044483105, sessionID, requestID, instruction, content);
+}
+
+/**
  * GenerateReplyDraft は reply／reply_all セッションのスレッドから下書きを生成する。ctx キャンセルは CANCELLED。
  * instruction は任意の「AI への指示」（空・空白だけは指示なし。2,000 文字まで。保存しない）。
  */

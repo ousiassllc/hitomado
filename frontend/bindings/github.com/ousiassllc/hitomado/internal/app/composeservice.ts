@@ -30,6 +30,20 @@ export function DiscardCompose(sessionID: string): $CancellablePromise<void> {
     return $Call.ByID(2111825115, sessionID);
 }
 
+/**
+ * DiscardDraft は一覧から選んだ下書きを Gmail から削除する（作成セッションを開かない）。
+ */
+export function DiscardDraft(ref: dto$0.DraftRef): $CancellablePromise<void> {
+    return $Call.ByID(2173131268, ref);
+}
+
+/**
+ * ListDrafts は accountIDs（空は全アカウント）の Gmail の下書きを、更新の新しい順の 1 つの一覧で返す。
+ */
+export function ListDrafts(accountIDs: string[] | null): $CancellablePromise<dto$0.DraftList> {
+    return $Call.ByID(3083644845, accountIDs);
+}
+
 export function OpenCompose(req: dto$0.OpenComposeRequest): $CancellablePromise<dto$0.ComposeSession> {
     return $Call.ByID(3127894739, req);
 }

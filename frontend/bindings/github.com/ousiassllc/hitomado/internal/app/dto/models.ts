@@ -262,6 +262,44 @@ export interface ComposeSession {
 }
 
 /**
+ * DraftList は ListDrafts の結果。Items は UpdatedAt の新しい順。一部のアカウントが失敗しても他は返し、Failures に入れる。
+ * Truncated は、アカウントごとの上限（先頭から 100 件）を超える下書きがあって切り捨てたこと。
+ */
+export interface DraftList {
+    "items": DraftSummary[] | null;
+    "failures": AccountFailure[] | null;
+    "truncated": boolean;
+}
+
+/**
+ * DraftRef は一覧から破棄する下書き。ThreadID は、破棄した下書きをスレッド表示のキャッシュに残さないために使う。
+ */
+export interface DraftRef {
+    "accountId": string;
+    "draftId": string;
+    "threadId": string;
+}
+
+/**
+ * DraftSummary は下書き一覧（ListDrafts）の 1 件。IsReply が真なら返信の下書き（元のスレッド ThreadID の返信として開き直す）、
+ * 偽なら新規の下書き（作成画面で開き直す）。UpdatedAt は Unix ミリ秒。
+ */
+export interface DraftSummary {
+    "accountId": string;
+    "draftId": string;
+    "threadId": string;
+    "updatedAt": number;
+    "to": model$0.Address[] | null;
+    "subject": string;
+
+    /**
+     * 本文の先頭（プレーンテキスト）
+     */
+    "snippet": string;
+    "isReply": boolean;
+}
+
+/**
  * ExportLogsResult はログの書き出し結果。キャンセルは Saved=false。
  */
 export interface ExportLogsResult {
@@ -441,6 +479,14 @@ export interface MessageRef {
 }
 
 /**
+ * NewDraftContext は新規作成の AI 下書き（GenerateNewDraft）に渡す、作成画面に入力済みの件名と宛先（To のみ。どちらも空でよい）。
+ */
+export interface NewDraftContext {
+    "subject": string;
+    "to": model$0.Address[] | null;
+}
+
+/**
  * OAuthClient は登録済み OAuth クライアント（Secret は返さない）。
  */
 export interface OAuthClient {
@@ -496,7 +542,7 @@ export interface RefreshResult {
 }
 
 /**
- * ReplyDraft は AI が生成した返信本文（署名・引用を含まない）。
+ * ReplyDraft は AI が生成した下書きの本文（返信・新規作成。署名・引用を含まない）。
  */
 export interface ReplyDraft {
     "bodyHtml": string;

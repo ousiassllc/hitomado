@@ -40,9 +40,11 @@ const aiGenerateTimeout = 60 * time.Second
 // 生成の呼び出しより少し先に中止が届く窓（と、完了後に届いた中止を忘れるまで）を覆えば足りる。
 const cancelRecordTTL = time.Minute
 
-// SessionLookup は返信系セッションの種別と元スレッドの参照（composecore.Service が実装する）。
+// SessionLookup は作成セッションの種別・元スレッド・送信元の参照（composecore.Service が実装する）。
 type SessionLookup interface {
 	ThreadRef(sessionID string) (model.Mode, dto.ThreadRef, error)
+	// SenderOf は作成セッションの種別と送信元アカウントの ID（未選択は ""）を返す（新規作成の AI 下書き。#365）。
+	SenderOf(sessionID string) (model.Mode, string, error)
 }
 
 // Service は AI 設定・同意・下書き生成（バインディング仕様 §6）。
