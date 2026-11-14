@@ -110,6 +110,24 @@ func TestNeedsReauthFromActionLogsReason(t *testing.T) {
 	assert.Equal(t, "action", recs[0]["trigger"])
 }
 
+// すでに再接続待ちのアカウントで利用者の操作が再び認可エラーになっても、切り替えではないのでログを出さない（初回の 1 件だけ）。
+func TestNeedsReauthFromActionLogsOnlyOnTransition(t *testing.T) {
+	h, buf := newLoggedHarness(t)
+	h.account("a", true, store.SyncState{InitialSyncDone: true, HistoryID: "1", InboxPageToken: "p2"})
+	h.gm.Edit("a", func(a *synctest.Script) {
+		a.ListErr = gmail.WithReason(fmt.Errorf("x: %w", gmail.ErrNeedsReauth), gmail.ReasonInvalidGrant)
+	})
+
+	_, err := h.s.FetchMore(t.Context(), "a")
+	require.ErrorIs(t, err, gmail.ErrNeedsReauth)
+	require.Len(t, buf.records(reauthMsg), 1)
+	require.Equal(t, store.StatusNeedsReauth, h.st.Account("a").Status)
+
+	_, err = h.s.FetchMore(t.Context(), "a")
+	require.ErrorIs(t, err, gmail.ErrNeedsReauth)
+	assert.Len(t, buf.records(reauthMsg), 1, "すでに needs_reauth なら 2 回目は記録しない")
+}
+
 // 一時的な失敗（オフライン）は再接続待ちにならないので、このログも出ない。
 func TestOfflineDoesNotLogNeedsReauth(t *testing.T) {
 	h, buf := newLoggedHarness(t)

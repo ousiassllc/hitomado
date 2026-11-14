@@ -126,7 +126,10 @@ final class NetDiagnostics {
         return a.toString();
     }
 
-    /** 解決する名前の検査。空・長すぎる・IP リテラル・英数字とハイフンとドット以外を含むものは拒否する（Go の呼び出しの取り違いを弾く）。 */
+    /**
+     * 解決する名前の検査。空・長すぎる・英数字とハイフンとドット以外を含むものは拒否する（Go の呼び出しの取り違いを弾く）。
+     * 数字とドットだけの {@code 1.2.3.4} は通る（IPv4 リテラルは弾かない。{@code :} を含む IPv6 リテラルは拒否される）。
+     */
     static boolean validHost(String host) {
         if (host == null || host.isEmpty() || host.length() > 253) return false;
         for (int i = 0; i < host.length(); i++) {

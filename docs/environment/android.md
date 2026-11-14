@@ -848,7 +848,9 @@ Android の実機で Google・ChatGPT のログインが「内部エラー」「
 
 Android 版（v0.1.35。Galaxy Fold7）で、ChatGPT ログイン（`internal/siwc`）と Gmail アカウントの追加（`internal/oauth`）が `token_exchange` で `lookup auth.openai.com: no such host`（`*net.DNSError`。`on <サーバー>` が無い）で失敗した。同じ端末のブラウザは `auth.openai.com` に届く。ブラウザでの認可と `127.0.0.1` へのコールバックは成功しており、失敗したのはアプリ本体（Go。`GOOS=android`・`CGO_ENABLED=1`・`-buildmode=c-shared`）の HTTPS 通信だった。
 
-**結論を先に書く**: Go の名前解決の経路は特定できた（cgo の `getaddrinfo`）。**エミュレーターでは同じエラー（`lookup <host>: no such host`、`on <サーバー>` なし）を再現でき、そのとき失敗していた理由は「アプリのプロセスが OS の背面扱いで、OS がそのアプリの通信（DNS を含む）を止めていた」ことだった。** 実機（Fold7）では**確認していない**ので、実機の原因が同じとは断定しない（§20.5）。直したこと: ① 背面で止められている間は、アプリが前面へ戻るのを最大約 20 秒待って引き直す、② 標準の解決が失敗したら Android の API（有効なネットワークの `Network.getAllByName`）で引き直す、③ 失敗したときの手がかり（前面／背面・ネットワーク・Private DNS・DNS サーバー・省電力の状態）をログに残す。いずれも Android 専用で、Windows の動作は変えない。
+**結論を先に書く**: Go の名前解決の経路は特定できた（cgo の `getaddrinfo`）。**エミュレーターでは同じエラー（`lookup <host>: no such host`、`on <サーバー>` なし）を再現でき、そのとき失敗していた理由は「アプリのプロセスが OS の背面扱いで、OS がそのアプリの通信（DNS を含む）を止めていた」ことだった。** 実機（Fold7）では**確認していない**ので、実機の原因が同じとは断定しない（§20.5）。直したこと: ① 背面で止められている間は、アプリが前面へ戻るのを最大約 19 秒（1 秒おきに引き直しを最大 20 回。待ちは 19 回）待って引き直す（背面で圏外のときは、待ちを諦めたあとの 1 分は待たない。§20.3）、② 標準の解決が失敗したら Android の API（有効なネットワークの `Network.getAllByName`）で引き直す、③ 失敗したときの手がかり（前面／背面・ネットワーク・Private DNS・DNS サーバー・省電力の状態）をログに残す。いずれも Android 専用で、Windows の動作は変えない。
+
+**この修正が効く範囲（はっきり書く）**: 効くのは**再現できた場合だけ**、つまり「アプリが OS の背面（重要度が `visible` より下）で、`getActiveNetwork()` が `null`」のときだけ。しかも、利用者が**約 19 秒以内にアプリへ戻る**ことが前提になる。コールバックのページは「このタブを閉じてアプリに戻ってください」と言うだけで、**アプリへ自動で戻す仕組みは入れていない**。待ったあとに使えるのは、`ExchangeTimeout`（30 秒。トークン交換と userinfo で共有。`internal/oauth/flow.go`）の残りだけで、userinfo は別のホストへの新しい接続なので、そこでも名前解決をやり直す。OS が通信を止めているのに `getActiveNetwork()` が `null` にならない場合は、Java が `unresolved` を返し、Go はすぐ失敗する（待たない）。待ちを諦めた時点でコールバックの待ち受けはすでに閉じているので、ログインは**最初からやり直す**必要がある。実機の Galaxy Fold7 が同じ型かは**未確認**で、ログ `net: name resolution failed` の `process`・`network`・`fallback_err`（§20.4）で分かる。また、背面のあいだに `127.0.0.1` のコールバックを受け付けられることは、**エミュレーターでは確認していない**。
 
 ### 20.1 Go の名前解決は Android でどの経路を通るか（確認済み）
 
@@ -880,7 +882,7 @@ Android 版（v0.1.35。Galaxy Fold7）で、ChatGPT ログイン（`internal/si
 |------|------|
 | 標準の解決（`getaddrinfo`）が通る | 何も変えない（Android の API を呼ばない） |
 | 名前解決の失敗（`*net.DNSError`）。ほかの失敗（接続拒否など）は触らない | Java の `NetBridge.resolve`（`WailsBridge.netResolve`。`go:linkname` で呼ぶ。`documents` と同じ仕組み）が、有効なネットワークの **`Network.getAllByName`** で引き直す。DNS サーバーは端末の設定（Private DNS・VPN・社内 DNS）に従い、**公開 DNS のアドレスは決め打ちしない**。得た IP へ、要求したポートで順に接続する（ホスト名は URL のままなので TLS の検証は変わらない） |
-| 引き直しも「アプリが背面で、有効なネットワークが無い」（`background_no_network`。アプリの重要度が `visible` より下で `getActiveNetwork()` が `null`） | OS が背面の通信を止めている。**1 秒おきに最大 20 回（約 20 秒）、アプリが前面へ戻るのを待って引き直す。** コールバックのページ（「このタブを閉じて Hitomado に戻ってください」）に従って戻れば、トークン交換が通る。待ちは呼び出しの `context`（HTTP クライアントの 30 秒の期限・取り消し）に従う。前面で通信が無いとき（機内モードなど）は待たず、従来どおりすぐ失敗する |
+| 引き直しも「アプリが背面で、有効なネットワークが無い」（`background_no_network`。アプリの重要度が `visible` より下で `getActiveNetwork()` が `null`） | OS が背面の通信を止めている（Java は「止められている」と「圏外」を区別できず、どちらも同じコードを返す）。**1 秒おきに引き直しを最大 20 回（待ちは 19 回で約 19 秒）、アプリが前面へ戻るのを待つ。** コールバックのページ（「このタブを閉じて Hitomado に戻ってください」）に従って戻れば、トークン交換が通る。待ちは呼び出しの `context`（HTTP クライアントの 30 秒の期限・取り消し）に従う。**前面へ戻らないまま待ちを諦めたら、その後の 1 分（`backgroundWaitCooldown`）は待たず、引き直しを 1 回だけ試してすぐ失敗する**（背面で圏外のとき、60 秒ごとの同期が毎回約 19 秒待たないため）。引き直しが通る・別の結果になる（前面へ戻った）と、この抑止は解ける。前面で通信が無いとき（機内モードなど）は待たず、従来どおりすぐ失敗する |
 | それでも失敗 | 元の `*net.DNSError` をそのまま返す（画面の分類は変わらない）。**手がかりを Warn で 1 件**ログに残す（§20.4） |
 
 **採らなかった案**:
@@ -891,7 +893,15 @@ Android 版（v0.1.35。Galaxy Fold7）で、ChatGPT ログイン（`internal/si
 | Go の DNS クライアント（`PreferGo`）に、Java から取った DNS サーバーを渡す | OS が止めているのは通信そのもの（ソケット）なので、解決器を替えても通らない。Private DNS（DoT）は Go の DNS クライアントでは扱えない |
 | 前面サービス・自動でアプリを前面に出す | 前面サービスは常時通知・Play の審査・Android 15 以降の `dataSync` の時間上限を避けるため使わない方針（§15）。背面からの Activity 起動は OS が制限する |
 
-**既知の限り**: 待つのは最大約 20 秒。それまでに利用者がアプリへ戻らなければ失敗する（失敗しても、ログインはやり直せば最初から進む。トークン・登録は完了するまで書き込まれない）。コールバックのページから**アプリへ自動で戻す**（ディープリンクなど）のは、この Issue では入れていない（別の設計・manifest の変更が要る。**未実施**）。Activity の無い WorkManager の Worker（ヘッドレス同期）では、`WailsBridge` が無いので Android の API による引き直しと状態の記録（`diagnose_err`）は使えない（Worker はネットワークが接続されているときだけ動かされるので、背面の通信停止の対象外）。
+**既知の限り**:
+
+- 待つのは最大約 19 秒（1 秒おきに引き直しを最大 20 回）。それまでに利用者がアプリへ戻らなければ失敗する。待ちを諦めた時点でコールバックの待ち受けはすでに閉じている（`internal/oauth/flow.go`。コールバックの受信後に閉じる）ので、**ログインは最初からやり直す**（トークン・登録は完了するまで書き込まれない）。
+- 効くのは、アプリが OS の背面（重要度が `visible` より下）で `getActiveNetwork()` が `null` の場合だけ。OS が通信を止めても `getActiveNetwork()` が `null` にならないなら、Java は `unresolved` を返し、Go はすぐ失敗する（待たない）。
+- 待ったあとに使えるのは `ExchangeTimeout`（30 秒。トークン交換と userinfo で共有）の残りだけ。userinfo は別のホストへの新しい接続で、再び名前解決をする。
+- コールバックのページから**アプリへ自動で戻す**（ディープリンクなど）のは、この Issue では入れていない（別の設計・manifest の変更が要る。**未実施**）。利用者が自分で戻る必要がある。
+- **背面で本当に圏外のとき**（Java は「OS が止めている」と「圏外」を区別できず、どちらも同じコードを返す）は、名前解決に失敗する接続が約 19 秒待ってから失敗する。ただし待つのは**待ちを諦めてから 1 分たったあとの最初の接続だけ**で、その間の接続はすぐ失敗する（60 秒ごとの同期なら、待ちは 2 周期に 1 回程度）。
+- Galaxy Fold7 が同じ型かは**未確認**（`net: name resolution failed` の `process`・`network`・`fallback_err` で分かる）。背面のあいだの `127.0.0.1` のコールバックの受け付けも、エミュレーターでは**確認していない**。
+- Activity の無い WorkManager の Worker（ヘッドレス同期）: Android の API による引き直しは Go から `WailsBridge`（`MainActivity.onCreate` が作り、`nativeInit` が JNI のグローバル参照を Go 側の `g_bridge` へ渡す）を呼ぶ。Wails はその参照を解放しない（`wails/v3@v3.1.0` の `application_android.go`。`DeleteGlobalRef` も `NULL` への代入も無く、`nativeShutdown` は `app.Quit()` を呼ぶだけ）。`NetBridge` は `applicationContext` を使うので、Activity が破棄されても呼べる。そのため、**Activity を作ったあとでプロセスが生き残っていれば、Worker からも使える**（読み取りで確認。実機・エミュレーターでは試していない。`MainActivity` の終了処理が `bridge.shutdown()` を呼んだあとの動作は未確認）。**WorkManager が新しいプロセスで Activity を一度も作らずに起こしたときは `g_bridge` が `NULL` で**（`callBridgeStringStringMethod` が `NULL` を返す）、引き直しと状態の記録（`diagnose_err`）は使えない。Worker はネットワークが接続されているときだけ動かされるので、背面の通信停止の対象外だと考えているが、確かめていない。
 
 ### 20.4 ログ（完了条件 3）
 
@@ -901,7 +911,7 @@ Android 版（v0.1.35。Galaxy Fold7）で、ChatGPT ログイン（`internal/si
 |------|------|
 | `host` | 引けなかったホスト名（エラー文にも出る値） |
 | `resolver` | 標準の解決器の種類（`cgo`＝`getaddrinfo`、`go`＝Go の DNS クライアント。`GODEBUG=netdns` があれば付記） |
-| `err`・`fallback_err`・`fallback_addrs` | 標準の解決の元のエラー・Android の API による引き直しの失敗（`background_no_network`・`no_network`・`unresolved`・`failed`）・得たアドレスの数 |
+| `err`・`fallback_err`・`fallback_addrs` | 標準の解決の元のエラー・Android の API による引き直しの失敗（`background_no_network`・`no_network`・`unresolved`・`failed`）・得たアドレスの数（**`network` のファミリー〔`tcp4`／`tcp6`〕で絞ったあとの件数**。引き直しが失敗したときは 0） |
 | `process` | アプリのプロセスの重要度: `foreground`・`foreground_service`・`top_sleeping`・`visible`・`perceptible`・`service`・`cant_save_state`・`cached`。**背面（`perceptible` より下）なら §20.2 の状況** |
 | `network`・`validated`・`metered` | 有効なネットワークの種類（`wifi`・`cellular`・`ethernet`・`vpn`・`other`・`none`）・インターネットの到達が検証済みか・従量制か。**`none` は OS がアプリに有効なネットワークを見せていない** |
 | `private_dns` | `off`・`opportunistic`・`strict`（ホスト名は載せない。利用者の識別子を含みうるため） |
@@ -910,9 +920,11 @@ Android 版（v0.1.35。Galaxy Fold7）で、ChatGPT ログイン（`internal/si
 
 標準の解決が失敗して引き直しで救えたときは `net: name resolution recovered via Android Network API`（Warn。`waited_ms`＝待ちを含めた時間）。**実機で `no such host` が出たら、書き出したログのこの 2 件で、背面の通信停止（`process`・`network=none`・`background_no_network`）か、DNS の設定（`private_dns`・`dns_servers`）かを読み分けられる。**
 
+`host` には、利用者が設定したカスタムの AI の送信先（社内のホスト名など）のホスト名が入りうる。ログを他人へ渡す前に確認すること。
+
 ### 20.5 確認したこと・未確認
 
-**自動**: `go test ./internal/androidnet/`（標準の解決を `*net.DNSError`・`no such host` で失敗させる偽の接続で、修正前の接続は失敗し、修正後は HTTP が通ること・引き直しの失敗時のログの属性・DNS 以外の失敗は素通り・成功時は引き直さないこと・IP の順次の試行とファミリーの絞り込み・待ちの上限と `context` の取り消し・前面で通信が無いときは待たないこと・ログの間引き・URL／クエリがログに出ないこと）。Java は `NetDiagnosticsTest`（重要度→名前・`background_no_network` の判定・Private DNS のモード・封筒・ホスト名の検査。`task android:test`）。
+**自動**: `go test ./internal/androidnet/`（標準の解決を `*net.DNSError`・`no such host` で失敗させる偽の接続で、修正前の接続は失敗し、修正後は HTTP が通ること・引き直しの失敗時のログの属性・DNS 以外の失敗は素通り・成功時は引き直さないこと・IP の順次の試行とファミリーの絞り込み・待ちの上限と `context` の取り消し・前面で通信が無いときは待たないこと・待ちを諦めたあとの 1 分は待たず 1 分後にまた待つこと、引き直しが通ると抑止が解けること〔時刻と待ちを差し替えた決定的なテスト〕・呼び出し元の `context` の取り消しだけが理由の失敗はログにも 1 分の枠にも数えないこと、取り消されていても手がかりを取ること・ログの間引き・URL／クエリがログに出ないこと）。Java は `NetDiagnosticsTest`（重要度→名前・`background_no_network` の判定・Private DNS のモード・封筒・ホスト名の検査。`task android:test`）。
 
 **エミュレーター（x86_64。実機ではない）**: 同じ APK（修正後）で、背面で通信が止められた状態から前面へ戻すと、`net: name resolution recovered via Android Network API`（`waited_ms=5458`）のあと `auth.openai.com` が **HTTP 200**（修正前と同じ接続の plain は同じ状態で `no such host`）。前面では plain・hooked とも通る。画面のスクリーンショットは、ヘッドレスのエミュレーターのため黒一色で、証拠にならない（ログで確認した）。
 
@@ -942,7 +954,7 @@ Android 版で、Google（Gmail）の再接続待ち（`needs_reauth`。受信�
 | `secret_not_found` | 資格情報ストア（`SecureStore`）にリフレッシュトークンが**無い** | 再接続 |
 | `secret_key_lost` | Keystore の鍵が失われ、`SecureStore` が全資格情報を破棄した（§11.3） | 再接続 |
 
-**一時的な失敗は再接続待ちにならない**（確認済み。`internal/gmail/reason_test.go`）: 資格情報ストアの読み出しが `failed`（鍵の喪失でも「無い」でもない失敗）のとき、`gmail.newAccount` は `ErrGeneric`（`error` 状態。次の周期で再試行）にする。名前解決・接続・タイムアウトは `ErrOffline`。再接続待ちになるのは、上の表のときだけ。
+**一時的な失敗は再接続待ちにならない**（確認済み。`internal/gmail/gmailtests/reason_test.go`）: 資格情報ストアの読み出しが `failed`（鍵の喪失でも「無い」でもない失敗）のとき、`gmail.newAccount` は `ErrGeneric`（`error` 状態。次の周期で再試行）にする。名前解決・接続・タイムアウトは `ErrOffline`。再接続待ちになるのは、上の表のときだけ。
 
 ### 21.2 コードを読んで確認したこと（疑いへの答え）
 
@@ -1005,20 +1017,22 @@ Google の公式文書（[Using OAuth 2.0 to Access Google APIs — Refresh toke
 
 ### 21.6 Windows への影響
 
-Windows の動き（同期・再試行・状態の切り替え）は変えていない。共有の Go コードで変わったのは、ログの追加（`account needs reauth`・`account connected`・revoke・401 の再試行・`origin` 属性。Windows のログにも出る）と、次の点（表示文言を除き、判定・切り替えの結果は同じ）:
+Windows の動き（同期・再試行・状態の切り替え・判定）は変えていない。共有の Go コードで変わったのは、Windows にも出る次の点だけ（表示・ログの追加。判定・状態の切り替え・再試行は同じ）:
 
+- **画面の文言**: `invalid_grant` による再接続待ちのとき、受信箱のバナーと設定のアカウントの行に、専用の文言と案内（OAuth 同意画面が「テスト」だと 7 日で切れる、など）が出る（`syncer.MsgTokenRevoked`。画面の判定は文言の先頭の一致だけで、`needs_reauth` への切り替え・再試行の停止は変えていない）。
+- **ログの `origin=app` 属性**: `run.go` が、gmail と scheduler のログに `origin=app` を付ける（Windows のログにも付く）。
+- **ログの追加**: `account needs reauth`・`account connected`・revoke・401 の再試行が、Windows のログにも出る。
+- **エラーの連鎖**: 資格情報ストアの読み出しの失敗の原因が `ErrGeneric` のエラーの連鎖に入る（`gmail.newAccount` の `%w`。これまでは握りつぶしていた）ので、`apperr` の Internal のログに原因が出る。`errors.Is`／`errors.As` と文言は元のまま。
 - `gmail` の再接続待ちのエラーに理由（`reasonError`）を添える: `errors.Is`／`errors.As` と文言は元のまま。判定（`classify`）の結果は変わらない。
-- `invalid_grant` による再接続待ちの `status_message` を専用の文言にする（`syncer.MsgTokenRevoked`。Windows でも同じ。画面の判定は先頭の一致だけで、`needs_reauth` への切り替え・再試行の停止は変えていない）。
-- 画面の案内（上と同じ。Windows でも `invalid_grant` のときに出る）。
 - `internal/secrets/bridge.go`（純 Go だが Android の保管だけが使う）、`SecureStore`・`SecretBridge`（Java）は Android のみ。
 
 ### 21.7 自動テスト・確認の状況
 
 | テスト | 内容 |
 |--------|------|
-| `internal/gmail/reason_test.go` | 失敗の経路ごとに `ReauthReason` が区別される（`invalid_grant`・`invalid_client`・401・403 スコープ不足・トークン無し・鍵の喪失）。資格情報の読み出し失敗は再接続待ちにならない（リフレッシュトークン・Client Secret）。1 回目の 401 のログ |
-| `internal/sync/syncertests/reauth_log_test.go` | 理由ごとの切り替えのログ（`reason`・`trigger`・`prev_status`。メールアドレスを載せない）、`since_last_sync_s`、利用者の操作での `trigger=action`、オフラインではログが出ない |
-| `internal/app/apptests/thread_test.go`（`TestGetThreadNeedsReauthLogsReason`） | 利用者の操作の失敗での切り替えのログ・`invalid_grant` の状態メッセージ |
+| `internal/gmail/gmailtests/reason_test.go` | 失敗の経路ごとに `ReauthReason` が区別される（`invalid_grant`・`invalid_client`・401・403 スコープ不足・トークン無し・鍵の喪失）。資格情報の読み出し失敗は再接続待ちにならない（リフレッシュトークン・Client Secret）。1 回目の 401 のログ |
+| `internal/sync/syncertests/reauth_log_test.go` | 理由ごとの切り替えのログ（`reason`・`trigger`・`prev_status`。メールアドレスを載せない）、`since_last_sync_s`、利用者の操作での `trigger=action`、すでに再接続待ちのアカウントでは 2 回目を記録しないこと、オフラインではログが出ない |
+| `internal/app/apptests/thread_reauth_log_test.go`（`TestGetThreadNeedsReauthLogsReason`） | 利用者の操作の失敗での切り替えのログ・`invalid_grant` の状態メッセージ |
 | `internal/headless/syncone_test.go`・`headless_test.go` | ヘッドレス同期のログに `origin=headless`・`reason=secret_key_lost`。アプリ本体の更新で新たに再接続待ちになったときの `origin=app_background` |
 | `internal/app/accounttests/account_revoke_test.go` | revoke・接続のログ（成功したときだけ。メールアドレス・トークンを載せない） |
 | `internal/secrets/bridge_test.go` | Java の失敗コードに付いた原因の扱い（種類の判定は `:` の前だけ） |

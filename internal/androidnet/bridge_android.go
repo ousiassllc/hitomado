@@ -21,7 +21,9 @@ func androidBridgeStringString(method, arg string) (string, bool)
 var errBridgeUnavailable = errors.New("android bridge unavailable")
 
 // bridgeFallback は WailsBridge.netResolve／netDiagnose（NetBridge）を呼ぶ Fallback。
-// WailsBridge は Activity から作られるので、Activity の無い Worker（ヘッドレス同期）では使えない（errBridgeUnavailable）。
+// WailsBridge は MainActivity.onCreate で作られ、Wails はそのグローバル参照を解放しない。Activity を作ったことのあるプロセスでは
+// Worker からも使える（NetBridge は applicationContext を使う）。WorkManager が新しいプロセスで Activity を一度も作らずに起こした
+// ときは参照が無く errBridgeUnavailable。
 type bridgeFallback struct{}
 
 func (bridgeFallback) LookupHost(ctx context.Context, host string) ([]string, error) {

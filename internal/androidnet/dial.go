@@ -43,10 +43,14 @@ const (
 	// logInterval は同じホストの同じ種類のログを出す最短の間隔。同期が 60 秒ごとに失敗し続けても、ログを埋めない。
 	logInterval = time.Minute
 	// backgroundWaitInterval・backgroundWaitAttempts は ErrBackgroundBlocked のときに、アプリが前面へ戻るのを待つ間隔と回数
-	// （合計で約 20 秒。トークン交換などの HTTP クライアントの期限は 30 秒なので、残りで TLS と要求を行える）。
-	// 前面のアプリで通信が無い（機内モードなど）ときは待たず、従来どおりすぐ失敗する。
+	// （引き直しを最大 20 回試し、その間の待ちは 19 回なので合計で約 19 秒。トークン交換などの HTTP クライアントの期限は 30 秒なので、
+	// 残りで TLS と要求を行える）。前面のアプリで通信が無い（機内モードなど）ときは待たず、従来どおりすぐ失敗する。
 	backgroundWaitInterval = time.Second
 	backgroundWaitAttempts = 20
+	// backgroundWaitCooldown は、前面へ戻らないまま待ちを諦めたあと、次に待ちを始めるまでの間隔。背面で本当に圏外のとき
+	// （Java は「OS が背面の通信を止めている」と「圏外」を区別できず、どちらも ErrBackgroundBlocked を返す）、60 秒ごとの同期が
+	// 毎回約 19 秒待つのを防ぐ。この間の接続は、引き直しを 1 回だけ試して従来どおりすぐ失敗する。
+	backgroundWaitCooldown = logInterval
 )
 
 // Dialer は http.Transport の DialContext に差し込む、名前解決の救済つきの接続。
@@ -66,6 +70,8 @@ type Dialer struct {
 
 	mu   sync.Mutex
 	last map[string]time.Time
+	// gaveUpAt は前面へ戻らないまま背面の待ちを諦めた時刻（待ちが通った・別の結果になったらゼロ値へ戻す）。mu で守る。
+	gaveUpAt time.Time
 }
 
 // DialContext は Base で接続し、名前解決の失敗（*net.DNSError）だけを Fallback で救う。それ以外の失敗は Base のエラーのまま返す。
@@ -85,11 +91,11 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 
 	start := d.now()
 	ips, lookupErr := d.lookupWaitingForForeground(ctx, host)
+	ips = filterFamily(network, ips)
 	if lookupErr != nil || len(ips) == 0 {
 		d.logFailure(ctx, host, err, lookupErr, len(ips))
 		return nil, err
 	}
-	ips = filterFamily(network, ips)
 	var dialErr error
 	for _, ip := range ips {
 		if ctx.Err() != nil {
@@ -108,16 +114,41 @@ func (d *Dialer) DialContext(ctx context.Context, network, addr string) (net.Con
 
 // lookupWaitingForForeground は Fallback.LookupHost を呼ぶ。ErrBackgroundBlocked のあいだは、アプリが前面へ戻って通信が許されるのを
 // backgroundWaitInterval ごとに最大 backgroundWaitAttempts 回まで待つ（ctx が終われば止める）。
+// 待ちを諦めたあと backgroundWaitCooldown のあいだは待たず、1 回だけ引き直す（背面で圏外のときの、同期ごとの待ちを避ける）。
 func (d *Dialer) lookupWaitingForForeground(ctx context.Context, host string) ([]string, error) {
+	maxAttempts := backgroundWaitAttempts
+	if d.inBackgroundWaitCooldown() {
+		maxAttempts = 1
+	}
 	for attempt := 1; ; attempt++ {
 		ips, err := d.Fallback.LookupHost(ctx, host)
-		if !errors.Is(err, ErrBackgroundBlocked) || attempt >= backgroundWaitAttempts {
+		if !errors.Is(err, ErrBackgroundBlocked) {
+			d.setGaveUpAt(time.Time{}) // 通った・別の結果になった（前面へ戻った）ので、次は待ってよい
+			return ips, err
+		}
+		if attempt >= maxAttempts {
+			if maxAttempts == backgroundWaitAttempts {
+				d.setGaveUpAt(d.now())
+			}
 			return ips, err
 		}
 		if err := d.sleep(ctx, backgroundWaitInterval); err != nil {
 			return nil, err
 		}
 	}
+}
+
+func (d *Dialer) inBackgroundWaitCooldown() bool {
+	t := d.now()
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return !d.gaveUpAt.IsZero() && t.Sub(d.gaveUpAt) < backgroundWaitCooldown
+}
+
+func (d *Dialer) setGaveUpAt(t time.Time) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.gaveUpAt = t
 }
 
 func (d *Dialer) sleep(ctx context.Context, wait time.Duration) error {
@@ -190,7 +221,12 @@ func (d *Dialer) shouldLog(key string) bool {
 
 // logFailure は標準の解決も Android の API による引き直しも通らなかったことを、手がかりつきで Warn に残す。
 // host はエラー文（`lookup <host>: …`）にも出る値。DNS サーバーのアドレスは端末の設定値（秘密ではない）。
+// tried（`fallback_addrs`）は、引き直しで得たアドレスのうち network のファミリーで絞ったあとの件数。
+// 呼び出し元の ctx の取り消し・期限だけが理由の失敗は、記録しない。
 func (d *Dialer) logFailure(ctx context.Context, host string, sysErr, fallbackErr error, tried int) {
+	if ctx.Err() != nil && (fallbackErr == nil || errors.Is(fallbackErr, context.Canceled) || errors.Is(fallbackErr, context.DeadlineExceeded)) {
+		return // 呼び出し元の取り消し・期限で止まっただけ（引き直しの結果が出ていない）。失敗の記録にも 1 分の枠にも数えない
+	}
 	if !d.shouldLog("fail:" + host) {
 		return
 	}
@@ -199,7 +235,8 @@ func (d *Dialer) logFailure(ctx context.Context, host string, sysErr, fallbackEr
 		attrs = append(attrs, "fallback_err", fallbackErr)
 	}
 	attrs = append(attrs, "fallback_addrs", tried)
-	dctx, cancel := context.WithTimeout(ctx, diagnoseTimeout)
+	// 呼び出し元の ctx が取り消されていても、手がかりは取る（上限は diagnoseTimeout）。
+	dctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), diagnoseTimeout)
 	defer cancel()
 	diag, derr := d.Fallback.Diagnose(dctx)
 	if derr != nil {
