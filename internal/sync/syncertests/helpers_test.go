@@ -22,7 +22,8 @@ import (
 type skipLog struct {
 	mu     sync.Mutex
 	count  map[string]int
-	panics int // "panic" レコード（logging.Recover が書く）の数
+	panics int          // "panic" レコード（logging.Recover が書く）の数
+	next   slog.Handler // nil でなければ、すべてのレコードをここへも渡す（ログの内容を検査するテスト用）
 }
 
 const skippedMsg = "sync cycle skipped: paused"
@@ -30,7 +31,10 @@ const skippedMsg = "sync cycle skipped: paused"
 func (l *skipLog) Enabled(context.Context, slog.Level) bool { return true }
 func (l *skipLog) WithAttrs([]slog.Attr) slog.Handler       { return l }
 func (l *skipLog) WithGroup(string) slog.Handler            { return l }
-func (l *skipLog) Handle(_ context.Context, r slog.Record) error {
+func (l *skipLog) Handle(ctx context.Context, r slog.Record) error {
+	if l.next != nil {
+		_ = l.next.Handle(ctx, r.Clone())
+	}
 	if r.Message == "panic" {
 		l.mu.Lock()
 		l.panics++
@@ -83,10 +87,16 @@ func newHarness(t *testing.T) *harness { return newHarnessWith(t, func(*synctest
 // newHarnessWith は Scheduler を作る前に prep でフェイクのストアを調整できる newHarness。
 func newHarnessWith(t *testing.T, prep func(*synctest.Store)) *harness {
 	t.Helper()
+	return newHarnessLogged(t, nil, prep)
+}
+
+// newHarnessLogged は、スケジューラのログを next にも流す newHarnessWith（nil なら流さない）。
+func newHarnessLogged(t *testing.T, next slog.Handler, prep func(*synctest.Store)) *harness {
+	t.Helper()
 	h := &harness{
 		t: t, st: synctest.NewStore(), gm: synctest.NewGmail(), ev: &synctest.Events{}, nt: &synctest.Notifier{},
 		clk: clock.NewFake(time.Date(2026, 11, 2, 9, 0, 0, 0, time.UTC)), tk: &synctest.Tickers{},
-		skips: &skipLog{count: map[string]int{}},
+		skips: &skipLog{count: map[string]int{}, next: next},
 	}
 	prep(h.st)
 	h.s = syncer.New(syncer.Deps{

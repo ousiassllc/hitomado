@@ -63,6 +63,8 @@ func syncOnce(ctx context.Context, o Options) (Result, error) {
 		return Result{}, err
 	}
 	defer func() { _ = closeLog() }()
+	// アプリ本体と同じログファイルに書くので、どちらの経路のログかを origin で区別できるようにする（再接続待ちの原因の切り分け）。
+	logger = logging.WithOrigin(logger, logging.OriginHeadless)
 	st, err := store.Open(ctx, dbPath)
 	if err != nil {
 		return Result{}, fmt.Errorf("headless: open database: %w", err)

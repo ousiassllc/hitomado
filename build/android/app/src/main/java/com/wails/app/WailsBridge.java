@@ -763,6 +763,21 @@ public class WailsBridge {
     }
 
     /*
+     * 名前解決の救済と記録（hitomado #368）。Go（internal/androidnet）が http.DefaultTransport の接続で名前解決に失敗したとき
+     * go:linkname で呼ぶ。実装は NetBridge（Activity 不要）。戻りは {"ok":true,"value":"…"} か {"ok":false,"error":"<コード>"}。
+     */
+
+    /** 有効なネットワークで名前を引き直す。json: {"host":"…"}。value はアドレスの JSON 配列。 */
+    public String netResolve(final String json) {
+        return new NetBridge(activity).resolve(json);
+    }
+
+    /** 名前解決が失敗した端末の状態（ネットワーク・Private DNS・DNS サーバー・前面／背面・省電力）。引数は使わない。 */
+    public String netDiagnose(final String unused) {
+        return new NetBridge(activity).diagnose();
+    }
+
+    /*
      * 通知・バックグラウンド同期（hitomado #88）。Wails 同梱の postNotification（タップ時のデータを持たず、
      * アカウント別チャネルも無い）は削除し、NewMailNotifier（Activity 不要）に置き換えた。Go は internal/platform から
      * go:linkname で呼ぶ（Documents と同じ）。戻りは {"ok":true,"value":"…"} か {"ok":false,"error":"<コード>"}。

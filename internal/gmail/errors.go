@@ -33,6 +33,7 @@ type failure struct {
 	retry  retryClass
 	status int
 	api    *APIError
+	reason string // 再接続が必要な失敗の理由（Reason*）。それ以外は空
 }
 
 // classify は Gmail API／トークン更新／トランスポートのエラーを sentinel に分類する。
@@ -46,10 +47,10 @@ func classify(err error) failure {
 		}
 		switch {
 		case re.ErrorCode == "invalid_grant":
-			return failure{kind: ErrNeedsReauth, status: status}
+			return failure{kind: ErrNeedsReauth, status: status, reason: ReasonInvalidGrant}
 		case re.ErrorCode == "invalid_client" || re.ErrorCode == "unauthorized_client" || status == http.StatusUnauthorized:
 			// Client Secret の無効化・ローテーションなど。再接続や再試行では直らず、OAuth クライアントの設定を直す必要がある。
-			return failure{kind: ErrClientRejected, status: status}
+			return failure{kind: ErrClientRejected, status: status, reason: ReasonClientRejected}
 		case status == http.StatusTooManyRequests:
 			return failure{kind: ErrRateLimited, retry: retryLimited, status: status}
 		case status >= 500:
@@ -71,14 +72,14 @@ func classifyHTTP(ge *googleapi.Error) failure {
 	f := failure{kind: ErrGeneric, status: ge.Code, api: &APIError{Info: googleerr.Parse(ge)}}
 	switch {
 	case ge.Code == http.StatusUnauthorized:
-		f.kind, f.retry = ErrNeedsReauth, retryAuth
+		f.kind, f.retry, f.reason = ErrNeedsReauth, retryAuth, ReasonAPIUnauthorized
 	case ge.Code == http.StatusNotFound:
 		f.kind = ErrNotFound
 	case ge.Code == http.StatusTooManyRequests || (ge.Code == http.StatusForbidden && isRateLimitReason(ge)):
 		f.kind, f.retry = ErrRateLimited, retryLimited
 	case ge.Code == http.StatusForbidden && f.api.hasReason(scopeInsufficientReasons):
 		// 権限（スコープ）が足りないのは、再試行では直らず、再接続して許可し直す必要がある。
-		f.kind = ErrNeedsReauth
+		f.kind, f.reason = ErrNeedsReauth, ReasonScopeInsufficient
 	case ge.Code >= 500:
 		f.retry = retryServer
 	}
@@ -126,12 +127,12 @@ func wrapFailure(op string, f failure) error {
 	if f.api != nil {
 		ae := *f.api
 		ae.Op, ae.Kind = op, f.kind
-		return &ae
+		return WithReason(&ae, f.reason)
 	}
 	if f.status != 0 {
-		return fmt.Errorf("gmail: %s (HTTP %d): %w", op, f.status, f.kind)
+		return WithReason(fmt.Errorf("gmail: %s (HTTP %d): %w", op, f.status, f.kind), f.reason)
 	}
-	return fmt.Errorf("gmail: %s: %w", op, f.kind)
+	return WithReason(fmt.Errorf("gmail: %s: %w", op, f.kind), f.reason)
 }
 
 // ctxError は呼び出し側のキャンセル・期限切れ。sentinel には分類せず ctx のエラーをそのまま包む。

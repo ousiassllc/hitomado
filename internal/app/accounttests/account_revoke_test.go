@@ -1,7 +1,10 @@
 package accounttests
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -9,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
+	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/oauth"
 	"github.com/ousiassllc/hitomado/internal/secrets"
 	"github.com/ousiassllc/hitomado/internal/store"
@@ -116,4 +120,59 @@ func TestForgetOnRemoveAndOAuthClientUpdate(t *testing.T) {
 	require.NoError(t, svc.RemoveAccount(t.Context(), a.ID))
 	assert.Equal(t, []string{a.ID}, e.Gmail.Forgotten)
 	assert.Equal(t, []string{a.ID}, e.Sync.StoppedAccounts())
+}
+
+// Google 側でトークンを revoke したことはログに残す。同じ Google アカウントを同じ OAuth クライアントで別の端末に
+// 接続していると、そちらが invalid_grant（要再接続）になる原因になりうるので、時刻を突き合わせられるようにする（#369）。
+// 失敗したときは「revoke した」と記録しない。トークン・メールアドレスは載せない。
+func TestRemoveAccountLogsRevokeOnlyOnSuccess(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		revokeErr error
+		want      bool
+	}{{"success", nil, true}, {"failure", assert.AnError, false}} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, e := newAccountSvc(t)
+			a := e.AddAccount(t, "gone@a.example")
+			buf := &bytes.Buffer{}
+			e.Deps.Logger = logging.NewWriter(buf, slog.LevelInfo, logging.Meta{Version: "test"})
+			e.Flow.RevokeErr = tc.revokeErr
+
+			require.NoError(t, svc.RemoveAccount(t.Context(), a.ID))
+
+			assert.Equal(t, tc.want, strings.Contains(buf.String(), "Google 側で revoke しました"), buf.String())
+			assert.NotContains(t, buf.String(), "gone@a.example")
+			assert.NotContains(t, buf.String(), "refresh-gone@a.example")
+		})
+	}
+}
+
+// 追加・再接続が済んだ時刻をアカウント ID つきで残す。再接続待ちになるまでの期間（「テスト」の 7 日など）を、書き出したログから読むための起点。
+func TestAddAndReconnectLogConnectedWithoutSecrets(t *testing.T) {
+	svc, e := newAccountSvc(t)
+	first := e.AddAccount(t, "first@a.example")
+	buf := &bytes.Buffer{}
+	e.Deps.Logger = logging.NewWriter(buf, slog.LevelInfo, logging.Meta{Version: "test"})
+
+	e.Flow.Result = oauth.Result{Email: "new@b.example", Name: "N", RefreshToken: "rt-new"}
+	added, err := svc.StartAddAccount(t.Context(), first.OAuthClientID)
+	require.NoError(t, err)
+	require.NoError(t, e.Store.SetAccountStatus(t.Context(), added.ID, store.StatusNeedsReauth, "x"))
+	e.Flow.Result = oauth.Result{Email: "new@b.example", RefreshToken: "rt-fresh"}
+	_, err = svc.Reconnect(t.Context(), added.ID)
+	require.NoError(t, err)
+
+	var vias []string
+	for _, line := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal([]byte(line), &rec))
+		if rec["msg"] == "account connected" {
+			assert.Equal(t, added.ID, rec["accountId"])
+			vias = append(vias, rec["via"].(string))
+		}
+	}
+	assert.Equal(t, []string{"add", "reconnect"}, vias)
+	assert.NotContains(t, buf.String(), "new@b.example")
+	assert.NotContains(t, buf.String(), "rt-new")
+	assert.NotContains(t, buf.String(), "rt-fresh")
 }

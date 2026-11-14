@@ -1,10 +1,13 @@
 package headless
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +17,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/store"
 	syncer "github.com/ousiassllc/hitomado/internal/sync"
 	"github.com/ousiassllc/hitomado/internal/synctest"
@@ -160,3 +164,36 @@ func (failingLister) ListAccounts(context.Context) ([]store.Account, error) {
 }
 
 var _ refresher = (*syncer.Scheduler)(nil)
+
+// Worker に頼まれたアプリ本体の更新で新たに再接続待ちになったアカウントだけを、origin=app_background でログに残す（#369）。
+// すでに再接続待ちのアカウント（毎回結果に載る）は残さない。
+func TestAppRefreshLogsNewlyNeedsReauthOnly(t *testing.T) {
+	st, gm := newEnv(t)
+	addAccount(st, gm, "ok", store.StatusActive, true)
+	addAccount(st, gm, "reauth", store.StatusActive, true)
+	addAccount(st, gm, "waiting", store.StatusNeedsReauth, true)
+	gm.Edit("reauth", func(s *synctest.Script) { s.HistoryErr = fmt.Errorf("x: %w", gmail.ErrNeedsReauth) })
+	var buf bytes.Buffer
+	log := logging.NewWriter(&buf, slog.LevelInfo, logging.Meta{Version: "test"})
+	sched := syncer.New(syncer.Deps{Store: st, Gmail: gm, Clock: testClock, Logger: slog.New(slog.DiscardHandler)})
+	t.Cleanup(sched.Shutdown)
+
+	res, err := AppRefresh(st, sched, log)(context.Background())
+	require.NoError(t, err)
+	require.Len(t, res, 3)
+
+	var recs []map[string]any
+	for _, line := range strings.Split(strings.TrimSpace(buf.String()), "\n") {
+		if line == "" {
+			continue
+		}
+		var rec map[string]any
+		require.NoError(t, json.Unmarshal([]byte(line), &rec))
+		recs = append(recs, rec)
+	}
+	require.Len(t, recs, 1)
+	assert.Equal(t, "account needs reauth during background sync", recs[0]["msg"])
+	assert.Equal(t, "reauth", recs[0]["account"])
+	assert.Equal(t, "app_background", recs[0]["origin"])
+	assert.NotContains(t, buf.String(), "@example.com")
+}

@@ -65,6 +65,9 @@ func (c *client) do(ctx context.Context, accountID string, spec callSpec, op fun
 		case f.retry == retryAuth && !authRetried:
 			// アクセストークンが無効化された可能性。更新して 1 回だけやり直す。
 			authRetried = true
+			// 再接続が必要になる前触れ。2 回目も 401 なら ErrNeedsReauth（reason=api_401）になるので、1 回目も残して頻度を追えるようにする。
+			c.logger.Info("Gmail API が 401 を返しました（アクセストークンを取り直して再試行）",
+				slog.String("account_id", accountID), slog.String("op", spec.name))
 			a.auth.Invalidate()
 			continue
 		case errors.Is(f.kind, ErrNeedsReauth):
