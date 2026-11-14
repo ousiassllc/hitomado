@@ -152,13 +152,25 @@ describe('1 画面ずつの遷移（狭幅）', () => {
     expect(nav.screen.value).toBe('thread')
   })
 
-  test('ドロワー（サイドバー）が開いているときの戻るは、ドロワーを閉じる', () => {
+  test('エージェントのパネルが開いているときの戻るは、パネルを閉じる', () => {
     const { nav, inbox, ui } = setup(true, 390)
     inbox.select(REF)
-    ui.openMenu()
+    ui.openAgent()
     expect(nav.goBack()).toBe(true)
-    expect(ui.menuOpen).toBe(false)
+    expect(ui.agentOpen).toBe(false)
     expect(nav.screen.value).toBe('thread')
+  })
+
+  test('受信箱以外の見る場所（送信済みなど）では、戻るで受信箱へ戻り、絞り込みは保つ。その次は戻る先なし', async () => {
+    const { nav, inbox } = setup(true, 390)
+    h.responses.ListInbox = { items: [], failures: [] }
+    await inbox.setFilter({ accountIds: ['a1'], unreadOnly: false })
+    await inbox.setView('sent')
+    expect(nav.goBack()).toBe(true)
+    await flushPromises()
+    expect(inbox.view).toBe('inbox')
+    expect(inbox.filter.accountIds).toEqual(['a1'])
+    expect(nav.goBack()).toBe(false)
   })
 
   test('検索結果の一覧では、戻るで受信箱へ戻る', async () => {
@@ -175,10 +187,10 @@ describe('幅の切り替え', () => {
   test('ブレイクポイントで 3 ペイン／2 ペイン／1 画面ずつが切り替わり、html の属性にも反映される', () => {
     const { layout } = setup(true, 1200)
     expect(layout.mode).toBe('wide')
-    expect(layout.hasDrawer).toBe(false)
+    expect(layout.hasTabBar).toBe(false)
     viewport.resize(BREAKPOINT_WIDE - 1)
     expect(layout.mode).toBe('medium')
-    expect(layout.hasDrawer).toBe(true)
+    expect(layout.hasTabBar).toBe(true)
     viewport.resize(BREAKPOINT_MEDIUM - 1)
     expect(layout.mode).toBe('stack')
     expect(layout.isStack).toBe(true)
@@ -205,13 +217,6 @@ describe('幅の切り替え', () => {
     expect(layout.mode).toBe('wide')
     expect(inbox.selectedKey).toBeDefined()
     expect(compose.content.subject).toBe('編集中の件名')
-  })
-
-  test('3 ペインに戻ると、開いていたドロワーは閉じる', () => {
-    const { ui } = setup(true, 700)
-    ui.openMenu()
-    viewport.resize(1200)
-    expect(ui.menuOpen).toBe(false)
   })
 
   test('タッチ UI でない OS（Windows）は、幅が狭くても 3 ペインのまま・タッチ用の属性も付かない', () => {

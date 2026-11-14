@@ -15,8 +15,8 @@ export interface NavState {
    * このとき戻るは、ダイアログを閉じずにプロバイダの一覧へ戻す。
    */
   settingsPageOpen?: boolean
-  /** サイドバー（ドロワー）が開いている。ドロワーを使わない幅では false を渡す */
-  menuOpen: boolean
+  /** エージェントのパネルが開いている */
+  agentOpen: boolean
   /** 開いている作成セッションの種類。返信・転送は「開いているスレッドへのもの」だけを渡す */
   composeMode?: ComposeMode
   threadOpen: boolean
@@ -24,6 +24,8 @@ export interface NavState {
   searching: boolean
   /** 下書きの一覧を表示中（一覧の画面で、受信箱の代わりに出している。#366） */
   draftsOpen?: boolean
+  /** 受信箱以外の見る場所（送信済み・アーカイブ）を表示中 */
+  viewOpen?: boolean
 }
 
 export function screenOf(s: Pick<NavState, 'composeMode' | 'threadOpen'>): Screen {
@@ -36,19 +38,21 @@ export function screenOf(s: Pick<NavState, 'composeMode' | 'threadOpen'>): Scree
 export type BackAction =
   | 'dismissOverlay'
   | 'closeSettingsPage'
-  | 'closeMenu'
+  | 'closeAgent'
   | 'closeCompose'
   | 'closeThread'
   | 'clearSearch'
   | 'closeDrafts'
+  | 'closeView'
 
 /** 戻る操作の内容。戻る先が無い（一覧＝ルート）ときは undefined（アプリ側はバックグラウンドへ送る）。 */
 export function backActionOf(s: NavState): BackAction | undefined {
   if (s.overlayOpen) return s.settingsPageOpen ? 'closeSettingsPage' : 'dismissOverlay'
-  if (s.menuOpen) return 'closeMenu'
+  if (s.agentOpen) return 'closeAgent'
   const screen = screenOf(s)
   if (screen === 'reply' || screen === 'compose') return 'closeCompose'
   if (screen === 'thread') return 'closeThread'
   if (s.draftsOpen) return 'closeDrafts'
-  return s.searching ? 'clearSearch' : undefined
+  if (s.searching) return 'clearSearch'
+  return s.viewOpen ? 'closeView' : undefined
 }

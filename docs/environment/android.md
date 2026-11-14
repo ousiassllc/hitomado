@@ -661,7 +661,7 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 ### 16.3 戻るボタン
 
 - `MainActivity` は `OnBackPressedCallback`（`getOnBackPressedDispatcher()`）で戻るを受ける。テンプレートの `onBackPressed()` の上書きは、targetSdk 36 では呼ばれないので削除した。
-- コールバックは `webView.evaluateJavascript` で `window.hitomadoHandleBack()` を呼ぶ。フロントの `lib/androidBack.ts` が `AppShell` で登録する関数で、一つ前の画面へ戻したら `true` を返す（オーバーレイ → ドロワー → 返信・作成 → スレッド → 検索結果の順）。`true` ならアプリは何もしない。`false`・未登録（起動中）・失敗のときは、WebView の履歴があればそれに戻り（`canGoBack`）、無ければ `moveTaskToBack(true)` でアプリをバックグラウンドへ送る（終了しない）。
+- コールバックは `webView.evaluateJavascript` で `window.hitomadoHandleBack()` を呼ぶ。フロントの `lib/androidBack.ts` が `AppShell` で登録する関数で、一つ前の画面へ戻したら `true` を返す（オーバーレイ → エージェントのパネル → 返信・作成 → スレッド → 検索結果 → 受信箱以外の見る場所の順）。`true` ならアプリは何もしない。`false`・未登録（起動中）・失敗のときは、WebView の履歴があればそれに戻り（`canGoBack`）、無ければ `moveTaskToBack(true)` でアプリをバックグラウンドへ送る（終了しない）。
 - Wails のイベント（Java → Go → `Events.Emit`）も `window.history`（`pushState`＋`popstate`）も使わない。前者は Go を経由する分遅れて「消費したか」を Java へ返せず、後者は履歴の積み方と `canGoBack` が一致しないとアプリが終了するため。1 つの関数の戻り値で「消費したか」を同期的に受け取る方が確実。
 
 ### 16.4 確認の状況

@@ -61,8 +61,8 @@ export const useUiStore = defineStore('ui', () => {
   /** AI 設定タブで開いているプロバイダのページ（#315）。undefined はプロバイダの一覧。戻る（Android の戻るボタン）で一覧へ戻すため、ストアに持つ。 */
   const aiProviderPage = ref<string>()
   const online = ref(true)
-  /** サイドバーのドロワー（2 ペイン・1 画面ずつのレイアウトで使う）が開いているか */
-  const menuOpen = ref(false)
+  /** エージェントのパネル（PC は右から本文に重ねる。スマホは下タブの上いっぱい）が開いているか。中身（エージェントモード）は別 Issue で、今は「準備中」だけ出す */
+  const agentOpen = ref(false)
   let nextId = 1
 
   function pushToast(kind: ToastKind, message: string): number {
@@ -149,12 +149,12 @@ export const useUiStore = defineStore('ui', () => {
     return v
   }
 
-  function openMenu(): void {
-    menuOpen.value = true
+  function openAgent(): void {
+    agentOpen.value = true
   }
 
-  function closeMenu(): void {
-    menuOpen.value = false
+  function closeAgent(): void {
+    agentOpen.value = false
   }
 
   function setOnline(v: boolean): void {
@@ -177,7 +177,7 @@ export const useUiStore = defineStore('ui', () => {
     aiSetupIntent,
     aiProviderPage,
     online,
-    menuOpen,
+    agentOpen,
     pushToast,
     pushSnackbar,
     dismissToast,
@@ -193,8 +193,8 @@ export const useUiStore = defineStore('ui', () => {
     closeDialog,
     openSettings,
     takeAiSetupIntent,
-    openMenu,
-    closeMenu,
+    openAgent,
+    closeAgent,
     setOnline,
     anyDialogOpen,
   }

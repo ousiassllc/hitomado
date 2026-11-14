@@ -100,6 +100,7 @@ describe('ツールバーの削除（#345）', () => {
       props: {
         selectedCount: 2,
         refreshing: false,
+        unreadOnly: false,
         labelEnabled: true,
         labels: [],
         labelsLoading: false,

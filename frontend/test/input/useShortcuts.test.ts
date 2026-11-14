@@ -169,6 +169,16 @@ describe('g → i と検索', () => {
     await until(() => inbox.mode === 'inbox')
   })
 
+  test('g → i は、送信済みなど受信箱以外の場所からも受信箱へ戻し、開いているエージェントのパネルも閉じる', async () => {
+    const { inbox, ui } = await setup()
+    await inbox.setView('sent')
+    ui.openAgent()
+    press('g')
+    press('i')
+    await until(() => inbox.view === 'inbox')
+    expect(ui.agentOpen).toBe(false)
+  })
+
   test('/ で検索窓（data-search-input）にフォーカスする', async () => {
     await setup()
     const input = document.body.appendChild(document.createElement('input'))
@@ -182,20 +192,20 @@ describe('Esc（closeOrClear）', () => {
   test('ポップアップが開いていれば何も閉じない（Reka UI 側に任せる）', async () => {
     const { inbox, ui } = await setup()
     inbox.select(ref('a1', 't1'))
-    ui.openMenu()
+    ui.openAgent()
     const popup = document.body.appendChild(document.createElement('div'))
     popup.setAttribute('data-reka-popper-content-wrapper', '')
     press('Escape')
-    expect(ui.menuOpen).toBe(true)
+    expect(ui.agentOpen).toBe(true)
     expect(inbox.selectedKey).toBe(key('a1', 't1'))
   })
 
-  test('ドロワーが開いていれば、ドロワーだけ閉じる', async () => {
+  test('エージェントのパネルが開いていれば、パネルだけ閉じる', async () => {
     const { inbox, ui } = await setup()
     inbox.select(ref('a1', 't1'))
-    ui.openMenu()
+    ui.openAgent()
     press('Escape')
-    expect(ui.menuOpen).toBe(false)
+    expect(ui.agentOpen).toBe(false)
     expect(inbox.selectedKey).toBe(key('a1', 't1'))
   })
 

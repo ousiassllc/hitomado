@@ -20,7 +20,6 @@ beforeEach(() => {
 })
 
 const { default: DraftList } = await import('./DraftList.vue')
-const { default: SidebarViews } = await import('../shell/SidebarViews.vue')
 
 function draft(over: Partial<DraftSummary> = {}): DraftSummary {
   return {
@@ -128,22 +127,5 @@ describe('DraftList（下書きの一覧。#366）', () => {
     await flushPromises()
     expect(w.get('.note').text()).toBe('各アカウントの新しい 100 件までを表示しています。')
     w.unmount()
-  })
-})
-
-describe('SidebarViews（サイドバーの入口）', () => {
-  test('「下書き」で一覧を出し、「受信箱」で戻る。いまの表示が aria-current になる', async () => {
-    setup()
-    h.responses.ListDrafts = { items: [], failures: [], truncated: false }
-    const drafts = useDraftsStore()
-    const w = mount(SidebarViews)
-    expect(w.get('[data-testid="nav-inbox"]').attributes('aria-current')).toBe('page')
-    await w.get('[data-testid="nav-drafts"]').trigger('click')
-    await flushPromises()
-    expect(drafts.active).toBe(true)
-    expect(w.get('[data-testid="nav-drafts"]').attributes('aria-current')).toBe('page')
-    expect(w.get('[data-testid="nav-inbox"]').attributes('aria-current')).toBeUndefined()
-    await w.get('[data-testid="nav-inbox"]').trigger('click')
-    expect(drafts.active).toBe(false)
   })
 })

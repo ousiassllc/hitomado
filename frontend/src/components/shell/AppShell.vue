@@ -16,8 +16,10 @@ import InboxZeroDialog from '../inbox/InboxZeroDialog.vue'
 import ThreadListPane from '../inbox/ThreadListPane.vue'
 import SettingsDialog from '../settings/SettingsDialog.vue'
 import ThreadPane from '../thread/ThreadPane.vue'
+import AgentPanel from './AgentPanel.vue'
 import AlertStack from './AlertStack.vue'
 import BannerStack from './BannerStack.vue'
+import BottomTabs from './BottomTabs.vue'
 import PaneSplitter from './PaneSplitter.vue'
 import Sidebar from './Sidebar.vue'
 import ToastHost from './ToastHost.vue'
@@ -33,7 +35,7 @@ const total = ref(window.innerWidth)
 const sidebarWidth = ref<number>(SIDEBAR.initial)
 const listWidth = ref<number>(LIST.initial)
 
-/** wide は 3 ペイン、medium はサイドバーをドロワーにした 2 ペイン、stack は 1 画面ずつ（一覧・スレッド・作成が同じ場所に重なる）。 */
+/** wide は 3 ペイン、medium はサイドバーの代わりに下 4 タブを使う 2 ペイン、stack は 1 画面ずつ（一覧・スレッド・作成が同じ場所に重なる）。 */
 const columns = computed(() => {
   switch (layout.mode) {
     case 'wide':
@@ -46,6 +48,10 @@ const columns = computed(() => {
 })
 /** 新規作成は右ペイン全面に ComposePane（ThreadPane は隠す）。返信・転送は ThreadPane 内に埋め込まれる。 */
 const composingNew = computed(() => compose.session?.mode === 'new')
+/** 下 4 タブを出すか。1 画面ずつのときは、一覧（かエージェントのパネル）のときだけ（スレッド・作成は画面いっぱいに使う）。 */
+const showTabs = computed(() => layout.hasTabBar && (!layout.isStack || screen.value === 'list' || ui.agentOpen))
+/** スマホでエージェントのパネルが開いているとき、下のペインは操作させない（Tab・読み上げが裏の一覧へ届かないよう inert にする）。 */
+const behindAgent = computed(() => ui.agentOpen && layout.hasTabBar)
 /** 1 画面ずつのとき、作成・返信は画面全体を覆う ComposePane（下の ThreadPane は残して、戻ったときに読んでいた位置を保つ）。 */
 const covering = computed(() => screen.value === 'compose' || screen.value === 'reply')
 
@@ -55,7 +61,7 @@ function onWindowResize(): void {
   listWidth.value = clampList(listWidth.value, inlineSidebarWidth(), total.value)
 }
 
-/** 一覧の幅の計算に使うサイドバーの幅（ドロワーのときは 0）。 */
+/** 一覧の幅の計算に使うサイドバーの幅（サイドバーが無いときは 0）。 */
 function inlineSidebarWidth(): number {
   return layout.isWide ? sidebarWidth.value : 0
 }
@@ -84,7 +90,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="shell" :class="`layout-${layout.mode}`">
+  <div class="shell" :class="[`layout-${layout.mode}`, { 'has-tabs': showTabs }]">
     <BannerStack />
     <!-- ダイアログが開いている間は、アラートはダイアログの中に出る（BaseDialog） -->
     <AlertStack v-if="ui.overlays.length === 0" class="shell-alerts" />
@@ -100,7 +106,7 @@ onBeforeUnmount(() => {
           @resize="resizeSidebar"
         />
       </div>
-      <div class="col" :class="{ off: layout.isStack && screen !== 'list' }">
+      <div class="col" :class="{ off: layout.isStack && screen !== 'list' }" :inert="behindAgent">
         <ThreadListPane />
         <PaneSplitter
           v-if="!layout.isStack"
@@ -112,7 +118,7 @@ onBeforeUnmount(() => {
           @resize="resizeList"
         />
       </div>
-      <main class="detail" :class="{ off: layout.isStack && screen === 'list' }" :aria-label="common.shell.detail">
+      <main class="detail" :class="{ off: layout.isStack && screen === 'list' }" :aria-label="common.shell.detail" :inert="behindAgent">
         <template v-if="layout.isStack">
           <ThreadPane :class="{ off: covering }" />
           <ComposePane v-if="covering" class="cover" />
@@ -122,15 +128,12 @@ onBeforeUnmount(() => {
           <ThreadPane v-else />
         </template>
       </main>
+      <!-- エージェントのパネル。本文の上に重ねる（一覧・本文の幅は変えない）。スマホは下タブの上いっぱい。 -->
+      <Transition name="agent">
+        <AgentPanel v-if="ui.agentOpen" class="agent-panel" />
+      </Transition>
     </div>
-    <Transition name="scrim">
-      <div v-if="layout.hasDrawer && ui.menuOpen" class="scrim" aria-hidden="true" @click="ui.closeMenu()" />
-    </Transition>
-    <Transition name="drawer">
-      <div v-if="layout.hasDrawer && ui.menuOpen" class="drawer" data-testid="sidebar-drawer">
-        <Sidebar />
-      </div>
-    </Transition>
+    <BottomTabs v-if="showTabs" />
     <SendConfirmDialog />
     <SettingsDialog />
     <InboxZeroDialog />
@@ -153,6 +156,11 @@ onBeforeUnmount(() => {
   min-width: 960px;
 }
 
+/* 下タブが出ている間は、トースト（画面下中央）をタブの上へ上げる。 */
+.has-tabs {
+  --toast-bottom-extra: var(--tabbar-h);
+}
+
 /* モバイル幅（Android）では、ソフトキーボードで縮む表示領域の高さに合わせる。 */
 .layout-medium,
 .layout-stack {
@@ -165,6 +173,7 @@ onBeforeUnmount(() => {
 }
 
 .panes {
+  position: relative;
   flex: 1;
   display: grid;
   min-height: 0;
@@ -206,53 +215,45 @@ onBeforeUnmount(() => {
   overflow-y: auto;
 }
 
-.scrim {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-drawer);
-  background: var(--scrim);
-}
-
-.drawer {
-  position: fixed;
+/* エージェントのパネル: PC は本文の右端に重ねる。幅は一覧・本文を縮めないよう固定（本文の最小幅 320px を守るため、押し出さず重ねる）。 */
+.agent-panel {
+  position: absolute;
   top: 0;
+  right: 0;
   bottom: 0;
-  left: 0;
-  z-index: var(--z-drawer);
-  width: 78vw;
-  max-width: 320px;
+  z-index: var(--z-sticky);
+  width: min(344px, 100%);
 }
 
-/* スクラムとドロワーの出入り: フェード＋小さな移動（ガイド M5。reduced-motion ではフェードだけ）。 */
-.scrim-enter-active,
-.drawer-enter-active {
+.layout-medium .agent-panel,
+.layout-stack .agent-panel {
+  left: 0;
+  width: auto;
+  border-left: none;
+}
+
+/* パネルの出入り: フェード＋小さな移動（ガイド M5。reduced-motion ではフェードだけ）。 */
+.agent-enter-active {
   transition:
     opacity var(--motion-fade-in) var(--ease-out),
     transform var(--motion-fade-in) var(--ease-out);
 }
 
-.scrim-leave-active,
-.drawer-leave-active {
+.agent-leave-active {
   transition:
     opacity var(--motion-fade-out) var(--ease-in),
     transform var(--motion-fade-out) var(--ease-in);
 }
 
-.scrim-enter-from,
-.scrim-leave-to,
-.drawer-enter-from,
-.drawer-leave-to {
+.agent-enter-from,
+.agent-leave-to {
   opacity: 0;
-}
-
-.drawer-enter-from,
-.drawer-leave-to {
-  transform: translateX(-8px);
+  transform: translateX(8px);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .drawer-enter-from,
-  .drawer-leave-to {
+  .agent-enter-from,
+  .agent-leave-to {
     transform: none;
   }
 }

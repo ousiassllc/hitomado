@@ -1,7 +1,5 @@
 // 下書きの一覧（F-12。#366）の文言。
 export const drafts = {
-  /** サイドバーの入口 */
-  nav: { label: '表示', inbox: '受信箱', drafts: '下書き' },
   label: '下書きの一覧',
   title: '下書き',
   refresh: '更新',

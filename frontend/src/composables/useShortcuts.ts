@@ -36,8 +36,8 @@ export function useShortcuts(): void {
 
   function closeOrClear(): void {
     if (hasOpenPopup(document)) return // ポップアップ側（Reka UI）が閉じる
-    if (ui.menuOpen) {
-      ui.closeMenu() // サイドバーのドロワー（2 ペイン・1 画面ずつ）
+    if (ui.agentOpen) {
+      ui.closeAgent()
       return
     }
     if (inbox.mode === 'search') void inbox.clearSearch()
@@ -66,8 +66,9 @@ export function useShortcuts(): void {
     compose: () => void compose.open({ mode: 'new' }),
     search: () => document.querySelector<HTMLElement>(`[${SEARCH_INPUT_ATTR}]`)?.focus(),
     goInbox: () => {
+      ui.closeAgent()
       drafts.hide()
-      void inbox.clearSearch()
+      void inbox.setView('inbox')
     },
   }
 

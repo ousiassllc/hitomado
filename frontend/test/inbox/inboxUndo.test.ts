@@ -62,6 +62,21 @@ async function loaded() {
   return inbox
 }
 
+describe('受信箱以外の場所（送信済み・アーカイブ。#370）', () => {
+  test('ゴミ箱へ移した行は「元に戻す」で一覧へ戻る（INBOX が付いていない行でも）', async () => {
+    const sent = summary('s1', { inInbox: false, isUnread: false })
+    ctl.responses.Search = { items: [sent], failures: [] }
+    ctl.responses.Untrash = [sent]
+    const inbox = useInboxStore()
+    await inbox.setView('sent')
+    expect(await inbox.trash([{ accountId: 'a1', threadId: 's1' }])).toBe(true)
+    expect(inbox.items).toEqual([])
+    useUiStore().toast?.action?.run()
+    await until(() => inbox.items.length === 1)
+    expect(inbox.items[0]?.threadId).toBe('s1')
+  })
+})
+
 describe('アーカイブ・ゴミ箱のスナックバー（元に戻す）', () => {
   test('アーカイブ成功の直後に「元に戻す」つきのスナックバーが出て、戻すと一覧と Gmail が元に戻る', async () => {
     const inbox = await loaded()

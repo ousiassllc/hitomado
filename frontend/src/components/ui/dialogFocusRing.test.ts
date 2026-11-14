@@ -63,7 +63,7 @@ describe.each([
 describe('Sidebar のアカウント一覧', () => {
   test('スクロール領域は、先頭ボタンの外側のリングが収まる --s-1（4px）の上の余白を持つ', async () => {
     const css = await styleOf('../shell/Sidebar.vue')
-    const rule = css.match(/\.accounts\s*\{([^}]*)\}/)?.[1] ?? ''
+    const rule = css.match(/\.scroll\s*\{([^}]*)\}/)?.[1] ?? ''
     expect(rule).toMatch(/overflow-y:\s*auto;/)
     expect(rule).toMatch(/padding:\s*var\(--s-1\) var\(--s-2\) var\(--s-2\);/)
   })

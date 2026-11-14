@@ -10,11 +10,12 @@ import * as InboxService from '../../bindings/github.com/ousiassllc/hitomado/int
 import { type AppError, call, list, parseBindingError } from '../lib/api'
 import { EVENTS, onEvent, type SyncUpdatedPayload } from '../lib/events'
 import { keyOf, mergeHead, viewKeyOf } from '../lib/inboxItems'
+import { refreshAccounts } from '../lib/inboxRefresh'
 import type { InboxTab } from '../lib/inboxTabs'
-import { common } from '../lib/messages'
+import * as views from '../lib/inboxViews'
 import { useAccountsStore } from './accounts'
 import { makeApi } from './apiCall'
-import { type Failure, reportRefreshResults, toFailures } from './inboxFailures'
+import { type Failure, toFailures } from './inboxFailures'
 import { watchRemovedAccounts } from './inboxFilterSync'
 import { useInboxMutations } from './inboxMutations'
 import { useInboxSelection } from './inboxSelection'
@@ -34,6 +35,8 @@ export const useInboxStore = defineStore('inbox', () => {
   })
   /** 受信箱のタブ。セッション中だけ保持し（アカウントの切り替え・検索のあとも維持）、保存しない。起動時は「すべて」 */
   const tab = ref<InboxTab>('all')
+  /** 見る場所（受信箱・下書き・送信済み・アーカイブ）。アカウントの絞り込みとは別の軸。セッション中だけ保持し、保存しない。起動時は受信箱 */
+  const view = ref<views.InboxView>('inbox')
   const mode = ref<'inbox' | 'search'>('inbox')
   const searchQuery = ref('')
   const items = ref<ThreadSummary[]>([])
@@ -60,18 +63,19 @@ export const useInboxStore = defineStore('inbox', () => {
 
   const api = makeApi(ui, accounts.markNeedsReauth)
 
-  const viewKey = () => viewKeyOf(mode.value, searchQuery.value, tab.value, filter.value)
+  const viewKey = () =>
+    viewKeyOf(mode.value, searchQuery.value, tab.value, filter.value, view.value)
 
   const mutations = useInboxMutations({
     items,
-    hidesRead: () => (filter.value.unreadOnly || tab.value === 'new') && mode.value === 'inbox',
-    searching: () => mode.value === 'search',
+    hidesRead: () => views.hidesReadOf(mode.value, view.value, tab.value, filter.value.unreadOnly),
+    searching: () => mode.value === 'search' || view.value !== 'inbox',
     viewKey,
     pendingRemoval,
     api,
     ui,
     afterRemoval: selection.afterRemoval,
-    reload: () => void reloadHead(),
+    reload: () => void (mode.value === 'inbox' && view.value !== 'inbox' ? load() : reloadHead()),
   })
 
   function applyFailures(fs: Failure[]): void {
@@ -82,9 +86,13 @@ export const useInboxStore = defineStore('inbox', () => {
     }
   }
 
-  function fetchPage(cursor?: string): Promise<ThreadPage> {
+  async function fetchPage(cursor?: string): Promise<ThreadPage> {
     const base = { accountIds: [...filter.value.accountIds], limit: PAGE_SIZE, cursor }
     if (mode.value === 'search') return api(InboxService.Search({ q: searchQuery.value, ...base }))
+    const other = await views.fetchViewPage(view.value, filter.value.unreadOnly, (q) =>
+      api(InboxService.Search({ q, ...base })),
+    )
+    if (other) return other
     return api(
       InboxService.ListInbox({ unreadOnly: filter.value.unreadOnly, tab: tab.value, ...base }),
     )
@@ -125,10 +133,7 @@ export const useInboxStore = defineStore('inbox', () => {
       }
       const err = e as AppError
       if (err.code !== 'OFFLINE') {
-        ui.pushAlert(
-          mode.value === 'search' ? common.op.searchFailed : common.op.loadFailed,
-          () => void load(),
-        )
+        ui.pushAlert(views.loadFailedMessageOf(mode.value, view.value), () => void load())
       }
     } finally {
       if (gen === generation) loading.value = false
@@ -158,7 +163,7 @@ export const useInboxStore = defineStore('inbox', () => {
       }
     } catch (e) {
       if ((e as AppError).code !== 'OFFLINE')
-        ui.pushAlert(common.op.loadFailed, () => void loadMore())
+        ui.pushAlert(views.loadFailedMessageOf(mode.value, view.value), () => void loadMore())
     } finally {
       if (gen === generation) loadingMore.value = false
     }
@@ -180,7 +185,7 @@ export const useInboxStore = defineStore('inbox', () => {
     selection.pruneSelection()
   }
 
-  /** 先頭ページと未読件数を再取得する。スクロール位置・選択は維持する（検索結果は再取得しない）。 */
+  /** 先頭ページと未読件数を再取得する。スクロール位置・選択は維持する（検索結果と、受信箱以外の場所は再取得しない。同期のたびに Gmail の検索を呼ばない）。 */
   async function reloadHead(): Promise<void> {
     if (reloading) {
       reloadDirty = true
@@ -190,7 +195,7 @@ export const useInboxStore = defineStore('inbox', () => {
     try {
       do {
         reloadDirty = false
-        if (mode.value === 'inbox') {
+        if (mode.value === 'inbox' && view.value === 'inbox') {
           try {
             await reloadHeadOnce()
           } catch {
@@ -209,16 +214,7 @@ export const useInboxStore = defineStore('inbox', () => {
     if (refreshing.value) return
     refreshing.value = true
     try {
-      const res = await api(InboxService.Refresh([...filter.value.accountIds]))
-      reportRefreshResults(list(res.results), {
-        markNeedsReauth: accounts.markNeedsReauth,
-        setOffline: () => ui.setOnline(false),
-        nameOf: (id) => accounts.byId(id)?.displayName ?? id,
-        alert: (m) => ui.pushAlert(m),
-      })
-    } catch (e) {
-      if ((e as AppError).code !== 'OFFLINE')
-        ui.pushAlert(common.op.loadFailed, () => void refresh())
+      await refreshAccounts(filter.value.accountIds, api, accounts, ui, () => void refresh())
     } finally {
       refreshing.value = false
     }
@@ -247,6 +243,15 @@ export const useInboxStore = defineStore('inbox', () => {
     if (tab.value === t) return
     tab.value = t
     if (mode.value === 'inbox') await load()
+  }
+
+  /** 見る場所を切り替える（検索中は検索をやめる）。アカウントの絞り込み・未読のみは保つ。タブ（すべて・メイン…）は受信箱だけ。 */
+  async function setView(v: views.InboxView): Promise<void> {
+    if (view.value === v && mode.value === 'inbox') return
+    view.value = v
+    if (mode.value === 'search') return clearSearch()
+    selection.clearSelection()
+    await load()
   }
 
   async function setFilter(f: InboxFilter): Promise<void> {
@@ -295,6 +300,7 @@ export const useInboxStore = defineStore('inbox', () => {
   return {
     filter,
     tab,
+    view,
     mode,
     searchQuery,
     items,
@@ -314,6 +320,7 @@ export const useInboxStore = defineStore('inbox', () => {
     clearSearch,
     setFilter,
     setTab,
+    setView,
     onSyncUpdated,
     start,
     stop,

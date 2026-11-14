@@ -10,7 +10,6 @@ import { hasOpenDialog, hasOpenPopup } from '../lib/shortcuts'
 import { useComposeStore } from '../stores/compose'
 import { useDraftsStore } from '../stores/drafts'
 import { useInboxStore } from '../stores/inbox'
-import { useLayoutStore } from '../stores/layout'
 import { useUiStore } from '../stores/ui'
 
 /**
@@ -22,7 +21,6 @@ export function useNavigation() {
   const compose = useComposeStore()
   const drafts = useDraftsStore()
   const ui = useUiStore()
-  const layout = useLayoutStore()
 
   // DOM（Reka UI のダイアログ・メニュー）は反応性が無いので、overlayOpen は goBack の時点で調べる。
   const state = computed<Omit<NavState, 'overlayOpen'>>(() => {
@@ -31,11 +29,12 @@ export function useNavigation() {
     // 返信・転送は、開いているスレッドへのものだけが「返信画面」（別スレッドの下書きは裏に残るだけ）
     const forThread = s !== undefined && sel !== undefined && compose.isOpenForThread(sel)
     return {
-      menuOpen: ui.menuOpen && layout.hasDrawer,
+      agentOpen: ui.agentOpen,
       composeMode: s && (s.mode === 'new' || forThread) ? (s.mode as ComposeMode) : undefined,
       threadOpen: sel !== undefined,
       searching: inbox.mode === 'search',
       draftsOpen: drafts.active,
+      viewOpen: inbox.view !== 'inbox',
     }
   })
 
@@ -69,8 +68,8 @@ export function useNavigation() {
       case 'closeSettingsPage':
         ui.aiProviderPage = undefined
         break
-      case 'closeMenu':
-        ui.closeMenu()
+      case 'closeAgent':
+        ui.closeAgent()
         break
       case 'closeCompose':
         void compose.close()
@@ -83,6 +82,9 @@ export function useNavigation() {
         break
       case 'closeDrafts':
         drafts.hide()
+        break
+      case 'closeView':
+        void inbox.setView('inbox')
         break
     }
     return action !== undefined

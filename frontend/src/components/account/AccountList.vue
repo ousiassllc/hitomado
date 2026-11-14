@@ -1,44 +1,28 @@
 <script setup lang="ts">
-import { User } from '@iconoir/vue'
-import { computed } from 'vue'
-import { common } from '../../lib/messages'
+import { Plus, User } from '@iconoir/vue'
+import { useAccountFilter } from '../../composables/useAccountFilter'
+import { common, nav } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'
 import { useInboxStore } from '../../stores/inbox'
 import EmptyState from '../ui/EmptyState.vue'
 import AccountItem from './AccountItem.vue'
 
+// サイドバーの「アカウント」。見る場所（受信箱・下書き…）とは別の軸の絞り込みで、組み合わせて効く。
+// 数（未読）は受信箱の行に付けるので、ここは各アカウントの行に控えめに添えるだけ。
 const accounts = useAccountsStore()
 const inbox = useInboxStore()
+const { selectedIds, allSelected, toggle, selectAll } = useAccountFilter()
 
-const emit = defineEmits<{ select: [ids: string[]]; reconnect: [id: string] }>()
-
-const selectedIds = computed(() => new Set(inbox.filter.accountIds))
-const allSelected = computed(() => selectedIds.value.size === 0)
-const totalUnread = computed(() => accounts.accounts.reduce((n, a) => n + (inbox.unreadCounts[a.id] ?? 0), 0))
-
-/** 通常クリック=単一選択（選択済みの単一を押すと「すべて」へ）、Ctrl/Cmd+クリック=複数選択に加える／外す。 */
-function onSelect(id: string, multi: boolean): void {
-  const cur = [...inbox.filter.accountIds]
-  if (multi) {
-    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
-    emit('select', next)
-  } else if (cur.length === 1 && cur[0] === id) {
-    emit('select', [])
-  } else {
-    emit('select', [id])
-  }
-}
+const emit = defineEmits<{ reconnect: [id: string]; add: [] }>()
 </script>
 
 <template>
-  <nav :aria-label="common.sidebar.label">
+  <section class="accounts" aria-labelledby="sidebar-accounts-heading">
+    <h2 id="sidebar-accounts-heading" class="heading">{{ nav.accounts.heading }}</h2>
     <ul class="list">
       <li class="all" :class="{ selected: allSelected }">
-        <button type="button" class="all-btn" :aria-pressed="allSelected" @click="emit('select', [])">
-          <span class="all-name">{{ common.sidebar.allAccounts }}</span>
-          <span v-if="totalUnread > 0" class="badge" :aria-label="common.sidebar.unread(totalUnread)">{{
-            totalUnread > 999 ? '999+' : totalUnread
-          }}</span>
+        <button type="button" class="all-btn" :aria-pressed="allSelected" @click="selectAll">
+          <span class="all-name">{{ nav.accounts.all }}</span>
         </button>
       </li>
       <AccountItem
@@ -48,7 +32,7 @@ function onSelect(id: string, multi: boolean): void {
         :selected="selectedIds.has(a.id)"
         :unread="inbox.unreadCounts[a.id] ?? 0"
         :needs-reauth="accounts.statusOf(a.id) === 'needs_reauth'"
-        @select="(multi) => onSelect(a.id, multi)"
+        @select="(multi) => toggle(a.id, multi)"
         @reconnect="emit('reconnect', a.id)"
       />
     </ul>
@@ -56,10 +40,22 @@ function onSelect(id: string, multi: boolean): void {
       <template #icon><User class="icon icon-lg" /></template>
       {{ common.sidebar.noAccounts }}
     </EmptyState>
-  </nav>
+    <button type="button" class="add" @click="emit('add')">
+      <Plus class="icon icon-sm" aria-hidden="true" />{{ common.sidebar.addAccount }}
+    </button>
+  </section>
 </template>
 
 <style scoped>
+.heading {
+  margin: 0;
+  padding: var(--s-4) var(--menu-pad-x) var(--s-1);
+  color: var(--mute);
+  font-size: var(--font-size-xs);
+  font-weight: 400;
+  line-height: var(--line-height-xs);
+}
+
 .list {
   display: flex;
   flex-direction: column;
@@ -80,7 +76,6 @@ function onSelect(id: string, multi: boolean): void {
 .all-btn {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
   min-height: var(--menu-item-h);
   padding: 0 var(--menu-pad-x);
@@ -97,24 +92,30 @@ function onSelect(id: string, multi: boolean): void {
   background: var(--accent-soft);
 }
 
-.badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-width: 20px;
-  min-height: 20px;
-  padding: 0 var(--s-2);
-  border-radius: var(--r-full);
-  background: var(--accent);
-  color: var(--bone);
-  font-size: var(--font-size-xs);
-  line-height: var(--line-height-xs);
-  font-family: var(--font-mono);
-  text-align: center;
-}
-
 .empty {
   margin: var(--s-3);
+}
+
+/* 「アカウントを追加」はアカウントの並びの終わりに置く（一番下は設定の場所）。 */
+.add {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  width: 100%;
+  min-height: var(--menu-item-h);
+  margin-top: var(--gap-menu);
+  padding: 0 var(--menu-pad-x);
+  border: none;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.add:hover {
+  background: var(--accent-soft);
 }
 </style>

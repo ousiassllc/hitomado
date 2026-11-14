@@ -25,8 +25,7 @@ export const common = {
 
   // サイドバー・アカウント
   sidebar: {
-    label: 'アカウント',
-    allAccounts: 'すべてのアカウント',
+    label: 'サイドバー',
     compose: '新規作成',
     addAccount: 'アカウントを追加',
     settings: '設定',
@@ -36,7 +35,6 @@ export const common = {
   },
   filter: {
     unreadOnly: '未読のみ',
-    clear: 'フィルタをクリア',
   },
 
   // アカウント追加
@@ -69,6 +67,8 @@ export const common = {
     emptyUnread: '未読のスレッドはありません。',
     emptyCategory: 'このカテゴリのスレッドはありません。',
     emptySearch: '一致するスレッドがありません。',
+    emptySent: '送信済みのメールはありません。',
+    emptyArchive: 'アーカイブしたメールはありません。',
     loadMore: 'さらに読み込む',
     loadingMore: '続きを読み込み中…',
     noSubject: '(件名なし)',
@@ -121,6 +121,7 @@ export const common = {
     labelUpdated: 'ラベルを更新しました。',
     refreshFailed: (name: string) => `${name} の更新に失敗しました。`,
     loadFailed: '受信箱の読み込みに失敗しました。',
+    viewLoadFailed: 'メールの読み込みに失敗しました。',
     searchFailed: '検索に失敗しました。',
     threadGone: 'スレッドが見つかりません。一覧から除去しました。',
   },
@@ -130,7 +131,6 @@ export const common = {
     sidebarResize: 'サイドバーの幅',
     listResize: 'スレッド一覧の幅',
     detail: 'スレッド',
-    menu: 'メニュー',
     backToList: '一覧に戻る',
   },
 } as const

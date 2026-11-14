@@ -73,7 +73,7 @@ onBeforeUnmount(stop)
 .toasts {
   position: fixed;
   left: 50%;
-  bottom: var(--toast-offset);
+  bottom: calc(var(--toast-offset) + var(--toast-bottom-extra, 0px));
   transform: translateX(-50%);
   display: flex;
   justify-content: center;

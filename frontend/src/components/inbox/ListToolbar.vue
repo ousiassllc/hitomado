@@ -5,14 +5,19 @@ import { common } from '../../lib/messages'
 import { SHORTCUT_KEYS } from '../../lib/shortcuts'
 import BaseIconButton from '../ui/BaseIconButton.vue'
 import BaseMenu from '../ui/BaseMenu.vue'
+import BaseSwitch from '../ui/BaseSwitch.vue'
 import Spinner from '../ui/Spinner.vue'
 
 const props = defineProps<{
   /** 操作対象のスレッド数。一括操作のボタンは 2 件以上のときだけ出す（1 件はスレッドのヘッダーの操作で足りる） */
   selectedCount: number
   refreshing: boolean
-  /** 検索結果モード中（「受信箱に戻る」を出す） */
+  /** 検索結果モード中（「受信箱に戻る」を出す。未読のみは検索に効かないので出さない） */
   searching?: boolean
+  /** 未読のみ（一覧の上のトグル。サイドバーにあったものをここへ移した） */
+  unreadOnly: boolean
+  /** 見ている場所で未読のみが効くか（送信済み・下書きは効かないのでスイッチを出さない） */
+  unreadOnlyAvailable?: boolean
   /** 対象が全て同じアカウントのときだけラベルを変更できる */
   labelEnabled: boolean
   /** checked = 対象のスレッドすべてに付いているラベル */
@@ -30,6 +35,7 @@ const emit = defineEmits<{
   label: [labelId: string]
   openLabels: []
   backToInbox: []
+  'update:unreadOnly': [value: boolean]
 }>()
 
 const bulk = computed(() => !props.compact && props.selectedCount > 1)
@@ -85,6 +91,10 @@ function onLabelSelect(key: string): void {
     <div v-if="searching" class="mode">
       <button type="button" class="back" @click="emit('backToInbox')">{{ common.toolbar.backToInbox }}</button>
     </div>
+    <div v-else-if="unreadOnlyAvailable !== false" class="unread-only">
+      <span>{{ common.filter.unreadOnly }}</span>
+      <BaseSwitch :model-value="unreadOnly" :ariaLabel="common.filter.unreadOnly" @update:model-value="(v) => emit('update:unreadOnly', v)" />
+    </div>
   </div>
 </template>
 
@@ -121,6 +131,14 @@ function onLabelSelect(key: string): void {
   gap: var(--s-2);
   min-width: 0;
   font-size: var(--font-size-sm);
+}
+
+.unread-only {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
 }
 
 .back {
