@@ -1,4 +1,9 @@
-# Hitomado
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lockup-hitomado-dark.svg">
+    <img src="docs/assets/lockup-hitomado-light.svg" alt="Hitomado" width="480">
+  </picture>
+</h1>
 
 複数の Gmail／Google Workspace アドレスを 1 つの統合受信箱で扱い、**受信したアカウントから正しい送信元で返信できる**デスクトップアプリ（Windows。Android・macOS は試験段階の検証用配布）。アカウント切替と送信元の取り違えをなくすことが目的です。
 
