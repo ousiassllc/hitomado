@@ -2,5 +2,6 @@
 export { common } from './common'
 export { compose } from './compose'
 export { inboxZero } from './inboxZero'
+export { nav } from './nav'
 export { settings } from './settings'
 export { thread } from './thread'

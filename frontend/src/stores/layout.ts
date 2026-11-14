@@ -2,7 +2,6 @@ import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { layoutModeFor, MEDIUM_QUERY, WIDE_QUERY } from '../lib/layout'
 import { usePlatformStore } from './platform'
-import { useUiStore } from './ui'
 
 /**
  * 画面幅によるレイアウト（3 ペイン／2 ペイン／1 画面ずつ）の唯一の判定元。幅の監視は matchMedia のここだけで、
@@ -10,7 +9,6 @@ import { useUiStore } from './ui'
  */
 export const useLayoutStore = defineStore('layout', () => {
   const platform = usePlatformStore()
-  const ui = useUiStore()
 
   // 監視の開始前は wide（matchMedia が無い環境も同じ）。
   const wideMatches = ref(true)
@@ -22,7 +20,7 @@ export const useLayoutStore = defineStore('layout', () => {
   )
   const isWide = computed(() => mode.value === 'wide')
   const isStack = computed(() => mode.value === 'stack')
-  const hasDrawer = computed(() => mode.value !== 'wide') // サイドバーをドロワーで開くレイアウト
+  const hasTabBar = computed(() => mode.value !== 'wide') // サイドバーの代わりに、下 4 タブとアカウントのチップを使うレイアウト
 
   /** 幅の監視と、CSS 用の属性（html の data-touch-ui・data-layout）の反映を始める（冪等）。 */
   function start(): void {
@@ -40,8 +38,6 @@ export const useLayoutStore = defineStore('layout', () => {
         const root = document.documentElement
         root.toggleAttribute('data-touch-ui', touch)
         root.dataset.layout = m
-        // ドロワーを使わない幅になったら閉じておく（再び狭くしたとき開いたままにならない）
-        if (m === 'wide') ui.closeMenu()
       },
       { immediate: true, flush: 'sync' },
     )
@@ -56,5 +52,5 @@ export const useLayoutStore = defineStore('layout', () => {
     stop?.()
   }
 
-  return { mode, isWide, isStack, hasDrawer, start, dispose }
+  return { mode, isWide, isStack, hasTabBar, start, dispose }
 })

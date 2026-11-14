@@ -182,20 +182,20 @@ describe('Esc（closeOrClear）', () => {
   test('ポップアップが開いていれば何も閉じない（Reka UI 側に任せる）', async () => {
     const { inbox, ui } = await setup()
     inbox.select(ref('a1', 't1'))
-    ui.openMenu()
+    ui.openAgent()
     const popup = document.body.appendChild(document.createElement('div'))
     popup.setAttribute('data-reka-popper-content-wrapper', '')
     press('Escape')
-    expect(ui.menuOpen).toBe(true)
+    expect(ui.agentOpen).toBe(true)
     expect(inbox.selectedKey).toBe(key('a1', 't1'))
   })
 
-  test('ドロワーが開いていれば、ドロワーだけ閉じる', async () => {
+  test('エージェントのパネルが開いていれば、パネルだけ閉じる', async () => {
     const { inbox, ui } = await setup()
     inbox.select(ref('a1', 't1'))
-    ui.openMenu()
+    ui.openAgent()
     press('Escape')
-    expect(ui.menuOpen).toBe(false)
+    expect(ui.agentOpen).toBe(false)
     expect(inbox.selectedKey).toBe(key('a1', 't1'))
   })
 

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Menu } from '@iconoir/vue'
 import { computed, ref } from 'vue'
 import type { Label } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import * as InboxService from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
@@ -10,8 +9,8 @@ import { useComposeStore } from '../../stores/compose'
 import { useInboxStore } from '../../stores/inbox'
 import { useLayoutStore } from '../../stores/layout'
 import { useUiStore } from '../../stores/ui'
+import AccountChips from '../account/AccountChips.vue'
 import BaseButton from '../ui/BaseButton.vue'
-import BaseIconButton from '../ui/BaseIconButton.vue'
 import InboxTabs from './InboxTabs.vue'
 import ListToolbar from './ListToolbar.vue'
 import SearchBar from './SearchBar.vue'
@@ -41,6 +40,9 @@ const labelItems = computed(() => {
 
 const emptyText = computed(() => {
   if (inbox.mode === 'search') return common.list.emptySearch
+  if (inbox.view === 'drafts') return common.list.emptyDrafts
+  if (inbox.view === 'sent') return common.list.emptySent
+  if (inbox.view === 'archive') return common.list.emptyArchive
   if (inbox.filter.unreadOnly || inbox.tab === 'new') return common.list.emptyUnread
   return inbox.tab === 'primary' || inbox.tab === 'social' || inbox.tab === 'promotions'
     ? common.list.emptyCategory
@@ -72,25 +74,27 @@ async function toggleLabel(labelId: string): Promise<void> {
 
 <template>
   <section class="pane" :aria-label="common.list.label">
-    <!-- サイドバーをドロワーにするレイアウト（2 ペイン・1 画面ずつ）の上部バー -->
-    <header v-if="layout.hasDrawer" class="head">
-      <BaseIconButton :label="common.shell.menu" data-testid="open-menu" @click="ui.openMenu()">
-        <Menu class="icon" aria-hidden="true" />
-      </BaseIconButton>
+    <!-- サイドバーの代わりに下 4 タブを使うレイアウト（2 ペイン・1 画面ずつ）の上部バー -->
+    <header v-if="layout.hasTabBar" class="head">
       <span class="app-name">{{ common.appName }}</span>
       <BaseButton size="sm" variant="primary" data-testid="head-compose" @click="compose.open({ mode: 'new' })">{{ common.sidebar.compose }}</BaseButton>
     </header>
     <SearchBar :active="inbox.mode === 'search'" :query="inbox.searchQuery" @search="inbox.runSearch" @clear="inbox.clearSearch" />
-    <InboxTabs v-if="inbox.mode === 'inbox'" :model-value="inbox.tab" @update:model-value="inbox.setTab" />
+    <!-- アカウントの絞り込み（スマホ。PC はサイドバーの「アカウント」） -->
+    <AccountChips v-if="layout.hasTabBar" />
+    <!-- カテゴリのタブは受信箱だけ（下書き・送信済み・アーカイブには無い） -->
+    <InboxTabs v-if="inbox.mode === 'inbox' && inbox.view === 'inbox'" :model-value="inbox.tab" @update:model-value="inbox.setTab" />
     <ListToolbar
       :selected-count="targets.length"
       :refreshing="inbox.refreshing"
       :searching="inbox.mode === 'search'"
+      :unread-only="inbox.filter.unreadOnly"
       :compact="layout.isStack"
       :label-enabled="labelEnabled"
       :labels="labelItems"
       :labels-loading="labelsLoading"
       @refresh="inbox.refresh"
+      @update:unread-only="(v) => inbox.setFilter({ accountIds: inbox.filter.accountIds, unreadOnly: v })"
       @archive="inbox.archive(targets)"
       @trash="inbox.trash(targets)"
       @toggle-read="(read) => inbox.markRead(targets, read)"
@@ -138,6 +142,7 @@ async function toggleLabel(labelId: string): Promise<void> {
 
 .app-name {
   flex: 1;
+  padding-left: var(--s-1);
   font-size: var(--font-size-base);
 }
 </style>

@@ -32,10 +32,7 @@ describe('行間はスケールの値（T3・T4・#227）', () => {
     expect(body).toContain('line-height: var(--line-height-base)')
   })
 
-  test.each([
-    ['account/AccountItem.vue', '.badge {'],
-    ['account/AccountList.vue', '.badge {'],
-  ])(
+  test.each([['ui/CountBadge.vue', '.badge {']])(
     '件数バッジ %s %s は line-height に xs を持ち、min-height 20px を超えない',
     (file, selector) => {
       const badge = rule(file, selector)

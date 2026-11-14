@@ -27,7 +27,7 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
         <AccountChip class="name" :account="account" />
         <span class="email">{{ account.email }}</span>
       </span>
-      <span v-if="unread > 0" class="badge" :aria-label="common.sidebar.unread(unread)">{{ unread > 999 ? '999+' : unread }}</span>
+      <span v-if="unread > 0" class="count" :aria-label="common.sidebar.unread(unread)">{{ unread > 999 ? '999+' : unread }}</span>
     </button>
     <BaseIconButton
       v-if="needsReauth"
@@ -94,26 +94,18 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
 
 /* --accent-soft 地（選択・ホバー）の上では --mute が AA 4.5:1 に届かないので --ink にする（名前とは文字サイズで区別が残る）。 */
 .item.selected .email,
-.main:hover .email {
+.item.selected .count,
+.main:hover .email,
+.main:hover .count {
   color: var(--ink);
 }
 
-.badge {
+.count {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-width: 20px;
-  min-height: 20px;
-  padding: 0 var(--s-2);
-  border-radius: var(--r-full);
-  background: var(--accent);
-  color: var(--bone);
+  color: var(--mute);
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
   line-height: var(--line-height-xs);
-  font-family: var(--font-mono);
-  text-align: center;
 }
 
 /* 要再接続は他の箇所と同じく警告色（--danger は使わない）。 */

@@ -17,6 +17,7 @@ function mountToolbar(
       compact,
       refreshing: false,
       searching,
+      unreadOnly: false,
       labelEnabled: true,
       labels: [],
       labelsLoading: false,

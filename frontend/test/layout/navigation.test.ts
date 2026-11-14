@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { backActionOf, type NavState, screenOf } from '../../src/lib/navigation'
 
-const base: NavState = { overlayOpen: false, menuOpen: false, threadOpen: false, searching: false }
+const base: NavState = { overlayOpen: false, agentOpen: false, threadOpen: false, searching: false }
 
 describe('screenOf', () => {
   test('一覧 → スレッド → 返信・転送 の順に進む', () => {
@@ -33,12 +33,19 @@ describe('backActionOf', () => {
     expect(backActionOf({ ...base, searching: true })).toBe('clearSearch')
   })
 
-  test('オーバーレイ（ダイアログ・メニュー）、ドロワーは画面より先に閉じる', () => {
+  test('受信箱以外の見る場所（下書き・送信済み・アーカイブ）は、戻るで受信箱へ戻る。検索結果の戻りが先', () => {
+    expect(backActionOf({ ...base, viewOpen: true })).toBe('closeView')
+    expect(backActionOf({ ...base, viewOpen: true, searching: true })).toBe('clearSearch')
+    expect(backActionOf({ ...base, viewOpen: true, threadOpen: true })).toBe('closeThread')
+    expect(backActionOf({ ...base, viewOpen: false })).toBeUndefined()
+  })
+
+  test('オーバーレイ（ダイアログ・メニュー）、エージェントのパネルは画面より先に閉じる', () => {
     expect(
       backActionOf({ ...base, threadOpen: true, composeMode: 'reply', overlayOpen: true }),
     ).toBe('dismissOverlay')
-    expect(backActionOf({ ...base, threadOpen: true, menuOpen: true })).toBe('closeMenu')
-    expect(backActionOf({ ...base, menuOpen: true, overlayOpen: true })).toBe('dismissOverlay')
+    expect(backActionOf({ ...base, threadOpen: true, agentOpen: true })).toBe('closeAgent')
+    expect(backActionOf({ ...base, agentOpen: true, overlayOpen: true })).toBe('dismissOverlay')
   })
 })
 

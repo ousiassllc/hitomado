@@ -12,14 +12,15 @@ export function keyOf(t: ThreadRef | ThreadSummary): string {
   return threadKey(t.accountId, t.threadId)
 }
 
-/** 一覧の表示条件（モード・検索語・タブ・未読のみ・アカウント）を表す文字列。条件が変わったかの比較に使う。 */
+/** 一覧の表示条件（モード・検索語・タブ・未読のみ・アカウント・見る場所）を表す文字列。条件が変わったかの比較に使う。 */
 export function viewKeyOf(
   mode: string,
   searchQuery: string,
   tab: string,
   filter: { unreadOnly: boolean; accountIds: string[] },
+  view: string,
 ): string {
-  return JSON.stringify([mode, searchQuery, tab, filter.unreadOnly, filter.accountIds])
+  return JSON.stringify([mode, searchQuery, tab, filter.unreadOnly, filter.accountIds, view])
 }
 
 // 一覧の行の高さ。padding は縦 --s-3（12）×2、差出人行・件名行は各 24（14px × line-height 1.7 の切り上げ）、間は --s-1（4）。
