@@ -130,7 +130,7 @@
 
 ## 12. AI
 
-- プロバイダは抽象化（インターフェース）し、v0.1.0 では **Anthropic** と **OpenAI 互換エンドポイント**（Base URL 指定。Base URL を指定しないときの送信先は OpenAI）を実装する。加えて **ChatGPT プラン**（Sign in with ChatGPT。Responses API。**AI の設定が未保存のときの既定のプロバイダはこれ**〔#104。保存済みのプロバイダは変えない。Android も同じ〕。[バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)）を選べる。プロバイダの追加・変更は [バインディング仕様 §6](../api/endpoints.md#6-aiservice) の `AIProvider` に合わせる
+- プロバイダは抽象化（インターフェース）し、v0.1.0 では **Anthropic** と **OpenAI 互換エンドポイント**（Base URL 指定。Base URL を指定しないときの送信先は OpenAI）を実装する。加えて **ChatGPT プラン**（Sign in with ChatGPT。Responses API。[バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)）を選べる。どの機能がどのプロバイダ・モデルを使うかは、設定の「機能ごとに使う AI」で機能ごとに選ぶ（#376。**既定のプロバイダは無く、選んだ AI がつながっていなくても別のプロバイダへ切り替えない**。選択は `app_settings` の `ai.features`、OpenAI 互換の Base URL は `ai.connection`。[データモデル §3.9](../architecture/er.md)）。プロバイダの追加・変更は [バインディング仕様 §6](../api/endpoints.md#6-aiservice) の `AIProvider` に合わせる
 - API キーは利用者が入力し、NF-S01 のとおり保存する（ChatGPT プランは API キーを使わず、ログインで得たトークンを同じく保存する）。送信するコンテキストの上限は、AI 下書きでは直近 5 メッセージかつ合計 20,000 文字を目安とする。スレッドの AI 要約（F-17）・質問（F-18）はスレッド全体を読むことが目的なので、スレッドの内容は全メッセージかつ合計 40,000 文字を目安とし、超えるときは古いメッセージから外す。質問ではこれに加えて、会話（質問と回答）を最新 10 往復・合計 20,000 文字までとする
 - タイムアウトは 60 秒。リクエストはユーザーが中止できる
 
@@ -167,3 +167,4 @@
 | 1.26 | 2026-11-13 | NF-D05 を、Android 版は自動アップデートだけ行わず、更新確認と新しい版のリンクの案内は行う内容に改めた（実装は `capability.Android()` の `SupportsAutoUpdate: true`、自動の入れ替えは `update.AutoInstallSupported` が Windows のみ） | #322。1.10・1.17 の「Android は更新確認をしない」が、Android の新バージョンのお知らせ（バインディング仕様 1.40）後も残っていたため |
 | 1.27 | 2026-11-13 | §2 の通信先に `api.typesafe.ai`（Inbox Zero の判定。ボタン押下時のみ・差出人／件名／本文の先頭約 500 文字・返信済みだけなら通信しない）を追加し、専用の同意を取ることを追記（実装は `internal/ai/jev.go:12-13`・`internal/app/aicore/inboxzero.go`・`consent.go`） | #314 の通信先の記載漏れ（#323・#332） |
 | 1.28 | 2026-11-14 | NF-D02 に、Windows 11 のスマート アプリ コントロールが有効なときの振る舞いと選択肢を README に明記することを追記（署名しない方針は変えない） | #363（#350 で報告された事象。Microsoft の公式ドキュメントで確認） |
+| 1.29 | 2026-11-14 | §12 の AI プロバイダの記述から「未保存のときの既定のプロバイダは ChatGPT プラン」を外し、機能ごとに選ぶこと・別のプロバイダへ切り替えないことに合わせた | #376 |

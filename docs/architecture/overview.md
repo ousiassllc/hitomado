@@ -304,13 +304,15 @@ sequenceDiagram
   participant PV as ai.Provider
   FE->>AI: GenerateReplyDraft(sessionId, requestId, instruction?)
   AI->>CS: 作成セッションから送信元アカウントとスレッドを取得（返信・全員に返信のみ。new／forward は VALIDATION）
-  AI->>AI: 同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認
+  AI->>AI: 機能の選択（app_settings の ai.features.draft）を読み、選んだ AI の同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認。未選択・つながっていないときは別の AI へ切り替えず AI_NOT_CONFIGURED（#376）
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>PV: 生成要求（直近 5 メッセージ・20,000 文字以内＋あれば利用者の指示。指示は別枠で 2,000 文字まで）
   Note over AI,PV: 設定にエフォートがあれば要求に載せる（Anthropic: output_config.effort／OpenAI 互換: reasoning_effort／ChatGPT: reasoning.effort）。無ければ載せない
   PV-->>AI: 本文テキスト
   AI-->>FE: 下書き本文（フロントがエディタに挿入。送信は行わない）
 ```
+
+**機能ごとの AI の選択（#376）**: どの AI・モデルを使うかは機能ごとに `app_settings` の `ai.features`（`draft`＝返信・新規作成・要約・質問、`inboxZero`）に持ち、OpenAI 互換の Base URL はつなぎ先として `ai.connection` に持つ（API キー・トークンは資格情報ストア）。実行の入口は `aicore.FeatureAI(ctx, feature)`（選んだ AI を `SelectedAI` で返す）と、その機能の前提確認 `precheck`（選択・資格情報・モデル・Base URL・同意の順に確かめ、欠けていれば `AI_NOT_CONFIGURED`／`AI_CONSENT_REQUIRED`）。以前の `ai.config` は、起動時のマイグレーション `00002_ai_features`（`internal/store/migrations`）で `ai.features.draft` と `ai.connection` に移し、読み取りの互換経路は持たない。
 
 ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークンを `internal/siwc` が資格情報ストアに保持し、`PV` は Responses API（`store: false`・`stream: true`）を呼ぶ。生成中に 401 を受けたときは 1 度だけトークンを更新してやり直し、更新できなければ再ログインを案内する。複数の ChatGPT アカウントはアカウントごと（`client_id` ごと）にトークンと登録を分けて保存し、使用中のアカウントのトークンで生成する。ログイン・更新・ログアウトの手順は [バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)。
 
@@ -348,7 +350,7 @@ sequenceDiagram
   participant GM as gmail.Client
   participant PV as ai.Provider
   FE->>AI: SummarizeThread(ref, requestId)
-  AI->>AI: 同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認
+  AI->>AI: 機能の選択（ai.features.draft）を読み、選んだ AI の同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認（別の AI へは切り替えない）
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>AI: 下書きを除き、全メッセージを古い順にテキスト化（合計 40,000 文字を目安。超えたら古いものから外す）
   AI->>PV: 要約の要求（本文は信頼しない入力の枠。エフォートは設定にあれば載せる）
@@ -369,7 +371,7 @@ sequenceDiagram
   participant PV as ai.Provider
   FE->>AI: AskAboutThread(ref, requestId, question, history)
   AI->>AI: question・history を検証（空・2,000 文字超・会話の形・20 件／20,000 文字超は VALIDATION。通信しない）
-  AI->>AI: 同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認
+  AI->>AI: 機能の選択（ai.features.draft）を読み、選んだ AI の同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認（別の AI へは切り替えない）
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>AI: 下書きを除き、全メッセージを古い順にテキスト化（§7.5 と同じ。合計 40,000 文字を目安）
   AI->>PV: 役割の指示（system）＋スレッド（信頼しない先頭の user）＋history（user／assistant）＋question（最後の user）
@@ -464,3 +466,4 @@ sequenceDiagram
 | 1.28 | 2026-11-13 | リンクの修正（§5 の Android ビルド §10 のパス、§2 の資格情報の保管の表示を §11 に）と、§4 のディレクトリ構成に現存するパッケージ（`capability`・`mcpserver`・`siwc`・`headless`・`androidbg`・`callbackpage`・`exportfile`・`asciijson`・`synctest`・`e2e`）とルートの OS 別ファイルを追加、`ai/` の説明を現状（chatgpt・jev）に直した | 実装のファイル構成・リンクとの乖離（#327） |
 | 1.29 | 2026-11-13 | §7.7（Inbox Zero: `FindInboxZeroCandidates` の流れ。返信済みは端末内で判定、広告・通知・ニュースレターは `ai.Classifier`〔Jev〕で判定し確率 0.8 以上だけを候補にする。アーカイブは `InboxService` 側）を追加 | 実装（`internal/app/aicore/inboxzero.go`）との整合（#333） |
 | 1.30 | 2026-11-14 | §7.4 に新規作成の AI 下書き（`GenerateNewDraft`。スレッドを読まず、指示・件名・宛先・送信元の表示名と署名から生成）を追記し、§7.4b に下書きの一覧（`ListDrafts`・`DiscardDraft`）のシーケンスを追加した | #365・#366 |
+| 1.31 | 2026-11-14 | §7.4 の前提確認を、機能ごとの AI の選択（`ai.features`・`ai.connection`）を読む形に改めた（選んだ AI だけを使い、別の AI へ切り替えない）。旧 `ai.config` はマイグレーションで移した | #376 |

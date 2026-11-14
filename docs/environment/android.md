@@ -800,7 +800,7 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 
 ## 18. AI の既定のプロバイダと ChatGPT ログイン（#104）
 
-**Android でも Windows と同じく、AI の設定が未保存のときの既定のプロバイダを ChatGPT プランにし、「AI で下書き」の初回の案内も同じに出す**（[F-08](../requirements/functional.md)・[画面の流れ](../components/overview.md#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）。Android 専用の既定・案内は作らない。
+**Android でも Windows と同じく、「AI で下書き」に使う AI を選んでいないときの初回の案内を出し、ChatGPT プランへ進める**（[F-08](../requirements/functional.md)・[画面の流れ](../components/overview.md#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)。#376 で「既定のプロバイダ」は廃止し、機能ごとの選択に変えた）。Android 専用の案内は作らない。
 
 調べたこと（2026-11-04。コードの確認で、実機は使っていない）:
 
