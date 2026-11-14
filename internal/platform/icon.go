@@ -1,39 +1,66 @@
 package platform
 
 import (
-	"bytes"
 	"embed"
-	"encoding/binary"
 	"fmt"
-	"image"
-	_ "image/png" // image.DecodeConfig（icoFromPNGs）が PNG を読むため
 )
 
-// トレイアイコンの素材（新ロゴ v5c の tray/。#379）。ライト／ダーク × 未読バッジ有無 × 16・32px の 8 枚。
-// 未読バッジ（#7a4545・白縁・一辺の約 40%・右下）も素材に描いてあるので、実行時には描かない。
-// 虹色（プリズム）は 32px 以下・トレイには入っていない。
+// トレイアイコンの素材（新ロゴ v5c の tray-v2。#379）。地（タイル）の無い透明背景の単色グリフで、
+// タスクバーの明るさに合わせて 2 色を使い分ける。虹色（プリズム）は入っていない。
+//   - tray-light-taskbar*: 明るいタスクバー用（墨 #050505）
+//   - tray-dark-taskbar*: 暗いタスクバー用（白）
+//   - *-badge: 未読バッジ付き（右下の #7a4545 の丸。リングとの間は白縁ではなく透明に抜いてある）
 //
-//go:embed tray/*.png
+// Windows は ICO（16・20・24・32px 入り。DPI 100%・125%・150%・200% の大きさを Windows が選ぶ）、
+// Linux は 32px の PNG を使う。macOS のメニューバーはバッジの無いテンプレート画像（黒＋透明度だけ。trayTemplate.png と @2x）。
+//
+//go:embed tray/*.ico tray/*.png
 var trayFS embed.FS
 
-// traySizes は素材のサイズ（px）。Windows は DPI に応じた大きさ（100% で 16、200% で 32）の画像を ICO から選ぶ。
-var traySizes = []int{16, 32}
+// macOS のメニューバー用テンプレート画像（墨版の PNG から作った黒＋透明度だけの画像）。
+// Wails は 1 枚だけ受け取り、メニューバーの高さに縮めて描くので、@2x（32px）を渡す。
+const trayTemplate2x = "tray/trayTemplate@2x.png"
 
-// trayIcons はトレイに渡す 4 種類の画像（Windows は ICO、それ以外は 32px の PNG）。
-// ライト／ダークは OS（Windows ではタスクバー）のテーマに合わせて Wails が切り替える（SetIcon／SetDarkModeIcon）。
+// trayIcons はトレイに渡す画像。Windows・Linux は light／dark × 未読の有無の 4 種類、macOS は template だけ。
 type trayIcons struct {
+	// light は SystemUsesLightTheme=1（明るいタスクバー）のとき、dark は 0（暗いタスクバー）のときに出る画像。
+	// どちらが出るかは Wails が決める（SetIcon／SetDarkModeIcon）。Wails（v3.1.0）の Windows は、タスクバーのテーマを
+	// HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize の SystemUsesLightTheme（AppsUseLightTheme ではない）から
+	// 起動時に読み、WM_SETTINGCHANGE（ImmersiveColorSet）を受けるたびに読み直してアイコンを差し替える。
 	light, lightUnread, dark, darkUnread []byte
+	template                             []byte
 }
 
+// pickTrayIcon は、タスクバーのテーマ（Windows の SystemUsesLightTheme の値。1＝明るい、0＝暗い）と未読の有無から、使う素材の名前（拡張子なし）を返す。
+func pickTrayIcon(systemUsesLightTheme uint32, unread bool) string {
+	name := "tray-dark-taskbar"
+	if systemUsesLightTheme != 0 {
+		name = "tray-light-taskbar"
+	}
+	if unread {
+		name += "-badge"
+	}
+	return name
+}
+
+// loadTrayIcons は OS に合う画像を読む。macOS はテンプレート画像だけ。
 func loadTrayIcons(goos string) (trayIcons, error) {
+	if goos == "darwin" {
+		b, err := trayFS.ReadFile(trayTemplate2x)
+		if err != nil {
+			return trayIcons{}, fmt.Errorf("read tray icon: %w", err)
+		}
+		return trayIcons{template: b}, nil
+	}
 	var t trayIcons
 	for _, v := range []struct {
-		dst  *[]byte
-		name string
+		dst    *[]byte
+		light  uint32
+		unread bool
 	}{
-		{&t.light, "light"}, {&t.lightUnread, "light-badge"}, {&t.dark, "dark"}, {&t.darkUnread, "dark-badge"},
+		{&t.light, 1, false}, {&t.lightUnread, 1, true}, {&t.dark, 0, false}, {&t.darkUnread, 0, true},
 	} {
-		b, err := trayImage(v.name, goos)
+		b, err := trayImage(pickTrayIcon(v.light, v.unread), goos)
 		if err != nil {
 			return trayIcons{}, err
 		}
@@ -42,50 +69,15 @@ func loadTrayIcons(goos string) (trayIcons, error) {
 	return t, nil
 }
 
-// trayImage は variant（light／light-badge／dark／dark-badge）のトレイ画像を返す。
-// Windows では 16・32px を 1 つの ICO にまとめる（Wails は ICO から表示サイズに合う画像を選ぶので、
-// 100% の DPI では手で整えた 16px がそのまま出る）。それ以外の OS（macOS・Linux の試験用ビルド）は 32px の PNG を渡す。
-func trayImage(variant, goos string) ([]byte, error) {
-	pngs := make([][]byte, len(traySizes))
-	for i, size := range traySizes {
-		b, err := trayFS.ReadFile(fmt.Sprintf("tray/tray-%d-%s.png", size, variant))
-		if err != nil {
-			return nil, fmt.Errorf("read tray icon: %w", err)
-		}
-		pngs[i] = b
+// trayImage は name（pickTrayIcon の返す名前）の画像を返す。Windows は ICO、それ以外（Linux）は 32px の PNG。
+func trayImage(name, goos string) ([]byte, error) {
+	ext := ".png"
+	if goos == "windows" {
+		ext = ".ico"
 	}
-	if goos != "windows" {
-		return pngs[len(pngs)-1], nil
+	b, err := trayFS.ReadFile("tray/" + name + ext)
+	if err != nil {
+		return nil, fmt.Errorf("read tray icon: %w", err)
 	}
-	return icoFromPNGs(pngs)
-}
-
-// icoFromPNGs は PNG（それぞれ 255px 以下の正方形）を、PNG 圧縮の画像として 1 つの ICO にまとめる。
-func icoFromPNGs(pngs [][]byte) ([]byte, error) {
-	const headerSize, entrySize = 6, 16
-	if len(pngs) == 0 || len(pngs) > 255 {
-		return nil, fmt.Errorf("ICO needs 1 to 255 images, got %d", len(pngs))
-	}
-	var out bytes.Buffer
-	// ICONDIR: 予約 0・種別 1（ICO）・画像数（255 以下を確認済み）
-	out.Write([]byte{0, 0, 1, 0, byte(len(pngs)), 0}) //nolint:gosec // 画像数は 255 以下を確認済み
-	offset := headerSize + entrySize*len(pngs)
-	for _, p := range pngs {
-		cfg, _, err := image.DecodeConfig(bytes.NewReader(p))
-		if err != nil {
-			return nil, fmt.Errorf("decode tray icon: %w", err)
-		}
-		if cfg.Width != cfg.Height || cfg.Width < 1 || cfg.Width > 255 {
-			return nil, fmt.Errorf("tray icon must be a square of at most 255px, got %dx%d", cfg.Width, cfg.Height)
-		}
-		// ICONDIRENTRY: 幅・高さ・色数 0・予約 0・プレーン 1・ビット深度 32・データ長・データ位置
-		out.Write([]byte{byte(cfg.Width), byte(cfg.Height), 0, 0, 1, 0, 32, 0}) //nolint:gosec // 1〜255 を確認済み
-		_ = binary.Write(&out, binary.LittleEndian, uint32(len(p)))             //nolint:gosec // PNG は数 KB
-		_ = binary.Write(&out, binary.LittleEndian, uint32(offset))             //nolint:gosec // 同上
-		offset += len(p)
-	}
-	for _, p := range pngs {
-		out.Write(p)
-	}
-	return out.Bytes(), nil
+	return b, nil
 }

@@ -162,7 +162,7 @@ func NewTray(app *application.App, window *application.WebviewWindow, quit func(
 	}
 	t := &Tray{tray: app.SystemTray.New(), icons: icons}
 	t.badge.apply = t.applyUnread
-	t.setIcons(icons.light, icons.dark)
+	t.showIcons(false)
 	t.tray.SetTooltip("Hitomado")
 	menu := app.Menu.New()
 	menu.Add("開く").OnClick(func(*application.Context) { ShowMainWindow(window) })
@@ -176,19 +176,27 @@ func NewTray(app *application.App, window *application.WebviewWindow, quit func(
 // SetUnread は未読の有無に応じてトレイアイコンを切り替える。複数のゴルーチンから呼んでよい。
 func (t *Tray) SetUnread(has bool) { t.badge.set(has) }
 
-// setIcons はライト用・ダーク用のアイコンを渡す。どちらが出るかは OS（Windows ではタスクバー）のテーマで Wails が決める。
-func (t *Tray) setIcons(light, dark []byte) {
-	t.tray.SetIcon(light)
-	t.tray.SetDarkModeIcon(dark)
+// showIcons は未読の有無に合う画像を渡す。どちらが出るかは OS（Windows ではタスクバー）のテーマで Wails が決める（icon.go の trayIcons）。
+// macOS のメニューバーはバッジの無いテンプレート画像で、未読でも変えない。
+func (t *Tray) showIcons(unread bool) {
+	switch {
+	case t.icons.template != nil:
+		t.tray.SetTemplateIcon(t.icons.template)
+	case unread:
+		t.tray.SetIcon(t.icons.lightUnread)
+		t.tray.SetDarkModeIcon(t.icons.darkUnread)
+	default:
+		t.tray.SetIcon(t.icons.light)
+		t.tray.SetDarkModeIcon(t.icons.dark)
+	}
 }
 
 func (t *Tray) applyUnread(has bool) {
+	t.showIcons(has)
 	if has {
-		t.setIcons(t.icons.lightUnread, t.icons.darkUnread)
 		t.tray.SetTooltip("Hitomado（未読あり）")
 		return
 	}
-	t.setIcons(t.icons.light, t.icons.dark)
 	t.tray.SetTooltip("Hitomado")
 }
 

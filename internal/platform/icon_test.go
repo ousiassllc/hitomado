@@ -7,7 +7,6 @@ import (
 	"image"
 	"image/color"
 	"image/png"
-	"math"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -19,130 +18,155 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-var trayVariants = []string{"light", "dark"}
-
-// trayBadgeFill は素材（tray/*.svg）のバッジの塗りの半径（px）。縁は両サイズとも一辺の 20%（外径が 40%）。
-var trayBadgeFill = map[int]float64{16: 2.2, 32: 4.9}
-
-func decodeTray(t *testing.T, size int, variant string) image.Image {
-	t.Helper()
-	b, err := trayFS.ReadFile(fmt.Sprintf("tray/tray-%d-%s.png", size, variant))
-	require.NoError(t, err)
-	img, err := png.Decode(bytes.NewReader(b))
-	require.NoError(t, err)
-	require.Equal(t, image.Rect(0, 0, size, size), img.Bounds(), "%d-%s の大きさ", size, variant)
-	return img
-}
-
 func rgb8(c color.Color) [3]uint8 {
 	r, g, b, _ := c.RGBA()
 	return [3]uint8{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8)} //nolint:gosec // RGBA() は 16 ビット値なので >> 8 は 8 ビットに収まる
 }
 
-// 未読バッジは素材に描いてある。位置・大きさ・色が仕様（右下・一辺の約 40%・#7a4545・白縁）どおりであることを守る。
-func TestTrayUnreadBadgeMatchesSpec(t *testing.T) {
-	for _, size := range traySizes {
-		for _, theme := range trayVariants {
-			t.Run(fmt.Sprintf("%d-%s", size, theme), func(t *testing.T) {
-				plain := decodeTray(t, size, theme)
-				badged := decodeTray(t, size, theme+"-badge")
-				s := float64(size)
-				cx, cy := 0.769*s, 0.769*s              // 右下。中心は端から一辺の約 23%
-				rim, fill := 0.2*s, trayBadgeFill[size] // 縁の外径が一辺の 40%
-
-				ring := 0
-				for y := range size {
-					for x := range size {
-						d := math.Hypot(float64(x)+0.5-cx, float64(y)+0.5-cy)
-						got := rgb8(badged.At(x, y))
-						switch {
-						case d < fill-1:
-							assert.Equal(t, [3]uint8{0x7a, 0x45, 0x45}, got, "(%d,%d) はバッジの塗り", x, y)
-						case d > fill+0.35 && d < rim-0.35:
-							ring++
-							assert.GreaterOrEqual(t, min(got[0], got[1], got[2]), uint8(200), "(%d,%d) は白縁（アンチエイリアスで少し混ざる）", x, y)
-						case d > rim+1 && !inTileCorner(x, y, size):
-							assert.Equal(t, plain.At(x, y), badged.At(x, y), "(%d,%d) はバッジの外。バッジ無しと同じ", x, y)
-						}
-					}
-				}
-				assert.GreaterOrEqual(t, ring, 4, "白縁の画素が見つかる")
-				assert.NotEqual(t, plain.At(int(cx), int(cy)), badged.At(int(cx), int(cy)), "バッジ有無でバッジ中心の画素が変わる")
-			})
-		}
-	}
-}
-
-// inTileCorner は、タイルの角の丸み（素材のバッジ無し・有りで半径が違う）が出る四隅か。
-func inTileCorner(x, y, size int) bool {
-	m := size / 5
-	return (x < m || x >= size-m) && (y < m || y >= size-m)
-}
-
-// badgeColor（バッジの塗り）は tokens.css の --danger（ライト値。最初の宣言）と同じ値。トークンを変えたら素材も作り直す
-// （docs/components/overview.md §5.3 のウィンドウ外の表面）。
-func TestTrayBadgeColorMatchesDangerToken(t *testing.T) {
-	b, err := os.ReadFile(filepath.Join("..", "..", "frontend", "src", "styles", "tokens.css"))
+func decodeTrayPNG(t *testing.T, file string, size int) image.Image {
+	t.Helper()
+	b, err := trayFS.ReadFile(file)
 	require.NoError(t, err)
-	m := regexp.MustCompile(`(?m)^\s*--danger:\s*#([0-9a-fA-F]{6});`).FindSubmatch(b)
-	require.NotNil(t, m, "tokens.css に --danger（#rrggbb）が無い")
-	for _, size := range traySizes {
-		for _, theme := range trayVariants {
-			c := rgb8(decodeTray(t, size, theme+"-badge").At(size*77/100, size*77/100))
-			assert.Equal(t, strings.ToLower(string(m[1])), fmt.Sprintf("%02x%02x%02x", c[0], c[1], c[2]), "%d-%s", size, theme)
-		}
+	img, err := png.Decode(bytes.NewReader(b))
+	require.NoError(t, err)
+	require.Equal(t, image.Rect(0, 0, size, size), img.Bounds(), file)
+	return img
+}
+
+// タスクバーのテーマ（SystemUsesLightTheme の 1・0）と未読の有無で、選ばれる素材が決まる。
+func TestPickTrayIcon(t *testing.T) {
+	for _, c := range []struct {
+		systemUsesLightTheme uint32
+		unread               bool
+		want                 string
+	}{
+		{1, false, "tray-light-taskbar"},
+		{1, true, "tray-light-taskbar-badge"},
+		{0, false, "tray-dark-taskbar"},
+		{0, true, "tray-dark-taskbar-badge"},
+	} {
+		assert.Equal(t, c.want, pickTrayIcon(c.systemUsesLightTheme, c.unread), "SystemUsesLightTheme=%d unread=%v", c.systemUsesLightTheme, c.unread)
 	}
 }
 
-func TestLoadTrayIcons(t *testing.T) {
-	for _, goos := range []string{"windows", "darwin", "linux"} {
-		icons, err := loadTrayIcons(goos)
-		require.NoError(t, err, goos)
-		all := [][]byte{icons.light, icons.lightUnread, icons.dark, icons.darkUnread}
-		for i, a := range all {
-			assert.NotEmpty(t, a, goos)
-			for _, b := range all[i+1:] {
-				assert.NotEqual(t, a, b, "%s: 4 種類（ライト・ダーク・未読）は別の画像", goos)
+// 明るいタスクバー（SetIcon の側）に墨のグリフ、暗いタスクバー（SetDarkModeIcon の側）に白のグリフが入る。
+func TestLoadTrayIconsMapsTaskbarThemeToFile(t *testing.T) {
+	for _, c := range []struct {
+		goos, ext string
+	}{{"windows", ".ico"}, {"linux", ".png"}} {
+		icons, err := loadTrayIcons(c.goos)
+		require.NoError(t, err, c.goos)
+		for _, v := range []struct {
+			got  []byte
+			file string
+		}{
+			{icons.light, "tray-light-taskbar"},
+			{icons.lightUnread, "tray-light-taskbar-badge"},
+			{icons.dark, "tray-dark-taskbar"},
+			{icons.darkUnread, "tray-dark-taskbar-badge"},
+		} {
+			want, err := trayFS.ReadFile("tray/" + v.file + c.ext)
+			require.NoError(t, err)
+			assert.Equal(t, want, v.got, "%s: %s", c.goos, v.file)
+		}
+		assert.Nil(t, icons.template, c.goos)
+	}
+}
+
+// macOS のメニューバーは、バッジの無いテンプレート画像だけ（未読でも変えない）。
+func TestLoadTrayIconsDarwinIsTemplateOnly(t *testing.T) {
+	icons, err := loadTrayIcons("darwin")
+	require.NoError(t, err)
+	want, err := trayFS.ReadFile("tray/trayTemplate@2x.png")
+	require.NoError(t, err)
+	assert.Equal(t, want, icons.template)
+	assert.Nil(t, icons.light)
+	assert.Nil(t, icons.lightUnread)
+	assert.Nil(t, icons.dark)
+	assert.Nil(t, icons.darkUnread)
+}
+
+// Windows の ICO は 16・20・24・32px を持つ（DPI 100%・125%・150%・200% で Windows が選ぶ）。
+func TestTrayICOHasFourDPISizes(t *testing.T) {
+	for _, theme := range []string{"light", "dark"} {
+		for _, badge := range []string{"", "-badge"} {
+			file := fmt.Sprintf("tray/tray-%s-taskbar%s.ico", theme, badge)
+			ico, err := trayFS.ReadFile(file)
+			require.NoError(t, err)
+			require.GreaterOrEqual(t, len(ico), 6+16*4, file)
+			require.Equal(t, []byte{0, 0, 1, 0, 4, 0}, ico[:6], "%s: ICONDIR（ICO・4 枚）", file)
+			for i, size := range []int{16, 20, 24, 32} {
+				e := ico[6+16*i : 6+16*(i+1)]
+				assert.EqualValues(t, size, e[0], "%s: 幅", file)
+				assert.EqualValues(t, size, e[1], "%s: 高さ", file)
+				n, off := binary.LittleEndian.Uint32(e[8:]), binary.LittleEndian.Uint32(e[12:])
+				assert.LessOrEqual(t, uint64(off)+uint64(n), uint64(len(ico)), "%s: %dpx の中身が ICO に収まる", file, size)
 			}
 		}
 	}
 }
 
-func TestTrayImageIsICOOnWindowsAndPNGElsewhere(t *testing.T) {
-	ico, err := trayImage("dark-badge", "windows")
-	require.NoError(t, err)
-	require.Equal(t, []byte{0, 0, 1, 0, 2, 0}, ico[:6], "ICONDIR（ICO・2 枚）")
-	for i, size := range traySizes {
-		e := ico[6+16*i : 6+16*(i+1)]
-		assert.EqualValues(t, size, e[0], "幅")
-		assert.EqualValues(t, size, e[1], "高さ")
-		n, off := binary.LittleEndian.Uint32(e[8:]), binary.LittleEndian.Uint32(e[12:])
-		want, err := trayFS.ReadFile(fmt.Sprintf("tray/tray-%d-dark-badge.png", size))
-		require.NoError(t, err)
-		assert.Equal(t, want, ico[off:off+n], "%dpx の中身は素材の PNG そのもの", size)
-	}
-
-	for _, goos := range []string{"darwin", "linux"} {
-		b, err := trayImage("light", goos)
-		require.NoError(t, err)
-		want, err := trayFS.ReadFile("tray/tray-32-light.png")
-		require.NoError(t, err)
-		assert.Equal(t, want, b, goos)
+// グリフは地の無い単色（明るいタスクバー用は墨 #050505、暗いタスクバー用は白）で、四隅は透明。
+func TestTrayGlyphIsFlatInkOrWhiteOnTransparent(t *testing.T) {
+	for theme, want := range map[string][3]uint8{"light": {0x05, 0x05, 0x05}, "dark": {0xff, 0xff, 0xff}} {
+		img := decodeTrayPNG(t, "tray/tray-"+theme+"-taskbar.png", 32)
+		opaque := 0
+		for y := range 32 {
+			for x := range 32 {
+				_, _, _, a := img.At(x, y).RGBA()
+				if a == 0 {
+					continue
+				}
+				opaque++
+				if a == 0xffff {
+					assert.Equal(t, want, rgb8(img.At(x, y)), "%s (%d,%d)", theme, x, y)
+				}
+			}
+		}
+		assert.Positive(t, opaque, theme)
+		for _, p := range [][2]int{{0, 0}, {31, 0}, {0, 31}, {31, 31}} {
+			_, _, _, a := img.At(p[0], p[1]).RGBA()
+			assert.Zero(t, a, "%s の四隅は透明（タイルを持たない）", theme)
+		}
 	}
 }
 
-func TestIcoFromPNGsRejectsBadInput(t *testing.T) {
-	_, err := icoFromPNGs(nil)
-	assert.Error(t, err, "画像が 0 枚")
+// 未読バッジの塗りは tokens.css の --danger（ライト値。最初の宣言）と同じ #7a4545。トークンを変えたら素材も作り直す
+// （docs/components/overview.md §5.3 のウィンドウ外の表面）。バッジ無しの同じ位置は、透明かグリフの色で、バッジの色ではない。
+func TestTrayBadgeColorMatchesDangerToken(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "frontend", "src", "styles", "tokens.css"))
+	require.NoError(t, err)
+	m := regexp.MustCompile(`(?m)^\s*--danger:\s*#([0-9a-fA-F]{6});`).FindSubmatch(b)
+	require.NotNil(t, m, "tokens.css に --danger（#rrggbb）が無い")
+	for _, theme := range []string{"light", "dark"} {
+		badged := decodeTrayPNG(t, "tray/tray-"+theme+"-taskbar-badge.png", 32)
+		plain := decodeTrayPNG(t, "tray/tray-"+theme+"-taskbar.png", 32)
+		const x, y = 25, 25 // 右下のバッジの中心の近く
+		c := rgb8(badged.At(x, y))
+		assert.Equal(t, strings.ToLower(string(m[1])), fmt.Sprintf("%02x%02x%02x", c[0], c[1], c[2]), theme)
+		_, _, _, a := badged.At(x, y).RGBA()
+		assert.EqualValues(t, 0xffff, a, "%s: バッジの塗りは不透明", theme)
+		assert.NotEqual(t, badged.At(x, y), plain.At(x, y), "%s: バッジ有無で右下の画素が変わる", theme)
+	}
+}
 
-	_, err = icoFromPNGs([][]byte{[]byte("not png")})
-	assert.Error(t, err)
-
-	big := image.NewRGBA(image.Rect(0, 0, 256, 256))
-	var buf bytes.Buffer
-	require.NoError(t, png.Encode(&buf, big))
-	_, err = icoFromPNGs([][]byte{buf.Bytes()})
-	assert.Error(t, err, "256px 以上は ICO の幅 1 バイトに入らない")
+// macOS のテンプレート画像は、黒と透明度だけ（色を持たない）で、@2x は 2 倍の大きさ。
+func TestTrayTemplateIsBlackAndAlphaOnly(t *testing.T) {
+	for file, size := range map[string]int{"tray/trayTemplate.png": 16, "tray/trayTemplate@2x.png": 32} {
+		img := decodeTrayPNG(t, file, size)
+		visible := 0
+		for y := range size {
+			for x := range size {
+				_, _, _, a := img.At(x, y).RGBA()
+				if a == 0 {
+					continue
+				}
+				visible++
+				assert.Equal(t, [3]uint8{0, 0, 0}, rgb8(img.At(x, y)), "%s (%d,%d) は黒", file, x, y)
+			}
+		}
+		assert.Positive(t, visible, file)
+	}
 }
 
 // windowBackground は tokens.css の --bone（ライト＝:root の最初の宣言・ダーク＝prefers-color-scheme: dark の中の宣言）と同じ値を複製している。
