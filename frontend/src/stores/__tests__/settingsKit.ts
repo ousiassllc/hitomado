@@ -28,7 +28,8 @@ export function installMocks(): void {
   mock.module(BINDINGS, () => ({
     AIService: service(
       'GetAIConfig',
-      'SetAIConfig',
+      'SetAIFeature',
+      'SetAIBaseURL',
       'SetAIApiKey',
       'ClearAIApiKey',
       'RecordAIConsent',

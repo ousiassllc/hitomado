@@ -96,7 +96,7 @@ func (s *Service) runThreadAI(ctx context.Context, ref dto.ThreadRef, requestID 
 		return dto.ThreadAIResult{}, err
 	}
 	defer finish()
-	cfg, key, err := s.precheck(runCtx)
+	cfg, key, err := s.precheck(runCtx, dto.AIFeatureDraft)
 	if err != nil {
 		return dto.ThreadAIResult{}, s.precheckError(runCtx, err)
 	}

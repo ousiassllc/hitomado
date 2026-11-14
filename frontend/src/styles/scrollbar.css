@@ -1,48 +1,49 @@
 /*
- * スクロールバー（#208・#289）。OS 標準のままにせず、Ousiass デザインガイド（§10）のトークンで描く。
- * 色値は直書きしない。つまみは --mute（ライト／ダークは tokens.css が切り替える）、溝は透明にして下の地（--bone・--surface）を見せる。
+ * スクロールバーの既定（#208・#289・#378）。アプリのスクロール領域は v-overlay-scroll（lib/overlayScroll）が付き、ネイティブのバーを
+ * 隠して重ねて出す（overlayScroll.css）。ここは、それが付いていない領域（想定外のスクロール）が OS 標準の太いバーにならないための既定で、
+ * Ousiass デザインガイド（§10）のトークンで描く。色値は直書きしない。つまみは --mute（ライト／ダークは tokens.css が切り替える）、溝は透明。
  * カスタムは @media (forced-colors: none) の中だけ。Windows ハイコントラスト（forced-colors: active）では OS の配色に任せる。
+ * Android（html[data-touch-ui]）は OS の重ねて出るスクロールバーをそのまま使うので、ここでも何も指定しない（:root:not([data-touch-ui]) の中だけ）。
  * 優先関係: Chromium 121+ は scrollbar-width / scrollbar-color が auto 以外だと ::-webkit-scrollbar を無視する。
  *   そこで標準の 2 プロパティを * に置き（scrollbar-width は継承されないので、:root だけだと viewport にしか効かない。Firefox 向け）、
- *   ::-webkit-scrollbar に対応するエンジン（WebView2・Android WebView など）では @supports の中で auto に戻し、擬似要素で描く。
- * メール本文の sandbox iframe は別文書でこのファイルを受けない。lib/sanitize の scrollbarStyle() が同じ構造の CSS を srcdoc に入れる（#291）。
+ *   ::-webkit-scrollbar に対応するエンジン（WebView2 など）では @supports の中で auto に戻し、擬似要素で描く。
  */
 @media (forced-colors: none) {
-  * {
+  :root:not([data-touch-ui]) * {
     scrollbar-width: thin;
     scrollbar-color: var(--mute) transparent;
   }
 
   @supports selector(::-webkit-scrollbar) {
-    * {
+    :root:not([data-touch-ui]) * {
       scrollbar-width: auto;
       scrollbar-color: auto;
     }
 
-    ::-webkit-scrollbar {
+    :root:not([data-touch-ui]) ::-webkit-scrollbar {
       width: 8px;
       height: 8px;
     }
 
-    ::-webkit-scrollbar-track,
-    ::-webkit-scrollbar-corner {
+    :root:not([data-touch-ui]) ::-webkit-scrollbar-track,
+    :root:not([data-touch-ui]) ::-webkit-scrollbar-corner {
       background: transparent;
     }
 
-    ::-webkit-scrollbar-button {
+    :root:not([data-touch-ui]) ::-webkit-scrollbar-button {
       display: none;
     }
 
-    ::-webkit-scrollbar-thumb {
+    :root:not([data-touch-ui]) ::-webkit-scrollbar-thumb {
       background: var(--mute);
       border-radius: 999px;
     }
 
-    ::-webkit-scrollbar-thumb:hover {
+    :root:not([data-touch-ui]) ::-webkit-scrollbar-thumb:hover {
       background: color-mix(in srgb, var(--ink) 35%, var(--mute));
     }
 
-    ::-webkit-scrollbar-thumb:active {
+    :root:not([data-touch-ui]) ::-webkit-scrollbar-thumb:active {
       background: color-mix(in srgb, var(--ink) 65%, var(--mute));
     }
   }

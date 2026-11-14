@@ -221,3 +221,37 @@ func TestGetThreadFullCIDMatchingIsExactAndNormalized(t *testing.T) {
 	require.Len(t, m.Attachments, 1, "参照されない画像は添付一覧に回る")
 	assert.Equal(t, "att-a", m.Attachments[0].ID)
 }
+
+// カレンダーの招待は text/calendar のパートと .ics の添付を持つ（Inbox Zero のカレンダー判定。#377）。本文だけのメールは持たない。
+// 小さな text/calendar は添付 ID が無く本文にも入らないので、パートの種類そのもので判定する。
+func TestGetThreadFullMarksCalendarMessages(t *testing.T) {
+	e := newTestEnv(t)
+	alt := func(extra ...map[string]any) map[string]any {
+		parts := append([]map[string]any{{"mimeType": "text/plain", "body": map[string]any{"data": b64("本文")}}}, extra...)
+		return map[string]any{"mimeType": "multipart/alternative", "headers": []map[string]any{hdr("From", "x@example.org")}, "parts": parts}
+	}
+	e.f.HandleJSON("GET "+apiBase+"/threads/t1", 200, map[string]any{
+		"id": "t1", "historyId": "1",
+		"messages": []map[string]any{
+			fullMessage("plain", alt()),
+			fullMessage("inline-ics", alt(map[string]any{"mimeType": "text/calendar", "body": map[string]any{"data": b64("BEGIN:VCALENDAR")}})),
+			fullMessage("attached-ics", map[string]any{"mimeType": "multipart/mixed", "parts": []map[string]any{
+				{"mimeType": "text/plain", "body": map[string]any{"data": b64("本文")}},
+				{"mimeType": "application/octet-stream", "filename": "Invite.ICS", "body": map[string]any{"attachmentId": "a1", "size": 10}},
+			}}),
+			fullMessage("pdf", map[string]any{"mimeType": "multipart/mixed", "parts": []map[string]any{
+				{"mimeType": "text/plain", "body": map[string]any{"data": b64("本文")}},
+				{"mimeType": "application/pdf", "filename": "a.pdf", "body": map[string]any{"attachmentId": "a2", "size": 10}},
+			}}),
+		},
+	})
+	got, err := e.c.GetThreadFull(context.Background(), testAccount, "t1")
+	require.NoError(t, err)
+	var marked []string
+	for _, m := range got.Messages {
+		if m.HasCalendar {
+			marked = append(marked, m.ID)
+		}
+	}
+	assert.Equal(t, []string{"inline-ics", "attached-ics"}, marked)
+}

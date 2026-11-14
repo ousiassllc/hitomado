@@ -111,3 +111,15 @@ func TestDecodeTextISO2022JPWithoutNonASCIIStillConverts(t *testing.T) {
 	assert.Equal(t, "ascii only", DecodeText([]byte("ascii only"), "iso-2022-jp"))
 	assert.Empty(t, DecodeText(nil, "iso-2022-jp"))
 }
+
+func TestHasCalendar(t *testing.T) {
+	part := func(mt, filename string, parts ...*gmailapi.MessagePart) *gmailapi.MessagePart {
+		return &gmailapi.MessagePart{MimeType: mt, Filename: filename, Parts: parts}
+	}
+	assert.True(t, HasCalendar(part("multipart/alternative", "", part("text/plain", ""), part("TEXT/Calendar", ""))))
+	assert.True(t, HasCalendar(part("application/ics", "")))
+	assert.True(t, HasCalendar(part("multipart/mixed", "", part("application/octet-stream", "invite.ics"))))
+	assert.False(t, HasCalendar(part("multipart/mixed", "", part("text/plain", ""), part("application/pdf", "a.pdf"))))
+	assert.False(t, HasCalendar(part("text/plain", "ics.txt")))
+	assert.False(t, HasCalendar(nil))
+}

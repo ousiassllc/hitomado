@@ -2,6 +2,7 @@
 import { WarningTriangle } from '@iconoir/vue'
 import { computed, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 import { thread as msg } from '../../lib/messages'
+import { attachFrameOverlayScroll } from '../../lib/overlayScroll/frame'
 import { buildSrcdoc, sanitizeEmailHtml } from '../../lib/sanitize'
 import BaseButton from '../ui/BaseButton.vue'
 import { bindFrameDocument, FALLBACK_HEIGHT } from './bodyFrame'
@@ -41,12 +42,20 @@ function onLoad(): void {
       return null
     }
   })()
-  unbind.value = bindFrameDocument(doc, {
+  const binding = bindFrameDocument(doc, {
     onHeight: (px) => {
       height.value = px
     },
     onLink: (url) => emit('link', url),
-  })?.release
+  })
+  // 本文の横スクロール（表など）・縦スクロールにも、一覧と同じ重ねて出すスクロールバーを取り付ける（#378）。
+  const detachScroll = binding && doc ? attachFrameOverlayScroll(doc) : undefined
+  unbind.value = binding
+    ? () => {
+        detachScroll?.()
+        binding.release()
+      }
+    : undefined
 }
 
 watch(srcdoc, () => {

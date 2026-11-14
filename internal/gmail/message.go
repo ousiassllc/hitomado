@@ -70,6 +70,7 @@ func (c *client) messageFull(ctx context.Context, accountID string, m *gmailapi.
 		return MessageFull{}, err
 	}
 	mf.HasAttachment = len(mf.Attachments) > 0
+	mf.HasCalendar = mimeparse.HasCalendar(m.Payload)
 	return mf, nil
 }
 

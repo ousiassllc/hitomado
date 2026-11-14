@@ -207,7 +207,9 @@ describe('buildSrcdoc / buildCsp', () => {
   test('CSP の meta が head の先頭にある', () => {
     const doc = buildSrcdoc('<p>x</p>', { allowImages: false })
     expect(
-      doc.startsWith('<!doctype html><html><head><meta http-equiv="Content-Security-Policy"'),
+      doc.startsWith(
+        '<!doctype html><html data-overlay-scroll><head><meta http-equiv="Content-Security-Policy"',
+      ),
     ).toBe(true)
     expect(doc).toContain("img-src data:; style-src 'unsafe-inline'")
     expect(doc).not.toContain('https:')
@@ -223,7 +225,7 @@ describe('buildSrcdoc / buildCsp', () => {
   })
 })
 
-describe('buildSrcdoc のスクロールバー（#291）', () => {
+describe('buildSrcdoc のスクロールバー（#291・#378）', () => {
   function withRootTokens<T>(css: string, run: () => T): T {
     const style = document.createElement('style')
     style.textContent = css
@@ -235,22 +237,26 @@ describe('buildSrcdoc のスクロールバー（#291）', () => {
     }
   }
 
-  test('scrollbar.css と同じ構造（forced-colors: none・標準指定→@supports で擬似要素・8px・矢印なし・つまみ --mute）', () => {
+  test('本文全体は重ねて出す（html に data-overlay-scroll・overlayScroll.css を入れる）', () => {
     const doc = buildSrcdoc('', { allowImages: false })
-    expect(doc).toContain('@media (forced-colors:none){')
-    expect(doc).toContain(
-      '*{scrollbar-width:thin;scrollbar-color:var(--mute,GrayText) transparent}',
-    )
-    expect(doc).toContain(
-      '@supports selector(::-webkit-scrollbar){*{scrollbar-width:auto;scrollbar-color:auto}',
-    )
-    expect(doc).toContain('::-webkit-scrollbar{width:8px;height:8px}')
-    expect(doc).toContain('::-webkit-scrollbar-button{display:none}')
-    expect(doc).toContain(
-      '::-webkit-scrollbar-thumb{background:var(--mute,GrayText);border-radius:999px}',
-    )
-    expect(doc).toContain('color-mix(in srgb,var(--ink,CanvasText) 35%,var(--mute,GrayText))')
-    expect(doc).toContain('color-mix(in srgb,var(--ink,CanvasText) 65%,var(--mute,GrayText))')
+    expect(doc).toContain('<html data-overlay-scroll>')
+    expect(doc).toContain(':root[data-overlay-scroll]:not([data-touch-ui])')
+    expect(doc).toContain('.os-root')
+  })
+
+  test('Android のタッチ UI では data-overlay-scroll を付けず data-touch-ui を付ける（OS の重ねて出るバーを使い、scrollbar.css の太いバーも描かない）', () => {
+    document.documentElement.setAttribute('data-touch-ui', '')
+    try {
+      expect(buildSrcdoc('', { allowImages: false })).toContain('<html data-touch-ui>')
+    } finally {
+      document.documentElement.removeAttribute('data-touch-ui')
+    }
+  })
+
+  test('本文の中の入れ子のスクロール領域は scrollbar.css と同じ既定（forced-colors: none・つまみ --mute）', () => {
+    const doc = buildSrcdoc('', { allowImages: false })
+    expect(doc).toContain('@media (forced-colors: none)')
+    expect(doc).toContain('scrollbar-color: var(--mute) transparent;')
   })
 
   test('親のトークン（Light の --mute・--ink）を :root の変数として注入する。ダークの値は使わない', () => {

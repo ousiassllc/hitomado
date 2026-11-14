@@ -18,8 +18,4 @@ describe('長文・複数文は --mute にしない（C6・#210）', () => {
     expect(sig).toContain('color: var(--ink)')
     expect(quote).toContain('color: var(--ink)')
   })
-
-  test('AI モデル欄の案内（複数文）は --ink', () => {
-    expect(rule('settings/ai/AIModelField.vue', '.note {')).toContain('color: var(--ink)')
-  })
 })

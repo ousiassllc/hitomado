@@ -58,8 +58,12 @@ export const useUiStore = defineStore('ui', () => {
   const settingsTab = ref('accounts')
   /** AI 設定タブを開いた直後に始める流れ（「AI で下書き」の初回の案内から ChatGPT へ進むとき。AISettings が一度だけ受け取る）。 */
   const aiSetupIntent = ref<'chatgpt-login'>()
-  /** AI 設定タブで開いているプロバイダのページ（#315）。undefined はプロバイダの一覧。戻る（Android の戻るボタン）で一覧へ戻すため、ストアに持つ。 */
+  /** AI 設定の中のタブ（#376）。connect = AI のつなぎ先、use = 機能ごとに使う AI。undefined は AIProviders が決める（つないであれば use、何もなければ connect）。 */
+  const aiTab = ref<'connect' | 'use'>()
+  /** 「AI のつなぎ先」タブで開いているプロバイダのページ（#315）。undefined はプロバイダの一覧。戻る（Android の戻るボタン）で一覧へ戻すため、ストアに持つ。 */
   const aiProviderPage = ref<string>()
+  /** 開いたプロバイダのページが、つなぐ流れを自動で始めるか（「ログイン」「API キーを追加」から開いたとき）。 */
+  const aiConnectStart = ref(false)
   const online = ref(true)
   /** エージェントのパネル（PC は右から本文に重ねる。スマホは下タブの上いっぱい）が開いているか。中身（エージェントモード）は別 Issue で、今は「準備中」だけ出す */
   const agentOpen = ref(false)
@@ -138,8 +142,24 @@ export const useUiStore = defineStore('ui', () => {
   function openSettings(tab = 'accounts', aiIntent?: 'chatgpt-login'): void {
     settingsTab.value = tab
     aiSetupIntent.value = tab === 'ai' ? aiIntent : undefined
-    aiProviderPage.value = undefined // 開くたびに AI はプロバイダの一覧から始める（初回の案内の入口は AISettings が ChatGPT のページへ進める）
+    aiProviderPage.value = undefined // 開くたびに AI はプロバイダの一覧から始める（初回の案内の入口は AIProviders が ChatGPT のページへ進める）
+    aiTab.value = undefined
+    aiConnectStart.value = false
     openDialog('settings')
+  }
+
+  /** 「AI のつなぎ先」タブでプロバイダのページを開く。start が真なら、開いたページがつなぐ流れ（同意・ログイン・キーの入力）を始める。 */
+  function openAiProvider(id: string, start = false): void {
+    aiTab.value = 'connect'
+    aiProviderPage.value = id
+    aiConnectStart.value = start
+  }
+
+  /** `aiConnectStart` を取り出して消す（同じ流れを 2 回始めない）。 */
+  function takeAiConnectStart(): boolean {
+    const v = aiConnectStart.value
+    aiConnectStart.value = false
+    return v
   }
 
   /** `aiSetupIntent` を取り出して消す（同じ流れを 2 回始めない）。 */
@@ -175,7 +195,9 @@ export const useUiStore = defineStore('ui', () => {
     dialogs,
     settingsTab,
     aiSetupIntent,
+    aiTab,
     aiProviderPage,
+    aiConnectStart,
     online,
     agentOpen,
     pushToast,
@@ -192,6 +214,8 @@ export const useUiStore = defineStore('ui', () => {
     openDialog,
     closeDialog,
     openSettings,
+    openAiProvider,
+    takeAiConnectStart,
     takeAiSetupIntent,
     openAgent,
     closeAgent,

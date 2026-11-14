@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
-import BaseSelect from '../../ui/BaseSelect.vue'
-import AIModelField from './AIModelField.vue'
+import { useUiStore } from '../../../stores/ui'
 import {
   acctA,
   base,
@@ -11,89 +10,102 @@ import {
   flushPromises,
   mountAI,
   setup,
+  until,
 } from './aiTestSupport'
 
 beforeEach(() => {
   document.body.innerHTML = ''
+  localStorage.clear()
 })
 
-describe('AISettings モデル一覧（#76）', () => {
-  test('取得した一覧があれば一覧から選ぶ。取得は勝手にしない（マウント時は呼ばない）', async () => {
-    const { pinia, calls } = setup(
-      {},
-      {
-        openai: {
-          provider: 'openai',
-          models: [{ id: 'gpt-a' }, { id: 'gpt-b', displayName: 'GPT B' }],
-        },
-      },
-    )
+describe('AISettings（つなぎ先のページ。#376）', () => {
+  test('モデル・エフォート・「設定を保存」は出さない（モデルは「機能ごとに使う AI」で選ぶ）', () => {
+    const { pinia } = setup()
     const w = mountAI(pinia)
-    await flushPromises()
-    expect(calls).toEqual([])
-    const select = w.getComponent(AIModelField).getComponent(BaseSelect)
-    expect(select.props('ariaLabel')).toBe('モデル')
-    const opts = select.props('options') as { value: string; label: string }[]
-    expect(opts.map((o) => o.value)).toContain('gpt-a')
-    expect(opts.find((o) => o.value === 'gpt-b')?.label).toBe('GPT B（gpt-b）')
-    expect(w.get('[data-testid="ai-models-note"]').text()).toContain('2 件')
+    expect(w.find('[data-testid="ai-model"]').exists()).toBe(false)
+    expect(w.find('[data-testid="ai-effort"]').exists()).toBe(false)
+    expect(w.text()).not.toContain('設定を保存')
+    expect(w.text()).not.toContain('一覧を更新')
+    expect(w.find('input[type="password"]').exists()).toBe(true)
   })
 
-  test('保存済みのモデルが一覧に無くても消さず、選択肢に残す', () => {
-    const { pinia } = setup({}, { openai: { provider: 'openai', models: [{ id: 'gpt-a' }] } })
+  test('保存済みの送信先（プロバイダ・Base URL）を常に表示する。入力中の Base URL が違えば未保存と示す', async () => {
+    const { pinia } = setup({ baseUrl: 'https://llm.example/v1' })
     const w = mountAI(pinia)
-    const all = w.getComponent(AIModelField).getComponent(BaseSelect).props('options') as {
-      value: string
-      label: string
-    }[]
-    expect(all[0]).toEqual({ value: 'gpt-old', label: 'gpt-old（一覧にありません）' })
+    expect(w.get('[data-testid="ai-destination"]').text()).toContain('https://llm.example/v1')
+    await w.get('input[type="url"]').setValue('https://other.example/v1')
+    expect(w.text()).toContain('入力中の送信先')
+    expect(w.get('[data-testid="ai-destination"]').text()).toContain('https://llm.example/v1')
   })
 
-  test('一覧が取れないときは手入力のまま、理由を表示し、保存できる', async () => {
-    const { pinia, store } = setup(
-      { model: '' },
-      {
-        openai: {
-          provider: 'openai',
-          models: [],
-          reason: 'unsupported',
-          message:
-            'このサービスにはモデル一覧の取得機能がないようです。モデル名を入力してください。',
-        },
-      },
-    )
-    let saved = ''
-    store.setAIConfig = async (_p: string, m: string) => {
-      saved = m
+  test('Base URL は「Base URL を保存」（Enter でも）で保存する。変えるまでは押せない。モデル一覧は取得しない', async () => {
+    const { pinia, store, calls } = setup()
+    const saved: string[] = []
+    store.setAIBaseURL = async (u: string) => {
+      saved.push(u)
     }
     const w = mountAI(pinia)
-    expect(w.find('[data-testid="ai-model"] input').exists()).toBe(true)
-    expect(w.get('[data-testid="ai-models-note"]').text()).toContain('取得機能がない')
-    await w.get('[data-testid="ai-model"] input').setValue('local-model')
-    await button(w, '設定を保存').trigger('click')
+    expect(button(w, 'Base URL を保存').attributes('disabled')).toBeDefined()
+    const url = w.get('input[type="url"]')
+    await url.setValue(' https://llm.example/v1 ')
+    expect(button(w, 'Base URL を保存').attributes('disabled')).toBeUndefined()
+    await url.trigger('keydown.enter')
     await flushPromises()
-    expect(saved).toBe('local-model')
+    expect(saved).toEqual(['https://llm.example/v1'])
+    expect(calls).toEqual([])
   })
 
-  test('「一覧を更新」で取得する。API キーを保存したあとにも取得し、キーは入力欄から消える', async () => {
-    const { pinia, store, calls } = setup()
+  test('Base URL の保存に失敗したら理由を表示する', async () => {
+    const { pinia, store } = setup()
+    store.setAIBaseURL = async () => {
+      throw {
+        code: 'VALIDATION',
+        message: 'Base URL は http:// または https:// で始まる URL を指定してください。',
+        retryable: false,
+      }
+    }
+    const w = mountAI(pinia)
+    await w.get('input[type="url"]').setValue('ftp://x')
+    await button(w, 'Base URL を保存').trigger('click')
+    await flushPromises()
+    expect(w.get('[role="alert"]').text()).toContain('Base URL は http')
+  })
+
+  test('API キーを保存するとキーは入力欄から消え、未同意なら同意の画面が出る。同意は保存済みの Base URL に記録する', async () => {
+    const { pinia, store } = setup({
+      apiKeyProviders: [],
+      consentedProviders: [],
+      baseUrl: 'https://llm.example/v1',
+    })
     const keys: string[] = []
+    const agreed: string[][] = []
     store.setAIApiKey = async (_p: string, k: string) => {
       keys.push(k)
     }
+    store.recordAIConsent = async (p: string, url = '') => {
+      agreed.push([p, url])
+    }
     const w = mountAI(pinia)
-    await button(w, '一覧を更新').trigger('click')
-    await flushPromises()
-    expect(calls).toEqual(['models:openai'])
-
-    const key = w.get('input[type="password"]')
-    await key.setValue('sk-secret-value')
+    await w.get('input[type="password"]').setValue('sk-secret-value')
     await button(w, 'キーを保存').trigger('click')
     await flushPromises()
     expect(keys).toEqual(['sk-secret-value'])
-    expect(calls).toEqual(['models:openai', 'models:openai'])
     expect((w.get('input[type="password"]').element as HTMLInputElement).value).toBe('')
     expect(w.html()).not.toContain('sk-secret-value')
+    expect(consentEl('ai-consent-body')?.textContent).toContain('https://llm.example/v1')
+    consentEl('ai-consent-agree')?.click()
+    await flushPromises()
+    expect(agreed).toEqual([['openai', 'https://llm.example/v1']])
+  })
+
+  test('同意済みなら、キーを保存しても同意の画面は出さない', async () => {
+    const { pinia, store } = setup({ apiKeyProviders: [] })
+    store.setAIApiKey = async () => {}
+    const w = mountAI(pinia)
+    await w.get('input[type="password"]').setValue('sk-x')
+    await button(w, 'キーを保存').trigger('click')
+    await flushPromises()
+    expect(consentEl('ai-consent-body')).toBeNull()
   })
 
   test('「キーを削除」は確認のモーダル（プロバイダ名つき）を経由し、確認するまで削除しない', async () => {
@@ -103,47 +115,31 @@ describe('AISettings モデル一覧（#76）', () => {
       cleared.push(p)
     }
     const w = mountAI(pinia)
-    const click = (label: string) =>
-      [...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button')]
-        .find((b) => b.textContent?.trim() === label)
-        ?.click()
     await button(w, 'キーを削除').trigger('click')
     await flushPromises()
     expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain(
       'の API キーを削除しますか？',
     )
-    click('キャンセル')
+    dialogButton('キャンセル')?.click()
     await flushPromises()
     expect(cleared).toEqual([])
     await button(w, 'キーを削除').trigger('click')
     await flushPromises()
-    click('削除する')
+    dialogButton('削除する')?.click()
     await flushPromises()
     expect(cleared).toEqual(['openai'])
   })
 
-  test('Base URL は保存前でも、決めたとき（Enter）にその送信先で取得する。入力しただけでは取得しない', async () => {
-    const { pinia, store, loads } = setup()
-    store.setAIConfig = async () => {}
-    const w = mountAI(pinia)
-    const url = w.get('input[type="url"]')
-    await url.setValue('https://llm.example/v1')
-    await flushPromises()
-    expect(loads).toEqual([])
-    expect(button(w, '一覧を更新').attributes('disabled')).toBeUndefined()
-    expect(w.text()).not.toContain('先に「設定を保存」')
-    await url.trigger('keydown.enter')
-    await flushPromises()
-    expect(loads).toEqual([{ provider: 'openai', baseUrl: 'https://llm.example/v1' }])
-  })
-
-  test('同意前の送信先は、同意の画面で同意すると一覧を取得する（設定画面の同意のボタンも同じ画面）', async () => {
-    const { pinia, store, calls } = setup({ consentedProviders: [] })
+  test('同意のボタンから同意の画面を開いて同意できる（Base URL が未保存の間は押せない）', async () => {
+    const { pinia, store } = setup({ consentedProviders: [] })
     const agreed: string[][] = []
     store.recordAIConsent = async (p: string, url = '') => {
       agreed.push([p, url])
     }
     const w = mountAI(pinia)
+    await w.get('input[type="url"]').setValue('https://draft.example/v1')
+    expect(w.get('[data-testid="ai-consent-now"]').attributes('disabled')).toBeDefined()
+    await w.get('input[type="url"]').setValue('')
     await w.get('[data-testid="ai-consent-now"]').trigger('click')
     expect(consentEl('ai-consent-body')?.textContent).toContain(
       'OpenAI 互換（https://api.openai.com）',
@@ -151,14 +147,81 @@ describe('AISettings モデル一覧（#76）', () => {
     consentEl('ai-consent-agree')?.click()
     await flushPromises()
     expect(agreed).toEqual([['openai', '']])
-    expect(calls).toEqual(['models:openai'])
+  })
+})
+
+describe('AISettings: 「ログイン」「API キーを追加」から来たとき（ui.aiConnectStart）', () => {
+  test('ChatGPT・未同意: 同意の画面が出て、同意するとログインを始める', async () => {
+    const { pinia, store } = setup({ ...chatgptCfg([]), consentedProviders: [] })
+    const ids: string[] = []
+    store.recordAIConsent = async (p: string) => {
+      store.aiConfig = { ...base, consentedProviders: [p] }
+    }
+    store.signInChatGPT = async (id: string) => {
+      ids.push(id)
+    }
+    useUiStore().aiConnectStart = true
+    mountAI(pinia, 'chatgpt')
+    await flushPromises()
+    expect(consentEl('ai-consent-body')).not.toBeNull()
+    expect(ids).toEqual([])
+    consentEl('ai-consent-agree')?.click()
+    await flushPromises()
+    expect(ids).toEqual([''])
+    expect(useUiStore().aiConnectStart).toBe(false)
+  })
+
+  test('ChatGPT・同意済み: 同意の画面を出さず、そのままログインを始める', async () => {
+    const { pinia, store } = setup({ ...chatgptCfg([]), consentedProviders: ['chatgpt'] })
+    const ids: string[] = []
+    store.signInChatGPT = async (id: string) => {
+      ids.push(id)
+    }
+    useUiStore().aiConnectStart = true
+    mountAI(pinia, 'chatgpt')
+    await flushPromises()
+    expect(consentEl('ai-consent-body')).toBeNull()
+    expect(ids).toEqual([''])
+  })
+
+  test('開いただけ（「設定」から）では、何も始めない', async () => {
+    const { pinia, store } = setup({ ...chatgptCfg([]), consentedProviders: [] })
+    store.signInChatGPT = async () => {
+      throw new Error('始めてはいけない')
+    }
+    mountAI(pinia, 'chatgpt')
+    await flushPromises()
+    expect(consentEl('ai-consent-body')).toBeNull()
+  })
+
+  test('API キーのプロバイダ・未同意: 同意の画面を出し、同意のあとキーの入力欄へ進む', async () => {
+    const { pinia, store } = setup({ apiKeyProviders: [], consentedProviders: [] })
+    store.recordAIConsent = async (p: string) => {
+      store.aiConfig = { ...base, consentedProviders: [p] }
+    }
+    useUiStore().aiConnectStart = true
+    const w = mountAI(pinia, 'anthropic')
+    await flushPromises()
+    expect(consentEl('ai-consent-body')?.textContent).toContain('Anthropic')
+    consentEl('ai-consent-agree')?.click()
+    await until(() => document.activeElement === w.get('input[type="password"]').element)
+    expect(document.activeElement).toBe(w.get('input[type="password"]').element)
+  })
+
+  test('OpenAI 互換: 同意の前に、まず Base URL の入力へ進める', async () => {
+    const { pinia } = setup({ apiKeyProviders: [], consentedProviders: [] })
+    useUiStore().aiConnectStart = true
+    const w = mountAI(pinia, 'openai')
+    await flushPromises()
+    expect(consentEl('ai-consent-body')).toBeNull()
+    expect(document.activeElement).toBe(w.get('input[type="url"]').element)
   })
 })
 
 describe('AISettings Continue with ChatGPT（#75）', () => {
   test('API キー・Base URL の欄を出さず、ログインを案内する。未ログインは Continue with ChatGPT', () => {
-    const { pinia } = setup({ provider: 'chatgpt', hasApiKey: false })
-    const w = mountAI(pinia)
+    const { pinia } = setup({ ...chatgptCfg([]) })
+    const w = mountAI(pinia, 'chatgpt')
     expect(w.find('input[type="password"]').exists()).toBe(false)
     expect(w.find('input[type="url"]').exists()).toBe(false)
     expect(w.get('[data-testid="ai-chatgpt-status"]').text()).toContain('未ログイン')
@@ -170,7 +233,7 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
   })
 
   test('ログインを押すとブラウザでのログインを待つ。完了するとメールを出し、Using ChatGPT plan／Manage usage の組は出さない', async () => {
-    const { pinia, store, calls } = setup({ provider: 'chatgpt', hasApiKey: false })
+    const { pinia, store } = setup({ ...chatgptCfg([]) })
     let release: () => void = () => {}
     const ids: string[] = []
     store.signInChatGPT = async (id: string) => {
@@ -180,7 +243,7 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
       })
       store.aiConfig = { ...base, ...chatgptCfg([acctA]) }
     }
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     await w.get('[data-testid="ai-chatgpt-login"]').trigger('click')
     expect(ids).toEqual([''])
     expect(w.text()).toContain('ブラウザで ChatGPT のログインを完了してください')
@@ -192,7 +255,6 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
     expect(w.find('.waiting').exists()).toBe(false)
     expect(w.text()).not.toContain('Using ChatGPT plan')
     expect(w.text()).not.toContain('Manage usage')
-    expect(calls).toEqual(['models:chatgpt'])
   })
 
   test('ログアウトでき、OpenAI 側の失効を確認できなかったときはそれを知らせる', async () => {
@@ -203,7 +265,7 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
       store.aiConfig = { ...base, ...chatgptCfg([{ ...acctA, signedIn: false }]) }
       return false
     }
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     await w.get('[data-testid="ai-chatgpt-logout"]').trigger('click')
     await flushPromises()
     dialogButton('ログアウトする')?.click()
@@ -213,7 +275,7 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
   })
 
   test('ログインの失敗は理由を表示し、中止はエラーにしない', async () => {
-    const { pinia, store } = setup({ provider: 'chatgpt', hasApiKey: false })
+    const { pinia, store } = setup({ ...chatgptCfg([]) })
     store.signInChatGPT = async () => {
       throw {
         code: 'OAUTH_DENIED',
@@ -221,7 +283,7 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
         retryable: false,
       }
     }
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     await w.get('[data-testid="ai-chatgpt-login"]').trigger('click')
     await flushPromises()
     expect(w.get('[role="alert"]').text()).toContain('許可されませんでした')
@@ -237,8 +299,8 @@ describe('AISettings Continue with ChatGPT（#75）', () => {
 
 describe('AISettings の見出しと説明文の組（#241）', () => {
   test('見出しと直後の説明文・状態文は .group に束ね、組どうしは .group の外の親の間隔で離す', () => {
-    const { pinia } = setup({ provider: 'anthropic', hasApiKey: true })
-    const w = mountAI(pinia)
+    const { pinia } = setup({ apiKeyProviders: ['anthropic'] })
+    const w = mountAI(pinia, 'chatgpt')
     const groups = w.findAll('.group')
     // AISettings の見出し＋intro、AIApiKey の見出し＋状態、AIConsentSection の見出し＋状態
     expect(groups.length).toBeGreaterThanOrEqual(3)

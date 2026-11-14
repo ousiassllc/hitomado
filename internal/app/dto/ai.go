@@ -2,24 +2,43 @@ package dto
 
 import "github.com/ousiassllc/hitomado/internal/domain/model"
 
-// AIConfig は AI 設定。API キー・トークン自体は返さない。BaseURL は openai のみ。
-type AIConfig struct {
-	Provider string `json:"provider"` // anthropic / openai / chatgpt
-	Model    string `json:"model"`
-	BaseURL  string `json:"baseUrl,omitempty"`
-	// Effort は下書きの生成に渡すモデルのエフォート（reasoning effort。#111）。空は「モデルの既定」（プロバイダへ送らない）。
+// AI を使う機能の ID（SetAIFeature の feature。AIFeatures のキーと同じ）。
+const (
+	AIFeatureDraft     = "draft"     // 「AI で下書き」（返信・新規作成。要約・質問も同じ設定を使う）
+	AIFeatureInboxZero = "inboxZero" // Inbox Zero の判定（#377）
+)
+
+// AIFeatureSetting は機能 1 つで使う AI・モデルの選択（#376）。保存した値をそのまま返し、つないでいるかは確かめない
+// （つないでいない AI を選んでいても、選択は残す。画面が「つなぎ直しが必要」を出す）。
+type AIFeatureSetting struct {
+	// Provider は選んだプロバイダ（anthropic／openai／chatgpt。Inbox Zero は typesafe も）。空は未選択。
+	Provider string `json:"provider"`
+	// Model は選んだモデル。typesafe（モデルを選ばない）と未選択は空。
+	Model string `json:"model"`
+	// Effort は生成に渡すモデルのエフォート（reasoning effort。#111。「AI で下書き」だけ）。空は「モデルの既定」（プロバイダへ送らない）。
 	// anthropic は low／medium／high／xhigh／max、openai／chatgpt は low／medium／high。範囲外の保存値は空として返す。
 	Effort string `json:"effort,omitempty"`
-	// Configured は AI の設定（プロバイダ・モデル）を一度でも保存したか。false の間、provider は既定（chatgpt）で、画面は初めて使うときの案内を出す。
-	Configured bool `json:"configured"`
-	// HasAPIKey は現在のプロバイダの資格情報が設定済みか（anthropic／openai は API キー、chatgpt は ChatGPT へのログイン）。
-	HasAPIKey bool `json:"hasApiKey"`
-	// APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai／typesafe。chatgpt は ChatGPTSignedIn）。保存前に選んだプロバイダのキーの有無を出すのに使う。null にしない。
+}
+
+// AIFeatures は機能ごとに使う AI・モデル。
+type AIFeatures struct {
+	Draft     AIFeatureSetting `json:"draft"`
+	InboxZero AIFeatureSetting `json:"inboxZero"`
+}
+
+// AIConfig は AI 設定。「つなぎ先」（ログイン・API キー・同意・Base URL）と「機能ごとに使う AI」（#376）を 1 つにまとめて返す。
+// API キー・トークン自体は返さない。
+type AIConfig struct {
+	// BaseURL は OpenAI 互換の Base URL（つなぎ先の設定）。空は OpenAI の既定の送信先。
+	BaseURL string `json:"baseUrl,omitempty"`
+	// Features は機能ごとに使う AI・モデル。
+	Features AIFeatures `json:"features"`
+	// APIKeyProviders は API キーを登録済みのプロバイダ（anthropic／openai／typesafe。chatgpt は ChatGPTSignedIn）。null にしない。
 	APIKeyProviders []string `json:"apiKeyProviders"`
-	// ConsentedProviders は送信先への同意済みのプロバイダ（anthropic／openai／chatgpt／typesafe）。typesafe（Inbox Zero の判定。#314）は
-	// 既定のプロバイダに関わらず、同意していれば含む。openai は現在の Base URL の送信先への同意だけが有効。null にしない。
+	// ConsentedProviders は送信先への同意済みのプロバイダ（anthropic／openai／chatgpt／typesafe）。
+	// openai は現在の Base URL の送信先への同意だけが有効。null にしない。
 	ConsentedProviders []string `json:"consentedProviders"`
-	// ChatGPTSignedIn は選択中のプロバイダに関わらず、使用中の ChatGPT アカウントがログイン済みか。ChatGPTEmail はそのメールアドレス（表示用）。
+	// ChatGPTSignedIn は使用中の ChatGPT アカウントがログイン済みか。ChatGPTEmail はそのメールアドレス（表示用）。
 	ChatGPTSignedIn bool   `json:"chatgptSignedIn"`
 	ChatGPTEmail    string `json:"chatgptEmail,omitempty"`
 	// ChatGPTAccounts は保存済みの ChatGPT アカウント（登録順。トークンは含まない）。

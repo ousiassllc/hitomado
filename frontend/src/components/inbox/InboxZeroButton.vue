@@ -9,7 +9,7 @@ import BaseTooltip from '../ui/BaseTooltip.vue'
 import Spinner from '../ui/Spinner.vue'
 
 // Inbox Zero ボタン（#314）。「すべて」タブの左に置く、アイコンだけの控えめな二次ボタン。
-// 押せないとき（一覧が空・API キー未登録・理由がすべてオフ）は、見た目は無効にするが、本物の disabled にはしない
+// 押せないとき（一覧が空・Inbox Zero に選んだ AI が無い／つながっていない・理由がすべてオフ）は、見た目は無効にするが、本物の disabled にはしない
 // （disabled の要素にはツールチップも、タッチのタップも届かない）。ツールチップとタップ時のトーストで理由を出す。
 // 判断中はスピナーを出し、二度押しできない。
 const zero = useInboxZeroStore()

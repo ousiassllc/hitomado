@@ -20,7 +20,9 @@ afterAll(restoreMocks)
 const { useSettingsStore } = await import('../src/stores/settings')
 const { useUiStore } = await import('../src/stores/ui')
 
-const baseAI = { provider: 'anthropic', model: 'm', hasApiKey: false, consentedProviders: null }
+const f = (provider: string, model: string) => ({ provider, model })
+const features = { draft: f('anthropic', 'm'), inboxZero: f('', '') }
+const baseAI = { features, consentedProviders: null }
 const baseMcp = {
   enabled: false,
   host: '127.0.0.1',
@@ -45,8 +47,9 @@ beforeEach(() => {
   Object.assign(responses, {
     GetAIConfig: baseAI,
     GetAppInfo: baseInfo,
-    SetAIConfig: { ...baseAI, provider: 'openai', model: 'x', baseUrl: 'https://llm.example/v1' },
-    SetAIApiKey: { ...baseAI, hasApiKey: true, consentedProviders: ['anthropic'] },
+    SetAIFeature: { ...baseAI, features: { ...features, inboxZero: f('openai', 'x') } },
+    SetAIBaseURL: { ...baseAI, baseUrl: 'https://llm.example/v1' },
+    SetAIApiKey: { ...baseAI, apiKeyProviders: ['anthropic'], consentedProviders: ['anthropic'] },
     ClearAIApiKey: baseAI,
     RecordAIConsent: { ...baseAI, consentedProviders: ['anthropic'] },
     SetUpdateCheckEnabled: undefined,
@@ -78,25 +81,24 @@ describe('settingsStore', () => {
     expect(ui.alerts.at(-1)).toMatchObject({ kind: 'error', message: '読み込めません' })
   })
 
-  test('setAIConfig・setAIApiKey・clearAIApiKey・recordAIConsent は戻り値で aiConfig を更新する', async () => {
+  test('AI 設定の各保存は戻り値で aiConfig を更新する', async () => {
     const s = useSettingsStore()
-    await s.setAIConfig('openai', 'x', 'https://llm.example/v1')
-    expect(callsOf('SetAIConfig')[0]?.args).toEqual(['openai', 'x', 'https://llm.example/v1', ''])
-    await s.setAIConfig('openai', 'x', 'https://llm.example/v1', 'high')
-    expect(callsOf('SetAIConfig')[1]?.args).toEqual([
-      'openai',
-      'x',
-      'https://llm.example/v1',
-      'high',
+    await s.setAIFeature('inboxZero', 'openai', 'x')
+    await s.setAIFeature('draft', 'openai', 'x', 'high')
+    expect(callsOf('SetAIFeature').map((c) => c.args)).toEqual([
+      ['inboxZero', 'openai', 'x', ''],
+      ['draft', 'openai', 'x', 'high'],
     ])
+    expect(s.aiConfig?.features.inboxZero.provider).toBe('openai')
+    await s.setAIBaseURL('https://llm.example/v1')
     expect(s.aiConfig?.baseUrl).toBe('https://llm.example/v1')
 
     await s.setAIApiKey('anthropic', 'secret')
     expect(callsOf('SetAIApiKey')[0]?.args).toEqual(['anthropic', 'secret'])
-    expect(s.aiConfig?.hasApiKey).toBe(true)
+    expect(s.aiConfig?.apiKeyProviders).toEqual(['anthropic'])
 
     await s.clearAIApiKey('anthropic')
-    expect(s.aiConfig?.hasApiKey).toBe(false)
+    expect(s.aiConfig?.apiKeyProviders).toEqual([])
 
     await s.recordAIConsent('anthropic')
     expect(s.aiConfig?.consentedProviders).toEqual(['anthropic'])
@@ -105,9 +107,10 @@ describe('settingsStore', () => {
   test('AI 設定の保存失敗は AppError として投げ直し、state を変えない', async () => {
     const s = useSettingsStore()
     await s.load()
-    failures.SetAIConfig = { cause: { code: 'VALIDATION', message: '不正', retryable: false } }
-    await expect(s.setAIConfig('openai', '', '')).rejects.toMatchObject({ code: 'VALIDATION' })
-    expect(s.aiConfig?.provider).toBe('anthropic')
+    failures.SetAIFeature = { cause: { code: 'VALIDATION', message: '不正', retryable: false } }
+    const save = s.setAIFeature('draft', 'openai', '')
+    await expect(save).rejects.toMatchObject({ code: 'VALIDATION' })
+    expect(s.aiConfig?.features.draft.provider).toBe('anthropic')
   })
 
   test('setUpdateCheckEnabled(false) は appInfo を更新し、更新バナーと update を消す', async () => {

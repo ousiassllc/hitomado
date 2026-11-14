@@ -6,6 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ousiassllc/hitomado/internal/app/apptest"
+	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/secrets"
 )
 
@@ -21,12 +23,14 @@ func TestTypeSafeKeyButNotADraftProvider(t *testing.T) {
 	got, err := f.Secrets.Get(secrets.AIAPIKeyKey("typesafe"))
 	require.NoError(t, err)
 	assert.Equal(t, testAPIKey, got, "前後の空白は除いて資格情報ストアへ")
-	assert.Equal(t, "chatgpt", cfg.Provider, "キーを登録しても既定のプロバイダは変わらない")
-	assert.False(t, cfg.HasAPIKey, "HasAPIKey は既定のプロバイダのもの")
+	assert.Empty(t, cfg.Features.Draft.Provider, "キーを登録しても、機能ごとに使う AI は変わらない")
 	assert.NotContains(t, f.logs.String(), testAPIKey)
 
-	_, err = f.ai.SetAIConfig(ctx, "typesafe", "jev", "", "")
-	requireCode(t, "VALIDATION", err)
+	_, err = apptest.SetDraftAI(f.ai, ctx, "typesafe", "jev", "", "")
+	requireCode(t, "VALIDATION", err) // 「AI で下書き」には選べない
+	cfg, err = f.ai.SetAIFeature(ctx, dto.AIFeatureInboxZero, "typesafe", "jev", "")
+	require.NoError(t, err)
+	assert.Equal(t, dto.AIFeatureSetting{Provider: "typesafe"}, cfg.Features.InboxZero, "Inbox Zero には選べ、モデルは持たない")
 	_, err = f.ai.ListAIModels(ctx, "typesafe", "")
 	requireCode(t, "VALIDATION", err)
 	_, err = f.ai.SetAIApiKey(ctx, "typesafe", "  ")
@@ -55,7 +59,7 @@ func TestTypeSafeConsentSurvivesProviderChanges(t *testing.T) {
 	for _, p := range []struct{ provider, baseURL string }{
 		{"anthropic", ""}, {"openai", "https://llm.example/v1"}, {"openai", "https://other.example/v1"}, {"chatgpt", ""},
 	} {
-		cfg, err = f.ai.SetAIConfig(ctx, p.provider, "m", p.baseURL, "")
+		cfg, err = apptest.SetDraftAI(f.ai, ctx, p.provider, "m", p.baseURL, "")
 		require.NoError(t, err)
 		assert.Contains(t, cfg.ConsentedProviders, "typesafe", p.provider)
 	}

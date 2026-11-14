@@ -4,7 +4,7 @@
 
 ## 1. 設計方針
 
-- **サーバーレス**: 公開者のサーバーを持たない。すべての通信は利用者の PC から Google／AI プロバイダ（返信下書き・要約・質問）／TypeSafe AI（Inbox Zero の判定）／GitHub API へ直接行う
+- **サーバーレス**: 公開者のサーバーを持たない。すべての通信は利用者の PC から Google／AI プロバイダ（返信下書き・要約・質問）／Inbox Zero に選んだ AI（TypeSafe AI など）／GitHub API へ直接行う
 - **薄いフロント・厚い Go**: 認証・同期・MIME 生成・送信元の強制など、安全性に関わる処理はすべて Go 側に置く。フロントエンドは表示と入力に専念し、外部へ直接通信しない（CSP で禁止）
 - **送信元の強制は Go 側が最終防衛線**: UI の制御を迂回しても、返信・転送の送信元は受信アカウント以外にならない
 - **アカウント単位の隔離**: 同期・レート制限・エラー状態はアカウントごとに独立させる
@@ -25,7 +25,7 @@
 | レート制限 | `golang.org/x/time/rate` | アカウントごとのクォータ制御（NF 同期） |
 | ログ | 標準 `log/slog`（JSON Lines）＋ `lumberjack` によるローテーション。書き込み前に秘密・メール内容を伏せる Handler を通す | NF-S10 |
 | MCP | 公式 Go SDK `github.com/modelcontextprotocol/go-sdk`（Streamable HTTP）。既定オフ・Bearer トークン必須・送信ツールなし | NF-S13〜NF-S15、[docs/mcp.md](../mcp.md) |
-| AI | 自前の薄い `Provider` インターフェース。Anthropic・OpenAI 互換（Chat Completions）・ChatGPT プラン（Responses API）の 3 実装と、モデル一覧の取得（`ListModels`）。Inbox Zero の判定だけは別の `ai.Classifier`（TypeSafe AI〔Jev〕の `POST /v1/systemone` の choice 質問。文章は書かない。`internal/ai/jev.go`）で、`Provider` の実装には加えない | NF §12、NF §2 |
+| AI | 自前の薄い `Provider` インターフェース。Anthropic・OpenAI 互換（Chat Completions）・ChatGPT プラン（Responses API）の 3 実装と、モデル一覧の取得（`ListModels`）。Inbox Zero の判定だけは別の `ai.Classifier`（文章は書かない。TypeSafe AI〔Jev〕の `POST /v1/systemone` の choice 質問＝`internal/ai/jev.go` と、チャット系の 3 プロバイダに選択肢と確信度の JSON を返させる `internal/ai/chatclassifier.go`）で、`Provider` の実装には加えない | NF §12、NF §2 |
 | ChatGPT ログイン | `internal/siwc`（Sign in with ChatGPT の OSS 向けフロー。動的登録・PKCE・ID トークンの検証は `github.com/coreos/go-oidc/v3`） | NF §2、[API §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt) |
 | フロントエンド | **Vue 3＋TypeScript**（Composition API／`<script setup>`）、Vite、Pinia | |
 | リッチテキスト | Tiptap（ProseMirror）。太字・リンク・箇条書き | F-11 |
@@ -65,7 +65,7 @@ graph TD
   INF <-->|HTTPS| GG[Google OAuth / Gmail API]
   INF <-->|HTTPS| AI[AI プロバイダ 利用者のキー／ChatGPT プラン]
   INF <-->|HTTPS| OA[auth.openai.com ChatGPT ログイン]
-  INF <-->|HTTPS| TS[api.typesafe.ai TypeSafe AI Inbox Zero の判定]
+  INF <-->|HTTPS| TS[api.typesafe.ai TypeSafe AI Jev を選んだときの Inbox Zero の判定]
   INF <-->|HTTPS| GH[GitHub Releases API と Release の添付ファイル 自動アップデート]
 ```
 
@@ -97,7 +97,7 @@ hitomado/
 │  ├─ oauth/               # ループバック＋PKCE フロー
 │  ├─ store/               # sqlc 生成コード・クエリ・goose マイグレーション
 │  ├─ secrets/             # 資格情報ストア（interface＋keyring 実装）
-│  ├─ ai/                  # Provider interface と 3 実装（anthropic、openai 互換、chatgpt＝Responses API）、モデル一覧、エフォート、Classifier（jev.go＝TypeSafe AI。Inbox Zero の判定）
+│  ├─ ai/                  # Provider interface と 3 実装（anthropic、openai 互換、chatgpt＝Responses API）、モデル一覧、エフォート、Classifier（jev.go＝TypeSafe AI、chatclassifier.go＝チャット系。Inbox Zero の判定）
 │  ├─ siwc/                # Sign in with ChatGPT（動的登録・PKCE・トークンの保持と更新）
 │  ├─ callbackpage/        # 認可（OAuth・Sign in with ChatGPT）の 127.0.0.1 待受が返す完了ページ
 │  ├─ capability/          # OS ごとの機能の有無（Capabilities。Desktop／Android）
@@ -304,13 +304,15 @@ sequenceDiagram
   participant PV as ai.Provider
   FE->>AI: GenerateReplyDraft(sessionId, requestId, instruction?)
   AI->>CS: 作成セッションから送信元アカウントとスレッドを取得（返信・全員に返信のみ。new／forward は VALIDATION）
-  AI->>AI: 同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認
+  AI->>AI: 機能の選択（app_settings の ai.features.draft）を読み、選んだ AI の同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認。未選択・つながっていないときは別の AI へ切り替えず AI_NOT_CONFIGURED（#376）
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>PV: 生成要求（直近 5 メッセージ・20,000 文字以内＋あれば利用者の指示。指示は別枠で 2,000 文字まで）
   Note over AI,PV: 設定にエフォートがあれば要求に載せる（Anthropic: output_config.effort／OpenAI 互換: reasoning_effort／ChatGPT: reasoning.effort）。無ければ載せない
   PV-->>AI: 本文テキスト
   AI-->>FE: 下書き本文（フロントがエディタに挿入。送信は行わない）
 ```
+
+**機能ごとの AI の選択（#376）**: どの AI・モデルを使うかは機能ごとに `app_settings` の `ai.features`（`draft`＝返信・新規作成・要約・質問、`inboxZero`）に持ち、OpenAI 互換の Base URL はつなぎ先として `ai.connection` に持つ（API キー・トークンは資格情報ストア）。実行の入口は `aicore.FeatureAI(ctx, feature)`（選んだ AI を `SelectedAI` で返す）と、その機能の前提確認 `precheck`（選択・資格情報・モデル・Base URL・同意の順に確かめ、欠けていれば `AI_NOT_CONFIGURED`／`AI_CONSENT_REQUIRED`）。以前の `ai.config` は、起動時のマイグレーション `00002_ai_features`（`internal/store/migrations`）で `ai.features.draft` と `ai.connection` に移し、読み取りの互換経路は持たない。
 
 ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークンを `internal/siwc` が資格情報ストアに保持し、`PV` は Responses API（`store: false`・`stream: true`）を呼ぶ。生成中に 401 を受けたときは 1 度だけトークンを更新してやり直し、更新できなければ再ログインを案内する。複数の ChatGPT アカウントはアカウントごと（`client_id` ごと）にトークンと登録を分けて保存し、使用中のアカウントのトークンで生成する。ログイン・更新・ログアウトの手順は [バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)。
 
@@ -348,7 +350,7 @@ sequenceDiagram
   participant GM as gmail.Client
   participant PV as ai.Provider
   FE->>AI: SummarizeThread(ref, requestId)
-  AI->>AI: 同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認
+  AI->>AI: 機能の選択（ai.features.draft）を読み、選んだ AI の同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認（別の AI へは切り替えない）
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>AI: 下書きを除き、全メッセージを古い順にテキスト化（合計 40,000 文字を目安。超えたら古いものから外す）
   AI->>PV: 要約の要求（本文は信頼しない入力の枠。エフォートは設定にあれば載せる）
@@ -369,7 +371,7 @@ sequenceDiagram
   participant PV as ai.Provider
   FE->>AI: AskAboutThread(ref, requestId, question, history)
   AI->>AI: question・history を検証（空・2,000 文字超・会話の形・20 件／20,000 文字超は VALIDATION。通信しない）
-  AI->>AI: 同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認
+  AI->>AI: 機能の選択（ai.features.draft）を読み、選んだ AI の同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認（別の AI へは切り替えない）
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>AI: 下書きを除き、全メッセージを古い順にテキスト化（§7.5 と同じ。合計 40,000 文字を目安）
   AI->>PV: 役割の指示（system）＋スレッド（信頼しない先頭の user）＋history（user／assistant）＋question（最後の user）
@@ -387,19 +389,22 @@ sequenceDiagram
   participant FE as フロント
   participant AI as AIService
   participant GM as gmail.Client
-  participant CL as ai.Classifier（Jev）
+  participant CL as ai.Classifier（選んだ AI）
   participant IS as InboxService
   FE->>AI: FindInboxZeroCandidates(refs, requestId)
   AI->>AI: 検証（requestId・refs は重複を除き 100 件まで・理由が 1 つ以上オン。通信しない）
-  AI->>AI: Jev の理由（広告・通知・ニュースレター）が 1 つでもオンなら、API キー（AI_NOT_CONFIGURED）と同意（AI_CONSENT_REQUIRED）を確認して Classifier を作る
+  AI->>AI: AI の理由（広告・通知・ニュースレター）が 1 つでもオンなら、Inbox Zero に選んだ AI（`ai.features.inboxZero`。未選択で Jev のキーがあれば Jev）のキー・ログイン（AI_NOT_CONFIGURED）と同意（AI_CONSENT_REQUIRED）を確認して Classifier を作る
   loop refs を最大 4 件ずつ並行に
     AI->>GM: threads.get(format=full)（メモリ LRU を優先）
-    alt 返信済みがオンで、下書きでないメッセージに自分の送信（SENT ラベル、または差出人が受信アカウントのアドレス）がある
-      AI->>AI: 端末内で判定。候補（理由 = 返信済み）。Jev には送らない
+    Note over AI: 判定はスレッドの最後の 1 通（下書きを除く）を見る
+    alt 返信済みがオンで、最後の 1 通が自分の送信（SENT ラベル、または差出人が受信アカウントのアドレス）
+      AI->>AI: 端末内で判定。候補（理由 = 返信済み）。AI には送らない
+    else 最後の 1 通がカレンダーの招待・通知（iCalendar のパート、または Google カレンダーの送信元）
+      AI->>AI: 端末内で判定。カレンダーがオンなら候補（理由 = カレンダー）、オフなら除外。どちらも AI には送らない
     else 広告・通知・未読のニュースレターのどれかがオン
       AI->>CL: Classify(最新の下書きでないメッセージの差出人・件名・本文の先頭約 500 文字)
-      CL-->>AI: 選ばれた選択肢と全選択肢の確率
-      AI->>AI: オンの理由で確率 0.8 以上のときだけ候補（other・オフの理由・既読のニュースレターは候補にしない）
+      CL-->>AI: 選ばれた選択肢と、その確率（Jev）または確信度（チャット系のモデル）
+      AI->>AI: オンの理由で 0.8 以上のときだけ候補（other・オフの理由・既読のニュースレターは候補にしない）
     end
   end
   AI-->>FE: InboxZeroResult（candidates・examined・skipped）。アーカイブはしない
@@ -407,7 +412,11 @@ sequenceDiagram
   FE->>IS: Archive(チェックしたものだけ。Yes のときのみ)。「元に戻す」は Unarchive
 ```
 
-判定とアーカイブは分かれていて、Go の `FindInboxZeroCandidates` は候補を返すだけである。アーカイブは利用者が一覧で確認して Yes を押したときに、通常のアーカイブ（F-04）と同じ `InboxService.Archive`／`Unarchive` で行う。TypeSafe AI の 401／403・429 は全体を止め、それ以外の 1 スレッドの失敗は `skipped` に数えて続ける。中止（`CancelGenerate`）は `CANCELLED` で結果を捨てる。送信先は TypeSafe AI（`api.typesafe.ai`）で固定、同意は `typesafe` として保存する（[非機能要件 §2](../requirements/non-functional.md#2-プライバシー外部通信)）。契約は [バインディング仕様 §6.3](../api/endpoints.md#63-inbox-zerofindinboxzerocandidates314)。
+理由の優先順位は **返信済み → カレンダー → AI** で、1 スレッドの理由は 1 つ。カレンダーのメールは、カレンダーがオフなら AI にも聞かず除外する（AI が「通知」と判断しうるメールを、別の理由に寄せないため）。返信済み・カレンダーは端末内の判定で、AI の理由がすべてオフなら AI の前提（選択・キー・同意）は検査しない。
+
+**Classifier**（`ai.Classifier`）は 2 実装ある。**Jev**（`internal/ai/jev.go`。`POST /v1/systemone` の choice 質問。全選択肢の確率を返す）と、**チャット系**（`internal/ai/chatclassifier.go`。Anthropic・OpenAI 互換・ChatGPT プランの `Provider` が持つチャットの呼び出しに、system 指示で選択肢を渡し、`{"choice","confidence"}` の JSON を返させる）。後者は確率を返せないため、確信度を「選んだ選択肢の確率」として同じ下限 0.8 に当てる。形式が崩れた応答・選択肢にない答えは `ErrFailed`（そのスレッドだけ `skipped`）。メールの内容は user メッセージの `<email>` の中だけに入れ、system 指示には入れない。どちらも `Deps.Classifier`（`deps.ClassifierFactory`。`run.go` では `ai.NewClassifierFor`）で、選んだプロバイダ・モデル・送信先から作る。
+
+判定とアーカイブは分かれていて、Go の `FindInboxZeroCandidates` は候補を返すだけである。アーカイブは利用者が一覧で確認して Yes を押したときに、通常のアーカイブ（F-04）と同じ `InboxService.Archive`／`Unarchive` で行う。選んだ AI の 401／403・429・ChatGPT プランの利用枠の上限・対象外は全体を止め、それ以外の 1 スレッドの失敗は `skipped` に数えて続ける。中止（`CancelGenerate`）は `CANCELLED` で結果を捨てる。送信先は選んだ AI のもの（Jev は `api.typesafe.ai` で固定）で、同意はそのプロバイダ＋送信先ごとに保存する（[非機能要件 §2](../requirements/non-functional.md#2-プライバシー外部通信)）。カレンダーの判定は Gmail の MIME のパートの種類から（`gmail.MessageFull.HasCalendar`。`mimeparse.HasCalendar`）。契約は [バインディング仕様 §6.3](../api/endpoints.md#63-inbox-zerofindinboxzerocandidates314)。
 
 ## 8. 主要な設計判断
 
@@ -464,3 +473,5 @@ sequenceDiagram
 | 1.28 | 2026-11-13 | リンクの修正（§5 の Android ビルド §10 のパス、§2 の資格情報の保管の表示を §11 に）と、§4 のディレクトリ構成に現存するパッケージ（`capability`・`mcpserver`・`siwc`・`headless`・`androidbg`・`callbackpage`・`exportfile`・`asciijson`・`synctest`・`e2e`）とルートの OS 別ファイルを追加、`ai/` の説明を現状（chatgpt・jev）に直した | 実装のファイル構成・リンクとの乖離（#327） |
 | 1.29 | 2026-11-13 | §7.7（Inbox Zero: `FindInboxZeroCandidates` の流れ。返信済みは端末内で判定、広告・通知・ニュースレターは `ai.Classifier`〔Jev〕で判定し確率 0.8 以上だけを候補にする。アーカイブは `InboxService` 側）を追加 | 実装（`internal/app/aicore/inboxzero.go`）との整合（#333） |
 | 1.30 | 2026-11-14 | §7.4 に新規作成の AI 下書き（`GenerateNewDraft`。スレッドを読まず、指示・件名・宛先・送信元の表示名と署名から生成）を追記し、§7.4b に下書きの一覧（`ListDrafts`・`DiscardDraft`）のシーケンスを追加した | #365・#366 |
+| 1.31 | 2026-11-14 | §7.4 の前提確認を、機能ごとの AI の選択（`ai.features`・`ai.connection`）を読む形に改めた（選んだ AI だけを使い、別の AI へ切り替えない）。旧 `ai.config` はマイグレーションで移した | #376 |
+| 1.32 | 2026-11-14 | §7.7（Inbox Zero）を書き直した。「返信済み」は最後の 1 通（下書きを除く）が自分の送信のときだけにし、カレンダーの招待・通知を端末内の判定で追加（優先順位は 返信済み → カレンダー → AI。カレンダーがオフなら AI にも聞かず除外）。判定の AI は `ai.features.inboxZero` で選んだ AI（未選択で Jev のキーがあれば Jev）にし、チャット系の Classifier（確信度の JSON）を追加した | #377 |

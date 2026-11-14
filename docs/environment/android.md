@@ -169,6 +169,7 @@ Play 配布（#91）でも署名鍵の扱いは同じ問題になる。ここで
 - 置く権限: `INTERNET`、`ACCESS_NETWORK_STATE`（ネットワーク変化の通知）、`VIBRATE`、`POST_NOTIFICATIONS`（§15）。WorkManager が manifest のマージで `WAKE_LOCK`・`RECEIVE_BOOT_COMPLETED` を足す（許可リストに入っている）。前面サービスの権限（`FOREGROUND_SERVICE`・`FOREGROUND_SERVICE_DATA_SYNC`）と `WailsForegroundService` は #88 で削除した（§15.1・§15.7）。
 - 削除した権限: `CAMERA`、`ACCESS_FINE_LOCATION`、`ACCESS_COARSE_LOCATION`、`USE_BIOMETRIC`。`androidx.biometric`（`WailsBridge.java` が参照する）がマージ時に `USE_BIOMETRIC`／`USE_FINGERPRINT` を足すため、`tools:node="remove"` で取り除く。カメラ用の `<queries>` も削除した。
 - `allowBackup="false"`、`fullBackupContent="false"`、`dataExtractionRules`（`res/xml/data_extraction_rules.xml`。クラウドバックアップ・端末間移行ともすべて除外）。DB（メール本文のメタデータを含む）と、Android Keystore の鍵に紐づく暗号化済み資格情報は、別の端末に復元しても使えないため。
+- アイコン（#379）: `android:icon`／`android:roundIcon` は `@mipmap/ic_launcher`／`@mipmap/ic_launcher_round`。ロゴ v5c を、アダプティブ（`res/mipmap-anydpi-v26/ic_launcher{,_round}.xml`。背景は `@drawable/ic_launcher_background`＝`@color/ic_launcher_background`〔`#f5f5f4`〕、前景は `drawable-*dpi/ic_launcher_foreground.png`〔108dp のキャンバス。マークは中央 66dp の安全領域に収め、プリズム入り〕、`<monochrome>` は `drawable-*dpi/ic_launcher_monochrome.png`〔黒一色・プリズムなし。Android 13 以降のテーマアイコンが端末の色で塗る〕）と、`res/mipmap-*dpi/` の PNG（48dp。丸の切り抜きの `_round` つき）で置く。minSdk が 31 なので端末ではアダプティブ（丸・角丸などのマスク、テーマアイコン）が使われ、mipmap の PNG は manifest の参照先として置いている（API 26 未満は対象外）。通知の小アイコン（`ic_stat_mail`）は別。表示名（`@string/app_name`＝「Hitomado」）は変えていない。
 
 `task android:verify` は `aapt2 dump badging`／`dump xmltree` と `apksigner verify --print-certs` で、packageName、versionName、versionCode、minSdk（31）、targetSdk（36）、権限が**許可リスト**に収まること（新しい権限が入ると失敗する。意図して増やすときは `verify-apk.sh` の許可リストと manifest を一緒に直す）、`allowBackup=false`、`dataExtractionRules` の有無、debuggable でないこと、`extractNativeLibs=true` と `libwails.so`・`classes.dex` が圧縮（Deflate）で入っていること（§6.1）、`libwails.so` のすべての `LOAD` セグメントが 16KB（`0x4000`）以上で整列していること（`check-elf-align.sh`。リンクの `-extldflags=-Wl,-z,max-page-size=16384` は `Taskfile.yml` の `BUILD_FLAGS`。#205、[Play 配布の調査 §6.1](android-play-distribution.md#61-16kb-ページ対応対応済み205)）、署名の種類（`EXPECT_SIGNING=debug|release` を付けるとその種類でなければ失敗）を確認する。
 
@@ -799,7 +800,7 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 
 ## 18. AI の既定のプロバイダと ChatGPT ログイン（#104）
 
-**Android でも Windows と同じく、AI の設定が未保存のときの既定のプロバイダを ChatGPT プランにし、「AI で下書き」の初回の案内も同じに出す**（[F-08](../requirements/functional.md)・[画面の流れ](../components/overview.md#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)）。Android 専用の既定・案内は作らない。
+**Android でも Windows と同じく、「AI で下書き」に使う AI を選んでいないときの初回の案内を出し、ChatGPT プランへ進める**（[F-08](../requirements/functional.md)・[画面の流れ](../components/overview.md#391-ai-設定と初回の案内プロバイダ選択同意モデル一覧の流れ104105)。#376 で「既定のプロバイダ」は廃止し、機能ごとの選択に変えた）。Android 専用の案内は作らない。
 
 調べたこと（2026-11-04。コードの確認で、実機は使っていない）:
 

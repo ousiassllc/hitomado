@@ -207,7 +207,7 @@ CI では確かめられない項目（実アプリが起動中の上書き拒�
 | 署名 | ad-hoc（`codesign --force --deep --sign -`）だけ。Developer ID の署名・公証はしない。ダウンロードした zip から出した `.app` は Gatekeeper の警告が出る（README に回避手順: 右クリック → 開く／`xattr -dr com.apple.quarantine`） |
 | 検査 | `.github/actions/build-macos` が、`plutil -lint`、`Info.plist` の版・バンドル ID、`lipo -archs`（`arm64`／`x86_64`）、`go version -m` の `main.version`、zip を展開し直した `.app` の `codesign --verify`（`Signature=adhoc`）を確認する。`arm64` は起動して 10 秒生きていることも確認する |
 | 更新 | アプリは新しい版のリンクを出すだけ（自動アップデートは Windows のみ）。データは `~/Library/Application Support/Hitomado/`、資格情報はキーチェーン |
-| アイコン | `build/darwin/icons.icns` は `build/appicon.png` から `wails3 generate icons -input appicon.png -macfilename darwin/icons.icns` で作ったものをコミットしている（`appicon.png` を変えたら作り直す） |
+| アイコン | `build/darwin/icons.icns`（PNG 圧縮の ICNS。16〜1024px、@2x を含む）と、作り直し用の `build/darwin/icons.iconset/`（同じ PNG。macOS では `iconutil -c icns` で作り直せる）は、ロゴ v5c の素材（#379）をそのままコミットしている。`build/appicon.png`（1024px。Wails の `wails3 generate icons` の入力）・`build/windows/icon.ico` も同じ素材で、`wails3 generate icons` で作り直すと素材（プリズム入りの 1024px と、小さいサイズごとに整えた絵）と変わるので、ロゴが変わるとき以外は作り直さない |
 
 ## 5. Lint
 
@@ -343,3 +343,4 @@ pre-push:
 | 1.17 | 2026-11-10 | Android の APK の署名を、使い捨ての鍵から Secrets の固定鍵に変更（§4.1 の `android` ジョブの説明、§4.2 の Release の説明。公開時に固定鍵が無ければ失敗する。PR の CI は使い捨ての鍵のまま）。署名鍵の選択スクリプトの単体テストを `test` ジョブに追加 | #310 |
 | 1.18 | 2026-11-13 | `go.mod` の `go` 行を修正済みのパッチ版（1.26.11）に上げ、§4.1 に `vulncheck` ジョブ（`govulncheck`）と `test` ジョブの `-race` ステップ（ubuntu）を追加 | #328、#331 |
 | 1.19 | 2026-11-14 | §2 のディレクトリ構造に `.github/actions/setup-android`・`build-android-apk`・`build-macos`、`.github/scripts` の `gen-notice.ts`・`prepare-android-signing.sh`、`android-e2e.yml`、`build/darwin/`・`build/android/` を追記。§4.1 の `test` の行に、ubuntu で走るスクリプトテスト 3 本（`next-version_test.sh`・`check-elf-align_test.sh`・`prepare-android-signing_test.sh`）を追記 | #361 |
+| 1.20 | 2026-11-14 | §4.4 のアイコンの行を、`wails3 generate icons` で作る方式から、ロゴ v5c の素材（`appicon.png`・`icon.ico`・`icons.icns`・`icons.iconset/`）をコミットする方式に変更 | #379 |

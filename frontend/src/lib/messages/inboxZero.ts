@@ -1,11 +1,15 @@
-// Inbox Zero（#314）の文言。ボタン・同意・確認の一覧と、設定（AI の TypeSafe AI のページ）の「不要とみなす理由」。
-// 判断は TypeSafe AI（Jev）で、候補は確認してからアーカイブする。
+// Inbox Zero（#314・#377）の文言。ボタン・同意・確認の一覧と、設定（AI の「機能ごとに使う AI」タブ）の「不要とみなす理由」。
+// 広告・通知・ニュースレターの判断は「機能ごとに使う AI」で Inbox Zero に選んだ AI、返信済み・カレンダーは端末内で判断し、
+// 候補は確認してからアーカイブする。
 export const inboxZero = {
   label: 'Inbox Zero：不要なメールをまとめてアーカイブ',
   blockedNoReason:
-    '不要とみなす理由がすべてオフです。設定の AI（TypeSafe AI）でオンにしてください。',
+    '不要とみなす理由がすべてオフです。設定の AI の「機能ごとに使う AI」でオンにしてください。',
   blockedEmpty: 'この一覧にメールがありません。',
-  blockedNoKey: 'TypeSafe AI（Jev）の API キーが未登録です。設定の AI で登録してください。',
+  blockedNoAI:
+    'Inbox Zero で使う AI が選ばれていません。設定の AI の「機能ごとに使う AI」で選んでください。',
+  blockedNotConnected: (provider: string) =>
+    `Inbox Zero に選んだ ${provider} がつながっていません。設定の AI の「AI のつなぎ先」で確認してください。`,
   checking: '不要なメールを探しています…',
   checkingTitle: 'Inbox Zero：判断中',
   abort: 'やめる',
@@ -18,9 +22,9 @@ export const inboxZero = {
   yes: 'アーカイブする（Yes）',
   no: 'やめる（No）',
   noSubject: '（件名なし）',
-  consentTitle: 'TypeSafe AI（Jev）へメールの内容を送ります',
-  consentDescription:
-    '不要かどうかを判断するため、一覧のメールそれぞれの件名・差出人・本文の先頭約 500 文字を TypeSafe AI（api.typesafe.ai）へ送信します。ボタンを押したときだけ送り、API キーはログにも画面にも出しません。',
+  consentTitle: (provider: string) => `${provider} へメールの内容を送ります`,
+  consentDescription: (provider: string, url: string) =>
+    `不要かどうかを判断するため、一覧のメールそれぞれの件名・差出人・本文の先頭約 500 文字を ${provider}（${url}）へ送信します。ボタンを押したときだけ送り、API キー・ログイン情報はログにも画面にも出しません。返信済みとカレンダーの判断は端末内で行い、送信しません。`,
   consentAgree: '同意して続ける',
   failed: 'Inbox Zero を実行できませんでした。',
   // 設定: 「不要」とみなす理由。ボタンを押したときは、オンの理由だけで判断する。
@@ -30,18 +34,22 @@ export const inboxZero = {
       'Inbox Zero のボタンを押すと、オンの理由に当てはまるメールを候補として一覧にします。アーカイブするかどうかは、一覧で確認してから決めます。',
     groupLabel: '不要とみなす理由',
     reasons: {
-      ad: { label: '広告・宣伝', hint: 'TypeSafe AI が、確信度が高いと判断したものだけ。' },
+      ad: { label: '広告・宣伝', hint: '選んだ AI が、確信度が高いと判断したものだけ。' },
       notification: {
         label: '通知だけのメール',
-        hint: 'TypeSafe AI が、確信度が高いと判断したものだけ。',
+        hint: '選んだ AI が、確信度が高いと判断したものだけ。',
       },
       newsletter: {
         label: '未読のニュースレター',
-        hint: '未読で、TypeSafe AI が確信度が高いと判断したものだけ。',
+        hint: '未読で、選んだ AI が確信度が高いと判断したものだけ。',
       },
       replied: {
         label: '返信済みのメール',
-        hint: 'スレッドに自分の送信があるもの（TypeSafe AI には聞きません）。',
+        hint: 'スレッドの最後のメール（下書きを除く）が自分の送信のもの（AI には聞きません）。',
+      },
+      calendar: {
+        label: 'カレンダーの招待・通知',
+        hint: '最後のメールがカレンダーの招待・通知のもの（AI には聞かず、端末内で判断します）。',
       },
     } as Record<string, { label: string; hint: string }>,
     saveFailed: '設定を保存できませんでした。',

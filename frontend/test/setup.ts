@@ -36,6 +36,21 @@ plugin({
   },
 })
 
+// Vite の `?inline`（CSS を文字列で読む。iframe の srcdoc に入れる styles/*.css）。bun test では拡張子のあとのクエリを外して文字列にする。
+plugin({
+  name: 'css-inline',
+  setup(build) {
+    build.onResolve({ filter: /\.css\?inline$/ }, ({ path, importer }) => ({
+      path: new URL(path.replace(/\?inline$/, ''), `file://${importer}`).pathname,
+      namespace: 'css-inline',
+    }))
+    build.onLoad({ filter: /.*/, namespace: 'css-inline' }, async ({ path }) => ({
+      contents: `export default ${JSON.stringify(await Bun.file(path).text())}`,
+      loader: 'js',
+    }))
+  },
+})
+
 // 各テストの終わりに、そのテストの Pinia（ストア）の effectScope を止める。止めないと、テスト中に張った
 // 3 秒の下書き自動保存タイマー（useAutosave は onScopeDispose で解除する）が残り、後から走るテスト（別ファイルも）の
 // 最中に発火して、差し替え済みのバインディング（モジュールモックはプロセス全体で共有）を呼んでしまう。

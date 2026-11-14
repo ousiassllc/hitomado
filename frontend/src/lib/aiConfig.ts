@@ -20,6 +20,12 @@ export function normalizeAIConfig(c: AIConfig): AIConfig {
   }
 }
 
+/** そのプロバイダの資格情報を持っているか（ChatGPT はログイン、ほかは API キー）。 */
+export function hasProviderCredential(id: string, cfg?: AIConfig): boolean {
+  if (id === 'chatgpt') return cfg?.chatgptSignedIn ?? false
+  return cfg?.apiKeyProviders?.includes(id) ?? false
+}
+
 /** OpenAI 互換と ChatGPT プランの共通のエフォートの段階（一覧がモデルごとの段階を返さないため。Go の ai.EffortScale と同じ。弱い順）。 */
 export const COMMON_EFFORTS = ['low', 'medium', 'high']
 

@@ -2,6 +2,7 @@
 import { WarningCircle } from '@iconoir/vue'
 import { computed, ref } from 'vue'
 import { common, compose as msg } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { SEND_SHORTCUT_KEY } from '../../lib/shortcuts'
 import { useComposeStore } from '../../stores/compose'
 import BaseButton from '../ui/BaseButton.vue'
@@ -79,6 +80,7 @@ function send(archive: boolean): void {
 <template>
   <section
     v-if="session"
+    v-overlay-scroll
     class="compose-pane"
     :class="{ embedded: props.embedded, expanded: props.embedded && props.expanded }"
     data-file-drop-target

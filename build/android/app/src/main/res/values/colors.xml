@@ -6,4 +6,6 @@
     <color name="app_accent">#050505</color>
     <!-- フロントのトークン ink（ライト）と同じ値。致命エラー画面の本文の文字色に使う。ダークは values-night。 -->
     <color name="app_ink">#050505</color>
+    <!-- ランチャーアイコン（アダプティブ）の背景。ロゴ v5c の Bone（#f5f5f4）。ダークテーマでも変えない（アイコンは端末のテーマに追従しない。テーマアイコンは monochrome 層が担う）ので values-night には置かない。 -->
+    <color name="ic_launcher_background">#f5f5f4</color>
 </resources>

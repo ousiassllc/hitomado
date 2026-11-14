@@ -31,7 +31,7 @@ const truncated = computed(() => {
 })
 const destination = computed(() => {
   const c = settings.aiConfig
-  return c ? aiDestination(c.provider, c.baseUrl) : undefined
+  return c ? aiDestination(c.features.draft.provider, c.baseUrl) : undefined
 })
 
 const end = ref<HTMLElement>()

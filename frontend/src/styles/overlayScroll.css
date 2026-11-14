@@ -1,0 +1,174 @@
+/*
+ * 重ねて出すスクロールバー（#378）。スクロールしているとき・マウスを乗せたとき・フォーカスがあるときだけ出す。
+ * 色と形はデザインガイド §10 のまま（矢印なし・細いつまみ・トラック透明・くすんだ灰 --mute）で、変えるのは「いつ見えるか」だけ。
+ *
+ * なぜ自前で描くか: ::-webkit-scrollbar の領域は幅を取る（重ねて出せない）。scrollbar-width / scrollbar-color の標準指定は
+ *   ふだん隠す・フェード・ホバーで 6→8px・端から 2px 内側・最低 32px のどれもできない。Chromium の overflow: overlay は廃止済み。
+ *   そこで、ネイティブのバーは scrollbar-width: none で隠し、同じ寸法を lib/overlayScroll が .os-root（領域の上に重ねる要素）に描く。
+ *   領域の幅は変わらない。スクロール・キーボード・タッチ・ホイールはネイティブのまま（バーを隠しても効く）。
+ * 時間（800ms 待って消す・1 秒の予告）は lib/overlayScroll の presence.ts。ここは見た目と、フェードの長さ（出る 120ms・消える 200ms・幅 150ms）。
+ *
+ * 動かない場所（ここでは何も描かない）:
+ *   - Android（html[data-touch-ui]）は OS の重ねて出るスクロールバーをそのまま使う。
+ *   - Windows ハイコントラスト（forced-colors: active）は OS のスクロールバーをいつも出したままにする。
+ *   隠す指定は forced-colors: none の中・data-touch-ui でないときだけ。
+ * メール本文の sandbox iframe にも、同じファイルを lib/overlayScroll/frame.ts が文書へ入れる（親のスタイルは届かないため）。
+ */
+@media (forced-colors: none) {
+  :root:not([data-touch-ui]) [data-overlay-scroll],
+  :root[data-overlay-scroll]:not([data-touch-ui]) {
+    scrollbar-width: none;
+  }
+
+  :root:not([data-touch-ui]) [data-overlay-scroll]::-webkit-scrollbar,
+  :root[data-overlay-scroll]:not([data-touch-ui])::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+.os-root,
+.os-root * {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* 領域と同じ大きさ・位置（left・top・width・height は controller.ts が置く）。クリックは通す。 */
+.os-root {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 1;
+  pointer-events: none;
+  --os-thumb: color-mix(in srgb, var(--mute) 40%, transparent);
+  --os-thumb-hot: color-mix(in srgb, var(--mute) 60%, transparent);
+}
+
+.os-viewport {
+  position: fixed;
+}
+
+/* 自前のバーを描かない場面（上の隠す指定の裏返し）。後ろに置いて .os-root の既定に勝たせる。 */
+@media (forced-colors: active) {
+  .os-root {
+    display: none;
+  }
+}
+
+:root[data-touch-ui] .os-root {
+  display: none;
+}
+
+/* つまみ。当たり判定は 12px 幅（見える 6px の外側 2px ずつ + 8px に広がる分）。出ていないときは当たらない。 */
+.os-thumb {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  transition: opacity 200ms ease-in;
+}
+
+.os-thumb[hidden] {
+  display: none;
+}
+
+.os-root[data-shown] .os-thumb {
+  opacity: 1;
+  pointer-events: auto;
+  transition-duration: 120ms;
+  transition-timing-function: ease-out;
+}
+
+.os-thumb-y {
+  top: 0;
+  right: 0;
+  width: 12px;
+}
+
+.os-thumb-x {
+  left: 0;
+  bottom: 0;
+  height: 12px;
+}
+
+/* 見えるつまみ: 幅 6px・端から 2px 内側・丸い端。乗せたとき・ドラッグ中は 8px・不透明度 60%（150ms） */
+.os-thumb::before {
+  content: "";
+  position: absolute;
+  border-radius: 999px;
+  background: var(--os-thumb);
+  transition:
+    width 150ms ease-out,
+    height 150ms ease-out,
+    background-color 150ms ease-out;
+}
+
+.os-thumb-y::before {
+  top: 0;
+  right: 2px;
+  bottom: 0;
+  width: 6px;
+}
+
+.os-thumb-x::before {
+  left: 0;
+  right: 0;
+  bottom: 2px;
+  height: 6px;
+}
+
+.os-thumb-y:hover::before,
+.os-thumb-y[data-drag]::before {
+  width: 8px;
+  background: var(--os-thumb-hot);
+}
+
+.os-thumb-x:hover::before,
+.os-thumb-x[data-drag]::before {
+  height: 8px;
+  background: var(--os-thumb-hot);
+}
+
+/* 続きがある側の端のフェード（16px。地の色 --os-fade-bg へのグラデーション）。いちばん端まで来たらその側は消える。 */
+.os-fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 16px;
+  opacity: 0;
+  transition: opacity 120ms ease-out;
+}
+
+.os-fade-top {
+  top: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--os-fade-bg),
+    color-mix(in srgb, var(--os-fade-bg) 0%, transparent)
+  );
+}
+
+.os-fade-bottom {
+  bottom: 0;
+  background: linear-gradient(
+    to top,
+    var(--os-fade-bg),
+    color-mix(in srgb, var(--os-fade-bg) 0%, transparent)
+  );
+}
+
+.os-root[data-fade-top] .os-fade-top,
+.os-root[data-fade-bottom] .os-fade-bottom {
+  opacity: 1;
+}
+
+/* reduced-motion: フェードも幅の変化もなし。すぐ出てすぐ消える（待ち時間は lib/overlayScroll の 800ms のまま）。上の指定より詳細度を上げて打ち消す。 */
+@media (prefers-reduced-motion: reduce) {
+  .os-root .os-thumb,
+  .os-root[data-shown] .os-thumb,
+  .os-root .os-thumb::before,
+  .os-root .os-fade {
+    transition: none;
+  }
+}

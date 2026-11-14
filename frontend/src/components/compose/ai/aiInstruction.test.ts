@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent } from 'vue'
+import { features } from '../../../../test/aiConfigKit'
 import { type AiDraftDeps, useAiDraft } from '../../../composables/useAiDraft'
 import { instructionLength, MAX_INSTRUCTION_CHARS } from '../../../lib/aiInstruction'
 import { compose as msg } from '../../../lib/messages'
@@ -20,10 +21,7 @@ const el = (testid: string) => document.body.querySelector<HTMLElement>(`[data-t
 function mountButton(consented = true) {
   const settings = useSettingsStore()
   settings.aiConfig = {
-    provider: 'anthropic',
-    model: 'claude-x',
-    configured: true,
-    hasApiKey: true,
+    features: features({ provider: 'anthropic', model: 'claude-x' }),
     apiKeyProviders: ['anthropic'],
     consentedProviders: consented ? ['anthropic'] : [],
     chatgptSignedIn: false,
@@ -111,10 +109,7 @@ describe('AiDraftButton の「AI への指示」欄', () => {
   test('ChatGPT プランを使っていても「Using ChatGPT plan」「Manage usage」の組は出さない', async () => {
     const settings = useSettingsStore()
     settings.aiConfig = {
-      provider: 'chatgpt',
-      model: 'gpt-plan',
-      configured: true,
-      hasApiKey: false,
+      features: features({ provider: 'chatgpt', model: 'gpt-plan' }),
       apiKeyProviders: [],
       consentedProviders: ['chatgpt'],
       chatgptSignedIn: true,

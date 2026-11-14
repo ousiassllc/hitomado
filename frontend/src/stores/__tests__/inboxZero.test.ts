@@ -1,153 +1,71 @@
-import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
-import * as realIndex from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
-import type {
-  InboxZeroCandidate,
-  ThreadSummary,
-} from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { appError, callsOf, until } from '../../components/thread/threadTestKit'
 import {
-  appError,
-  callsOf,
-  ctl,
-  installMocks,
-  calls as kitCalls,
-  resetState,
-  restoreMocks,
-  until,
-} from '../../components/thread/threadTestKit'
+  AI_OFF,
+  aiCtl,
+  cand,
+  INBOX_ZERO_MAX,
+  NONE,
+  restoreInboxZeroMocks,
+  setup,
+} from './inboxZeroKit'
 
-// Jev の実 API は呼ばない。ストア（inboxZero.ts）が import する Go のバインディング（index の AIService）をモックする。
-// 同意の保存（settings.recordAIConsent）は、すでに読み込まれた settings ストアのメソッドを setup で差し替える。
-const B = '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
-installMocks()
-const aiCtl: { find: unknown; failures: Record<string, unknown> } = {
-  find: undefined,
-  failures: {},
-}
-function aiBinding(name: string) {
-  return async (...args: unknown[]) => {
-    kitCalls.push({ name, args })
-    if (name in aiCtl.failures) throw aiCtl.failures[name]
-    return typeof aiCtl.find === 'function'
-      ? (aiCtl.find as (...a: unknown[]) => unknown)(...args)
-      : aiCtl.find
-  }
-}
-mock.module(B, () => ({
-  ...realIndex,
-  AIService: {
-    FindInboxZeroCandidates: aiBinding('FindInboxZeroCandidates'),
-    CancelGenerate: aiBinding('CancelGenerate'),
-  },
-}))
-afterAll(() => {
-  restoreMocks()
-  mock.module(B, () => ({ ...realIndex }))
-})
-
-const { useInboxStore } = await import('../inbox')
-const { useInboxZeroStore, INBOX_ZERO_MAX } = await import('../inboxZero')
-const { useSettingsStore } = await import('../settings')
-const { useUiStore } = await import('../ui')
-
-function summary(n: number): ThreadSummary {
-  return {
-    accountId: 'a1',
-    threadId: `t${n}`,
-    subject: `件名 ${n}`,
-    snippet: '',
-    lastMessageAt: 1000 - n,
-    lastFrom: { email: `x${n}@example.com` },
-    messageCount: 1,
-    isUnread: true,
-    hasAttachment: false,
-    inInbox: true,
-    labels: null,
-  }
-}
-
-const cand = (n: number, reason = 'ad'): InboxZeroCandidate => ({
-  ref: { accountId: 'a1', threadId: `t${n}` },
-  from: `送信者 ${n}`,
-  subject: `件名 ${n}`,
-  reason,
-})
-
-const ALL_ON = { ad: true, notification: true, newsletter: true, replied: true }
-
-async function setup(opts: { count?: number; consented?: boolean; keyed?: boolean } = {}) {
-  const { count = 3, consented = true, keyed = true } = opts
-  setActivePinia(createPinia())
-  resetState()
-  aiCtl.find = undefined
-  aiCtl.failures = {}
-  const all = Array.from({ length: count }, (_, i) => summary(i + 1))
-  // アーカイブしたものは、あとの再取得（アーカイブ後の reload）では返らない。
-  ctl.responses.ListInbox = () => ({
-    items: all.filter(
-      (t) =>
-        !callsOf('Archive').some((c) =>
-          (c.args[0] as { threadId: string }[]).some((r) => r.threadId === t.threadId),
-        ),
-    ),
-    failures: [],
-  })
-  ctl.responses.Archive = []
-  ctl.responses.Unarchive = [summary(1)]
-  const inbox = useInboxStore()
-  await inbox.load()
-  const settings = useSettingsStore()
-  useInboxZeroStore().reasons = { ...ALL_ON }
-  settings.aiConfig = {
-    provider: 'chatgpt',
-    model: '',
-    configured: false,
-    hasApiKey: false,
-    apiKeyProviders: keyed ? ['typesafe'] : [],
-    consentedProviders: consented ? ['typesafe'] : [],
-    chatgptSignedIn: false,
-    chatgptAccounts: [],
-  }
-  settings.recordAIConsent = async (provider: string, baseUrl = '') => {
-    kitCalls.push({ name: 'RecordAIConsent', args: [provider, baseUrl] })
-    if (settings.aiConfig) {
-      settings.aiConfig = { ...settings.aiConfig, consentedProviders: [provider] }
-    }
-  }
-  return { inbox, settings, zero: useInboxZeroStore(), ui: useUiStore() }
-}
+afterAll(restoreInboxZeroMocks)
 
 beforeEach(() => {
   setActivePinia(createPinia())
 })
 
-describe('Inbox Zero: 押せるか（#314）', () => {
-  test('理由がすべてオフ・一覧が空・Jev の API キー未登録のときは、それぞれの理由を返す', async () => {
+describe('Inbox Zero: 押せるか（#314・#377）', () => {
+  test('理由がすべてオフ・一覧が空・使う AI が無いときは、それぞれの理由を返す', async () => {
     const { zero } = await setup({ keyed: false })
-    expect(zero.blockedReason).toContain('API キーが未登録')
+    expect(zero.blockedReason).toContain('Inbox Zero で使う AI が選ばれていません')
 
-    zero.reasons = {
-      ad: false,
-      notification: false,
-      newsletter: false,
-      replied: false,
-    }
+    zero.reasons = { ...NONE }
     expect(zero.blockedReason).toContain('すべてオフ')
   })
 
-  test('返信済みだけがオンなら、Jev のキーが無くても押せる。一覧が空なら押せない', async () => {
+  test('返信済み・カレンダーだけがオンなら、AI を選んでいなくても押せる。一覧が空なら押せない', async () => {
     const { zero } = await setup({ keyed: false })
-    zero.reasons = { ad: false, notification: false, newsletter: false, replied: true }
+    zero.reasons = { ...NONE, replied: true }
+    expect(zero.blockedReason).toBeUndefined()
+    zero.reasons = { ...NONE, calendar: true }
     expect(zero.blockedReason).toBeUndefined()
 
     const empty = await setup({ count: 0 })
     expect(empty.zero.blockedReason).toContain('メールがありません')
   })
 
-  test('押せないときにボタンを押すと、理由をトーストで出し、Jev へは何も送らない', async () => {
+  test('Inbox Zero に選んだ AI（Jev 以外も）がつながっていれば押せる。選んだ AI がつながっていないときは、ほかの AI があっても押せない', async () => {
+    const openai = await setup({ selected: 'openai', providers: ['openai'] })
+    expect(openai.zero.selectedAI).toBe('openai')
+    expect(openai.zero.blockedReason).toBeUndefined()
+
+    const lost = await setup({ selected: 'openai', providers: ['typesafe', 'anthropic'] })
+    expect(lost.zero.selectedAI).toBe('openai')
+    expect(lost.zero.blockedReason).toContain('OpenAI 互換 がつながっていません')
+
+    const gpt = await setup({ selected: 'chatgpt', providers: [] })
+    expect(gpt.zero.blockedReason).toContain('ChatGPT がつながっていません')
+    if (gpt.settings.aiConfig) gpt.settings.aiConfig.chatgptSignedIn = true
+    expect(gpt.zero.blockedReason).toBeUndefined()
+  })
+
+  test('未選択のとき、Jev のキーがあれば Jev（互換）。無ければ選ぶよう案内する', async () => {
+    const legacy = await setup()
+    expect(legacy.zero.selectedAI).toBe('typesafe')
+    expect(legacy.zero.blockedReason).toBeUndefined()
+
+    const none = await setup({ providers: ['openai'] })
+    expect(none.zero.selectedAI).toBeUndefined()
+    expect(none.zero.blockedReason).toContain('Inbox Zero で使う AI が選ばれていません')
+  })
+
+  test('押せないときにボタンを押すと、理由をトーストで出し、AI へは何も送らない', async () => {
     const { zero, ui } = await setup({ keyed: false })
     await zero.start()
-    expect(ui.toast?.message).toContain('API キーが未登録')
+    expect(ui.toast?.message).toContain('Inbox Zero で使う AI が選ばれていません')
     expect(callsOf('FindInboxZeroCandidates')).toHaveLength(0)
     expect(zero.phase).toBe('idle')
   })
@@ -167,6 +85,22 @@ describe('Inbox Zero: 同意（初回）', () => {
     expect(zero.phase).toBe('review')
   })
 
+  test('同意の対象は、Inbox Zero に選んだ AI と送信先（OpenAI 互換は保存済みの Base URL）', async () => {
+    const { zero } = await setup({
+      consented: false,
+      selected: 'openai',
+      providers: ['openai'],
+      baseUrl: 'https://llm.example/v1',
+    })
+    aiCtl.find = { candidates: [cand(1)], examined: 3, skipped: 0 }
+    await zero.start()
+    expect(zero.phase).toBe('consent')
+    expect(zero.consentTarget).toEqual({ provider: 'openai', baseUrl: 'https://llm.example/v1' })
+    await zero.agree()
+    expect(callsOf('RecordAIConsent')[0].args).toEqual(['openai', 'https://llm.example/v1'])
+    expect(zero.phase).toBe('review')
+  })
+
   test('同意のキャンセルでは何も送らず、同意も保存しない', async () => {
     const { zero } = await setup({ consented: false })
     await zero.start()
@@ -176,9 +110,9 @@ describe('Inbox Zero: 同意（初回）', () => {
     expect(callsOf('FindInboxZeroCandidates')).toHaveLength(0)
   })
 
-  test('返信済みだけがオンなら Jev へ送らないので、同意は求めない', async () => {
+  test('返信済み・カレンダーだけがオンなら AI へ送らないので、同意は求めない', async () => {
     const { zero } = await setup({ consented: false })
-    zero.reasons = { ad: false, notification: false, newsletter: false, replied: true }
+    zero.reasons = { ...AI_OFF }
     aiCtl.find = { candidates: [cand(1, 'replied')], examined: 3, skipped: 0 }
     await zero.start()
     expect(zero.phase).toBe('review')

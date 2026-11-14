@@ -86,7 +86,7 @@ func TestSummarizeThreadPreconditions(t *testing.T) {
 	f := newAIFixture(t)
 	_, err := f.ai.SummarizeThread(t.Context(), f.ref(), "r1")
 	requireCode(t, "AI_NOT_CONFIGURED", err)
-	_, err = f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
+	_, err = apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestSummarizeThreadPreconditions(t *testing.T) {
 func TestSummarizeThreadSetsEffortAndFailures(t *testing.T) {
 	f := newAIFixture(t)
 	f.ready(t)
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "gpt-test", "https://llm.example/v1", "high")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "https://llm.example/v1", "high")
 	require.NoError(t, err)
 	_, err = f.ai.SummarizeThread(t.Context(), f.ref(), "r1")
 	require.NoError(t, err)
@@ -151,7 +151,7 @@ func TestSummaryIsNotLoggedOrStored(t *testing.T) {
 	_, err := f.ai.SummarizeThread(t.Context(), f.ref(), "r1")
 	require.NoError(t, err)
 	assert.NotContains(t, f.logs.String(), sensitive)
-	cfg, _, err := f.Store.GetSetting(t.Context(), store.SettingAIConfig)
+	cfg, _, err := f.Store.GetSetting(t.Context(), store.SettingAIFeatures)
 	require.NoError(t, err)
 	assert.NotContains(t, cfg, sensitive)
 }

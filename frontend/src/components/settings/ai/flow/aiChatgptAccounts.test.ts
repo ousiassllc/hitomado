@@ -17,7 +17,7 @@ beforeEach(() => {
 describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
   test('保存済みのアカウントを一覧に出し、使用中を示す。追加はアカウントを追加ボタン', () => {
     const { pinia } = setup(chatgptCfg([acctA, acctB]))
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     const rows = w.findAll('[data-testid^="ai-chatgpt-account-"]')
     expect(rows.map((r) => r.text())).toEqual([
       expect.stringContaining('a@chatgpt.example'),
@@ -45,14 +45,14 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
         },
       ]),
     )
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     const texts = w.findAll('[data-testid^="ai-chatgpt-account-"]').map((r) => r.text())
     expect(texts[0]).toContain('a@chatgpt.example（登録 …AAAA）')
     expect(texts[1]).toContain('a@chatgpt.example（登録 …ZZZZ）')
   })
 
-  test('別のアカウントを選ぶと切り替わり、そのアカウントのモデル一覧を取り直す', async () => {
-    const { pinia, store, calls } = setup(chatgptCfg([acctA, acctB]))
+  test('別のアカウントを選ぶと切り替わり、使用中のアカウントが変わる', async () => {
+    const { pinia, store } = setup(chatgptCfg([acctA, acctB]))
     const picked: string[] = []
     store.selectChatGPTAccount = async (id: string) => {
       picked.push(id)
@@ -64,7 +64,7 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
         ]),
       }
     }
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     await w.findAll('input[type="radio"]')[1]?.setValue(true)
     await flushPromises()
     expect(picked).toEqual(['oaiapp_BBBB'])
@@ -72,7 +72,6 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     expect(w.get('[data-testid="ai-chatgpt-active"]').element.closest('li')?.textContent).toContain(
       'b@chatgpt.example',
     )
-    expect(calls).toEqual(['models:chatgpt'])
   })
 
   test('選んだアカウントだけログアウトする。もう片方は残る', async () => {
@@ -83,7 +82,7 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
       store.aiConfig = { ...base, ...chatgptCfg([acctA, { ...acctB, signedIn: false }]) }
       return true
     }
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     const row = w.get('[data-testid="ai-chatgpt-account-oaiapp_BBBB"]')
     await row.get('[data-testid="ai-chatgpt-logout"]').trigger('click')
     await flushPromises()
@@ -102,7 +101,7 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     const { pinia, store } = setup(chatgptCfg([acctA, acctB]))
     let finish: (revoked: boolean) => void = () => {}
     store.signOutChatGPT = () => new Promise<boolean>((resolve) => (finish = resolve))
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     const busyOf = (id: string) =>
       w
         .get(`[data-testid="ai-chatgpt-account-${id}"] [data-testid="ai-chatgpt-logout"]`)
@@ -139,7 +138,7 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
       removed.push(id)
       store.aiConfig = { ...base, ...chatgptCfg([acctA]) }
     }
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     const row = w.get('[data-testid="ai-chatgpt-account-oaiapp_BBBB"]')
     expect(row.find('input[type="radio"]').exists()).toBe(false) // ログアウト済みは選べない
     await row.get('[data-testid="ai-chatgpt-relogin"]').trigger('click')
@@ -165,7 +164,7 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     store.signInChatGPT = async (id: string) => {
       ids.push(id)
     }
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     expect(w.get('[data-testid="ai-chatgpt-status"]').text()).toContain('未ログイン')
     await w.get('[data-testid="ai-chatgpt-login"]').trigger('click')
     expect(ids).toEqual([''])
@@ -175,9 +174,8 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
     const { pinia } = setup({
       ...chatgptCfg([{ ...acctA, active: false }, acctB]),
       chatgptSignedIn: false,
-      hasApiKey: false,
     })
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     expect(w.get('[data-testid="ai-chatgpt-status"]').text()).toContain(
       '使うアカウントを選んでください',
     )
@@ -192,7 +190,7 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
         retryable: false,
       }
     }
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     const radios = () =>
       w.findAll('input[type="radio"]').map((r) => (r.element as HTMLInputElement).checked)
     expect(radios()).toEqual([true, false])
@@ -224,7 +222,7 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
         ...chatgptCfg([acctA, { ...acctB, signedIn: false }]),
       }
     }
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     await w.findAll('input[type="radio"]')[1]?.setValue(true)
     await flushPromises()
     expect(w.get('[role="alert"]').text()).toBe(
@@ -243,7 +241,7 @@ describe('AISettings 複数の ChatGPT アカウント（#79）', () => {
 
   test('ラジオの名前は「<アカウント> を使う」で、一覧にも名前がある', () => {
     const { pinia } = setup(chatgptCfg([acctA, acctB]))
-    const w = mountAI(pinia)
+    const w = mountAI(pinia, 'chatgpt')
     expect(w.findAll('input[type="radio"]').map((r) => r.attributes('aria-label'))).toEqual([
       'a@chatgpt.example を使う',
       'b@chatgpt.example を使う',
