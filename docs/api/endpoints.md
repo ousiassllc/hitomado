@@ -19,6 +19,7 @@ Hitomado は HTTP サーバーを持たない。フロントエンド（Vue）�
 | `ThreadService` | スレッド詳細、添付保存、リンクを開く |
 | `ComposeService` | 作成セッション、下書き、送信前確認、送信、宛先候補 |
 | `AIService` | AI 設定・同意・下書き生成・スレッドの要約・スレッドへの質問・Inbox Zero（アーカイブ候補の判定） |
+| `AgentService` | エージェントモード（#372）: 設定・確認待ちの一覧・質問への答え・「あとで」「やっぱり返信する」。送信はしない |
 | `AppService` | アプリ設定（受信箱フィルタ等）、バージョン、更新確認 |
 | `LogService` | フロントのエラーの記録、ログフォルダを開く、ログの書き出し |
 | `MCPService` | 内蔵 MCP サーバーの設定・トークン・状態 |
@@ -557,7 +558,7 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 
 | メソッド | 引数 | 戻り値 | 内容 |
 |----------|------|--------|------|
-| `GetCapabilities()` | — | `{ os: string; supportsMcp: boolean; supportsTray: boolean; supportsAutoUpdate: boolean; supportsWindowState: boolean; singleInstance: boolean; touchUi: boolean }` | `os` は `runtime.GOOS` と同じ表記（表示・ログ用）。Windows は `touchUi` 以外が `true`、Android は `touchUi` と `supportsAutoUpdate`（アプリ内の更新確認。新しい版のお知らせとダウンロードページのリンクだけで、ダウンロード・入れ替えは `AppInfo.autoUpdateSupported` が別に決め、Android では偽）だけが `true`（MCP サーバー・トレイ・ウィンドウ状態の保存復元・多重起動の防止を持たない）。`touchUi` はタッチ操作中心の画面（幅による 1 画面ずつ・2 ペインの表示、44px のタップ領域）を使うか。`true` の OS は最小ウィンドウ幅の制限も外す |
+| `GetCapabilities()` | — | `{ os: string; supportsMcp: boolean; supportsTray: boolean; supportsAutoUpdate: boolean; supportsWindowState: boolean; singleInstance: boolean; touchUi: boolean; supportsMascot: boolean }` | `os` は `runtime.GOOS` と同じ表記（表示・ログ用）。Windows は `touchUi` 以外が `true`、Android は `touchUi` と `supportsAutoUpdate`（アプリ内の更新確認。新しい版のお知らせとダウンロードページのリンクだけで、ダウンロード・入れ替えは `AppInfo.autoUpdateSupported` が別に決め、Android では偽）だけが `true`（MCP サーバー・トレイ・ウィンドウ状態の保存復元・多重起動の防止を持たない）。`touchUi` はタッチ操作中心の画面（幅による 1 画面ずつ・2 ペインの表示、44px のタップ領域）を使うか。`true` の OS は最小ウィンドウ幅の制限も外す |
 
 ### 7.4 NotifyService
 
@@ -569,6 +570,41 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 | `RequestNotificationPermission()` | — | — | 許可のダイアログを出す（許可済み・永続的に拒否済みでは何も出ない）。結果は待たない。最初のアカウントの追加後は Go が自動で呼ぶ |
 | `OpenNotificationSettings()` | — | — | OS の「このアプリの通知設定」を開く。開けなければ `UNSUPPORTED` |
 | `TakePendingOpenThread()` | — | `{ accountId, threadId } \| null` | フロントが購読を始めた**あと**に 1 回呼ぶ。通知のタップで起動されて（コールドスタート）まだ開いていないスレッドがあれば返す。以後のタップは `notify:open-thread` で届く（フロントの準備前に発行したイベントの取りこぼしを避ける） |
+
+### 7.5 AgentService（エージェントモード。F-20）
+
+新着メールの返信要否の判断・返信下書き作り・質問・確認待ちの一覧（実装は `internal/app/agentcore`）。**オンのときだけ**新着に対して動く（既定オフ）。**エージェントは送信しない**: このサービスに送信のメソッドは無く、下書きは Gmail の下書きとして保存するだけで、送信は `ComposeService` を人が操作したときだけ。
+
+型:
+
+```ts
+type AgentSettings = { enabled: boolean; mascotEnabled: boolean; aiReady: boolean };
+
+type AgentItem = {
+  id: string; accountId: string; accountName: string; accountEmail: string; threadId: string;
+  status: 'ready' | 'asking' | 'skipped' | 'later' | 'done' | 'failed';
+  subject: string; from: string;
+  reasonKind: string; reason: string;            // 理由の種類（固定の列挙）と一言（画面用の日本語）
+  draftId?: string; draftPreview?: string;       // 下書きの最初の数行（プレーンテキスト）
+  to: { name?: string; email: string }[];
+  questions: string[];                           // status が asking のとき（1〜3 件）
+  updatedAt: number;
+};
+
+type AgentOverview = { pendingCount: number; items: AgentItem[] };  // pendingCount = ready + asking。items は新しい順
+```
+
+| メソッド | 引数 | 戻り値 | 内容 |
+|----------|------|--------|------|
+| `GetAgentSettings()` | — | `AgentSettings` | エージェント・マスコットの設定（既定はすべてオフ）。`aiReady` は AI（プロバイダ・モデル・キー／ChatGPT のログイン・同意）が使える状態か |
+| `SetAgentEnabled(enabled, agreed)` | `boolean, boolean` | `AgentSettings` | オン・オフ。オンにするには `agreed`（新着メールの内容を設定済みの AI へ自動で送ることへの同意）が真であること（偽は `VALIDATION`）で、AI が設定済みであること（未設定は `AI_NOT_CONFIGURED`）。通ると現在のプロバイダ・送信先への同意（`RecordAIConsent` と同じ保存）も記録する。オフは `agreed` 不要 |
+| `SetAgentMascot(enabled)` | `boolean` | `AgentSettings` | 画面の端のマスコット（Windows）のオン・オフ。エージェントがオンで、かつマスコットがオンのときだけ出る |
+| `ListAgentItems()` | — | `AgentOverview` | 扱った新着の一覧 |
+| `AnswerAgentQuestions(itemId, answers)` | `string, string[]` | `AgentItem` | 質問への答えを受けて下書きを作る（作り直す）。`answers` は質問と同じ順・同じ件数（各 1〜1,000 文字）。回答は DB に残さない。存在しない ID は `NOT_FOUND` |
+| `DeferAgentItem(itemId)` | `string` | `AgentItem` | 確認待ち・質問待ちを「あとで」にする |
+| `ConfirmAgentItem(itemId)` | `string` | `AgentItem` | 利用者が下書きを開いて確認したことを記録する（確認済みにする） |
+| `ReconsiderAgentItem(itemId)` | `string` | `AgentItem` | 「やっぱり返信する」。返信不要・失敗したものを、返信が要る前提で下書き作り（必要なら質問）からやり直す |
+| `OpenAgentPanel()` | — | — | メインウィンドウを前面に出し、`agent:open-panel` を発行する（マスコットの押下） |
 
 ## 8. イベント（Go → フロント）
 
@@ -582,6 +618,8 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | `update:available` | `{ version: string; url: string }` | 新バージョン検出 |
 | `update:status` | `{ stage: 'none' \| 'downloading' \| 'ready' \| 'failed'; version?: string; message?: string }` | 自動アップデートの進みの変化（ダウンロードの開始・照合の完了〔`ready`〕・失敗〔`failed`。ハッシュの不一致・通信・インストーラーの失敗〕・オフにして破棄〔`none`〕）。フロントは `ready` で「再起動して更新」を出す |
 | `app:before-quit` | なし | トレイの「終了」。フロントは未保存の下書きを保存して `AckBeforeQuit` を呼ぶ |
+| `agent:updated` | `{ pendingCount: number; enabled: boolean; mascotEnabled: boolean }` | 確認待ち・質問待ちの件数、または設定が変わった（件名・本文は載せない）。フロントとマスコットは受信後に `ListAgentItems`／`GetAgentSettings` を呼び直す |
+| `agent:open-panel` | なし | マスコットの押下など。フロントはエージェントのパネルを開く |
 | `files-dropped` | `{ files: string[] }` | ウィンドウへのファイルドロップ（`data-file-drop-target` 属性の要素上のみ）。フロントは `AddAttachments` に渡す |
 
 ## 9. セッション・状態の寿命
@@ -666,3 +704,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.43 | 2026-11-11 | `AIService` に Inbox Zero（`GetInboxZeroSettings`・`SetInboxZeroReasons`・`FindInboxZeroCandidates`）と型 `InboxZeroReasons`／`InboxZeroSettings`／`InboxZeroCandidate`／`InboxZeroResult` を追加し、§6.3 に判定の規則（理由 4 つ・Jev は広告／通知／ニュースレターのみ・確率 0.8 以上・送る内容・上限 100 件・並行 4・エラー）を追記。`RecordAIConsent` が `typesafe` を受け付け、`AIConfig.consentedProviders` に含むようにした（`SetAIConfig` で消えない）。`CancelGenerate` の対象に `FindInboxZeroCandidates` を追加 | #314 |
 | 1.44 | 2026-11-13 | §1.2 の `AI_FAILED` の `details.reason` を、`usage_limit_exceeded` と `effort_rejected`（エフォートの拒否。`message` が設定で既定に戻す案内）の 2 つに直し、`ATTACHMENT_IO` に `details.filename` を追記。§6 の `effort` の渡し方に `details.reason = "effort_rejected"` を追記 | 実装（`internal/app/aicore/generate.go:136-137`・`apperr.go:59`・`composecore/compose_attach.go:25-28`）との整合（#325・#335） |
 | 1.45 | 2026-11-14 | `CancelGenerate` が、生成の登録より前（前提の検査・ChatGPT のトークン更新の最中、または呼び出しより先に届いた場合）でも効くことを追記 | #352 |
+| 1.46 | 2026-11-14 | `AgentService`（§7.5。設定・確認待ちの一覧・質問への答え・あとで・確認・やっぱり返信する・パネルを開く）と型 `AgentSettings`／`AgentItem`／`AgentOverview`、イベント `agent:updated`・`agent:open-panel`、`PlatformService` の `supportsMascot` を追加 | #372 |

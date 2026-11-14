@@ -31,6 +31,7 @@ erDiagram
   accounts ||--o{ labels : "持つ"
   accounts ||--o{ threads : "持つ"
   accounts ||--o{ contacts : "宛先候補"
+  accounts ||--o{ agent_items : "エージェントが扱った新着"
   threads ||--o{ messages : "含む"
   messages ||--o{ message_labels : "付与"
   app_settings
@@ -330,12 +331,51 @@ erDiagram
 | `ai.chatgpt` | `{"hostId":"urn:uuid:...","active":"oaiapp_AAAA","accounts":[{"clientId":"oaiapp_AAAA","subject":"...","email":"me@example.com","expiresAt":1730000000000,"planNotice":"done"},{"clientId":"oaiapp_BBBB","subject":"...","email":"me@example.com","consentNeeded":true}]}` | ChatGPT ログインの登録情報（**秘密ではない**。トークンは資格情報ストア）。`hostId` はこの PC のホスト ID（`urn:uuid:` ＋ UUIDv4。初回ログインの前に作り、以後変えない。全アカウントで共通）、`active` は下書きの生成に使うアカウントの `clientId`（無ければ省略）。`accounts` は ChatGPT アカウント（クライアント登録）の配列で、登録順。1 件ごとに、`clientId` は動的登録で発行されたクライアント ID（アカウントの識別子。同じメールアドレスでも別の登録は別の `clientId` で別の要素。資格情報ストアのキーに使うので、形式は定めず（公式ドキュメントに規定がない）、キーの区切りと衝突する値だけを拒否する: 空・128 文字超、`/`・`#`・`\`、空白・制御文字、ASCII 以外を含む値が返ったログインは、コードを交換する前に失敗させる。Windows 資格情報マネージャーはキーの大文字小文字を区別しない（`Abc` と `abc` は同じキー）ので、`clientId` は大文字小文字を無視して一意な値として扱う（資格情報キーの形式は変えない。変えると、リリース済みのキーの移行が要るため。OpenAI が発行する値は一意で、大文字小文字だけが違う発行は現実には起きないので、重なりを拒否するだけにする）。新しい登録が既存の `clientId` と大文字小文字だけが違う値で返ってきたときは、`subject` に関わらず、既存の要素・トークンに触れずに拒否し、得たトークンは失効させる。選んだ登録への再ログインで、返った `clientId` が選んだ値と大文字小文字だけ違うときも、コードを交換する前に拒否する。新しい登録が既存の `clientId` と同じ値で返ってきたときは、`subject` が同じ場合だけ同じ要素を更新し、違うとき、または既存の要素に `subject` が未記録（旧形式から移行した直後など）で同じアカウントか照合できないときは、既存の要素・トークンに触れずに拒否し、得たトークンは失効させる。選んだ登録への再ログインは拒否せず、成功すると `subject` が記録される）、`subject`／`email` は検証済み ID トークンの本人情報（表示・同一アカウントの確認用）、`consentNeeded` は前回 ChatGPT プランの利用が許可されなかったこと（その登録での次のログインで同意画面を求め直す）、`expiresAt` はアクセストークンの期限、`planNotice` は「You're using your ChatGPT plan」の確認の状態（省略＝ChatGPT プランの利用がまだ有効になっていない／`pending`＝初めて有効になり確認はまだ／`done`＝確認済み。初めてのログインで `pending` にし、「Got it」で `done` にする。再ログイン・ログアウト・更新では変えない。要素ごとなので、別のアカウントを初めて追加したときだけ 1 度出る。要素は `clientId` 単位なので、`RemoveChatGPTAccount` で消してから同じアカウントを追加し直したとき、および同じアカウントを 2 回追加したときは、新しい `clientId` の要素になり、その要素でもう一度 `pending` になる）。`consentNeeded`（`false`）・`expiresAt`（`0`）・`planNotice`（空）・`active`（空）は、値が無いときは保存しない（省略する。上の例のとおり、実装は `"consentNeeded":false` を出力しない）。ログアウトしても `accounts` の要素（`clientId`／`subject`／`email`）と `hostId` は残す（`RemoveChatGPTAccount` で要素を消す）。v0.1.7 までの形式（`clientId`／`subject`／`email`… を最上位に持つ 1 アカウント分）は、最初の読み取りで `accounts` の 1 要素へ移す（`subject` があり `consentNeeded` でなければ、ログアウト済みでも `planNotice` を `done` にして、確認を出さない）。移行では、新しい `accounts` を保存してから旧キーを消す。旧キーの削除に失敗しても移行したアカウントは失わず、旧キーが残っている間は、プロセスの最初の呼び出し（削除に失敗し続けている間は呼び出しごと）に削除をやり直す |
 | `ai.consent` | `{"providers":[{"provider":"openai","baseUrl":"https://api.openai.com","agreedAt":1730000000000}]}` | AI 送信の同意（F-08）。「プロバイダ＋送信先（Base URL の scheme とホスト。パスは含めない）」単位の配列で、プロバイダ＋送信先ごとに 1 件（保存前に選んだ送信先の同意も、`RecordAIConsent` の引数の送信先として保存する。#105）。`baseUrl` は省略可（省略は既定の送信先）。送信先が変わった同意は無効になり、保存からも外す。旧形式 `{"provider":"anthropic","agreedAt":...}`（単一オブジェクト）は読み取り専用の互換入力で、保存は常に `providers` 形式（`RecordAIConsent` が書き込む。[API §6](../api/endpoints.md)）。`typesafe`（TypeSafe AI。Inbox Zero の判定。#314）の同意は `{"provider":"typesafe","agreedAt":...}`（送信先は固定の api.typesafe.ai で `baseUrl` は持たない。選択中のプロバイダの変更では無効にならない） |
 | `inbox_zero.reasons` | `{"ad":true,"notification":true,"newsletter":true,"replied":true}` | Inbox Zero で「不要なメール」とみなす理由ごとのオン・オフ（#314）。未設定・壊れた値は 4 つとも `true`。保存値に無いキーは `true` として読む |
+| `agent.settings` | `{"enabled":false,"mascotEnabled":false,"agreedAt":1730000000000}` | エージェントモード・マスコット（Windows）のオン・オフ（F-20。#372）。未設定・壊れた値はすべてオフ。`agreedAt` は、オンにする操作で同意した日時 |
 | `update.check_enabled` | `true` | 新バージョン確認の有効／無効（NF-D03） |
 | `update.auto_enabled` | `true` | 自動アップデート（Windows 版。新しい版の自動ダウンロードと入れ替え）の有効／無効（NF-D03）。未設定・壊れた値は有効。入れ替えを行わないビルド（Android・dev ビルド）では保存値にかかわらず無効 |
 | `compose.send_confirm` | `true` | 送信前に確認画面を出すか（真偽。#313）。未設定・壊れた値は `true`（出す）。値は JSON として妥当な `true`／`false` |
 | `update.last_checked_at` | `1730000000000` | 最終確認日時 |
 | `window.state` | `{"x":100,"y":60,"width":1280,"height":800,"maximized":false}` | ウィンドウ状態。位置・サイズは最大化していないときの DIP 値（`x`／`y` は省略可。省略時は位置を OS に任せる）。画面外の位置は起動時に捨てる（[F-10](../requirements/functional.md)） |
 | `mcp.config` | `{"enabled":false,"host":"127.0.0.1","port":47650,"allowNonLoopback":false}` | 内蔵 MCP サーバーの設定（[MCP](../mcp.md)）。未設定・壊れた値は既定（オフ。`host` は `127.0.0.1`、`port` は `47650`）として読み、空の `host`・`port` 0 も既定で埋める。`allowNonLoopback` は loopback 以外での待ち受けを明示的に許可する。**トークンは含まない**（資格情報ストアの `hitomado/mcp_token`） |
+
+### 3.10 agent_items
+
+エージェントモード（F-20。#372）が扱った新着 1 件（パネルの 1 行）。**メッセージ本文・下書きの本文・利用者の質問への回答は保存しない**（下書きは Gmail 側が正で、パネルに出す冒頭の数行は一覧を返すときに Gmail から取り直してメモリにだけ持つ）。持つのはヘッダ由来のメタデータ（件名・差出人の表示名・宛先アドレス）と、判断の結果・理由・利用者に聞くことだけ。
+
+```mermaid
+erDiagram
+  agent_items {
+    TEXT id PK "ULID"
+    TEXT account_id FK
+    TEXT thread_id
+    TEXT message_id "扱った新着のメッセージ ID"
+    TEXT status "ready/asking/skipped/later/done/failed"
+    TEXT subject
+    TEXT from_label
+    TEXT reason_kind
+    TEXT reason
+    TEXT draft_id "Gmail の下書き ID"
+    TEXT to_json
+    TEXT questions_json
+    INTEGER created_at
+    INTEGER updated_at
+  }
+```
+
+| カラム | 型 | NULL | 説明 |
+|--------|----|------|------|
+| `id` | TEXT | NO | PK（ULID） |
+| `account_id` | TEXT | NO | FK `accounts.id` ON DELETE CASCADE（受信したアカウント） |
+| `thread_id`・`message_id` | TEXT | NO | 扱った新着。`UNIQUE(account_id, thread_id, message_id)`（同じ新着を二度扱わない） |
+| `status` | TEXT | NO | `ready`（確認待ち）・`asking`（質問待ち）・`skipped`（返信不要）・`later`（あとで）・`done`（確認済み）・`failed`（`CHECK`） |
+| `subject`・`from_label` | TEXT | NO | 件名・差出人（表示名。無ければアドレス）。画面用 |
+| `reason_kind`・`reason` | TEXT | NO | 判断の理由の種類（固定の列挙。ログにも出す）と一言（画面用の日本語） |
+| `draft_id` | TEXT | NO | Gmail の下書き ID（無ければ空） |
+| `to_json`・`questions_json` | TEXT | NO | 下書きの宛先アドレス・利用者に聞くこと（JSON 配列。`json_valid` を `CHECK`） |
+| `created_at`・`updated_at` | INTEGER | NO | Unix ミリ秒 |
+
+確認済み・返信不要・失敗は 30 日で消す（起動時）。
 
 ## 4. インデックス
 
@@ -357,7 +397,7 @@ erDiagram
 - 同期の反映は 1 スレッド（または 1 アカウント分の 1 周期）を 1 トランザクションで行い、途中失敗時は `history_id` を進めない
 - リセット同期（`history` 失効）は当該アカウントの `INBOX` 内スレッドのみ入れ替える。`contacts`・`labels` は保持する
 - アカウント削除: 先に同期ワーカーを止めて実行中の周期の終了を待ち（DB 削除に失敗したら再開する）、DB は `DELETE FROM accounts WHERE id = ?` のカスケード、続いて資格情報ストアの `refresh_token/<account_id>` を削除する。OAuth クライアントはユーザー操作で別途削除する
-- 本文・添付・下書きに相当するカラム・テーブルは作らない
+- 本文・添付・下書きに相当するカラム・テーブルは作らない（`agent_items` も件名・差出人・判断の結果だけを持ち、下書きの本文・質問への回答は持たない）
 
 ## 改訂履歴
 
@@ -384,3 +424,4 @@ erDiagram
 | 1.18 | 2026-11-10 | §3.9 に `compose.send_confirm`（送信前の確認画面のオン・オフ）を追加 | #313 |
 | 1.19 | 2026-11-11 | §3.9 に `inbox_zero.reasons`（Inbox Zero の理由ごとのオン・オフ）を追加し、`ai.consent` に `typesafe`（TypeSafe AI。送信先は固定で `baseUrl` なし）の同意が入り得る旨を追記 | #314 |
 | 1.20 | 2026-11-14 | §1 の資格情報キーに `hitomado/mcp_token`・`hitomado/oauth_in_progress` を追加し、`ai_api_key` の `<provider>` に `typesafe` を追記。§3.9 に `mcp.config` を追加 | 実装との整合（#359） |
+| 1.21 | 2026-11-14 | §3.10 に `agent_items`（エージェントモードが扱った新着。本文・下書き・回答は持たない）、§3.9 に `agent.settings` を追加 | #372 |
