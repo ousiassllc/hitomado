@@ -42,8 +42,7 @@ export const usePlatformStore = defineStore('platform', () => {
   const singleInstance = computed(() => capabilities.value.singleInstance)
   /** タッチ操作中心の画面（幅に応じて 1 画面ずつ進む表示・44px のタップ領域）。Android だけ true。 */
   const touchUi = computed(() => capabilities.value.touchUi)
-  /** 画面の端に残るマスコット（別ウィンドウ）を出せる OS。Windows だけ true（既定は false）。 */
-  const supportsMascot = computed(() => capabilities.value.supportsMascot)
+  const supportsMascot = computed(() => capabilities.value.supportsMascot) // 画面の端に残るマスコット（別ウィンドウ）。Windows だけ true
 
   /** 冪等。起動時に 1 回だけ読む。失敗時はエラートーストを出して既定値（デスクトップ）のままにする。 */
   async function start(): Promise<void> {

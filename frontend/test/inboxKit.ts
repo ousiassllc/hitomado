@@ -1,6 +1,7 @@
 import { expect, mock } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
 import * as realAccount from '../bindings/github.com/ousiassllc/hitomado/internal/app/accountservice'
+import * as realAgent from '../bindings/github.com/ousiassllc/hitomado/internal/app/agentcore/agentservice'
 import * as realApp from '../bindings/github.com/ousiassllc/hitomado/internal/app/appservice'
 import type { ThreadSummary } from '../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import * as realInbox from '../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
@@ -40,6 +41,16 @@ export function installMocks(): void {
     GetInboxFilter: binding('GetInboxFilter'),
     SetInboxFilter: binding('SetInboxFilter'),
   }))
+  mock.module(`${B}/agentcore/agentservice`, () => ({
+    GetAgentSettings: binding('GetAgentSettings'),
+    SetAgentEnabled: binding('SetAgentEnabled'),
+    SetAgentMascot: binding('SetAgentMascot'),
+    ListAgentItems: binding('ListAgentItems'),
+    AnswerAgentQuestions: binding('AnswerAgentQuestions'),
+    DeferAgentItem: binding('DeferAgentItem'),
+    ConfirmAgentItem: binding('ConfirmAgentItem'),
+    ReconsiderAgentItem: binding('ReconsiderAgentItem'),
+  }))
   mock.module(`${B}/inboxservice`, () => ({
     ListInbox: binding('ListInbox'),
     Search: binding('Search'),
@@ -62,6 +73,7 @@ export function installMocks(): void {
 /** 他のテストファイルへモックが漏れないよう、本物へ戻す。 */
 export function restoreMocks(): void {
   mock.module(`${B}/accountservice`, () => ({ ...realAccount }))
+  mock.module(`${B}/agentcore/agentservice`, () => ({ ...realAgent }))
   mock.module(`${B}/appservice`, () => ({ ...realApp }))
   mock.module(`${B}/inboxservice`, () => ({ ...realInbox }))
   mock.module('../src/lib/events', () => ({ ...realEvents }))
@@ -139,5 +151,34 @@ export function resetKit(): void {
     Trash: markGone,
     MarkRead: [],
     Refresh: { results: [] },
+    GetAgentSettings: { enabled: false, mascotEnabled: false, aiReady: true },
+    ListAgentItems: { pendingCount: 0, items: [] },
   })
 }
+
+/** エージェントの 1 行（既定は確認待ち）。 */
+export function agentItem(id: string, over: Record<string, unknown> = {}) {
+  return {
+    id,
+    accountId: 'a1',
+    accountName: '仕事',
+    accountEmail: 'a1@example.com',
+    threadId: `t-${id}`,
+    status: 'ready',
+    subject: `件名-${id}`,
+    from: '山田',
+    reasonKind: 'needs_reply',
+    reason: '日程の相談です',
+    draftId: `d-${id}`,
+    draftPreview: 'ご連絡ありがとうございます。',
+    to: [{ name: '山田', email: 'y@example.com' }],
+    questions: [],
+    updatedAt: 1,
+    ...over,
+  }
+}
+
+export const agentOverview = (items: ReturnType<typeof agentItem>[]) => ({
+  pendingCount: items.filter((i) => i.status === 'ready' || i.status === 'asking').length,
+  items,
+})

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { SwitchRoot, SwitchThumb } from 'reka-ui'
 
-defineProps<{ modelValue: boolean; ariaLabel: string }>()
+defineProps<{ modelValue: boolean; ariaLabel: string; disabled?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 </script>
 
@@ -10,6 +10,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
     class="sw"
     :model-value="modelValue"
     :aria-label="ariaLabel"
+    :disabled="disabled"
     @update:model-value="(v) => emit('update:modelValue', v === true)"
   >
     <SwitchThumb class="sw-thumb" />
@@ -30,6 +31,11 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
   transition:
     background-color var(--motion-base) var(--ease-out),
     border-color var(--motion-base) var(--ease-out);
+}
+
+.sw:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 .sw:focus-visible {

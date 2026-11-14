@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { nav } from '../../lib/messages'
+import { computed } from 'vue'
+import { agent, nav } from '../../lib/messages'
+import { useAgentStore } from '../../stores/agent'
 import { useUiStore } from '../../stores/ui'
 import AgentMascot from './AgentMascot.vue'
 
-// サイドバーの下（設定の上）のエージェントの入口。押すと右にパネルが開く。中身（エージェントモード）は別 Issue なので、
-// 今は「準備中」とだけ出す（確認待ちの件数は中身ができてから出す）。
+// サイドバーの下（設定の上）のエージェントの入口。押すと右にパネルが開く。一言は、オフ→「オフ」、オン→確認待ちが無ければ「オン」・あれば「確認待ち N件」。
 const ui = useUiStore()
+const store = useAgentStore()
+const sub = computed(() => {
+  if (!store.enabled) return agent.entry.off
+  return store.pendingCount > 0 ? agent.entry.pending(store.pendingCount) : agent.entry.on
+})
 </script>
 
 <template>
@@ -20,7 +26,7 @@ const ui = useUiStore()
     <AgentMascot :size="32" />
     <span class="text">
       <span class="title">{{ nav.agent.label }}</span>
-      <span class="sub">{{ nav.agent.preparing }}</span>
+      <span class="sub">{{ sub }}</span>
     </span>
   </button>
 </template>

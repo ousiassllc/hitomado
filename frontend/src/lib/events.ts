@@ -8,6 +8,8 @@ export const EVENTS = {
   NOTIFY_OPEN_THREAD: 'notify:open-thread',
   UPDATE_AVAILABLE: 'update:available',
   UPDATE_STATUS: 'update:status',
+  AGENT_UPDATED: 'agent:updated',
+  AGENT_OPEN_PANEL: 'agent:open-panel',
 } as const
 
 export type AccountStatus = 'active' | 'syncing' | 'needs_reauth' | 'error'

@@ -24,6 +24,7 @@ const ANDROID_CAPS: Capabilities = {
   supportsWindowState: false,
   singleInstance: false,
   touchUi: true,
+  supportsMascot: false,
 }
 
 function setup() {

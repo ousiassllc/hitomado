@@ -10,7 +10,6 @@ const { useAccountsStore } = await import('../../stores/accounts')
 const { useUiStore } = await import('../../stores/ui')
 const { default: BottomTabs } = await import('./BottomTabs.vue')
 const { default: SidebarPlaces } = await import('./SidebarPlaces.vue')
-const { default: AgentPanel } = await import('./AgentPanel.vue')
 const { default: AccountChips } = await import('../account/AccountChips.vue')
 
 beforeEach(resetKit)
@@ -101,17 +100,5 @@ describe('スマホのアカウントのチップ', () => {
     await chips[0]?.trigger('click')
     await flushPromises()
     expect(inbox.filter.accountIds).toEqual([])
-  })
-})
-
-describe('エージェントのパネル', () => {
-  test('中身は準備中の表示だけ。Esc で閉じる', async () => {
-    const ui = useUiStore()
-    ui.openAgent()
-    const w = mount(AgentPanel, { attachTo: document.body })
-    expect(w.text()).toContain('準備中')
-    await w.get('aside').trigger('keydown', { key: 'Escape' })
-    expect(ui.agentOpen).toBe(false)
-    w.unmount()
   })
 })

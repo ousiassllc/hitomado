@@ -13,6 +13,7 @@ const ANDROID = {
   supportsWindowState: false,
   singleInstance: false,
   touchUi: true,
+  supportsMascot: false,
 }
 
 let calls = 0

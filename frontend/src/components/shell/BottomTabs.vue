@@ -3,7 +3,8 @@ import { EditPencil, Mail, MoreHoriz } from '@iconoir/vue'
 import { computed } from 'vue'
 import { useUnreadTotal } from '../../composables/useUnreadTotal'
 import type { InboxView } from '../../lib/inboxViews'
-import { common, nav } from '../../lib/messages'
+import { agent, common, nav } from '../../lib/messages'
+import { useAgentStore } from '../../stores/agent'
 import { useInboxStore } from '../../stores/inbox'
 import { useLayoutStore } from '../../stores/layout'
 import { useUiStore } from '../../stores/ui'
@@ -12,8 +13,8 @@ import CountBadge from '../ui/CountBadge.vue'
 import AgentMascot from './AgentMascot.vue'
 
 // スマホ（2 ペイン・1 画面ずつ）の下 4 タブ: 受信箱・下書き・エージェント・その他。ハンバーガーのドロワーの代わり。
-// バッジは受信箱の未読数だけ（エージェントの確認待ちは、中身ができてから）。その他は 送信済み・アーカイブ・設定・アカウントを追加。
-// エージェントは中身ができるまでは「準備中」のパネルを開く。
+// バッジは受信箱の未読数と、エージェントの確認待ち・質問待ちの件数（0 件は出さない）。その他は 送信済み・アーカイブ・設定・アカウントを追加。
+const agentStore = useAgentStore()
 const inbox = useInboxStore()
 const layout = useLayoutStore()
 const ui = useUiStore()
@@ -63,8 +64,19 @@ function onMore(key: string): void {
       <span class="face"><EditPencil class="icon icon-md" aria-hidden="true" /></span>
       {{ nav.tabs.drafts }}
     </button>
-    <button type="button" class="tab" aria-controls="agent-panel" :aria-expanded="ui.agentOpen" data-testid="tab-agent" @click="ui.openAgent()">
-      <span class="face"><AgentMascot :size="26" /></span>
+    <button
+      type="button"
+      class="tab"
+      aria-controls="agent-panel"
+      :aria-expanded="ui.agentOpen"
+      :aria-label="agentStore.pendingCount > 0 ? agent.tab.pending(agentStore.pendingCount) : undefined"
+      data-testid="tab-agent"
+      @click="ui.openAgent()"
+    >
+      <span class="face">
+        <AgentMascot :size="26" />
+        <CountBadge class="pill" :count="agentStore.pendingCount" :label="agent.tab.badge(agentStore.pendingCount)" />
+      </span>
       {{ nav.tabs.agent }}
     </button>
     <BaseMenu :items="moreItems" @select="onMore">

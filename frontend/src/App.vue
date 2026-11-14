@@ -13,6 +13,7 @@ import AppShell from './components/shell/AppShell.vue'
 import { useQuitFlush } from './composables/useQuitFlush'
 import { useTheme } from './composables/useTheme'
 import { useAccountsStore } from './stores/accounts'
+import { useAgentStore } from './stores/agent'
 import { useInboxStore } from './stores/inbox'
 import { usePlatformStore } from './stores/platform'
 import { useSettingsStore } from './stores/settings'
@@ -22,6 +23,7 @@ useTheme()
 useQuitFlush()
 
 const accounts = useAccountsStore()
+const agentStore = useAgentStore()
 const inbox = useInboxStore()
 const thread = useThreadStore()
 const settings = useSettingsStore()
@@ -30,7 +32,7 @@ const platform = usePlatformStore()
 // 各ストアの start() はイベント購読＋初期ロード（冪等）。1 つの失敗で他を止めない。
 onMounted(() => {
   thread.start()
-  void Promise.allSettled([platform.start(), accounts.start(), inbox.start(), settings.start()])
+  void Promise.allSettled([platform.start(), accounts.start(), inbox.start(), settings.start(), agentStore.start()])
 })
 </script>
 

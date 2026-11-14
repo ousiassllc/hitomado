@@ -128,7 +128,7 @@ describe('normalizeSignatureHtml', () => {
 })
 
 describe('SettingsDialog', () => {
-  test('uiStore.dialogs.settings で開き、7 つのタブを出す', async () => {
+  test('uiStore.dialogs.settings で開き、8 つのタブを出す', async () => {
     const pinia = setup()
     const ui = useUiStore()
     // 開いた時の load() は Wails ランタイムを呼ぶので、読み込み済みにして空振りさせる
@@ -142,7 +142,9 @@ describe('SettingsDialog', () => {
     const tabs = [...document.body.querySelectorAll('[role="tab"]')].map((t) =>
       t.textContent?.trim(),
     )
-    expect(tabs).toEqual(['アカウント', 'OAuth クライアント', '署名', 'AI', 'MCP', 'ログ', '一般'])
+    expect(tabs).toEqual(
+      'アカウント,OAuth クライアント,署名,AI,エージェント,MCP,ログ,一般'.split(','),
+    )
     w.unmount()
   })
 })
@@ -155,6 +157,7 @@ const ANDROID_CAPS: Capabilities = {
   supportsWindowState: false,
   singleInstance: false,
   touchUi: true,
+  supportsMascot: false,
 }
 
 describe('SettingsDialog（Android: 機能が無い OS）', () => {
@@ -171,7 +174,15 @@ describe('SettingsDialog（Android: 機能が無い OS）', () => {
     const tabs = [...document.body.querySelectorAll('[role="tab"]')].map((t) =>
       t.textContent?.trim(),
     )
-    expect(tabs).toEqual(['アカウント', 'OAuth クライアント', '署名', 'AI', 'ログ', '一般'])
+    expect(tabs).toEqual([
+      'アカウント',
+      'OAuth クライアント',
+      '署名',
+      'AI',
+      'エージェント',
+      'ログ',
+      '一般',
+    ])
     expect(document.body.querySelector('[role="dialog"]')?.textContent).not.toContain('MCP')
     w.unmount()
   })

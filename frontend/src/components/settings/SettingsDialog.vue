@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { computed, watch } from 'vue'
-import { settings as msg } from '../../lib/messages'
+import { agent, settings as msg } from '../../lib/messages'
 import { useLayoutStore } from '../../stores/layout'
 import { usePlatformStore } from '../../stores/platform'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
+import AgentSettings from '../agent/AgentSettings.vue'
 import BaseDialog from '../ui/BaseDialog.vue'
 import AccountsSettings from './accounts/AccountsSettings.vue'
 import AIProviders from './ai/providers/AIProviders.vue'
@@ -26,6 +27,7 @@ const tabs = computed(() => [
   { value: 'oauth', label: msg.tabs.oauthClients, component: OAuthClientsSettings },
   { value: 'signature', label: msg.tabs.signature, component: SignatureSettings },
   { value: 'ai', label: msg.tabs.ai, component: AIProviders },
+  { value: 'agent', label: agent.settings.tab, component: AgentSettings },
   ...(platform.supportsMcp ? [{ value: 'mcp', label: msg.tabs.mcp, component: McpSettings }] : []),
   { value: 'logs', label: msg.tabs.logs, component: LogSettings },
   { value: 'general', label: msg.tabs.general, component: GeneralSettings },

@@ -19,6 +19,9 @@ const EVENTS = {
   BEFORE_QUIT: 'app:before-quit',
   NOTIFY_OPEN_THREAD: 'notify:open-thread',
   UPDATE_AVAILABLE: 'update:available',
+  UPDATE_STATUS: 'update:status',
+  AGENT_UPDATED: 'agent:updated',
+  AGENT_OPEN_PANEL: 'agent:open-panel',
 } as const
 
 export const handlers = new Map<string, Handler>()

@@ -13,9 +13,7 @@ export const nav = {
   },
   agent: {
     label: 'エージェント',
-    preparing: '準備中',
     panelTitle: 'エージェント',
-    panelBody: 'エージェントは準備中です。できあがるまで、ここには何も出ません。',
     close: 'エージェントを閉じる',
   },
   tabs: {
