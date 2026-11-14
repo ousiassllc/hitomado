@@ -38,6 +38,11 @@ type cycle struct {
 	// 新着通知の候補（messagesAdded のうち INBOX＋UNREAD。メッセージ ID → 追加情報）。通知しないときは nil。
 	candidates map[string]gmail.HistoryAdded
 	notified   map[string]struct{} // 通知済みスレッド（1 周期 1 スレッド 1 通知）
+
+	// 新着の観測口（SetNewMailObserver）の候補。差分同期で観測口が設定されているときだけ集める（observe）。
+	observe         bool
+	observed        []NewMailCandidate
+	observedDropped int // 上限を超えて捨てた候補の数
 }
 
 func newCycle(acct store.Account) *cycle {
@@ -175,6 +180,7 @@ func (s *Scheduler) flush(ctx context.Context, cyc *cycle) {
 			s.log.Warn("add contacts failed", "account", cyc.acct.ID, "err", err)
 		}
 	}
+	s.notifyObserver(ctx, cyc)
 	s.updateUnread(ctx)
 	if len(cyc.changed) > 0 {
 		s.events.Emit(events.SyncUpdated, events.SyncUpdatedPayload{AccountID: cyc.acct.ID, ChangedThreadIDs: cyc.changed})

@@ -28,6 +28,7 @@ func (s *Scheduler) deltaSync(ctx context.Context, cyc *cycle, st store.SyncStat
 	if cyc.acct.NotifyEnabled {
 		cyc.candidates = candidatesOf(hp.Added)
 	}
+	cyc.observe = s.observer.Load() != nil
 	if err := s.ingest(ctx, cyc, fs); err != nil {
 		return st, err
 	}

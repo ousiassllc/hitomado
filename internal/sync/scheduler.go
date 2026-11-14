@@ -62,6 +62,8 @@ type Scheduler struct {
 	refreshes map[string]*refreshCall
 
 	unreadMu sync.Mutex // updateUnread の「未読数の取得→トレイへの反映」を直列化する
+
+	observer atomic.Pointer[NewMailObserver] // 新着の観測口（SetNewMailObserver。nil は未設定）
 }
 
 var _ Engine = (*Scheduler)(nil)

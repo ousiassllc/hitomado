@@ -1,20 +1,43 @@
-package app
+package agentcore
 
 import (
 	"context"
 
-	"github.com/ousiassllc/hitomado/internal/app/agentcore"
 	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
+	syncer "github.com/ousiassllc/hitomado/internal/sync"
 )
 
 // AgentService はエージェントモード（#372）の設定・確認待ちの一覧・質問への答え（バインディング仕様 §9）。
-// Wails のバインディング面で、実装は agentcore に委譲する。エージェントは送信しない（送信は ComposeService を人が操作したときだけ）。
-type AgentService struct{ core *agentcore.Service }
+// Wails のバインディング面で、実装は Service に委譲する。エージェントは送信しない（送信は ComposeService を人が操作したときだけ）。
+type AgentService struct{ core *Service }
 
-// NewAgentService は AgentService を作る。
-func NewAgentService(d *Deps) *AgentService {
-	return &AgentService{core: agentcore.New((*deps.Deps)(d))}
+// NewAgentService は AgentService を作る。AI の判断・本文づくりに ai、返信の下書きづくりに drafts を使う
+// （Service には、判断・本文・Ready と CreateReplyDraft、下書きの読み取り（GetDraft）だけを狭いインターフェースで渡す。送信の経路は渡さない）。
+func NewAgentService(d *deps.Deps, ai AI, drafts ReplyDrafter) *AgentService {
+	return &AgentService{core: New(Deps{
+		Store: d.Store, Threads: d.Threads, AI: ai, Drafts: drafts, Gmail: d.Gmail,
+		Events: d.Events, Clock: d.Clock, Logger: d.Logger,
+		Mascot: d.Mascot, ShowMainWindow: d.ShowMainWindow,
+	})}
+}
+
+// Start は古い項目の削除・マスコットの表示の反映をして、新着を処理するワーカーを起動する（冪等）。ctx の終了で止まる。
+// Start・Wait・OnNewMail はアプリの起動・終了処理（run.go）と同期の観測口用で、フロントには公開しない。
+//
+//wails:ignore
+func (s *AgentService) Start(ctx context.Context) { s.core.Start(ctx) }
+
+// Wait はワーカーの終了を待つ（Start に渡した ctx のキャンセルのあと）。
+//
+//wails:ignore
+func (s *AgentService) Wait() { s.core.Wait() }
+
+// OnNewMail は同期の新着の観測口（syncer.Scheduler.SetNewMailObserver に渡す）。エージェントがオフのときは何もしない。
+//
+//wails:ignore
+func (s *AgentService) OnNewMail(ctx context.Context, accountID string, cands []syncer.NewMailCandidate) {
+	s.core.OnNewMail(ctx, accountID, cands)
 }
 
 // GetAgentSettings はエージェントモード・マスコットの設定と、AI が使える状態かを返す。既定はすべてオフ。

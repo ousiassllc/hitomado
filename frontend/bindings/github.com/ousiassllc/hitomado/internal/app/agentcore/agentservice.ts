@@ -3,7 +3,7 @@
 
 /**
  * AgentService はエージェントモード（#372）の設定・確認待ちの一覧・質問への答え（バインディング仕様 §9）。
- * Wails のバインディング面で、実装は agentcore に委譲する。エージェントは送信しない（送信は ComposeService を人が操作したときだけ）。
+ * Wails のバインディング面で、実装は Service に委譲する。エージェントは送信しない（送信は ComposeService を人が操作したときだけ）。
  * @module
  */
 
@@ -13,67 +13,67 @@ import { Call as $Call, CancellablePromise as $CancellablePromise } from "@wails
 
 // eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-ignore: Unused imports
-import * as dto$0 from "./dto/models.js";
+import * as dto$0 from "../dto/models.js";
 
 /**
  * AnswerAgentQuestions は質問への答えを受けて、下書きを作る（または作り直す）。answers は質問と同じ順・同じ件数。
  */
 export function AnswerAgentQuestions(itemID: string, answers: string[] | null): $CancellablePromise<dto$0.AgentItem> {
-    return $Call.ByID(2031027424, itemID, answers);
+    return $Call.ByID(862093625, itemID, answers);
 }
 
 /**
  * ConfirmAgentItem は利用者が下書きを開いて確認したことを記録する（確認済みにする）。
  */
 export function ConfirmAgentItem(itemID: string): $CancellablePromise<dto$0.AgentItem> {
-    return $Call.ByID(1536806898, itemID);
+    return $Call.ByID(4059064947, itemID);
 }
 
 /**
  * DeferAgentItem は確認待ち・質問待ちを「あとで」にする。
  */
 export function DeferAgentItem(itemID: string): $CancellablePromise<dto$0.AgentItem> {
-    return $Call.ByID(1937017454, itemID);
+    return $Call.ByID(3962546847, itemID);
 }
 
 /**
  * GetAgentSettings はエージェントモード・マスコットの設定と、AI が使える状態かを返す。既定はすべてオフ。
  */
 export function GetAgentSettings(): $CancellablePromise<dto$0.AgentSettings> {
-    return $Call.ByID(3661990720);
+    return $Call.ByID(770741321);
 }
 
 /**
  * ListAgentItems はエージェントが扱った新着（確認待ち・質問待ち・返信不要・あとで・確認済み・失敗）を新しい順に返す。
  */
 export function ListAgentItems(): $CancellablePromise<dto$0.AgentOverview> {
-    return $Call.ByID(479698475);
+    return $Call.ByID(1224532142);
 }
 
 /**
  * OpenAgentPanel はメインウィンドウを前面に出し、エージェントのパネルを開かせる（マスコットの押下）。
  */
 export function OpenAgentPanel(): $CancellablePromise<void> {
-    return $Call.ByID(3497904433);
+    return $Call.ByID(1623187208);
 }
 
 /**
  * ReconsiderAgentItem は「やっぱり返信する」。返信不要と判断したもの・失敗したものを、返信が要る前提で下書き作り（必要なら質問）からやり直す。
  */
 export function ReconsiderAgentItem(itemID: string): $CancellablePromise<dto$0.AgentItem> {
-    return $Call.ByID(4217435632, itemID);
+    return $Call.ByID(3217920667, itemID);
 }
 
 /**
  * SetAgentEnabled はエージェントモードのオン・オフ。オンにするには agreed（新着メールの内容を設定済みの AI へ送ることへの同意）が真で、AI が設定済みであること。
  */
 export function SetAgentEnabled(enabled: boolean, agreed: boolean): $CancellablePromise<dto$0.AgentSettings> {
-    return $Call.ByID(3782493362, enabled, agreed);
+    return $Call.ByID(536993385, enabled, agreed);
 }
 
 /**
  * SetAgentMascot は画面の端のマスコット（Windows）のオン・オフ。
  */
 export function SetAgentMascot(enabled: boolean): $CancellablePromise<dto$0.AgentSettings> {
-    return $Call.ByID(1692943478, enabled);
+    return $Call.ByID(2283659555, enabled);
 }

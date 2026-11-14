@@ -14,3 +14,10 @@ func (s *Service) SendingForTest(sessionID string) bool {
 	cs, ok := s.sessions[sessionID]
 	return ok && cs.sending
 }
+
+// SessionCountForTest は開いている作成セッションの数（テスト専用。画面を介さない下書きづくりがセッションを残さないことの確認に使う）。
+func (s *Service) SessionCountForTest() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return len(s.sessions)
+}

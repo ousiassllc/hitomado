@@ -19,6 +19,8 @@ type fetched struct {
 	id   string
 	meta gmail.ThreadMeta
 	gone bool
+	// hadDraft は取得したメタデータに下書き（DRAFT）のメッセージがあったか（meta からは下書きを除くので、除く前に控える）。
+	hadDraft bool
 }
 
 // fetchThreads は ids のメタデータを最大 fetchConcurrency 並列で取得する。結果は ids の順。
@@ -75,8 +77,9 @@ func (s *Scheduler) fetchOne(ctx context.Context, accountID, id string) (f fetch
 	meta, err := s.gmail.GetThreadMetadata(ctx, accountID, id)
 	switch {
 	case err == nil:
+		hadDraft := slices.ContainsFunc(meta.Messages, func(m gmail.MessageMeta) bool { return slices.Contains(m.LabelIDs, labelDraft) })
 		meta.Messages = withoutDrafts(meta.Messages)
-		return fetched{id: id, meta: meta, gone: len(meta.Messages) == 0}, nil
+		return fetched{id: id, meta: meta, gone: len(meta.Messages) == 0, hadDraft: hadDraft}, nil
 	case errors.Is(err, gmail.ErrNotFound):
 		return fetched{id: id, gone: true}, nil
 	default:
@@ -156,6 +159,9 @@ func (s *Scheduler) ingest(ctx context.Context, cyc *cycle, fs []fetched) error 
 		cyc.recordNew(f.meta, res.NewMessageIDs)
 		if cyc.candidates != nil {
 			s.collectNotice(ctx, cyc, f.id, res.NewMessageIDs)
+		}
+		if cyc.observe {
+			s.collectObserved(cyc, f, res.NewMessageIDs)
 		}
 	}
 	return nil

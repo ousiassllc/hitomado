@@ -33,6 +33,23 @@ type AccountSyncState struct {
 	LastError       sql.NullString
 }
 
+type AgentItem struct {
+	ID            string
+	AccountID     string
+	ThreadID      string
+	MessageID     string
+	Status        string
+	Subject       string
+	FromLabel     string
+	ReasonKind    string
+	Reason        string
+	DraftID       string
+	ToJson        string
+	QuestionsJson string
+	CreatedAt     int64
+	UpdatedAt     int64
+}
+
 type AppSetting struct {
 	Key       string
 	Value     string

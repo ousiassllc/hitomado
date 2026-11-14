@@ -102,6 +102,13 @@ func (g *chatGPT) AskAboutThread(ctx context.Context, in ThreadQuestionInput) (s
 	return g.complete(ctx, askSystemPrompt(in.ThreadInput), askMessages(in), in.Effort)
 }
 
+// JudgeReply は Provider の実装。
+func (g *chatGPT) JudgeReply(ctx context.Context, in ReplyJudgeInput) (ReplyJudgment, error) {
+	return judgeWith(in, func(system string, msgs []chatMessage) (string, error) {
+		return g.complete(ctx, system, msgs, in.Effort)
+	})
+}
+
 // complete は instructions とメッセージ列を Responses API へ送り、ストリームを response.completed まで読み、
 // delta を連結して返す。
 func (g *chatGPT) complete(ctx context.Context, instructions string, messages []chatMessage, effort string) (string, error) {

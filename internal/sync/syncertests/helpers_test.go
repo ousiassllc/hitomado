@@ -23,6 +23,8 @@ type skipLog struct {
 	mu     sync.Mutex
 	count  map[string]int
 	panics int // "panic" レコード（logging.Recover が書く）の数
+	// dropped は新着の観測口の「候補が上限を超えて捨てられた」ログの count の合計。
+	dropped int64
 }
 
 const skippedMsg = "sync cycle skipped: paused"
@@ -35,6 +37,17 @@ func (l *skipLog) Handle(_ context.Context, r slog.Record) error {
 		l.mu.Lock()
 		l.panics++
 		l.mu.Unlock()
+		return nil
+	}
+	if r.Message == "new mail candidates dropped" {
+		r.Attrs(func(a slog.Attr) bool {
+			if a.Key == "count" {
+				l.mu.Lock()
+				l.dropped += a.Value.Int64()
+				l.mu.Unlock()
+			}
+			return true
+		})
 		return nil
 	}
 	if r.Message != skippedMsg {

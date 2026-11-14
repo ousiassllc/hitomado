@@ -57,6 +57,13 @@ func (a *anthropic) AskAboutThread(ctx context.Context, in ThreadQuestionInput) 
 	return a.complete(ctx, askSystemPrompt(in.ThreadInput), askMessages(in), in.Effort)
 }
 
+// JudgeReply は Provider の実装。
+func (a *anthropic) JudgeReply(ctx context.Context, in ReplyJudgeInput) (ReplyJudgment, error) {
+	return judgeWith(in, func(system string, msgs []chatMessage) (string, error) {
+		return a.complete(ctx, system, msgs, in.Effort)
+	})
+}
+
 // complete は system 指示とメッセージ列を Messages API へ送り、応答のテキストを返す。
 func (a *anthropic) complete(ctx context.Context, system string, messages []chatMessage, effort string) (string, error) {
 	req := anthropicRequest{
@@ -110,6 +117,13 @@ func (o *openAI) SummarizeThread(ctx context.Context, in ThreadInput) (string, e
 // AskAboutThread は Provider の実装。
 func (o *openAI) AskAboutThread(ctx context.Context, in ThreadQuestionInput) (string, error) {
 	return o.complete(ctx, askSystemPrompt(in.ThreadInput), askMessages(in), in.Effort)
+}
+
+// JudgeReply は Provider の実装。
+func (o *openAI) JudgeReply(ctx context.Context, in ReplyJudgeInput) (ReplyJudgment, error) {
+	return judgeWith(in, func(system string, msgs []chatMessage) (string, error) {
+		return o.complete(ctx, system, msgs, in.Effort)
+	})
 }
 
 // complete は system 指示とメッセージ列を Chat Completions へ送り、応答のテキストを返す。

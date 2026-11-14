@@ -16,7 +16,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/domain/textconv"
 	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/siwc"
+	"github.com/ousiassllc/hitomado/internal/store"
 )
 
 // AI に渡すコンテキストの上限（NF §12）。
@@ -144,74 +144,30 @@ func (s *Service) mapProviderError(provider, effort string, err error) error {
 	return apperr.FromInfra(err, "")
 }
 
-// precheck は前提条件（キー・モデル設定済み→同意済み）を検査する。キーはここ以外に渡さない。
-func (s *Service) precheck(ctx context.Context) (storedAIConfig, string, error) {
-	cfg, err := s.loadConfig(ctx)
-	if err != nil {
-		return cfg, "", err
-	}
-	// ChatGPT のトークンは、同意の確認が済むまで取得（更新）しない。まずはログイン済みかだけを見る。
-	var (
-		key string
-		ok  bool
-	)
-	if cfg.Provider == providerChatGPT {
-		var gpt siwc.Status
-		gpt, err = s.chatGPTStatus(ctx)
-		ok = gpt.SignedIn
-	} else {
-		key, ok, err = s.apiKey(cfg.Provider)
-	}
-	if err != nil {
-		return cfg, "", err
-	}
-	if !ok || strings.TrimSpace(cfg.Model) == "" {
-		if cfg.Provider == providerChatGPT {
-			return cfg, "", apperr.New(apperr.AINotConfigured, "ChatGPT にログインし、モデルを設定画面で設定してください。")
-		}
-		return cfg, "", apperr.New(apperr.AINotConfigured, "AI の API キーとモデルを設定画面で設定してください。")
-	}
-	if cfg.BaseURL != "" && cfg.Provider == providerOpenAI {
-		// 保存済みの旧設定（非 loopback の http:// など）は、接続前に分かりやすく拒否する。
-		if err := validateBaseURL(cfg.BaseURL); err != nil {
-			return cfg, "", apperr.Wrap(apperr.Validation, "保存済みの Base URL は使えません。設定画面で https:// の URL（または localhost の http://）に直してください。", err)
-		}
-	}
-	consented, err := s.loadConsent(ctx, cfg)
-	if err != nil {
-		return cfg, "", err
-	}
-	if !slices.Contains(consented, cfg.Provider) {
-		return cfg, "", apperr.New(apperr.AIConsentRequired, "スレッドの内容が AI プロバイダへ送信されることへの同意が必要です。")
-	}
-	if cfg.Provider == providerChatGPT {
-		key, ok, err = s.credential(ctx, cfg.Provider)
-		if err != nil {
-			return cfg, "", err
-		}
-		if !ok {
-			return cfg, "", apperr.New(apperr.AINotConfigured, "ChatGPT にログインし、モデルを設定画面で設定してください。")
-		}
-	}
-	return cfg, key, nil
-}
-
 // buildInput はスレッドから AI への入力を作る（DRAFT を除き、テキスト化し、5 件・20,000 文字へ切り詰める）。
 func (s *Service) buildInput(ctx context.Context, ref dto.ThreadRef) (ai.ReplyInput, error) {
-	acct, err := s.d.Store.GetAccount(ctx, ref.AccountID)
+	acct, msgs, err := s.replyContext(ctx, ref)
 	if err != nil {
 		return ai.ReplyInput{}, err
 	}
-	thread, err := s.d.Threads.Get(ctx, ref.AccountID, ref.ThreadID)
-	if err != nil {
-		return ai.ReplyInput{}, err
-	}
-	msgs := contextMessages(thread)
 	return ai.ReplyInput{
 		AccountDisplayName: acct.DisplayName,
 		SignatureText:      strings.TrimSpace(textconv.HTMLToText(acct.SignatureHTML)),
-		Messages:           ai.Truncate(msgs, aiContextMessages, aiContextChars),
+		Messages:           msgs,
 	}, nil
+}
+
+// replyContext は返信下書き・返信要否の判断に渡す、受信アカウントとスレッドのメッセージ（DRAFT を除き、5 件・20,000 文字へ切り詰め済み）。
+func (s *Service) replyContext(ctx context.Context, ref dto.ThreadRef) (store.Account, []ai.ContextMessage, error) {
+	acct, err := s.d.Store.GetAccount(ctx, ref.AccountID)
+	if err != nil {
+		return store.Account{}, nil, err
+	}
+	thread, err := s.d.Threads.Get(ctx, ref.AccountID, ref.ThreadID)
+	if err != nil {
+		return store.Account{}, nil, err
+	}
+	return acct, ai.Truncate(contextMessages(thread), aiContextMessages, aiContextChars), nil
 }
 
 // contextMessages はスレッドの DRAFT でないメッセージを、古い順のままプレーンテキスト化して返す（添付はファイル名とサイズだけ）。
@@ -313,12 +269,4 @@ func (s *Service) CancelGenerate(requestID string) error {
 		cancel(errCancelledByUser)
 	}
 	return nil
-}
-
-// precheckError は precheck の失敗を返す形にする。実行が中止されていれば（ChatGPT のトークン更新の途中を含む）CANCELLED にする。
-func (s *Service) precheckError(runCtx context.Context, err error) error {
-	if runCtx.Err() != nil {
-		return s.mapError(runCtx, err, "")
-	}
-	return err
 }

@@ -63,6 +63,11 @@ func (p *provider) AskAboutThread(ctx context.Context, _ ai.ThreadQuestionInput)
 	return p.call(ctx)
 }
 
+func (p *provider) JudgeReply(ctx context.Context, _ ai.ReplyJudgeInput) (ai.ReplyJudgment, error) {
+	_, err := p.call(ctx)
+	return ai.ReplyJudgment{}, err
+}
+
 func (p *provider) count() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()

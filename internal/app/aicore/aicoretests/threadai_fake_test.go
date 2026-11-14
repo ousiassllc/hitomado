@@ -31,3 +31,14 @@ func (p *fakeProvider) threadResult(ctx context.Context) (string, error) {
 	}
 	return "- 回答", nil
 }
+
+// JudgeReply は入力を記録し、judgeFn（無ければ「返信が要る・質問なし」）で応答する。
+func (p *fakeProvider) JudgeReply(ctx context.Context, in ai.ReplyJudgeInput) (ai.ReplyJudgment, error) {
+	p.mu.Lock()
+	p.judgeInputs = append(p.judgeInputs, in)
+	p.mu.Unlock()
+	if p.judgeFn != nil {
+		return p.judgeFn(ctx, in)
+	}
+	return ai.ReplyJudgment{NeedsReply: true, ReasonKind: ai.ReasonRequest, Reason: "依頼されています", Questions: []string{}}, nil
+}

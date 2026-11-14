@@ -99,4 +99,7 @@ type Provider interface {
 	SummarizeThread(ctx context.Context, in ThreadInput) (string, error)
 	// AskAboutThread はスレッドの内容と会話を文脈に、質問への回答（日本語のプレーンテキスト）を返す（F-18）。
 	AskAboutThread(ctx context.Context, in ThreadQuestionInput) (string, error)
+	// JudgeReply は最後のメッセージに返信が要るかを判断する（エージェントモード。#372）。
+	// 応答が JSON として読めなければ ErrFailed。
+	JudgeReply(ctx context.Context, in ReplyJudgeInput) (ReplyJudgment, error)
 }

@@ -163,13 +163,17 @@ func run() error {
 		ChatGPT: siwc.New(siwc.Options{
 			OpenBrowser: platform.NewBrowser(wapp).Open, Secrets: sec, Settings: st, Clock: clk, Logger: logger,
 		}),
-		Background:   platform.NewBackground(logger),
-		OpenRequests: platform.NewOpenRequests(wapp, emitter),
-		Logger:       logger, DataDir: dir, Version: version, Capabilities: caps,
+		Background: platform.NewBackground(logger),
+		// エージェントのマスコット（Windows の別ウィンドウ。メインを閉じても残る。#372）。対応しない OS では何もしない。
+		Mascot:         platform.NewMascot(wapp, caps, nil, logger),
+		ShowMainWindow: func() { platform.ShowMainWindow(win) },
+		OpenRequests:   platform.NewOpenRequests(wapp, emitter),
+		Logger:         logger, DataDir: dir, Version: version, Capabilities: caps,
 		QuitAck: func() { quitter.Ack() }, RequestQuit: func() { quitter.Request() },
 		Threads: cache,
 	}
 	svc := app.NewServices(deps)
+	sched.SetNewMailObserver(svc.Agent.OnNewMail) // エージェントモード（#372）。オフのときは何もしない
 	for _, s := range bindingServices(svc, caps) {
 		wapp.RegisterService(s)
 	}
@@ -188,6 +192,7 @@ func run() error {
 		stopped := platform.WaitBounded(logger, func() {
 			cancel()
 			loops.Wait()
+			svc.Agent.Wait() // cancel() で止まるワーカーの完了待ち
 			svc.MCP.Shutdown()
 			sched.Shutdown()
 		}, platform.ShutdownGrace)
@@ -224,7 +229,8 @@ func run() error {
 // startBackground は MCP サーバー（OS が持ち、設定でオンのときだけ）・同期ワーカー（needs_reauth 以外）・
 // 更新確認ループ（OS が持つときだけ）を起動する。
 func startBackground(ctx context.Context, d *app.Deps, svc *app.Services, loops *sync.WaitGroup, logger *slog.Logger) {
-	svc.MCP.Start(ctx) // OS が持ち、設定でオンのときだけ待ち受ける（既定はオフ。Android では保存値がオンでも待ち受けない）
+	svc.Agent.Start(ctx) // エージェントモード（#372）。同期より先に始め、新着を取りこぼさない。既定はオフ
+	svc.MCP.Start(ctx)   // OS が持ち、設定でオンのときだけ待ち受ける（既定はオフ。Android では保存値がオンでも待ち受けない）
 	accounts, err := d.Store.ListAccounts(ctx)
 	if err != nil {
 		logger.Error("list accounts failed", "err", err.Error())

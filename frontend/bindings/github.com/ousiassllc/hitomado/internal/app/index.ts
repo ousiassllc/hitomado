@@ -3,7 +3,6 @@
 
 import * as AIService from "./aiservice.js";
 import * as AccountService from "./accountservice.js";
-import * as AgentService from "./agentservice.js";
 import * as AppService from "./appservice.js";
 import * as ComposeService from "./composeservice.js";
 import * as InboxService from "./inboxservice.js";
@@ -13,7 +12,6 @@ import * as ThreadService from "./threadservice.js";
 export {
     AIService,
     AccountService,
-    AgentService,
     AppService,
     ComposeService,
     InboxService,

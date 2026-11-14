@@ -203,6 +203,16 @@ type Store interface {
 	AddSentContacts(ctx context.Context, accountID string, addrs []model.Address, at time.Time) error
 	SuggestContacts(ctx context.Context, accountID, prefix string, limit int) ([]Contact, error)
 
+	// エージェントモード（#372）が扱った新着
+	CreateAgentItem(ctx context.Context, it AgentItem) (AgentItem, error) // (account, thread, message) の重複は ErrDuplicate
+	UpdateAgentItem(ctx context.Context, it AgentItem) (AgentItem, error) // 無ければ ErrNotFound
+	GetAgentItem(ctx context.Context, id string) (AgentItem, error)       // 無ければ ErrNotFound
+	ListAgentItems(ctx context.Context) ([]AgentItem, error)              // 新しい順（updated_at 降順）
+	AgentItemExists(ctx context.Context, accountID, threadID, messageID string) (bool, error)
+	CountPendingAgentItems(ctx context.Context) (int, error) // ready + asking
+	// DeleteFinishedAgentItemsBefore は updated_at が cutoff より古い done／skipped／failed の行を削除する。
+	DeleteFinishedAgentItemsBefore(ctx context.Context, cutoff time.Time) (int, error)
+
 	// 設定（値は JSON 文字列）
 	GetSetting(ctx context.Context, key string) (value string, ok bool, err error)
 	SetSetting(ctx context.Context, key, value string) error
@@ -225,4 +235,6 @@ const (
 	SettingSendConfirm = "compose.send_confirm"
 	// SettingInboxZero は Inbox Zero で使う「不要なメール」の理由ごとのオン・オフ（JSON オブジェクト。未設定は全部オン。#314）。
 	SettingInboxZero = "inbox_zero.reasons"
+	// SettingAgent はエージェントモードの設定（JSON オブジェクト {enabled, mascotEnabled, agreedAt}。未設定は全部オフ。#372）。
+	SettingAgent = "agent.settings"
 )

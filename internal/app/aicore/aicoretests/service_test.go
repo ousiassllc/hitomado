@@ -36,6 +36,9 @@ type fakeProvider struct {
 	summaries []ai.ThreadInput
 	questions []ai.ThreadQuestionInput
 	threadFn  func(ctx context.Context) (string, error)
+	// 返信要否の判断（エージェントモード。#372）。judgeFn が無ければ「返信が要る・質問なし」を返す。
+	judgeInputs []ai.ReplyJudgeInput
+	judgeFn     func(ctx context.Context, in ai.ReplyJudgeInput) (ai.ReplyJudgment, error)
 }
 
 func (p *fakeProvider) GenerateReply(ctx context.Context, in ai.ReplyInput) (string, error) {

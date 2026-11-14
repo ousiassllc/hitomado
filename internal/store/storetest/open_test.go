@@ -55,6 +55,10 @@ func TestSchemaStoresNoBodyAttachmentOrDraft(t *testing.T) {
 		if col == "threads.has_attachment" { // 添付の有無の近似フラグのみ許可（添付データは持たない）
 			continue
 		}
+		// エージェントモード（#372）が作った Gmail の下書きの参照（ID。本文ではない）だけ許可する。
+		if col == "agent_items.draft_id" {
+			continue
+		}
 		assert.NotRegexp(t, `(?i)body|attachment|draft`, col)
 	}
 	require.NoError(t, rows.Err())
