@@ -1,11 +1,14 @@
 package apptest
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"slices"
 	"sort"
 	"strings"
+
+	"github.com/jhillyerd/enmime/v2"
 
 	"github.com/ousiassllc/hitomado/internal/gmail"
 )
@@ -92,6 +95,47 @@ func (f *FakeGmail) FindDraftForThread(_ context.Context, accountID, threadID st
 	}
 	sort.Strings(ids)
 	return ids[0], true, nil
+}
+
+// ListDrafts は accountID の Drafts を、更新の新しい順（Gmail と同じ）に limit 件まで返す。
+// 返信かどうかは、保存された MIME の In-Reply-To（MIME が無いときは References）で決める。
+func (f *FakeGmail) ListDrafts(_ context.Context, accountID string, limit int) (gmail.DraftList, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if err := f.enter("ListDrafts", accountID); err != nil {
+		return gmail.DraftList{}, err
+	}
+	var all []gmail.DraftSummary
+	for k, d := range f.Drafts {
+		if acc, _, _ := strings.Cut(k, "/"); acc != accountID {
+			continue
+		}
+		all = append(all, gmail.DraftSummary{
+			ID: d.ID, ThreadID: d.ThreadID, UpdatedAt: d.Message.InternalDate, To: slices.Clone(d.Message.To),
+			Subject: d.Message.Subject, Snippet: d.Message.Snippet, IsReply: f.draftIsReply(k, d),
+		})
+	}
+	sort.Slice(all, func(i, j int) bool {
+		if !all[i].UpdatedAt.Equal(all[j].UpdatedAt) {
+			return all[i].UpdatedAt.After(all[j].UpdatedAt)
+		}
+		return all[i].ID < all[j].ID
+	})
+	out := gmail.DraftList{Items: []gmail.DraftSummary{}}
+	if limit < len(all) {
+		out.Truncated, all = true, all[:max(limit, 0)]
+	}
+	out.Items = append(out.Items, all...)
+	return out, nil
+}
+
+func (f *FakeGmail) draftIsReply(key string, d gmail.DraftFull) bool {
+	if raw, ok := f.DraftRaw[key]; ok {
+		if env, err := enmime.ReadEnvelope(bytes.NewReader(raw)); err == nil {
+			return strings.TrimSpace(env.GetHeader("In-Reply-To")) != ""
+		}
+	}
+	return len(d.Message.References) > 0
 }
 
 // ListLabels は Labels を返す（未設定は空）。

@@ -314,7 +314,30 @@ sequenceDiagram
 
 ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークンを `internal/siwc` が資格情報ストアに保持し、`PV` は Responses API（`store: false`・`stream: true`）を呼ぶ。生成中に 401 を受けたときは 1 度だけトークンを更新してやり直し、更新できなければ再ログインを案内する。複数の ChatGPT アカウントはアカウントごと（`client_id` ごと）にトークンと登録を分けて保存し、使用中のアカウントのトークンで生成する。ログイン・更新・ログアウトの手順は [バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)。
 
-生成中の中止はフロントが `CancelGenerate(requestId)` を呼び、`GenerateReplyDraft` は `CANCELLED` で reject される。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
+**新規作成（#365）**: フロントは `GenerateNewDraft(sessionId, requestId, instruction, { subject, to })` を呼ぶ。スレッドが無いので `threads.get` は呼ばず、`CS` から `new` セッションの送信元アカウントだけを取り（`new` 以外は `VALIDATION`）、指示（必須。空は通信前に `VALIDATION`）・入力済みの件名と宛先（To のみ）・送信元の表示名と署名から、新規作成用のプロンプトで `PV` を呼ぶ。同意・キー・エフォート・中止・エラーは返信と同じ経路（`aicore.generateDraft`）。
+
+生成中の中止はフロントが `CancelGenerate(requestId)` を呼び、`GenerateReplyDraft`／`GenerateNewDraft` は `CANCELLED` で reject される。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
+
+### 7.4b 下書きの一覧（#366）
+
+```mermaid
+sequenceDiagram
+  participant FE as フロント
+  participant CS as ComposeService
+  participant GM as gmail.Client
+  FE->>CS: ListDrafts(accountIds)
+  par アカウントごとに並列
+    CS->>GM: ListDrafts(accountId, 100)
+    GM->>GM: drafts.list（ID を先頭から 101 件まで）
+    GM->>GM: drafts.get(format=metadata) を 4 並列（宛先・件名・snippet・In-Reply-To）
+  end
+  CS-->>FE: DraftList（更新の新しい順。失敗したアカウントは failures）
+  FE->>CS: OpenCompose(mode, accountId／ref, draftId)（行を開く）
+  FE->>CS: DiscardDraft(ref)（破棄。確認のモーダルのあと）
+  CS->>GM: drafts.delete（404 は成功）
+```
+
+一覧は Gmail の下書きそのもので、アプリには保存しない。`gmail.Client.ListDrafts` が ID の収集と各下書きの読み込みをまとめ（一覧のあとで消えた下書きは除く）、`ComposeService` がアカウントをまたいで更新日時の新しい順に並べる。呼び出しはアカウントごとのレート制限（units）を通る。契約は [バインディング仕様 §5](../api/endpoints.md#5-composeservice)。
 
 ### 7.5 スレッドの AI 要約
 
@@ -440,3 +463,4 @@ sequenceDiagram
 | 1.27 | 2026-11-13 | §7.3 に、設定「送信前に確認画面を出す」がオフ（警告なし）のときは確認ダイアログを省いて `PrepareSend` のトークンですぐ `Send` する分岐を追記 | #313 後の記載漏れ（#324・#334） |
 | 1.28 | 2026-11-13 | リンクの修正（§5 の Android ビルド §10 のパス、§2 の資格情報の保管の表示を §11 に）と、§4 のディレクトリ構成に現存するパッケージ（`capability`・`mcpserver`・`siwc`・`headless`・`androidbg`・`callbackpage`・`exportfile`・`asciijson`・`synctest`・`e2e`）とルートの OS 別ファイルを追加、`ai/` の説明を現状（chatgpt・jev）に直した | 実装のファイル構成・リンクとの乖離（#327） |
 | 1.29 | 2026-11-13 | §7.7（Inbox Zero: `FindInboxZeroCandidates` の流れ。返信済みは端末内で判定、広告・通知・ニュースレターは `ai.Classifier`〔Jev〕で判定し確率 0.8 以上だけを候補にする。アーカイブは `InboxService` 側）を追加 | 実装（`internal/app/aicore/inboxzero.go`）との整合（#333） |
+| 1.30 | 2026-11-14 | §7.4 に新規作成の AI 下書き（`GenerateNewDraft`。スレッドを読まず、指示・件名・宛先・送信元の表示名と署名から生成）を追記し、§7.4b に下書きの一覧（`ListDrafts`・`DiscardDraft`）のシーケンスを追加した | #365・#366 |

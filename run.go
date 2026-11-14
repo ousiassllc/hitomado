@@ -110,7 +110,9 @@ func run() error {
 
 	clk := clock.System{}
 	sec := secrets.NewKeyring()
-	gm, err := gmail.NewClient(gmail.Options{Secrets: sec, Accounts: headless.StoreLookup{Store: st}, Clock: clk, Logger: logger})
+	// 同期・Gmail のログには、ヘッドレス同期（Worker。origin=headless）と区別できるよう origin=app を付ける。
+	syncLogger := logging.WithOrigin(logger, logging.OriginApp)
+	gm, err := gmail.NewClient(gmail.Options{Secrets: sec, Accounts: headless.StoreLookup{Store: st}, Clock: clk, Logger: syncLogger})
 	if err != nil {
 		return fmt.Errorf("gmail client: %w", err)
 	}
@@ -121,11 +123,9 @@ func run() error {
 	}
 	cache := threadcache.New(gm, threadcache.DefaultCapacity)
 	events := cache.Emitter(emitter)
-	sched := syncer.New(syncer.Deps{Store: st, Gmail: gm, Notifier: notifier, Events: events, Clock: clk, Logger: logger})
+	sched := syncer.New(syncer.Deps{Store: st, Gmail: gm, Notifier: notifier, Events: events, Clock: clk, Logger: syncLogger})
 	oauthTracker := newOAuthTracker(sec)
-	headless.SetAppRefresh(func(ctx context.Context) ([]headless.AccountResult, error) {
-		return headless.RefreshAll(ctx, st, sched)
-	})
+	headless.SetAppRefresh(headless.AppRefresh(st, sched, logger))
 	flow := oauth.NewFlow(oauth.Options{OpenBrowser: platform.NewBrowser(wapp).Open, Tracker: oauthTracker, Logger: logger})
 
 	// 自動アップデート（NF-D03）は入れ替えを行えるビルド（Windows）の、リリース版（版が 0.0.0 でない）だけ。

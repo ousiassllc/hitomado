@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 
 	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/hitomado/internal/logging"
 	"github.com/ousiassllc/hitomado/internal/notify"
 	"github.com/ousiassllc/hitomado/internal/store"
 	syncer "github.com/ousiassllc/hitomado/internal/sync"
@@ -49,6 +51,28 @@ func RefreshAll(ctx context.Context, st accountLister, eng refresher) ([]Account
 		results = append(results, AccountResult{ID: r.AccountID, Email: byID[r.AccountID].Email, Status: statusOf(r.Err)})
 	}
 	return results, nil
+}
+
+// AppRefresh は、Worker（バックグラウンド同期）に頼まれてアプリ本体のスケジューラが全アカウントを更新する関数（Gate.SetAppRefresh に渡す）。
+// RefreshAll に加えて、この更新で新たに再接続待ちになったアカウントをログに残す。実際の同期はアプリ本体のスケジューラが行うので、
+// その理由（reason）のログは origin=app で出る。このログは「それが Worker に頼まれた更新の最中だった」ことを、時刻・アカウント ID で
+// 突き合わせるための印（origin=app_background。#369）。トークン・メールアドレスは載せない。
+func AppRefresh(st accountLister, eng refresher, log *slog.Logger) func(ctx context.Context) ([]AccountResult, error) {
+	return func(ctx context.Context) ([]AccountResult, error) {
+		before := map[string]bool{}
+		if accounts, err := st.ListAccounts(ctx); err == nil {
+			for _, a := range accounts {
+				before[a.ID] = a.Status == store.StatusNeedsReauth
+			}
+		}
+		results, err := RefreshAll(ctx, st, eng)
+		for _, r := range results {
+			if r.Status == StatusNeedsReauth && !before[r.ID] {
+				log.Warn("account needs reauth during background sync", "account", r.ID, logging.OriginKey, logging.OriginAppBackground)
+			}
+		}
+		return results, err
+	}
 }
 
 // statusOf は同期のエラーをアカウントの結果にする。再接続でしか直らないものだけを StatusNeedsReauth にする。

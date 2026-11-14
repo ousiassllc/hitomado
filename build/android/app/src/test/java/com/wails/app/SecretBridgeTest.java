@@ -71,16 +71,30 @@ public class SecretBridgeTest {
         SecretBridge b = new SecretBridge(new SecureStore(backend));
         backend.fail = new IOException("disk full: secret-value");
         String r = b.secureGet("k");
-        assertEquals("{\"ok\":false,\"error\":\"failed\"}", r);
+        // コードの後ろに原因の例外クラス名だけが続く（メッセージ・値は載せない）。#369
+        assertEquals("{\"ok\":false,\"error\":\"failed:java.io.IOException\"}", r);
         assertFalse(r.contains("secret-value"));
 
         backend.fail = new InvalidKeyException("key gone");
-        assertEquals("{\"ok\":false,\"error\":\"key_lost\"}", b.secureGet("k"));
+        r = b.secureGet("k");
+        assertEquals("{\"ok\":false,\"error\":\"key_lost:java.security.InvalidKeyException\"}", r);
+        assertFalse(r.contains("key gone"));
+    }
+
+    /** 暗号化ストアの例外は外側から内側の順の連鎖で返る（鍵の喪失の原因が、利用者の書き出すログから追える）。 */
+    @Test
+    public void keyLostCarriesTheWholeCauseChain() {
+        MapBackend backend = new MapBackend();
+        SecretBridge b = new SecretBridge(new SecureStore(backend));
+        backend.fail = new SecurityException("Could not decrypt value: secret-value", new InvalidKeyException("Key permanently invalidated"));
+        String r = b.secureGet("k");
+        assertEquals("{\"ok\":false,\"error\":\"key_lost:java.lang.SecurityException>java.security.InvalidKeyException\"}", r);
+        assertFalse(r.contains("secret-value"));
     }
 
     @Test
     public void malformedSetJsonIsFailed() {
         SecretBridge b = new SecretBridge(new SecureStore(new MapBackend()));
-        assertEquals("{\"ok\":false,\"error\":\"failed\"}", b.secureSet("not json"));
+        assertEquals("{\"ok\":false,\"error\":\"failed:org.json.JSONException\"}", b.secureSet("not json"));
     }
 }

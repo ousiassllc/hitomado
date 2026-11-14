@@ -309,7 +309,7 @@ String refreshToken = SecureStore.getInstance(getApplicationContext()).get("hito
 ### 11.5 ログに出さない
 
 - Go: `Store` のエラーは `secrets: <操作> "<キー名>": <Java の失敗コード>` だけで、値を含まない（キー名は `hitomado/<種別>/<ID>` で秘密ではない）。`slog` に値を渡している箇所は無い（`internal/` を grep して確認）。
-- Java: `SecureStore`／`WailsBridge` の失敗コードは `key_lost`／`failed`／`empty key` だけで、例外のメッセージ（値を含みうる）は返さず、logcat にも例外のクラス名だけを出す。
+- Java: `SecureStore`／`WailsBridge` の失敗コードは `key_lost`／`failed`／`empty key` だけで、例外のメッセージ（値を含みうる）は返さず、logcat にも例外のクラス名だけを出す。失敗コードの後ろには、原因の**例外クラス名の連鎖**だけを `:` で続ける（`key_lost:java.lang.SecurityException>java.security.InvalidKeyException`。外側から内側へ最大 4 つ。#369）。Go は `:` の前だけを種類として判定し、後ろはエラーの文言に添えてアプリのログに残す（logcat ではなく、利用者が書き出せるログに鍵の喪失・読み出し失敗の原因が残るように。§21）。
 - **Wails のテンプレートが debug ビルドで logcat に出していた JS からの呼び出しの本文を、長さだけに変えた**（`WailsBridge.handleMessage`／`handleRuntimeCall`、`WailsJSBridge.invoke`／`invokeAsync`）。バインディング呼び出しの引数（`SetAIApiKey` の API キー、`AddOAuthClient` の Client Secret）が本文に入るため。release ビルド（`BuildConfig.DEBUG` が偽）は元から出さない。`MainActivity` の `Wails API call`（パスとクエリだけ）、WebView のコンソールのメッセージ（debug のみ）は、フロントが `console.error(err)` を出す 1 か所（`errorReporter/index.ts`。AppError のメッセージで、値は含まない）を除き、値を出す箇所が無い。
 - Go 側の Wails のフレームワークのログ（`[JS message]`、`runtime call returned status`）は `production` タグで無効になる（release のビルドは `-tags production,android`）。debug ビルド（`android:run`）では `[JS message]`（ウィンドウのメッセージ）が logcat に出る。
 
@@ -813,7 +813,7 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 したがって、Android でも ChatGPT ログインは**コード上は使える**ので、既定も案内も Windows と同じにする。
 
 - **未確認（実機）**: 実機の Chrome などで OpenAI のログイン画面が開き、`http://127.0.0.1:<ポート>/auth/callback` へ戻って完了するか（§14.1 と同じく、本物の OpenAI と実機のブラウザは使っていない）。ブラウザが前面に出ている間にアプリのプロセスが止められたときは、ログインの待受が消えて完了できず、時間切れかキャンセルとして終わる（§14.3 と同じ理由。Google OAuth のような「途中で止められた」印と案内は、ChatGPT ログインには無い。再度「Continue with ChatGPT」を押せば最初からやり直せる。トークン・登録は完了するまで書き込まれない）。
-- **v0.1.16 の実機で「予期しないエラーが発生しました。」で失敗した**（#185）。Android の転送路がエラーの `cause` を捨てるため、どのエラーもこの定型文になっていた可能性がある。失敗の段階と元のエラーはログに残るようにした（§19）。根本の原因は実機のログで確かめるまで未特定。
+- **v0.1.16 の実機で「予期しないエラーが発生しました。」で失敗した**（#185）。Android の転送路がエラーの `cause` を捨てるため、どのエラーもこの定型文になっていた可能性がある。失敗の段階と元のエラーはログに残るようにした（§19）。その後 v0.1.35 の実機で ChatGPT ログインが `token_exchange` の `lookup auth.openai.com: no such host` で失敗していることが分かった（#368）。経路と、エミュレーターで再現した原因は §20。
 - **ログインできないとき**: ログインのエラーを表示し、案内の「別のプロバイダを選ぶ」（設定画面の AI タブ）で Anthropic・OpenAI 互換の API キーを使える。既定が ChatGPT でも、保存済みのプロバイダ（anthropic・openai・chatgpt）の設定は変えない。
 - Android の画面（§16）でも、初回の案内・同意の画面は同じダイアログで、1 画面ずつの幅のときも中央のモーダル（幅は画面幅 − 32px）で出る（`BaseDialog`。外側のクリックで閉じる）。
 
@@ -841,5 +841,207 @@ Android の実機で Google・ChatGPT のログインが「内部エラー」「
 ### 19.3 未実施・未確認
 
 - **（任意）`INTERNAL` のときだけ Go 側の短いエラー要約を `ReportClientError` に付ける**は、やっていない。Go のログに元のエラーが残るので、画面側で重ねて送る必要はない（Android の転送路は `cause` を運べないため、フロントには元のエラーが無い）。
-- **実機で、失敗の根本原因を特定していない。** 実機のログはまだ見ていない。上の 19.1 の 2 点（`cause` が捨てられること・`main` の 2 回目で `os.Exit`）はコードの読み取りで確認したもので、実機の失敗がこれで全て説明できるかは、新しいログを取って確かめる必要がある。確かめ方: 失敗したあと、設定 → ログ →「ログを書き出す」で zip を保存し、`internal error`・`account authorize failed`・`oauth: failed at …`・`chatgpt: failed at …`・`main was called again…` を探す。
+- **実機で、失敗の根本原因を特定していない。** 実機のログはまだ見ていない。上の 19.1 の 2 点（`cause` が捨てられること・`main` の 2 回目で `os.Exit`）はコードの読み取りで確認したもので、実機の失敗がこれで全て説明できるかは、新しいログを取って確かめる必要がある。確かめ方: 失敗したあと、設定 → ログ →「ログを書き出す」で zip を保存し、`internal error`・`account authorize failed`・`oauth: failed at …`・`chatgpt: failed at …`・`main was called again…` を探す。**ログインの `token_exchange` が `lookup … no such host` で失敗する件（#368）は、Go の名前解決の経路（cgo の `getaddrinfo`）と、エミュレーターで再現した原因（背面のアプリの通信停止）を §20 に書いた。実機の根本原因は、§20.4 のログで確かめるまで未特定。**
 - 実機（arm64）で、Google の追加・ChatGPT のログインが完了すること（Issue の完了条件）は未確認。
+
+## 20. アプリ本体の名前解決（#368）
+
+Android 版（v0.1.35。Galaxy Fold7）で、ChatGPT ログイン（`internal/siwc`）と Gmail アカウントの追加（`internal/oauth`）が `token_exchange` で `lookup auth.openai.com: no such host`（`*net.DNSError`。`on <サーバー>` が無い）で失敗した。同じ端末のブラウザは `auth.openai.com` に届く。ブラウザでの認可と `127.0.0.1` へのコールバックは成功しており、失敗したのはアプリ本体（Go。`GOOS=android`・`CGO_ENABLED=1`・`-buildmode=c-shared`）の HTTPS 通信だった。
+
+**結論を先に書く**: Go の名前解決の経路は特定できた（cgo の `getaddrinfo`）。**エミュレーターでは同じエラー（`lookup <host>: no such host`、`on <サーバー>` なし）を再現でき、そのとき失敗していた理由は「アプリのプロセスが OS の背面扱いで、OS がそのアプリの通信（DNS を含む）を止めていた」ことだった。** 実機（Fold7）では**確認していない**ので、実機の原因が同じとは断定しない（§20.5）。直したこと: ① 背面で止められている間は、アプリが前面へ戻るのを最大約 19 秒（1 秒おきに引き直しを最大 20 回。待ちは 19 回）待って引き直す（背面で圏外のときは、待ちを諦めたあとの 1 分は待たない。§20.3）、② 標準の解決が失敗したら Android の API（有効なネットワークの `Network.getAllByName`）で引き直す、③ 失敗したときの手がかり（前面／背面・ネットワーク・Private DNS・DNS サーバー・省電力の状態）をログに残す。いずれも Android 専用で、Windows の動作は変えない。
+
+**この修正が効く範囲（はっきり書く）**: 効くのは**再現できた場合だけ**、つまり「アプリが OS の背面（重要度が `visible` より下）で、`getActiveNetwork()` が `null`」のときだけ。しかも、利用者が**約 19 秒以内にアプリへ戻る**ことが前提になる。コールバックのページは「このタブを閉じてアプリに戻ってください」と言うだけで、**アプリへ自動で戻す仕組みは入れていない**。待ったあとに使えるのは、`ExchangeTimeout`（30 秒。トークン交換と userinfo で共有。`internal/oauth/flow.go`）の残りだけで、userinfo は別のホストへの新しい接続なので、そこでも名前解決をやり直す。OS が通信を止めているのに `getActiveNetwork()` が `null` にならない場合は、Java が `unresolved` を返し、Go はすぐ失敗する（待たない）。待ちを諦めた時点でコールバックの待ち受けはすでに閉じているので、ログインは**最初からやり直す**必要がある。実機の Galaxy Fold7 が同じ型かは**未確認**で、ログ `net: name resolution failed` の `process`・`network`・`fallback_err`（§20.4）で分かる。また、背面のあいだに `127.0.0.1` のコールバックを受け付けられることは、**エミュレーターでは確認していない**。
+
+### 20.1 Go の名前解決は Android でどの経路を通るか（確認済み）
+
+- Go の `net` は `GOOS=android` では **cgo の解決器を選ぶ**（`net/conf.go` の `goosPrefersCgo`。「DNS requests don't work on Android, so prefer the cgo resolver」）。`libwails.so` は cgo ありでビルドするので、`http.DefaultTransport` の接続は bionic の `getaddrinfo` を通り、DNS は **netd（端末の OS が持つ、ネットワークごとの DNS 設定。Private DNS・VPN・社内 DNS を含む）** が解決する。Go 自身は DNS のサーバーを選ばない。
+- **失敗したとき `on <サーバー>` が付かない**のは、cgo の経路の印（Go の DNS クライアントなら `lookup x on [::1]:53: …` になる）。`getaddrinfo` の `EAI_NONAME` 系の失敗は、原因が何であっても `no such host` になるので、**このエラーだけでは「名前が無い」のか「そもそも通信が止められている」のか区別できない**。
+- 参考: cgo なし（`netgo`・`CGO_ENABLED=0`）の Go の解決器は、Android には `/etc/resolv.conf` が無いため `127.0.0.1:53`／`[::1]:53` を引き、**必ず失敗する**（エミュレーターで同じプログラムを cgo あり・なしでビルドして確認: cgo ありは `auth.openai.com` に HTTP 200、なしは `lookup … on [::1]:53: read udp …: connection refused`）。Android のビルドは cgo 必須。
+
+### 20.2 エミュレーターでの再現（x86_64・API 35・`google_apis`。実機ではない）
+
+方法: E2E 用 debug APK（`android:e2e:apk ARCH=amd64`。このホストは KVM が使えないので `-accel off` のソフトウェアエミュレーター）に、**一時の検証用コード（コミットしていない）**を入れ、10 秒ごとに `https://auth.openai.com/`・`https://oauth2.googleapis.com/token` へ**認証なしで**要求した（HTTP 4xx が返れば DNS・TLS は通っている）。「plain」＝修正前と同じ標準の接続、「hooked」＝本番の `http.DefaultTransport`（修正後）。
+
+| 状況 | 結果 |
+|------|------|
+| アプリが前面（`procState=TOP`） | 通る（`auth.openai.com` が 200、`oauth2.googleapis.com/token` が 404）。plain・hooked とも |
+| アプリが背面になる（Settings を前面に出す。または `procState=TPSL`＝画面が消えた状態になる）。`dumpsys netpolicy` の `blocked_state` が `blocked=APP_BACKGROUND,effective=APP_BACKGROUND` になる | **plain が数 ms で `lookup auth.openai.com: no such host`（`*net.DNSError`、`on <サーバー>` なし）で失敗する（#368 と同じ形）。** Java の `ConnectivityManager.getActiveNetwork()` は `null`（ログの `network=none`）。Data Saver（`cmd netpolicy set restrict-background true`）が有効でも**無効でも**起きた。ただし画面を消しても `procState=TOP` のまま通ることもあり、止まる条件のすべては切り分けていない |
+| 背面になった直後 | 通ることがある（数秒〜）。止まるまでに猶予があり、観測では約 10 秒〜数分後（ばらつきあり） |
+| 背面で、キャッシュ済みアプリの凍結（`cached_apps_freezer`）が有効 | プロセスごと止まり、ログも出ない（`cgroup.freeze=1`）。DNS の失敗とは別の現象。凍結を外して検証した（`settings put global cached_apps_freezer disabled`。後で戻した） |
+| 前面に戻す | すぐ通る |
+
+つまり、アプリが背面のとき、OS はそのアプリの通信（DNS を含む）を止めうる。ブラウザが前面にいる間、アプリは OS の分類では背面なので、コールバック（`127.0.0.1` への接続）を受けた直後の `token_exchange` が**通信を許されない状態のアプリから**行われうる。ブラウザは前面なので届く。これは #368 の症状（ブラウザは届くのにアプリ本体だけ `no such host`）と矛盾しない。**ただし、ブラウザを前面に出した認可の経路そのものは、エミュレーターで通して確認していない**（背面にする操作は Settings の起動・画面消灯で代用した。推論を含む）。
+
+**試していないこと**: `getaddrinfo` の `Server` が空になる別の原因（Private DNS の strict でホスト名が引けない・VPN の DNS）は、**このエミュレーターでは試していない**。アプリのバックグラウンド実行の許可（`RUN_ANY_IN_BACKGROUND`）を変える実験は、すでに止められた状態で行ってしまい、結論が出ていない。
+
+### 20.3 直したこと
+
+**1 か所（`internal/androidnet`。`netinstall_android.go` が `main` から取り込む）**で、`http.DefaultTransport` の `DialContext` を差し替える（`init`。`libwails.so` の読み込み時なので、Activity の無い Worker からの同期も同じ）。アプリの HTTP クライアント（OAuth・OIDC の発見・ChatGPT のトークン・Gmail API・AI・更新確認）は、`http.DefaultTransport` か、その `Clone`（`internal/gmail` の `defaultTransport`。`DialContext` を引き継ぐ）を使うので、ここだけで全部に効く（`grep -rn "http.Client{\|http.Transport" internal` で確認）。
+
+| 場面 | 動き |
+|------|------|
+| 標準の解決（`getaddrinfo`）が通る | 何も変えない（Android の API を呼ばない） |
+| 名前解決の失敗（`*net.DNSError`）。ほかの失敗（接続拒否など）は触らない | Java の `NetBridge.resolve`（`WailsBridge.netResolve`。`go:linkname` で呼ぶ。`documents` と同じ仕組み）が、有効なネットワークの **`Network.getAllByName`** で引き直す。DNS サーバーは端末の設定（Private DNS・VPN・社内 DNS）に従い、**公開 DNS のアドレスは決め打ちしない**。得た IP へ、要求したポートで順に接続する（ホスト名は URL のままなので TLS の検証は変わらない） |
+| 引き直しも「アプリが背面で、有効なネットワークが無い」（`background_no_network`。アプリの重要度が `visible` より下で `getActiveNetwork()` が `null`） | OS が背面の通信を止めている（Java は「止められている」と「圏外」を区別できず、どちらも同じコードを返す）。**1 秒おきに引き直しを最大 20 回（待ちは 19 回で約 19 秒）、アプリが前面へ戻るのを待つ。** コールバックのページ（「このタブを閉じて Hitomado に戻ってください」）に従って戻れば、トークン交換が通る。待ちは呼び出しの `context`（HTTP クライアントの 30 秒の期限・取り消し）に従う。**前面へ戻らないまま待ちを諦めたら、その後の 1 分（`backgroundWaitCooldown`）は待たず、引き直しを 1 回だけ試してすぐ失敗する**（背面で圏外のとき、60 秒ごとの同期が毎回約 19 秒待たないため）。引き直しが通る・別の結果になる（前面へ戻った）と、この抑止は解ける。前面で通信が無いとき（機内モードなど）は待たず、従来どおりすぐ失敗する |
+| それでも失敗 | 元の `*net.DNSError` をそのまま返す（画面の分類は変わらない）。**手がかりを Warn で 1 件**ログに残す（§20.4） |
+
+**採らなかった案**:
+
+| 案 | 理由 |
+|----|------|
+| `8.8.8.8` など公開 DNS を決め打ちにする | Private DNS・VPN・社内 DNS を迂回し、利用者の DNS の問い合わせ先を勝手に変える（プライバシーの後退）。通信自体が止められているときは、そもそも届かない |
+| Go の DNS クライアント（`PreferGo`）に、Java から取った DNS サーバーを渡す | OS が止めているのは通信そのもの（ソケット）なので、解決器を替えても通らない。Private DNS（DoT）は Go の DNS クライアントでは扱えない |
+| 前面サービス・自動でアプリを前面に出す | 前面サービスは常時通知・Play の審査・Android 15 以降の `dataSync` の時間上限を避けるため使わない方針（§15）。背面からの Activity 起動は OS が制限する |
+
+**既知の限り**:
+
+- 待つのは最大約 19 秒（1 秒おきに引き直しを最大 20 回）。それまでに利用者がアプリへ戻らなければ失敗する。待ちを諦めた時点でコールバックの待ち受けはすでに閉じている（`internal/oauth/flow.go`。コールバックの受信後に閉じる）ので、**ログインは最初からやり直す**（トークン・登録は完了するまで書き込まれない）。
+- 効くのは、アプリが OS の背面（重要度が `visible` より下）で `getActiveNetwork()` が `null` の場合だけ。OS が通信を止めても `getActiveNetwork()` が `null` にならないなら、Java は `unresolved` を返し、Go はすぐ失敗する（待たない）。
+- 待ったあとに使えるのは `ExchangeTimeout`（30 秒。トークン交換と userinfo で共有）の残りだけ。userinfo は別のホストへの新しい接続で、再び名前解決をする。
+- コールバックのページから**アプリへ自動で戻す**（ディープリンクなど）のは、この Issue では入れていない（別の設計・manifest の変更が要る。**未実施**）。利用者が自分で戻る必要がある。
+- **背面で本当に圏外のとき**（Java は「OS が止めている」と「圏外」を区別できず、どちらも同じコードを返す）は、名前解決に失敗する接続が約 19 秒待ってから失敗する。ただし待つのは**待ちを諦めてから 1 分たったあとの最初の接続だけ**で、その間の接続はすぐ失敗する（60 秒ごとの同期なら、待ちは 2 周期に 1 回程度）。
+- Galaxy Fold7 が同じ型かは**未確認**（`net: name resolution failed` の `process`・`network`・`fallback_err` で分かる）。背面のあいだの `127.0.0.1` のコールバックの受け付けも、エミュレーターでは**確認していない**。
+- Activity の無い WorkManager の Worker（ヘッドレス同期）: Android の API による引き直しは Go から `WailsBridge`（`MainActivity.onCreate` が作り、`nativeInit` が JNI のグローバル参照を Go 側の `g_bridge` へ渡す）を呼ぶ。Wails はその参照を解放しない（`wails/v3@v3.1.0` の `application_android.go`。`DeleteGlobalRef` も `NULL` への代入も無く、`nativeShutdown` は `app.Quit()` を呼ぶだけ）。`NetBridge` は `applicationContext` を使うので、Activity が破棄されても呼べる。そのため、**Activity を作ったあとでプロセスが生き残っていれば、Worker からも使える**（読み取りで確認。実機・エミュレーターでは試していない。`MainActivity` の終了処理が `bridge.shutdown()` を呼んだあとの動作は未確認）。**WorkManager が新しいプロセスで Activity を一度も作らずに起こしたときは `g_bridge` が `NULL` で**（`callBridgeStringStringMethod` が `NULL` を返す）、引き直しと状態の記録（`diagnose_err`）は使えない。Worker はネットワークが接続されているときだけ動かされるので、背面の通信停止の対象外だと考えているが、確かめていない。
+
+### 20.4 ログ（完了条件 3）
+
+名前解決の失敗は `net: name resolution failed`（Warn。同じホストは 1 分に 1 件まで）。属性（トークン・認可コード・URL・クエリ・メールは載せない）:
+
+| 属性 | 内容 |
+|------|------|
+| `host` | 引けなかったホスト名（エラー文にも出る値） |
+| `resolver` | 標準の解決器の種類（`cgo`＝`getaddrinfo`、`go`＝Go の DNS クライアント。`GODEBUG=netdns` があれば付記） |
+| `err`・`fallback_err`・`fallback_addrs` | 標準の解決の元のエラー・Android の API による引き直しの失敗（`background_no_network`・`no_network`・`unresolved`・`failed`）・得たアドレスの数（**`network` のファミリー〔`tcp4`／`tcp6`〕で絞ったあとの件数**。引き直しが失敗したときは 0） |
+| `process` | アプリのプロセスの重要度: `foreground`・`foreground_service`・`top_sleeping`・`visible`・`perceptible`・`service`・`cant_save_state`・`cached`。**背面（`perceptible` より下）なら §20.2 の状況** |
+| `network`・`validated`・`metered` | 有効なネットワークの種類（`wifi`・`cellular`・`ethernet`・`vpn`・`other`・`none`）・インターネットの到達が検証済みか・従量制か。**`none` は OS がアプリに有効なネットワークを見せていない** |
+| `private_dns` | `off`・`opportunistic`・`strict`（ホスト名は載せない。利用者の識別子を含みうるため） |
+| `dns_servers` | ネットワークの DNS サーバーのアドレス（端末の設定値。**IP として読めるものだけ**を載せる。秘密ではないが、利用者のネットワークの値なので、ログを渡すときは扱いに注意） |
+| `restrict_background`・`background_restricted`・`device_idle`・`standby_bucket` | Data Saver（`disabled`・`whitelisted`・`enabled`）・電池の「制限」・Doze・スタンバイバケット |
+
+標準の解決が失敗して引き直しで救えたときは `net: name resolution recovered via Android Network API`（Warn。`waited_ms`＝待ちを含めた時間）。**実機で `no such host` が出たら、書き出したログのこの 2 件で、背面の通信停止（`process`・`network=none`・`background_no_network`）か、DNS の設定（`private_dns`・`dns_servers`）かを読み分けられる。**
+
+`host` には、利用者が設定したカスタムの AI の送信先（社内のホスト名など）のホスト名が入りうる。ログを他人へ渡す前に確認すること。
+
+### 20.5 確認したこと・未確認
+
+**自動**: `go test ./internal/androidnet/`（標準の解決を `*net.DNSError`・`no such host` で失敗させる偽の接続で、修正前の接続は失敗し、修正後は HTTP が通ること・引き直しの失敗時のログの属性・DNS 以外の失敗は素通り・成功時は引き直さないこと・IP の順次の試行とファミリーの絞り込み・待ちの上限と `context` の取り消し・前面で通信が無いときは待たないこと・待ちを諦めたあとの 1 分は待たず 1 分後にまた待つこと、引き直しが通ると抑止が解けること〔時刻と待ちを差し替えた決定的なテスト〕・呼び出し元の `context` の取り消しだけが理由の失敗はログにも 1 分の枠にも数えないこと、取り消されていても手がかりを取ること・ログの間引き・URL／クエリがログに出ないこと）。Java は `NetDiagnosticsTest`（重要度→名前・`background_no_network` の判定・Private DNS のモード・封筒・ホスト名の検査。`task android:test`）。
+
+**エミュレーター（x86_64。実機ではない）**: 同じ APK（修正後）で、背面で通信が止められた状態から前面へ戻すと、`net: name resolution recovered via Android Network API`（`waited_ms=5458`）のあと `auth.openai.com` が **HTTP 200**（修正前と同じ接続の plain は同じ状態で `no such host`）。前面では plain・hooked とも通る。画面のスクリーンショットは、ヘッドレスのエミュレーターのため黒一色で、証拠にならない（ログで確認した）。
+
+**未確認**:
+
+- **実機（Galaxy Fold7・arm64）**。実機の失敗が、エミュレーターで再現した「背面の通信停止」と同じ原因かは確かめていない。Samsung の端末は、OS 標準に加えてメーカー独自の省電力（スリープ中のアプリなど）がかかり、条件が違いうる。修正を入れた版の実機のログで `process`・`network`・`fallback_err` を見て確かめる。
+- 本物の OpenAI・Google のログイン（資格情報を使えないため）。**認証なしの要求への HTTP 応答（4xx・200）までを確認した**。
+- Private DNS（strict・opportunistic）・VPN・モバイル回線での Android の API による引き直し（コードは端末の DNS 設定を使うが、**エミュレーターで試していない**。Wi-Fi のみ）。
+- `arm64` の `libwails.so`（このホストでは x86_64 のみビルド・実行）。
+
+## 21. 再接続待ち（再ログイン）が頻繁に起きる原因（#369）
+
+Android 版で、Google（Gmail）の再接続待ち（`needs_reauth`。受信箱の「要再接続」・設定のアカウントの「再接続」・通知「再接続が必要です」）が頻繁に起きる。Windows 版では起きていない（悠太さんの報告、2026-11-14）。名前解決の失敗は `ErrOffline`（`error` 状態）で再接続待ちにならないので、#368（名前解決）とは別の原因を探した。
+
+**結論を先に書く: この Issue では、頻発の単一の原因を特定できていない。** 実機のログがまだ無く、コードの読み取りだけでは、アプリ側の欠陥と利用者側の設定（OAuth 同意画面の公開ステータスなど）を切り分けられないため。代わりに、(1) 再接続待ちに切り替わるたびに**理由と経路をログに残す**ようにし、(2) 原因を読み分ける手順を §21.5 に書き、(3) 利用者側の原因（同意画面が「テスト」のまま）を画面で案内するようにした。**次に起きたとき、書き出したログで原因が分かる。**
+
+### 21.1 再接続待ちになる経路（コードで確認）
+
+再接続待ちにするのは `ErrNeedsReauth` と `ErrClientRejected` だけ。アカウントの `status` が `needs_reauth` になると、同期の自動再試行は止まり（`paused`）、再接続（`Reconnect`）で再開する。**一度なると自動では戻らない**。
+
+| 理由（ログの `reason`） | 起点 | 利用者に直せるか |
+|------|------|------|
+| `invalid_grant` | トークン更新（`oauth2.googleapis.com/token`）が `invalid_grant`。Google がリフレッシュトークンを拒否した | 再接続で直る。繰り返すなら Google 側の原因（下の表） |
+| `client_rejected` | トークン更新が `invalid_client`／`unauthorized_client`／401。Client ID・Secret の拒否 | OAuth クライアントの設定を直す。再接続では直らない |
+| `api_401` | Gmail API が 401。アクセストークンを取り直して 1 回再試行しても 401 | 再接続 |
+| `scope_insufficient` | Gmail API が 403（`ACCESS_TOKEN_SCOPE_INSUFFICIENT`／`insufficientPermissions`） | 再接続して権限をすべて許可する |
+| `secret_not_found` | 資格情報ストア（`SecureStore`）にリフレッシュトークンが**無い** | 再接続 |
+| `secret_key_lost` | Keystore の鍵が失われ、`SecureStore` が全資格情報を破棄した（§11.3） | 再接続 |
+
+**一時的な失敗は再接続待ちにならない**（確認済み。`internal/gmail/gmailtests/reason_test.go`）: 資格情報ストアの読み出しが `failed`（鍵の喪失でも「無い」でもない失敗）のとき、`gmail.newAccount` は `ErrGeneric`（`error` 状態。次の周期で再試行）にする。名前解決・接続・タイムアウトは `ErrOffline`。再接続待ちになるのは、上の表のときだけ。
+
+### 21.2 コードを読んで確認したこと（疑いへの答え）
+
+| 疑い | 確認したこと |
+|------|------|
+| `HeadlessSync` が別プロセスで動き、Go のランタイムが 2 つ同時にリフレッシュして互いを無効にする | **ならない**。manifest に `android:process` が無く、WorkManager の Worker はアプリと**同じプロセス**で動く。Go のランタイムは 1 プロセスに 1 つ。`headless.Gate` が、アプリ本体が動いているときは Worker に別の同期をさせず（アプリ本体のスケジューラへ委譲）、Worker が自分で同期するのはアプリ本体が動いていないときだけ（§15.3）。資格情報は `SecureStore` のシングルトン 1 つで、全メソッドが 1 つの monitor で直列化される。Worker とアプリ本体の `gmail.Client`（トークンのキャッシュ）は別物だが、同時には動かない |
+| リフレッシュトークンのローテーションで、新しいトークンが保存されない・古いトークンを使う | 一般に Google はインストール型アプリのリフレッシュトークンをローテーションしない（更新の応答に新しいトークンが含まれない。この点は Google の文書では確認していない）。含まれたときだけ `tokenauth` が保存し直し（メモリ上の値は保存の成否にかかわらず新しい方）、保存に失敗したら Warn（`リフレッシュトークンの保存に失敗`）を残す。2 つのランタイムが同時に更新する経路は上のとおり無い。**ローテーションの競合は、コードからは見つからなかった** |
+| `SecureStore` のエラーが「トークンが無い」と取り違えられて再接続になる | **取り違えは無い**。`secrets.Store.Get` は `ErrNotFound`（無い）・`ErrKeyLost`（鍵の喪失。`ErrNotFound` も満たす）・それ以外のエラーを区別し、それ以外は `ErrGeneric`（再接続待ちにならない）。空の値が読めたときも `invalid_grant` や再接続待ちにはならない（更新が失敗して `ErrGeneric`） |
+| プロセスの起動直後に Keystore が使えず、読み出しの失敗が再接続になる | **半分は有りうる**。Keystore の一時的な不調（`KeyStoreException`・`ProviderException`）は 100 ms 間隔で 2 回再試行し、**3 回とも失敗すると、鍵の喪失とみなして暗号化ストアを全部消して作り直す**（§11.3。全アカウントが同時に `secret_key_lost`／`secret_not_found` で再接続待ちになる）。この判断は #84 のレビューで入れたもので、本当に鍵が失われたときに再ログインできるようにするため。**実機でこの経路が起きているかは未確認**。起きていれば §21.5 のログで分かる |
+| アプリの上書き更新・Activity の作り直しで読めなくなる | 保管先（`hitomado_secrets`）と Keystore の鍵は、同じ署名鍵の上書きでは保たれる。`SecretBridge` は `applicationContext` だけを使い、Activity が破棄されても読める（§11.4）。Activity の作り直しで `main` が 2 回起動される件は `runguard.go` が防ぐ（§14.3）。**この経路で再接続になる欠陥は、コードからは見つからなかった**。署名鍵が違う APK の入れ替えは `adb uninstall` が要り（§14.1）、データごと消える |
+| バックグラウンド同期が古い値や空の値を使う | Worker は毎回 `SecureStore` から読み直す（`headless.SyncOnce` は呼び出しごとに `gmail.NewClient` を作る）。アプリ本体の `gmail.Client` はアカウントごとに資格情報をキャッシュするが、`ErrNeedsReauth` のたびに `Forget` して読み直す |
+| 名前解決の失敗が再接続になる | ならない（`ErrOffline`。#368 とは別） |
+
+### 21.3 利用者側の原因（コードでは直せないもの）
+
+Google の公式文書（[Using OAuth 2.0 to Access Google APIs — Refresh token expiration](https://developers.google.com/identity/protocols/oauth2#expiration)。2026-11-14 に確認）では、リフレッシュトークンが `invalid_grant` で使えなくなる条件は次のとおり。**これらは Windows でも起こるが、Android だけ別の OAuth クライアント（Android 用に新しく作った同意画面・クライアント）を使っていると、Android だけに出る**。
+
+| 条件 | 見分け方・直し方 |
+|------|------|
+| 同意画面が**外部かつ「テスト」**。リフレッシュトークンが **7 日**で失効する（要求スコープが `openid email profile` の部分集合だけのときを除く。このアプリは `gmail.modify` を要求するので対象） | `account connected` から `account needs reauth`（`reason=invalid_grant`）まで約 7 日（§21.5）。Google Cloud の Google Auth Platform → 対象（Audience）で公開ステータスを「本番環境」にしてから、再接続する（README「『テスト』のままだと 7 日でトークンが失効します」）。**画面でも、`invalid_grant` のときに案内する**（§21.4） |
+| 同じ Google アカウント・同じ OAuth クライアントのリフレッシュトークンが **100 個**を超える（古いものから無効になる） | 認可（アカウントの追加・再接続）を繰り返すと増える。Windows と Android で同じクライアントを使い、開発中に何度も認可していると超えうる |
+| Google アカウントのパスワードを変えた（Gmail のスコープを含むトークン） | 変えた時刻と `account needs reauth` の時刻が近い。**複数アカウントが同時には切れない**（アカウントごとに別のパスワード） |
+| 利用者が Google のアカウント設定でアプリのアクセスを取り消した、6 か月使っていない、管理者が制限した（`admin_policy_enforced`） | 取り消しの時刻と一致する |
+| **別の端末で、同じ Google アカウントを同じ OAuth クライアントで使っていて、そちらでアカウントを削除した**（`RemoveAccount` が Google 側でトークンを revoke する。同じ利用者・同じクライアントの認可は共有されうる。`internal/app/account_auth.go` の `revokeUnsaved` のコメントと同じ理由。共有されることは Google の文書では確認していない） | ログの `アカウントのトークンを Google 側で revoke しました`（`purpose=remove_account`）の時刻と突き合わせる（その端末のログ）。端末ごとに別の OAuth クライアントを使うと、互いに影響しない |
+
+### 21.4 入れたもの
+
+**ログ（再接続待ちに切り替わるときの理由と経路。完了条件 1）**
+
+- `account needs reauth`（Warn）: 切り替えの瞬間に 1 件（`needs_reauth` へ変わるたびに 1 件。すでに再接続待ちのアカウントは出さない）。属性: `account`（アカウント ID。**メールアドレスは載せない**）、`reason`（§21.1 の表。分からなければ空）、`trigger`（`sync`＝同期周期、`action`＝利用者の操作〔スレッドを開く・続きを読み込む・送信など〕）、`prev_status`、`since_last_sync_s`（直近に同期できてからの秒数。記録があるとき）、`err`（元のエラー。トークン・応答本文は含まない。鍵の喪失なら `(cause: java.lang.SecurityException>java.security.InvalidKeyException)` のように Java の例外クラス名の連鎖が付く）、`origin`。
+- **`origin`（フォアグラウンドかバックグラウンドか）**: `app`＝アプリ本体（画面・前面の 60 秒ループ）。`headless`＝Activity の無い Worker のヘッドレス同期（`internal/headless`。アプリ本体が動いていないプロセスで起きた同期）。`app_background`＝Worker に頼まれてアプリ本体のスケジューラが行った更新で、新たに再接続待ちになったとき（`account needs reauth during background sync`。理由は同じ時刻の `origin=app` の `account needs reauth`）。Go のログ（アプリ本体と Worker は同じ `Hitomado/logs`）に、`logging.WithOrigin` で付ける。
+- `account connected`（Info）: アカウントの追加（`via=add`）・再接続（`via=reconnect`）が済んだ時刻。再接続待ちまでの期間（「テスト」の 7 日など）を読むための起点。
+- `Gmail API が 401 を返しました（アクセストークンを取り直して再試行）`（Info）: 再接続待ち（`api_401`）の前触れ。1 回目の 401 は、再試行で成功すると何も残らなかった。
+- `アカウントのトークンを Google 側で revoke しました`／`保存しないトークンを Google 側で revoke しました`（Info）: §21.3 の最後の行の突き合わせ用。revoke に失敗したときは出さない（既存の Info「revoke に失敗（無視）」）。
+- Java の `SecureStore`／`SecretBridge` の失敗コードに、原因の例外クラス名の連鎖を足した（§11.5。`key_lost:…`・`failed:…`。値・キー・例外メッセージは載せない）。これまでは logcat にしか残らなかった鍵の喪失の原因が、利用者が書き出すログに残る。
+- `gmail.newAccount` が、資格情報を読めなかったときの元のエラーを `%w` で残す（以前は握りつぶしていた）。
+
+**画面（利用者側の原因の案内。完了条件 2）**
+
+- `invalid_grant` の再接続待ちは、状態メッセージを専用の文言「再接続が必要です（Google がトークンを無効にしました）」にする（同期の経路と利用者の操作の経路で同じ。`syncer.MsgTokenRevoked`）。他の理由の状態メッセージは従来のまま。
+- 受信箱のバナーは、この状態のとき「…（Google がトークンを無効にしました）。再接続してください。OAuth 同意画面が『テスト』のままだと 7 日で切れます。」を出す（操作は「再接続」のまま）。設定のアカウントの行は、状態表示は従来の「再接続が必要です」のまま、行の下に「Google Cloud の OAuth 同意画面（Google Auth Platform → 対象）の公開ステータスが『テスト』のままではないか確認してください。『テスト』では 7 日でトークンが切れます。『本番』にして、もう一度再接続してください。」の案内を出す。文言は `frontend/src/lib/messages/common.ts`・`settings.ts`、判定は `frontend/src/lib/tokenRevoked.ts`（Go の文言の先頭と一致させる）。
+- 他のアカウントの状態・Windows の動き・`invalid_grant` 以外の再接続待ちの文言は変えていない。
+
+### 21.5 ログの読み方（次に再接続待ちになったとき）
+
+1. 設定 → ログ →「ログを書き出す」で zip を保存する（§19）。JSON Lines（1 行 1 レコード）。
+2. `account needs reauth` の行を探す（`grep '"account needs reauth'`）。`reason`・`origin`・`trigger`・`since_last_sync_s`・`err` を読む。
+
+| 見えたもの | 意味・次の手 |
+|------|------|
+| `reason=invalid_grant`。同じアカウントの `account connected` から約 7 日（6〜8 日）後 | 同意画面が「テスト」。公開ステータスを「本番環境」にして再接続する |
+| `reason=invalid_grant`。`since_last_sync_s` が小さい（直前まで同期できていた）。複数アカウントが別々の時刻 | Google 側の失効（パスワード変更・取り消し・100 個の上限・別の端末の削除による revoke）。§21.3 の表と時刻を突き合わせる |
+| `reason=secret_key_lost`（`err` に `(cause: …)`）。**複数アカウントがほぼ同時刻**に `secret_key_lost`／`secret_not_found` | Keystore の不調・鍵の喪失で `SecureStore` が全資格情報を破棄した（§21.2）。`cause` の例外クラス名で、確実な鍵の喪失（`InvalidKeyException`・`AEADBadTagException`）か、不調の持続（`KeyStoreException`・`ProviderException`）かが分かる。後者なら、再試行の回数・間隔を伸ばす、`get` では消さない、などを別 Issue で検討する。`adb logcat -s SecureStore` の `Keystore key lost; resetting secure storage (…)` も同じ連鎖 |
+| `reason=secret_not_found` が 1 アカウントだけ | そのアカウントのトークンだけが無い。`account connected`（`via=add`）の直後ならトークン保存の失敗（`account_auth.go` のロールバックの経路）。直前に別のエラーが無いか前後を見る |
+| `reason=api_401`。直前に `Gmail API が 401 を返しました` | アクセストークンを取り直しても 401。Google 側の失効の前触れの可能性（`invalid_grant` が続くか確認） |
+| `reason=scope_insufficient` | 認可時に権限（`gmail.modify`）を一部しか許可しなかった。再接続して全部許可 |
+| `reason=client_rejected` | OAuth クライアント（Client ID／Secret）の設定の問題。画面は「OAuth クライアントを確認」を案内する |
+| `origin=headless` | Worker のヘッドレス同期（アプリ本体が動いていないプロセス）で起きた。`origin=app` ならアプリ本体 |
+| 何も無い（理由なしの `needs_reauth`） | `reason` が空のとき（`ErrNeedsReauth` を理由なしで返す経路）。前後のログの `err` を読む |
+
+### 21.6 Windows への影響
+
+Windows の動き（同期・再試行・状態の切り替え・判定）は変えていない。共有の Go コードで変わったのは、Windows にも出る次の点だけ（表示・ログの追加。判定・状態の切り替え・再試行は同じ）:
+
+- **画面の文言**: `invalid_grant` による再接続待ちのとき、受信箱のバナーと設定のアカウントの行に、専用の文言と案内（OAuth 同意画面が「テスト」だと 7 日で切れる、など）が出る（`syncer.MsgTokenRevoked`。画面の判定は文言の先頭の一致だけで、`needs_reauth` への切り替え・再試行の停止は変えていない）。
+- **ログの `origin=app` 属性**: `run.go` が、gmail と scheduler のログに `origin=app` を付ける（Windows のログにも付く）。
+- **ログの追加**: `account needs reauth`・`account connected`・revoke・401 の再試行が、Windows のログにも出る。
+- **エラーの連鎖**: 資格情報ストアの読み出しの失敗の原因が `ErrGeneric` のエラーの連鎖に入る（`gmail.newAccount` の `%w`。これまでは握りつぶしていた）ので、`apperr` の Internal のログに原因が出る。`errors.Is`／`errors.As` と文言は元のまま。
+- `gmail` の再接続待ちのエラーに理由（`reasonError`）を添える: `errors.Is`／`errors.As` と文言は元のまま。判定（`classify`）の結果は変わらない。
+- `internal/secrets/bridge.go`（純 Go だが Android の保管だけが使う）、`SecureStore`・`SecretBridge`（Java）は Android のみ。
+
+### 21.7 自動テスト・確認の状況
+
+| テスト | 内容 |
+|--------|------|
+| `internal/gmail/gmailtests/reason_test.go` | 失敗の経路ごとに `ReauthReason` が区別される（`invalid_grant`・`invalid_client`・401・403 スコープ不足・トークン無し・鍵の喪失）。資格情報の読み出し失敗は再接続待ちにならない（リフレッシュトークン・Client Secret）。1 回目の 401 のログ |
+| `internal/sync/syncertests/reauth_log_test.go` | 理由ごとの切り替えのログ（`reason`・`trigger`・`prev_status`。メールアドレスを載せない）、`since_last_sync_s`、利用者の操作での `trigger=action`、すでに再接続待ちのアカウントでは 2 回目を記録しないこと、オフラインではログが出ない |
+| `internal/app/apptests/thread_reauth_log_test.go`（`TestGetThreadNeedsReauthLogsReason`） | 利用者の操作の失敗での切り替えのログ・`invalid_grant` の状態メッセージ |
+| `internal/headless/syncone_test.go`・`headless_test.go` | ヘッドレス同期のログに `origin=headless`・`reason=secret_key_lost`。アプリ本体の更新で新たに再接続待ちになったときの `origin=app_background` |
+| `internal/app/accounttests/account_revoke_test.go` | revoke・接続のログ（成功したときだけ。メールアドレス・トークンを載せない） |
+| `internal/secrets/bridge_test.go` | Java の失敗コードに付いた原因の扱い（種類の判定は `:` の前だけ） |
+| Java（`SecureStoreTest`・`SecretBridgeTest`。`task android:test`） | 原因の例外クラス名の連鎖（メッセージ・値を含まない・最大 4 つ） |
+| `frontend/test/status/tokenRevoked.test.ts` | バナーと設定のアカウント行の案内（`invalid_grant` のときだけ） |
+
+**未確認**（この環境では確認できない）:
+
+- 実機・本物の Google での再接続待ちの頻度と原因。**頻発の根本原因は未特定**。
+- 実機の Keystore の失敗の実態（`SecureStore` の再試行 3 回で足りているか。§21.2）。
+- 実機・エミュレーターで、`origin=headless`／`app_background` のログが書き出しの zip に入ること（Go のユニットテストまで。書き出しは既存の仕組みで、ログファイルはアプリ本体と Worker で同じ `Hitomado/logs`）。
+- `SecureStore` の例外クラス名の連鎖の実際の値（JVM のテストは模擬の例外）。

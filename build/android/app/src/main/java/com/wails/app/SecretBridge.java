@@ -10,7 +10,8 @@ import org.json.JSONObject;
  * WorkManager の Worker（{@link HeadlessSync}。Activity も Wails アプリも無い）が同じ実装・同じストアを使える。
  *
  * <p>戻り値は {"ok":true,"found":bool,"value":"…"}（get）／{"ok":true}（set・delete）／{"ok":false,"error":"<コード>"}。
- * コードは key_lost／failed／empty key だけで、値・キー・例外メッセージは含まない（#84）。
+ * コードは key_lost／failed／empty key で、key_lost・failed には原因の例外クラス名の連鎖が ":" で続くことがある
+ * （"key_lost:java.security.InvalidKeyException"。#369）。値・キー・例外メッセージは含まない（#84）。
  */
 public final class SecretBridge {
     private final SecureStore store;
@@ -38,9 +39,9 @@ public final class SecretBridge {
             store.put(k, o.optString("value", ""));
             return "{\"ok\":true}";
         } catch (SecureStore.SecureStoreException e) {
-            return failure(e.code());
+            return failure(e.wireCode());
         } catch (Exception e) {
-            return failure("failed");
+            return failure("failed:" + SecureStore.describe(e));
         }
     }
 
@@ -59,9 +60,9 @@ public final class SecretBridge {
             result.put("value", value);
             return result.toString();
         } catch (SecureStore.SecureStoreException e) {
-            return failure(e.code());
+            return failure(e.wireCode());
         } catch (Exception e) {
-            return failure("failed");
+            return failure("failed:" + SecureStore.describe(e));
         }
     }
 
@@ -73,9 +74,9 @@ public final class SecretBridge {
             store.remove(key);
             return "{\"ok\":true}";
         } catch (SecureStore.SecureStoreException e) {
-            return failure(e.code());
+            return failure(e.wireCode());
         } catch (Exception e) {
-            return failure("failed");
+            return failure("failed:" + SecureStore.describe(e));
         }
     }
 }

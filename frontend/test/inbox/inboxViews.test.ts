@@ -47,16 +47,6 @@ describe('見る場所（受信箱・下書き・送信済み・アーカイブ�
     expect(ids(s)).toEqual(['old'])
   })
 
-  test('下書きは一覧ページ（#366）が入るまで準備中で、何も引かない', async () => {
-    const s = useInboxStore()
-    await s.load()
-    const before = [callsOf('Search').length, callsOf('ListInbox').length]
-    await s.setView('drafts')
-    expect(s.view).toBe('drafts')
-    expect(ids(s)).toEqual([])
-    expect([callsOf('Search').length, callsOf('ListInbox').length]).toEqual(before)
-  })
-
   test('受信箱へ戻すと ListInbox で引き直し、絞り込みと未読のみは保つ', async () => {
     const s = useInboxStore()
     await s.setFilter({ accountIds: ['a2'], unreadOnly: true })
@@ -70,12 +60,11 @@ describe('見る場所（受信箱・下書き・送信済み・アーカイブ�
     expect(q.unreadOnly).toBe(true)
   })
 
-  test('未読のみはアーカイブでは is:unread で効かせ、送信済み・下書きでは効かせない（掛けると必ず空になる）', () => {
+  test('未読のみはアーカイブでは is:unread で効かせ、送信済みでは効かせない（掛けると必ず空になる）', () => {
     expect(viewSearchQuery('archive', true)).toBe('-in:inbox is:unread')
     expect(viewSearchQuery('archive', false)).toBe('-in:inbox')
     expect(viewSearchQuery('sent', true)).toBe('in:sent')
     expect(viewSearchQuery('inbox', true)).toBeUndefined()
-    expect(viewSearchQuery('drafts', true)).toBeUndefined()
     expect(hidesReadOf('inbox', 'sent', 'all', true)).toBe(false)
     expect(hidesReadOf('inbox', 'archive', 'all', true)).toBe(true)
     expect(hidesReadOf('inbox', 'inbox', 'new', false)).toBe(true)

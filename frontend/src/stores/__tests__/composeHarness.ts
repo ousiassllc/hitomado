@@ -19,15 +19,20 @@ export const h: {
   responses: Record<string, unknown>
   failures: Record<string, unknown>
   gates: Record<string, Promise<void>>
-} = { responses: {}, failures: {}, gates: {} }
+  /** CancellablePromise.cancel() の呼び出しを受ける（名前ごと。無ければ何もしない） */
+  cancelHooks: Record<string, () => void>
+} = { responses: {}, failures: {}, gates: {}, cancelHooks: {} }
 
 function binding(name: string) {
-  return async (...args: unknown[]) => {
+  return (...args: unknown[]) => {
     calls.push({ name, args })
-    if (name in h.gates) await h.gates[name]
-    if (name in h.failures) throw h.failures[name]
-    const r = h.responses[name]
-    return typeof r === 'function' ? (r as (...a: unknown[]) => unknown)(...args) : r
+    const p = (async () => {
+      if (name in h.gates) await h.gates[name]
+      if (name in h.failures) throw h.failures[name]
+      const r = h.responses[name]
+      return typeof r === 'function' ? (r as (...a: unknown[]) => unknown)(...args) : r
+    })()
+    return Object.assign(p, { cancel: () => h.cancelHooks[name]?.() })
   }
 }
 
@@ -43,6 +48,8 @@ export function installMocks(): void {
     CloseCompose: binding('CloseCompose'),
     DiscardCompose: binding('DiscardCompose'),
     SuggestContacts: binding('SuggestContacts'),
+    ListDrafts: binding('ListDrafts'),
+    DiscardDraft: binding('DiscardDraft'),
   }))
   mock.module(`${B}/accountservice`, () => ({}))
   mock.module(`${B}/appservice`, () => ({
@@ -68,6 +75,7 @@ export const { useComposeStore } = await import('../compose')
 export const { useUiStore } = await import('../ui')
 export const { useAccountsStore } = await import('../accounts')
 export const { useInboxStore } = await import('../inbox')
+export const { useDraftsStore } = await import('../drafts')
 export const { useSettingsStore } = await import('../settings')
 
 export const SIG_A = '<p>Aの署名</p>'
@@ -137,6 +145,7 @@ export function reset(): void {
   calls.length = 0
   h.failures = {}
   h.gates = {}
+  h.cancelHooks = {}
   h.responses = {
     SaveDraft: { draftId: 'd1', savedAt: 1 },
     CloseCompose: undefined,

@@ -65,8 +65,13 @@ func (s *Service) GenerateReplyDraft(ctx context.Context, sessionID, requestID, 
 		return dto.ReplyDraft{}, s.mapError(runCtx, err, ref.AccountID)
 	}
 	in.Instruction = instruction
+	return s.generateDraft(runCtx, cfg, key, in)
+}
+
+// generateDraft は組み立て済みの入力 in から下書きの本文を生成する（返信・新規作成で共通。in.Effort は設定のエフォートにする）。
+func (s *Service) generateDraft(ctx context.Context, cfg storedAIConfig, key string, in ai.ReplyInput) (dto.ReplyDraft, error) {
 	in.Effort = cfg.Effort
-	text, err := s.generate(runCtx, cfg, key, in.Effort, func(ctx context.Context, p ai.Provider) (string, error) {
+	text, err := s.generate(ctx, cfg, key, in.Effort, func(ctx context.Context, p ai.Provider) (string, error) {
 		return p.GenerateReply(ctx, in)
 	})
 	if err != nil {

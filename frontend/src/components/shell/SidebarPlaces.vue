@@ -1,15 +1,13 @@
 <script setup lang="ts">
 import { Archive, EditPencil, Mail, Send } from '@iconoir/vue'
-import { computed } from 'vue'
+import { type Place, usePlaces } from '../../composables/usePlaces'
 import { useUnreadTotal } from '../../composables/useUnreadTotal'
-import type { InboxView } from '../../lib/inboxViews'
 import { common, nav } from '../../lib/messages'
-import { useInboxStore } from '../../stores/inbox'
 import CountBadge from '../ui/CountBadge.vue'
 
 // サイドバーの「見る場所」。受信箱（未読数はここに付ける）・下書き・送信済み・アーカイブ。アカウントの絞り込みとは別の軸。
-// 下書きの件数は、下書きの一覧ページ（#366）が件数を持ってから付ける。
-const inbox = useInboxStore()
+// 下書きは下書きの一覧（#366）を開く。件数は、一覧が件数を持ってから付ける。
+const { current, show } = usePlaces()
 const unread = useUnreadTotal()
 
 const places = [
@@ -17,10 +15,7 @@ const places = [
   { view: 'drafts', icon: EditPencil },
   { view: 'sent', icon: Send },
   { view: 'archive', icon: Archive },
-] as const satisfies readonly { view: InboxView; icon: unknown }[]
-
-/** 今いる場所。検索中は全メールが対象なので、どの場所も強調しない。 */
-const current = computed(() => (inbox.mode === 'search' ? undefined : inbox.view))
+] as const satisfies readonly { view: Place; icon: unknown }[]
 </script>
 
 <template>
@@ -32,7 +27,7 @@ const current = computed(() => (inbox.mode === 'search' ? undefined : inbox.view
       class="place"
       :aria-current="current === p.view ? 'page' : undefined"
       :data-testid="`nav-${p.view}`"
-      @click="inbox.setView(p.view)"
+      @click="show(p.view)"
     >
       <component :is="p.icon" class="icon icon-sm" aria-hidden="true" />
       <span class="label">{{ nav.places[p.view] }}</span>

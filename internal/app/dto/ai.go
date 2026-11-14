@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/ousiassllc/hitomado/internal/domain/model"
+
 // AIConfig は AI 設定。API キー・トークン自体は返さない。BaseURL は openai のみ。
 type AIConfig struct {
 	Provider string `json:"provider"` // anthropic / openai / chatgpt
@@ -73,9 +75,15 @@ type AIModelList struct {
 	Message  string    `json:"message,omitempty"`
 }
 
-// ReplyDraft は AI が生成した返信本文（署名・引用を含まない）。
+// ReplyDraft は AI が生成した下書きの本文（返信・新規作成。署名・引用を含まない）。
 type ReplyDraft struct {
 	BodyHTML string `json:"bodyHtml"`
+}
+
+// NewDraftContext は新規作成の AI 下書き（GenerateNewDraft）に渡す、作成画面に入力済みの件名と宛先（To のみ。どちらも空でよい）。
+type NewDraftContext struct {
+	Subject string          `json:"subject"`
+	To      []model.Address `json:"to"`
 }
 
 // ThreadAIResult はスレッドの AI 要約・質問の結果（F-17・F-18）。Text は日本語のプレーンテキスト。

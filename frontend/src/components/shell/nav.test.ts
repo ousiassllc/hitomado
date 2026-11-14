@@ -1,19 +1,38 @@
-import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
+import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
+import * as realCompose from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/composeservice'
 import { callsOf, installMocks, resetKit, responses, restoreMocks } from '../../../test/inboxKit'
 
 installMocks()
-afterAll(restoreMocks)
+// 下書きの一覧（#366）を開く入口を試すため、ListDrafts だけ差し替える（ほかは本物）。
+const COMPOSE = '../../../bindings/github.com/ousiassllc/hitomado/internal/app/composeservice'
+const listDrafts: unknown[] = []
+mock.module(COMPOSE, () => ({
+  ...realCompose,
+  ListDrafts: async (ids: string[]) => {
+    listDrafts.push(ids)
+    return { items: [], failures: [], truncated: false }
+  },
+}))
+afterAll(() => {
+  restoreMocks()
+  mock.module(COMPOSE, () => ({ ...realCompose }))
+})
 
 const { useInboxStore } = await import('../../stores/inbox')
 const { useAccountsStore } = await import('../../stores/accounts')
 const { useUiStore } = await import('../../stores/ui')
+const { useDraftsStore } = await import('../../stores/drafts')
 const { default: BottomTabs } = await import('./BottomTabs.vue')
 const { default: SidebarPlaces } = await import('./SidebarPlaces.vue')
 const { default: AgentPanel } = await import('./AgentPanel.vue')
 const { default: AccountChips } = await import('../account/AccountChips.vue')
 
-beforeEach(resetKit)
+beforeEach(() => {
+  resetKit()
+  listDrafts.length = 0
+  useDraftsStore().hide()
+})
 
 const account = (id: string, name: string) =>
   ({ id, email: `${id}@example.com`, displayName: name, color: 'blue', signatureHtml: '' }) as never
@@ -46,6 +65,32 @@ describe('サイドバーの見る場所', () => {
     expect(w.get('[data-testid=nav-sent]').attributes('aria-current')).toBe('page')
     expect(w.get('[data-testid=nav-inbox]').attributes('aria-current')).toBeUndefined()
   })
+
+  test('「下書き」は準備中ではなく下書きの一覧を開く。ほかの場所を押すと一覧を閉じてその場所へ移る（#366）', async () => {
+    const { inbox } = await ready()
+    const drafts = useDraftsStore()
+    const w = mount(SidebarPlaces)
+
+    await w.get('[data-testid=nav-drafts]').trigger('click')
+    await flushPromises()
+    expect(drafts.active).toBe(true)
+    expect(listDrafts).toHaveLength(1)
+    expect(w.get('[data-testid=nav-drafts]').attributes('aria-current')).toBe('page')
+    expect(w.get('[data-testid=nav-inbox]').attributes('aria-current')).toBeUndefined()
+
+    await w.get('[data-testid=nav-archive]').trigger('click')
+    await flushPromises()
+    expect(drafts.active).toBe(false)
+    expect(inbox.view).toBe('archive')
+    expect(w.get('[data-testid=nav-archive]').attributes('aria-current')).toBe('page')
+    expect(w.get('[data-testid=nav-drafts]').attributes('aria-current')).toBeUndefined()
+
+    await w.get('[data-testid=nav-drafts]').trigger('click')
+    await w.get('[data-testid=nav-inbox]').trigger('click')
+    await flushPromises()
+    expect(drafts.active).toBe(false)
+    expect(inbox.view).toBe('inbox')
+  })
 })
 
 describe('スマホの下 4 タブ', () => {
@@ -63,17 +108,22 @@ describe('スマホの下 4 タブ', () => {
 
     await w.get('[data-testid=tab-drafts]').trigger('click')
     await flushPromises()
-    expect(inbox.view).toBe('drafts')
+    expect(useDraftsStore().active).toBe(true)
+    expect(listDrafts).toHaveLength(1)
     expect(w.get('[data-testid=tab-drafts]').attributes('aria-current')).toBe('page')
+    expect(w.get('[data-testid=tab-inbox]').attributes('aria-current')).toBeUndefined()
 
     await w.get('[data-testid=tab-agent]').trigger('click')
     expect(ui.agentOpen).toBe(true)
     expect(w.get('[data-testid=tab-agent]').attributes('aria-expanded')).toBe('true')
     expect(w.get('[data-testid=tab-drafts]').attributes('aria-current')).toBeUndefined()
 
-    // 場所のタブを押すとエージェントのパネルは閉じる
+    // 場所のタブを押すとエージェントのパネルは閉じ、下書きの一覧も閉じて受信箱へ戻る
     await w.get('[data-testid=tab-inbox]').trigger('click')
     expect(ui.agentOpen).toBe(false)
+    expect(useDraftsStore().active).toBe(false)
+    expect(inbox.view).toBe('inbox')
+    expect(w.get('[data-testid=tab-inbox]').attributes('aria-current')).toBe('page')
   })
 })
 

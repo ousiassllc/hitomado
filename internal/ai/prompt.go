@@ -5,8 +5,11 @@ import (
 	"strings"
 )
 
-// systemPrompt は返信下書きの system 指示（日本語）。署名は「重複して書かない」ためにだけ渡す。
+// systemPrompt は下書きの system 指示（日本語。返信が既定で、新規作成は prompt_new.go）。署名は「重複して書かない」ためにだけ渡す。
 func systemPrompt(in ReplyInput) string {
+	if in.New != nil {
+		return newMailSystemPrompt(in)
+	}
 	var b strings.Builder
 	b.WriteString("あなたはメール返信の下書きを書くアシスタントです。")
 	if name := strings.TrimSpace(in.AccountDisplayName); name != "" {
@@ -39,6 +42,9 @@ func systemPrompt(in ReplyInput) string {
 
 // userPrompt はスレッド（時系列昇順）を 1 つのユーザーメッセージに整形する。
 func userPrompt(in ReplyInput) string {
+	if in.New != nil {
+		return newMailUserPrompt(in)
+	}
 	var b strings.Builder
 	b.WriteString("以下はメールスレッドです（古い順）。最後のメッセージへの返信本文を書いてください。\n")
 	writeMessages(&b, in.Messages)

@@ -5,12 +5,14 @@ import * as InboxService from '../../../bindings/github.com/ousiassllc/hitomado/
 import { call, list, parseBindingError } from '../../lib/api'
 import { keyOf } from '../../lib/inboxItems'
 import { viewShowsUnreadOnly } from '../../lib/inboxViews'
-import { common } from '../../lib/messages'
+import { common, drafts as draftsMsg } from '../../lib/messages'
 import { useComposeStore } from '../../stores/compose'
+import { useDraftsStore } from '../../stores/drafts'
 import { useInboxStore } from '../../stores/inbox'
 import { useLayoutStore } from '../../stores/layout'
 import { useUiStore } from '../../stores/ui'
 import AccountChips from '../account/AccountChips.vue'
+import DraftList from '../drafts/DraftList.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import InboxTabs from './InboxTabs.vue'
 import ListToolbar from './ListToolbar.vue'
@@ -21,6 +23,7 @@ const inbox = useInboxStore()
 const ui = useUiStore()
 const layout = useLayoutStore()
 const compose = useComposeStore()
+const drafts = useDraftsStore()
 
 const labels = ref<Label[]>([])
 const labelsLoading = ref(false)
@@ -41,7 +44,6 @@ const labelItems = computed(() => {
 
 const emptyText = computed(() => {
   if (inbox.mode === 'search') return common.list.emptySearch
-  if (inbox.view === 'drafts') return common.list.emptyDrafts
   if (inbox.view === 'sent') return common.list.emptySent
   if (inbox.view === 'archive') return common.list.emptyArchive
   if (inbox.filter.unreadOnly || inbox.tab === 'new') return common.list.emptyUnread
@@ -74,51 +76,54 @@ async function toggleLabel(labelId: string): Promise<void> {
 </script>
 
 <template>
-  <section class="pane" :aria-label="common.list.label">
+  <section class="pane" :aria-label="drafts.active ? draftsMsg.label : common.list.label">
     <!-- サイドバーの代わりに下 4 タブを使うレイアウト（2 ペイン・1 画面ずつ）の上部バー -->
     <header v-if="layout.hasTabBar" class="head">
       <span class="app-name">{{ common.appName }}</span>
       <BaseButton size="sm" variant="primary" data-testid="head-compose" @click="compose.open({ mode: 'new' })">{{ common.sidebar.compose }}</BaseButton>
     </header>
-    <SearchBar :active="inbox.mode === 'search'" :query="inbox.searchQuery" @search="inbox.runSearch" @clear="inbox.clearSearch" />
-    <!-- アカウントの絞り込み（スマホ。PC はサイドバーの「アカウント」） -->
+    <SearchBar v-if="!drafts.active" :active="inbox.mode === 'search'" :query="inbox.searchQuery" @search="inbox.runSearch" @clear="inbox.clearSearch" />
+    <!-- アカウントの絞り込み（スマホ。PC はサイドバーの「アカウント」）。下書きの一覧にも効く -->
     <AccountChips v-if="layout.hasTabBar" />
-    <!-- カテゴリのタブは受信箱だけ（下書き・送信済み・アーカイブには無い） -->
-    <InboxTabs v-if="inbox.mode === 'inbox' && inbox.view === 'inbox'" :model-value="inbox.tab" @update:model-value="inbox.setTab" />
-    <ListToolbar
-      :selected-count="targets.length"
-      :refreshing="inbox.refreshing"
-      :searching="inbox.mode === 'search'"
-      :unread-only="inbox.filter.unreadOnly"
-      :unread-only-available="viewShowsUnreadOnly(inbox.view)"
-      :compact="layout.isStack"
-      :label-enabled="labelEnabled"
-      :labels="labelItems"
-      :labels-loading="labelsLoading"
-      @refresh="inbox.refresh"
-      @update:unread-only="(v) => inbox.setFilter({ accountIds: inbox.filter.accountIds, unreadOnly: v })"
-      @archive="inbox.archive(targets)"
-      @trash="inbox.trash(targets)"
-      @toggle-read="(read) => inbox.markRead(targets, read)"
-      @open-labels="loadLabels"
-      @label="toggleLabel"
-      @back-to-inbox="inbox.clearSearch"
-    />
-    <ThreadList
-      :items="inbox.items"
-      :selected-key="inbox.selectedKey"
-      :cursor-key="layout.isStack ? undefined : inbox.cursorKey"
-      :checked-keys="inbox.checkedKeys"
-      :loading="inbox.loading"
-      :has-more="inbox.hasMore"
-      :loading-more="inbox.loadingMore"
-      :empty-text="emptyText"
-      @open="inbox.select"
-      @toggle="inbox.toggleChecked"
-      @extend="inbox.extendChecked"
-      @load-more="inbox.loadMore"
-      @move="inbox.moveCursor"
-    />
+    <DraftList v-if="drafts.active" />
+    <template v-else>
+      <!-- カテゴリのタブは受信箱だけ（送信済み・アーカイブには無い） -->
+      <InboxTabs v-if="inbox.mode === 'inbox' && inbox.view === 'inbox'" :model-value="inbox.tab" @update:model-value="inbox.setTab" />
+      <ListToolbar
+        :selected-count="targets.length"
+        :refreshing="inbox.refreshing"
+        :searching="inbox.mode === 'search'"
+        :unread-only="inbox.filter.unreadOnly"
+        :unread-only-available="viewShowsUnreadOnly(inbox.view)"
+        :compact="layout.isStack"
+        :label-enabled="labelEnabled"
+        :labels="labelItems"
+        :labels-loading="labelsLoading"
+        @refresh="inbox.refresh"
+        @update:unread-only="(v) => inbox.setFilter({ accountIds: inbox.filter.accountIds, unreadOnly: v })"
+        @archive="inbox.archive(targets)"
+        @trash="inbox.trash(targets)"
+        @toggle-read="(read) => inbox.markRead(targets, read)"
+        @open-labels="loadLabels"
+        @label="toggleLabel"
+        @back-to-inbox="inbox.clearSearch"
+      />
+      <ThreadList
+        :items="inbox.items"
+        :selected-key="inbox.selectedKey"
+        :cursor-key="layout.isStack ? undefined : inbox.cursorKey"
+        :checked-keys="inbox.checkedKeys"
+        :loading="inbox.loading"
+        :has-more="inbox.hasMore"
+        :loading-more="inbox.loadingMore"
+        :empty-text="emptyText"
+        @open="inbox.select"
+        @toggle="inbox.toggleChecked"
+        @extend="inbox.extendChecked"
+        @load-more="inbox.loadMore"
+        @move="inbox.moveCursor"
+      />
+    </template>
   </section>
 </template>
 

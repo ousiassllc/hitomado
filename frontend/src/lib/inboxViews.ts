@@ -6,12 +6,12 @@ import { list } from './api'
 import { common } from './messages'
 
 /**
- * 「見る場所」（サイドバー・下タブの 受信箱／下書き／送信済み／アーカイブ）。アカウントの絞り込みとは別の軸で、
+ * 「見る場所」のうち、スレッドの一覧に出すもの（サイドバー・下タブの 受信箱／送信済み／アーカイブ）。アカウントの絞り込みとは別の軸で、
  * 組み合わせて効く（例: 仕事アカウントの送信済みだけ）。受信箱は同期済みの一覧（ListInbox）、送信済み・アーカイブは Gmail の検索（Search）で引く。
- * 下書きは、下書きの一覧ページ（#366。PR #367）が入るまで「準備中」（場所と並びだけ置く）。Gmail の `in:drafts` の検索は、
- * 新規作成だけの下書き（下書きのメッセージ 1 通だけのスレッド）を返さず、返信の下書きでも直前の受信メールを行に出すので、代わりには使わない。
+ * 下書きはスレッドの一覧ではなく、Gmail の下書きそのものの一覧（#366。stores/drafts）で、受信箱の上に重ねて出す。Gmail の `in:drafts` の検索は、
+ * 新規作成だけの下書き（下書きのメッセージ 1 通だけのスレッド）を返さず、返信の下書きでも直前の受信メールを行に出すので使わない。
  */
-export const INBOX_VIEWS = ['inbox', 'drafts', 'sent', 'archive'] as const
+export const INBOX_VIEWS = ['inbox', 'sent', 'archive'] as const
 
 export type InboxView = (typeof INBOX_VIEWS)[number]
 
@@ -22,12 +22,12 @@ export type InboxView = (typeof INBOX_VIEWS)[number]
  */
 const VIEW_QUERY = { sent: 'in:sent', archive: '-in:inbox' } as const
 
-/** 「未読のみ」が効く場所。送信済み・下書きは自分が送った／書いたメールで未読にならず、掛けると必ず空になるので効かせない（スイッチも出さない）。 */
+/** 「未読のみ」が効く場所。送信済みは自分が送ったメールで未読にならず、掛けると必ず空になるので効かせない（スイッチも出さない）。 */
 export function viewShowsUnreadOnly(view: InboxView): boolean {
   return view === 'inbox' || view === 'archive'
 }
 
-/** 送信済み・アーカイブの検索クエリ（アーカイブで未読のみのときは `is:unread` を足す）。受信箱は ListInbox、下書きは準備中なので undefined。 */
+/** 送信済み・アーカイブの検索クエリ（アーカイブで未読のみのときは `is:unread` を足す）。受信箱は ListInbox なので undefined。 */
 export function viewSearchQuery(view: InboxView, unreadOnly: boolean): string | undefined {
   if (view !== 'sent' && view !== 'archive') return undefined
   return unreadOnly && viewShowsUnreadOnly(view)
@@ -40,16 +40,12 @@ function keepsThread(view: InboxView, t: ThreadSummary): boolean {
   return view !== 'archive' || !t.inInbox
 }
 
-/**
- * 受信箱以外の場所の 1 ページ（`search` は Gmail の検索）。受信箱は undefined（ListInbox で引く）。
- * 下書きは、下書きの一覧ページ（#366）が入るまで準備中なので何も引かない。
- */
+/** 受信箱以外の場所の 1 ページ（`search` は Gmail の検索）。受信箱は undefined（ListInbox で引く）。 */
 export async function fetchViewPage(
   view: InboxView,
   unreadOnly: boolean,
   search: (q: string) => Promise<ThreadPage>,
 ): Promise<ThreadPage | undefined> {
-  if (view === 'drafts') return { items: [], failures: [] }
   const q = viewSearchQuery(view, unreadOnly)
   if (q === undefined) return undefined
   const page = await search(q)

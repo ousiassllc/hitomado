@@ -49,6 +49,34 @@ type SaveDraftResult struct {
 	SavedAt int64  `json:"savedAt"`
 }
 
+// DraftSummary は下書き一覧（ListDrafts）の 1 件。IsReply が真なら返信の下書き（元のスレッド ThreadID の返信として開き直す）、
+// 偽なら新規の下書き（作成画面で開き直す）。UpdatedAt は Unix ミリ秒。
+type DraftSummary struct {
+	AccountID string          `json:"accountId"`
+	DraftID   string          `json:"draftId"`
+	ThreadID  string          `json:"threadId"`
+	UpdatedAt int64           `json:"updatedAt"`
+	To        []model.Address `json:"to"`
+	Subject   string          `json:"subject"`
+	Snippet   string          `json:"snippet"` // 本文の先頭（プレーンテキスト）
+	IsReply   bool            `json:"isReply"`
+}
+
+// DraftList は ListDrafts の結果。Items は UpdatedAt の新しい順。一部のアカウントが失敗しても他は返し、Failures に入れる。
+// Truncated は、アカウントごとの上限（先頭から 100 件）を超える下書きがあって切り捨てたこと。
+type DraftList struct {
+	Items     []DraftSummary   `json:"items"`
+	Failures  []AccountFailure `json:"failures"`
+	Truncated bool             `json:"truncated"`
+}
+
+// DraftRef は一覧から破棄する下書き。ThreadID は、破棄した下書きをスレッド表示のキャッシュに残さないために使う。
+type DraftRef struct {
+	AccountID string `json:"accountId"`
+	DraftID   string `json:"draftId"`
+	ThreadID  string `json:"threadId"`
+}
+
 // SendOptions は PrepareSend のオプション。
 type SendOptions struct {
 	ArchiveAfterSend bool `json:"archiveAfterSend"`

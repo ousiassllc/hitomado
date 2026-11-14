@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { EditPencil, Mail, MoreHoriz } from '@iconoir/vue'
 import { computed } from 'vue'
+import { type Place, usePlaces } from '../../composables/usePlaces'
 import { useUnreadTotal } from '../../composables/useUnreadTotal'
-import type { InboxView } from '../../lib/inboxViews'
 import { common, nav } from '../../lib/messages'
 import { useInboxStore } from '../../stores/inbox'
 import { useLayoutStore } from '../../stores/layout'
@@ -13,27 +13,27 @@ import AgentMascot from './AgentMascot.vue'
 
 // スマホ（2 ペイン・1 画面ずつ）の下 4 タブ: 受信箱・下書き・エージェント・その他。ハンバーガーのドロワーの代わり。
 // バッジは受信箱の未読数だけ（エージェントの確認待ちは、中身ができてから）。その他は 送信済み・アーカイブ・設定・アカウントを追加。
-// エージェントは中身ができるまでは「準備中」のパネルを開く。
+// 下書きは下書きの一覧（#366）。エージェントは中身ができるまでは「準備中」のパネルを開く。
 const inbox = useInboxStore()
 const layout = useLayoutStore()
 const ui = useUiStore()
 const unread = useUnreadTotal()
+const places = usePlaces()
 
 type Tab = 'inbox' | 'drafts' | 'agent' | 'more'
 
 /** 選ばれているタブ。エージェントのパネルが開いていればそれ、検索中は無し、そうでなければ見る場所（送信済み・アーカイブは「その他」の中）。 */
 const current = computed<Tab | undefined>(() => {
   if (ui.agentOpen) return 'agent'
-  if (inbox.mode === 'search') return undefined
-  const v = inbox.view
-  return v === 'inbox' || v === 'drafts' ? v : 'more'
+  const v = places.current.value
+  return v === undefined ? undefined : v === 'inbox' || v === 'drafts' ? v : 'more'
 })
 
 /** 場所を見せる。1 画面ずつのときは、開いているスレッドを閉じて一覧へ戻す（エージェントのパネルから戻るときも）。 */
-function show(view: InboxView): void {
+function show(place: Place): void {
   ui.closeAgent()
   if (layout.isStack) inbox.select(undefined)
-  void inbox.setView(view)
+  places.show(place)
 }
 
 const moreItems: MenuItem[] = [

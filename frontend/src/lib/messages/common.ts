@@ -15,6 +15,9 @@ export const common = {
   shortcutHint: (label: string, key: string) => `${label} (${key})`,
   offlineBanner: 'オフラインです。取得済みの内容を表示しています。',
   needsReauthBanner: (name: string) => `${name} の接続が切れました。再接続してください。`,
+  /** Google がトークンを無効にした（invalid_grant）ときの要再接続。短い原因の案内を添える（詳しくは設定のアカウント）。 */
+  tokenRevokedBanner: (name: string) =>
+    `${name} の接続が切れました（Google がトークンを無効にしました）。再接続してください。OAuth 同意画面が「テスト」のままだと 7 日で切れます。`,
   reconnect: '再接続',
   checkOAuthClient: 'OAuth クライアントを確認',
   syncErrorBanner: (name: string) => `${name} の同期に失敗しました。次回の更新で再試行します。`,
@@ -64,7 +67,6 @@ export const common = {
     emptyUnread: '未読のスレッドはありません。',
     emptyCategory: 'このカテゴリのスレッドはありません。',
     emptySearch: '一致するスレッドがありません。',
-    emptyDrafts: '下書きの一覧は準備中です。',
     emptySent: '送信済みのメールはありません。',
     emptyArchive: 'アーカイブしたメールはありません。',
     loadMore: 'さらに読み込む',

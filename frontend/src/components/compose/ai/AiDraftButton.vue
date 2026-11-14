@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { MagicWand, WarningCircle } from '@iconoir/vue'
-import { computed, onBeforeUnmount, onMounted, useId, watch } from 'vue'
+import { InfoCircle, MagicWand, WarningCircle } from '@iconoir/vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
 import { useAiDraft } from '../../../composables/useAiDraft'
 import { instructionLength, MAX_INSTRUCTION_CHARS } from '../../../lib/aiInstruction'
 import { common, compose as msg, settings as settingsMsg } from '../../../lib/messages'
@@ -17,7 +17,11 @@ import Spinner from '../../ui/Spinner.vue'
 import AiDraftInstruction from './AiDraftInstruction.vue'
 import UsageLimitNotice from './UsageLimitNotice.vue'
 
-const props = defineProps<{ sessionId: string }>()
+const props = defineProps<{
+  sessionId: string
+  /** 新規作成の下書き（#365）。スレッドが無いので、AI への指示が必須で、入力済みの件名・宛先も渡す。返信は従来どおり。 */
+  newMail?: boolean
+}>()
 const emit = defineEmits<{ generated: [bodyHtml: string] }>()
 
 const settings = useSettingsStore()
@@ -33,7 +37,15 @@ const ai = useAiDraft({
   hasBody: () => hasUserBody(compose.content.bodyHtml),
   // 同意は、保存済みの設定の送信先（OpenAI 互換は Base URL も）に対して記録する。
   recordConsent: (provider) => settings.recordAIConsent(provider, settings.aiConfig?.baseUrl ?? ''),
-  generate: (requestId) => settings.generateReplyDraft(props.sessionId, requestId, compose.aiInstruction),
+  generate: (requestId) =>
+    props.newMail
+      ? settings.generateNewDraft(props.sessionId, requestId, compose.aiInstruction, {
+          subject: compose.content.subject,
+          to: compose.content.to,
+        })
+      : settings.generateReplyDraft(props.sessionId, requestId, compose.aiInstruction),
+  // 新規作成は指示が必須。空のまま押したら、生成も同意の確認も始めず、指示を書くよう案内する。
+  instructionMissing: () => props.newMail === true && instructionLength(compose.aiInstruction) === 0,
   // 上限を超えた指示は、生成を始めずにエラーを出す。
   instructionError: () =>
     instructionLength(compose.aiInstruction) > MAX_INSTRUCTION_CHARS ? msg.ai.instruction.tooLong(MAX_INSTRUCTION_CHARS) : undefined,
@@ -43,6 +55,23 @@ const ai = useAiDraft({
   onGenerated: (bodyHtml) => emit('generated', bodyHtml),
   newRequestId: () => crypto.randomUUID(),
 })
+
+const instructionField = ref<InstanceType<typeof AiDraftInstruction>>()
+watch(
+  () => ai.needsInstruction.value,
+  async (needed) => {
+    if (!needed) return
+    await nextTick()
+    instructionField.value?.focus()
+  },
+)
+// 指示が入ったら案内は役目を終える。
+watch(
+  () => instructionLength(compose.aiInstruction),
+  (n) => {
+    if (n > 0) ai.needsInstruction.value = false
+  },
+)
 
 const destination = computed(() => {
   const c = settings.aiConfig
@@ -88,7 +117,17 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
         <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
       </template>
     </div>
-    <AiDraftInstruction v-model="compose.aiInstruction" :disabled="generating" />
+    <AiDraftInstruction ref="instructionField" v-model="compose.aiInstruction" :disabled="generating" :required="newMail" />
+    <!-- 指示が空のまま押された案内（#365）。エラーではないので、お知らせ（info）の見た目。出現・消去は他のインラインアラートと同じフェード -->
+    <Transition name="alert">
+      <div v-if="ai.needsInstruction.value" class="ai-hint" role="status" data-testid="ai-instruction-needed">
+        <InfoCircle class="icon ai-hint-icon" aria-hidden="true" />
+        <div class="ai-hint-main">
+          <strong class="ai-hint-title">{{ common.noticeTitle }}</strong>
+          <p class="ai-hint-body">{{ msg.ai.instruction.needed }}</p>
+        </div>
+      </div>
+    </Transition>
     <!-- 利用枠の案内もアラートの仲間なので、出現・消去は .ai-error と同じフェード（ガイド M5） -->
     <Transition name="alert">
       <UsageLimitNotice
@@ -174,6 +213,42 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
   border-radius: var(--r-md);
   background: var(--danger-soft);
   color: var(--ink);
+}
+
+.ai-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--info-border);
+  border-radius: var(--r-md);
+  background: var(--info-soft);
+  color: var(--ink);
+}
+
+.ai-hint-icon {
+  flex: none;
+  margin-top: var(--s-1);
+  color: var(--info);
+}
+
+.ai-hint-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ai-hint-title {
+  display: block;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  font-weight: 600;
+}
+
+.ai-hint-body {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+  overflow-wrap: anywhere;
 }
 
 .ai-error-icon {

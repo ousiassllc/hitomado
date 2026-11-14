@@ -3,6 +3,7 @@ import type { Banner, BannerKind } from '../stores/ui'
 import { isClientRejectedMessage } from './clientRejected'
 import { common } from './messages'
 import { isScopeInsufficientMessage } from './scopeInsufficient'
+import { isTokenRevokedMessage } from './tokenRevoked'
 
 export const MAX_BANNERS = 2
 
@@ -61,7 +62,9 @@ export function deriveBanners(s: BannerSources): Banner[] {
         // 権限（スコープ）不足は、許可し直す必要があることを Go のメッセージで伝える。操作は同じ再接続。
         message: isScopeInsufficientMessage(rejected)
           ? `${a.displayName}: ${rejected}`
-          : common.needsReauthBanner(a.displayName),
+          : isTokenRevokedMessage(rejected)
+            ? common.tokenRevokedBanner(a.displayName)
+            : common.needsReauthBanner(a.displayName),
         action: { label: common.reconnect, run: () => s.reconnect(a.id) },
       })
     } else if (s.statuses[a.id] === 'error') {

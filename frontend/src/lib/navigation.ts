@@ -22,7 +22,9 @@ export interface NavState {
   threadOpen: boolean
   /** 検索結果を表示中 */
   searching: boolean
-  /** 受信箱以外の見る場所（下書き・送信済み・アーカイブ）を表示中 */
+  /** 下書きの一覧を表示中（一覧の画面で、受信箱の代わりに出している。#366） */
+  draftsOpen?: boolean
+  /** 受信箱以外の見る場所（送信済み・アーカイブ）を表示中 */
   viewOpen?: boolean
 }
 
@@ -40,6 +42,7 @@ export type BackAction =
   | 'closeCompose'
   | 'closeThread'
   | 'clearSearch'
+  | 'closeDrafts'
   | 'closeView'
 
 /** 戻る操作の内容。戻る先が無い（一覧＝ルート）ときは undefined（アプリ側はバックグラウンドへ送る）。 */
@@ -49,6 +52,7 @@ export function backActionOf(s: NavState): BackAction | undefined {
   const screen = screenOf(s)
   if (screen === 'reply' || screen === 'compose') return 'closeCompose'
   if (screen === 'thread') return 'closeThread'
+  if (s.draftsOpen) return 'closeDrafts'
   if (s.searching) return 'clearSearch'
   return s.viewOpen ? 'closeView' : undefined
 }

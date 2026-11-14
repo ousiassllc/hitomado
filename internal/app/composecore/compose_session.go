@@ -210,3 +210,14 @@ func (s *Service) ThreadRef(id string) (model.Mode, dto.ThreadRef, error) {
 	}
 	return cs.mode, *cs.thread, nil
 }
+
+// SenderOf は作成セッションの種別と、送信元アカウントの ID（未選択は ""）を返す（AIService 用。新規作成の AI 下書き）。
+func (s *Service) SenderOf(id string) (model.Mode, string, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	cs, err := s.getLocked(id)
+	if err != nil {
+		return "", "", err
+	}
+	return cs.mode, cs.accountID, nil
+}

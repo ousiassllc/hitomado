@@ -8,6 +8,7 @@ import {
 } from '../lib/navigation'
 import { hasOpenDialog, hasOpenPopup } from '../lib/shortcuts'
 import { useComposeStore } from '../stores/compose'
+import { useDraftsStore } from '../stores/drafts'
 import { useInboxStore } from '../stores/inbox'
 import { useUiStore } from '../stores/ui'
 
@@ -18,6 +19,7 @@ import { useUiStore } from '../stores/ui'
 export function useNavigation() {
   const inbox = useInboxStore()
   const compose = useComposeStore()
+  const drafts = useDraftsStore()
   const ui = useUiStore()
 
   // DOM（Reka UI のダイアログ・メニュー）は反応性が無いので、overlayOpen は goBack の時点で調べる。
@@ -31,6 +33,7 @@ export function useNavigation() {
       composeMode: s && (s.mode === 'new' || forThread) ? (s.mode as ComposeMode) : undefined,
       threadOpen: sel !== undefined,
       searching: inbox.mode === 'search',
+      draftsOpen: drafts.active,
       viewOpen: inbox.view !== 'inbox',
     }
   })
@@ -76,6 +79,9 @@ export function useNavigation() {
         break
       case 'clearSearch':
         void inbox.clearSearch()
+        break
+      case 'closeDrafts':
+        drafts.hide()
         break
       case 'closeView':
         void inbox.setView('inbox')

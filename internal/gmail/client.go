@@ -131,6 +131,23 @@ type DraftFull struct {
 	Attachments []model.AttachmentInfo
 }
 
+// DraftSummary は下書き一覧の 1 件（drafts.get format=metadata）。
+type DraftSummary struct {
+	ID        string
+	ThreadID  string
+	UpdatedAt time.Time // 下書きのメッセージの internalDate（保存のたびに新しくなる）
+	To        []model.Address
+	Subject   string
+	Snippet   string // 本文の先頭（Gmail の snippet。HTML のエスケープを戻したプレーンテキスト）
+	IsReply   bool   // In-Reply-To がある（返信の下書き。新規の下書きは無い）
+}
+
+// DraftList は ListDrafts の結果。Truncated は limit を超える下書きがあって切り捨てたこと。
+type DraftList struct {
+	Items     []DraftSummary
+	Truncated bool
+}
+
 // Label は users.labels の 1 件。
 type Label struct {
 	ID      string
@@ -159,6 +176,9 @@ type Client interface {
 	GetDraft(ctx context.Context, accountID, draftID string) (DraftFull, error)
 	DeleteDraft(ctx context.Context, accountID, draftID string) error
 	FindDraftForThread(ctx context.Context, accountID, threadID string) (draftID string, ok bool, err error)
+	// ListDrafts は下書きの一覧（drafts.list と各下書きの drafts.get format=metadata）を返す。先頭から limit 件まで（Gmail が返す順）で、
+	// 超える分は切り捨てて Truncated を立てる。一覧の取得中に削除された下書きは含めない。本文・件名・宛先は利用者の情報なので、ログにもエラー文言にも出さない。
+	ListDrafts(ctx context.Context, accountID string, limit int) (DraftList, error)
 	ListLabels(ctx context.Context, accountID string) ([]Label, error)
 	// GetSignature は users.settings.sendAs.get で sendAsEmail の署名（HTML。未設定は ""）を返す。
 	// 署名の本文は利用者の情報なので、ログにもエラー文言にも出さない。
