@@ -1,9 +1,11 @@
 package platform
 
 import (
+	"bytes"
 	"fmt"
 	"image"
 	"image/png"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,10 +36,9 @@ func TestAndroidAdaptiveIconRingIsAbout48dp(t *testing.T) {
 	for density, scale := range map[string]float64{"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4} {
 		var bounds [2]image.Rectangle
 		for i, layer := range []string{"foreground", "monochrome"} {
-			f, err := os.Open(filepath.Join(res, "drawable-"+density, "ic_launcher_"+layer+".png"))
+			b, err := fs.ReadFile(os.DirFS(res), "drawable-"+density+"/ic_launcher_"+layer+".png")
 			require.NoError(t, err)
-			img, err := png.Decode(f)
-			require.NoError(t, f.Close())
+			img, err := png.Decode(bytes.NewReader(b))
 			require.NoError(t, err)
 			canvas := 108 * scale
 			require.EqualValues(t, canvas, img.Bounds().Dx(), "%s %s: 108dp のキャンバス", density, layer)
