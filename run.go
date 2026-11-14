@@ -101,7 +101,7 @@ func run() error {
 	var quitter *platform.Quitter
 	var tray *platform.Tray
 	if caps.SupportsTray {
-		tray, err = platform.NewTray(wapp, win, appIcon, func() { quitter.Request() })
+		tray, err = platform.NewTray(wapp, win, func() { quitter.Request() })
 		if err != nil {
 			return err
 		}

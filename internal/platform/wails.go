@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"runtime"
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 	"github.com/wailsapp/wails/v3/pkg/events"
@@ -148,21 +149,20 @@ func NewMainWindow(app *application.App, caps capability.Capabilities, saved Win
 
 // Tray はシステムトレイ（開く／終了。未読バッジ付きアイコン）。
 type Tray struct {
-	tray   *application.SystemTray
-	icon   []byte
-	badged []byte
-	badge  unreadBadge
+	tray  *application.SystemTray
+	icons trayIcons
+	badge unreadBadge
 }
 
-// NewTray はトレイを作る。icon は PNG。クリックと「開く」でウィンドウを表示し、「終了」で quit を呼ぶ。
-func NewTray(app *application.App, window *application.WebviewWindow, icon []byte, quit func()) (*Tray, error) {
-	badged, err := BadgeIcon(icon)
+// NewTray はトレイを作る。アイコンは tray/ の素材（icon.go）。クリックと「開く」でウィンドウを表示し、「終了」で quit を呼ぶ。
+func NewTray(app *application.App, window *application.WebviewWindow, quit func()) (*Tray, error) {
+	icons, err := loadTrayIcons(runtime.GOOS)
 	if err != nil {
 		return nil, err
 	}
-	t := &Tray{tray: app.SystemTray.New(), icon: icon, badged: badged}
+	t := &Tray{tray: app.SystemTray.New(), icons: icons}
 	t.badge.apply = t.applyUnread
-	t.tray.SetIcon(icon)
+	t.setIcons(icons.light, icons.dark)
 	t.tray.SetTooltip("Hitomado")
 	menu := app.Menu.New()
 	menu.Add("開く").OnClick(func(*application.Context) { ShowMainWindow(window) })
@@ -176,13 +176,19 @@ func NewTray(app *application.App, window *application.WebviewWindow, icon []byt
 // SetUnread は未読の有無に応じてトレイアイコンを切り替える。複数のゴルーチンから呼んでよい。
 func (t *Tray) SetUnread(has bool) { t.badge.set(has) }
 
+// setIcons はライト用・ダーク用のアイコンを渡す。どちらが出るかは OS（Windows ではタスクバー）のテーマで Wails が決める。
+func (t *Tray) setIcons(light, dark []byte) {
+	t.tray.SetIcon(light)
+	t.tray.SetDarkModeIcon(dark)
+}
+
 func (t *Tray) applyUnread(has bool) {
 	if has {
-		t.tray.SetIcon(t.badged)
+		t.setIcons(t.icons.lightUnread, t.icons.darkUnread)
 		t.tray.SetTooltip("Hitomado（未読あり）")
 		return
 	}
-	t.tray.SetIcon(t.icon)
+	t.setIcons(t.icons.light, t.icons.dark)
 	t.tray.SetTooltip("Hitomado")
 }
 

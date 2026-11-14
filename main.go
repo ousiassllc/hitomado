@@ -13,9 +13,6 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed build/appicon.png
-var appIcon []byte
-
 // version は -ldflags "-X main.version=..." で上書きする（リリースではタグから注入する）。
 // 注入しない dev 実行（wails3 dev）・ローカルビルドの既定値は update.DevVersion（0.0.0）で、更新確認を行わない。
 // VERSION の既定値（ルートの Taskfile.yml の includes の vars）と同じにする。
