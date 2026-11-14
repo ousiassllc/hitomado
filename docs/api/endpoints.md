@@ -421,24 +421,25 @@ type ThreadAIResult = { text: string; includedCount: number; totalCount: number 
 // スレッドへの AI 質問の会話 1 件（F-18）。`user` は利用者の質問、`assistant` は AI の回答。Go は会話を保持せず、呼び出しごとにフロントが渡す
 type ThreadAITurn = { role: 'user' | 'assistant'; text: string };
 
-// Inbox Zero（#314。§6.3）
+// Inbox Zero（#314・#377。§6.3）
 type InboxZeroReasons = {
-  ad: boolean;            // 広告・宣伝（TypeSafe AI が判定）
-  notification: boolean;  // 通知だけのメール（TypeSafe AI が判定）
-  newsletter: boolean;    // 未読のニュースレター（TypeSafe AI が判定。スレッドが未読のときだけ）
-  replied: boolean;       // 返信済みのメール（端末内で判定。TypeSafe AI は使わない）
+  ad: boolean;            // 広告・宣伝（Inbox Zero に選んだ AI が判定）
+  notification: boolean;  // 通知だけのメール（選んだ AI が判定）
+  newsletter: boolean;    // 未読のニュースレター（選んだ AI が判定。スレッドが未読のときだけ）
+  replied: boolean;       // 返信済みのメール（最後の 1 通〔下書きを除く〕が自分の送信。端末内で判定し、AI は使わない）
+  calendar: boolean;      // カレンダーの招待・通知（最後の 1 通が iCalendar のパートを持つ、または Google カレンダーの送信元。端末内で判定し、AI は使わない。#377）
 };
 type InboxZeroSettings = { reasons: InboxZeroReasons };
 type InboxZeroCandidate = {
   ref: ThreadRef;
   from: string;           // 最新の（下書きでない）メッセージの差出人。表示名が無ければメールアドレス
   subject: string;
-  reason: 'ad' | 'notification' | 'newsletter' | 'replied';
+  reason: 'ad' | 'notification' | 'newsletter' | 'replied' | 'calendar';
 };
 type InboxZeroResult = {
   candidates: InboxZeroCandidate[];  // 渡された順。無ければ空配列で null にしない
   examined: number;                  // 調べたスレッド数（重複を除く）
-  skipped: number;                   // TypeSafe AI の判定に失敗して候補にしなかったスレッド数
+  skipped: number;                   // AI の判定に失敗して候補にしなかったスレッド数
 };
 ```
 
@@ -462,7 +463,7 @@ type InboxZeroResult = {
 | `SummarizeThread(ref, requestId)` | `ThreadRef`, string | `ThreadAIResult` | 開いているスレッドの要約を生成する（F-17。#206）。`ref` のスレッドを `threads.get(format=full)`（メモリ LRU を優先）で読み、全メッセージを入力にする（下記「スレッド AI の入力」）。`text` は経緯・現在の状況・受信アカウントの利用者に求められている対応を含む短い箇条書き。保存しない。スレッドが無ければ `NOT_FOUND`、アカウントが要再接続なら `NEEDS_REAUTH` |
 | `AskAboutThread(ref, requestId, question, history)` | `ThreadRef`, string, string, `ThreadAITurn[]` | `ThreadAIResult` | 開いているスレッドの内容を文脈に、利用者の質問へ答える（F-18。#207）。入力は「スレッド AI の入力」（`SummarizeThread` と同じ全メッセージ）に、`history`（そのスレッドで今までに交わした質問と回答）と今回の `question` を加えたもの。`text` は回答（日本語のプレーンテキスト）。保存しない。`question` は前後の空白を除いて空なら `VALIDATION`、2,000 文字（rune 数）を超えると通信せず `VALIDATION`。`history` は `null`・空でもよい。形が正しくないとき（先頭が `assistant`・`user` と `assistant` が交互でない・最後が `user`・`text` が空）、20 件（10 往復）を超えるとき、`text` の合計が 20,000 文字を超えるときは、通信せず `VALIDATION`（古い往復を外すのはフロントの責務で、Go は黙って切り詰めない）。スレッドが無ければ `NOT_FOUND`、アカウントが要再接続なら `NEEDS_REAUTH` |
 | `CancelGenerate(requestId)` | string | — | 生成を中止（`GenerateReplyDraft`・`GenerateNewDraft`・`SummarizeThread`・`AskAboutThread`・`FindInboxZeroCandidates` は `CANCELLED` で reject）。**生成が始まる前に届いても効く**（#352）: 各メソッドは、前提の検査（ChatGPT のトークン更新の通信を含む）の前に `requestId` を登録するので、検査の最中の中止はその通信を中断して `CANCELLED` になる。まだ登録されていない `requestId` の中止は 1 分間だけ「中止済み」と覚え、同じ `requestId` の開始を、プロバイダ（TypeSafe AI を含む）へ何も送らず `CANCELLED` にする（記録は 1 回で消費し、1 分で捨てる。`requestId` は呼び出しごとに一意） |
-| `GetInboxZeroSettings()` | — | `InboxZeroSettings` | Inbox Zero の「不要なメール」の理由ごとのオン・オフ（`app_settings.inbox_zero.reasons`）。未設定・壊れた保存値は 4 つとも `true`（#314） |
+| `GetInboxZeroSettings()` | — | `InboxZeroSettings` | Inbox Zero の「不要なメール」の理由ごとのオン・オフ（`app_settings.inbox_zero.reasons`）。未設定・壊れた保存値は 5 つとも `true`。保存値に無い理由（`calendar` を足す前の保存値など）は `true` として読む（#314・#377） |
 | `SetInboxZeroReasons(reasons)` | `InboxZeroReasons` | `InboxZeroSettings` | 理由ごとのオン・オフを保存して返す。全部オフも保存できる（そのとき `FindInboxZeroCandidates` が `VALIDATION`）。通信しない |
 | `FindInboxZeroCandidates(refs, requestId)` | `ThreadRef[]`, string | `InboxZeroResult` | `refs`（フロントが読み込み済みの、現在のタブの一覧）のうち、オンの理由に当てはまる「アーカイブ候補」を返す（§6.3）。アーカイブはしない（フロントが `InboxService.Archive`／`Unarchive` を使う）。MCP からは呼べない |
 
@@ -479,23 +480,26 @@ type InboxZeroResult = {
 - **プロンプトの区別**（#206）: スレッド本文は信頼しない入力として、利用者の操作（要約の指示・質問）とは別の枠に入れ、スレッド内の文章に含まれる指示（「この指示に従ってください」等）には従わない。出力の形式（日本語のプレーンテキスト・箇条書き）はスレッド内の文章で変えさせない
 - **保存しない**: 要約の本文・質問・回答・会話・スレッドの内容は、ログ・DB・資格情報ストアのいずれにも残さない。エラー文面にも含めない（NF-S10）
 
-### 6.3 Inbox Zero（`FindInboxZeroCandidates`。#314）
+### 6.3 Inbox Zero（`FindInboxZeroCandidates`。#314・#377）
 
 受信箱の一覧のうち「もう読まなくてよさそうなメール」を、利用者が確認してからまとめてアーカイブするための候補を見つける。**判定だけを行い、アーカイブはしない**。ボタン押下からのみ呼ばれる（自動実行しない）。
 
-- **プロバイダの分担**: 返信下書き・要約・質問は `AIFeatures.draft`（§6）で選んだ AI だけを使う。Inbox Zero の判定は TypeSafe AI（Jev）で、Jev は下書きのプロバイダにはならない（`SetAIFeature` の `draft` と `ListAIModels` の `typesafe` は `VALIDATION` のまま）。実行の前提の確認は機能ごとに行い、選んでいない・選んだ AI の資格情報・モデル・Base URL・同意のどれかが欠けているときは、別の AI に切り替えず `AI_NOT_CONFIGURED` で止める（#376）
-- **理由（4 つ。各オン・オフ。`GetInboxZeroSettings`／`SetInboxZeroReasons`）**: オンの理由だけを使う
-  - `replied`（返信済み）: **端末内だけで判定する**。スレッドに自分のメッセージがある（下書きを除くメッセージのうち、Gmail ラベル `SENT` を持つもの、または `From` のアドレスがそのアカウントのメールアドレスと一致するもの。大文字小文字を区別しない）。Jev には聞かない。`replied` だけがオンのときは、API キーも同意も要らず、Jev のクライアントは作らない
-  - `ad`（広告・宣伝）／`notification`（通知だけのメール）／`newsletter`（未読のニュースレター）: Jev が判定する。`newsletter` はさらに、スレッドが未読（`UNREAD` ラベルのメッセージが 1 通でもある）のときだけ候補にする
-  - 返信済みと判定したスレッドは Jev に送らない（`replied` がオフのときは、通常どおり Jev の判定に従う）。1 スレッドの理由は 1 つ（`replied` が最優先）
-- **Jev の呼び出し**: `POST https://api.typesafe.ai/v1/systemone`（`Authorization: Bearer <API キー>`）。本文は `{"state": "...", "model": "jev-latest", "questions": {"category": {"type": "choice", "instructions": "...", "criteria": {"ad": "...", "notification": "...", "newsletter": "...", "other": "..."}}}}`（選択肢の説明は日本語で、`other` は「通常のメール・個人宛て・重要なもの・判断できない」）。応答の `answers.category.choice`（選ばれた選択肢）と `answers.category.probabilities`（全選択肢の確率）を使う（[Choice](https://docs.typesafe.ai/primitives/choice.md)）。選択肢は、オフの理由も含めて常に全部を送る（オフの理由のメールを `other` に寄せず、その理由として選ばせたうえで候補から外すため）
-- **候補にする条件**: 選ばれた選択肢の確率 `probabilities[choice]` が **0.8 以上**（確率の分布から算出される `confidence` ではなく、実際に行動する選択肢の確率で判断する）、かつ選ばれた選択肢が有効な理由（`other` ではない・オンである・`newsletter` は未読）。1 位の理由がオフ・対象外のスレッドは候補にしない（2 位の選択肢には落とさない）
-- **Jev へ送る内容**: スレッドの最新の（下書きでない）メッセージの差出人・件名・本文の先頭約 500 文字（HTML は `textconv` でテキスト化）だけ。ほかのメッセージ・宛先・添付・アカウント情報は送らない。1 スレッド 1 リクエスト。初回の利用前に同意が要る（`RecordAIConsent("typesafe", "")`）
+- **使う AI**: 広告・通知・ニュースレターの判定は、「機能ごとに使う AI」の **Inbox Zero に選んだ AI・モデル**（`AIFeatures.inboxZero`。§6）を使う。選べるのは `anthropic`／`openai`／`chatgpt`／`typesafe`（Jev）。返信下書き・要約・質問は `AIFeatures.draft` を使い、Jev は下書きのプロバイダにならない（`SetAIFeature` の `draft` と `ListAIModels` の `typesafe` は `VALIDATION` のまま）。実行の前提の確認は機能ごとに行い、選んだ AI の資格情報・モデル・Base URL・同意のどれかが欠けているときは、**別の AI に切り替えず** `AI_NOT_CONFIGURED`／`AI_CONSENT_REQUIRED` で止める（#376）。**未選択のときだけ**、Jev の API キーがあれば Jev を使う（#314 の利用者への互換）。Jev のキーも無ければ `AI_NOT_CONFIGURED`
+- **理由（5 つ。各オン・オフ。`GetInboxZeroSettings`／`SetInboxZeroReasons`）**: オンの理由だけを使う。判定は**スレッドの最後の 1 通（下書きを除く）**を見る。優先順位は `replied` → `calendar` → AI（`ad`／`notification`／`newsletter`）で、1 スレッドの理由は 1 つ
+  - `replied`（返信済み）: **端末内だけで判定する**。スレッドの最後の 1 通（下書きを除く）が自分の送信（Gmail ラベル `SENT` を持つ、または `From` のアドレスがそのアカウントのメールアドレスと一致する。大文字小文字を区別しない）のときだけ。途中に自分の送信があっても、最後が相手からならば候補にしない。メッセージが 0 件・下書きだけのスレッドも候補にしない。AI には聞かない
+  - `calendar`（カレンダーの招待・通知。#377）: **端末内だけで判定する**。最後の 1 通（下書きを除く）が、iCalendar のパート（MIME が `text/calendar`・`application/ics`、または拡張子 `.ics` のパート。`gmail.MessageFull.HasCalendar`）を持つ、または送信元が Google カレンダーの通知（`calendar-notification@google.com`。リマインダー・予定表のまとめなど iCalendar を持たないもの）のとき。オンなら理由 `calendar` の候補にし、**オフなら候補にしない（AI にも送らず、別の理由に寄せない）**
+  - `ad`（広告・宣伝）／`notification`（通知だけのメール）／`newsletter`（未読のニュースレター）: 選んだ AI が判定する。`newsletter` はさらに、スレッドが未読（`UNREAD` ラベルのメッセージが 1 通でもある）のときだけ候補にする
+  - 返信済み・カレンダーと判定したスレッドは AI に送らない（`replied` がオフのときは、通常どおり次の判定に進む）。**AI の理由（`ad`／`notification`／`newsletter`）がすべてオフなら、AI の選択・キー・同意は要らず、分類器も作らない**
+- **AI の呼び出し**: 選んだプロバイダ・モデル・送信先（`openai` は保存済みの Base URL）から `Deps.Classifier`（`deps.ClassifierFactory`。`ai.NewClassifierFor`）で `ai.Classifier` を作り、1 スレッド 1 リクエストで同じ選択肢（`ad`／`notification`／`newsletter`／`other`。日本語の説明つき。`other` は「通常のメール・個人宛て・重要なもの・判断できない」）から 1 つを選ばせる。選択肢は、オフの理由も含めて常に全部を送る（オフの理由のメールを `other` に寄せず、その理由として選ばせたうえで候補から外すため）。カレンダーは端末内で先に決めるので選択肢に含めない
+  - **Jev**（`typesafe`）: `POST https://api.typesafe.ai/v1/systemone`（`Authorization: Bearer <API キー>`）。本文は `{"state": "...", "model": "jev-latest", "questions": {"category": {"type": "choice", "instructions": "...", "criteria": {...}}}}`。応答の `answers.category.choice`（選ばれた選択肢）と `answers.category.probabilities`（全選択肢の確率）を使う（[Choice](https://docs.typesafe.ai/primitives/choice.md)）
+  - **チャット系**（`anthropic`／`openai`／`chatgpt`）: 選んだモデルのチャット（Messages API・Chat Completions・Responses API。エフォートは載せない）を、system に分類の指示と選択肢、user にメール（`<email>`〜`</email>` の中）を入れて呼ぶ。応答は `{"choice": "<名前>", "confidence": <0〜1>}` の JSON（前後の文章・コードブロックは許す）。名前は選択肢に大文字小文字を無視して合わせる。選択肢に無い名前・`confidence` が無い／0〜1 の範囲外・JSON でない応答は `ErrFailed`（そのスレッドだけ `skipped`）。メールの内容は system に入れず、メール内の指示に従わせない
+- **候補にする条件**: 選ばれた選択肢の確率 `probabilities[choice]` が **0.8 以上**、かつ選ばれた選択肢が有効な理由（`other` ではない・オンである・`newsletter` は未読）。Jev は実際に行動する選択肢の確率（確率の分布から算出される `confidence` ではない）、チャット系は確率を返せないため**自己申告の確信度（0〜1）を同じ位置に載せ、同じ下限**を当てる（確信が持てないモデルは低い値を返すよう指示するため、保守的に働く）。1 位の理由がオフ・対象外のスレッドは候補にしない（2 位の選択肢には落とさない）
+- **AI へ送る内容**: スレッドの最新の（下書きでない）メッセージの差出人・件名・本文の先頭約 500 文字（HTML は `textconv` でテキスト化）だけ。**Jev でもチャット系でも同じ**。ほかのメッセージ・宛先・添付・アカウント情報は送らない。1 スレッド 1 リクエスト。初回の利用前に、選んだ AI・送信先への同意が要る（`RecordAIConsent(provider, baseUrl)`）
 - **対象**: `refs`（重複は除く）は最大 100 件。超えると `VALIDATION`。1 回の呼び出しの中で、スレッドは `threads.get(format=full)`（メモリ LRU を優先。§10）で読む
-- **並行・タイムアウト**: Jev への同時リクエストは 4 件まで。各リクエストのタイムアウトは 60 秒（AI の他の呼び出しと同じ）。`CancelGenerate(requestId)`・呼び出し側の中止で、実行中の判定を止めて `CANCELLED`
-- **前提の検査（通信・スレッドの読み込みの前）**: `requestId` が空・`refs` が 101 件以上・理由がすべてオフ → `VALIDATION`。Jev の理由（`ad`／`notification`／`newsletter`）が 1 つでもオンで、TypeSafe AI の API キーが未登録 → `AI_NOT_CONFIGURED`（メッセージは「TypeSafe AI のキー」の登録を案内する）。同意が未取得 → `AI_CONSENT_REQUIRED`
-- **失敗の扱い**: Jev が 401／403（キー不正）→ `AI_FAILED`、429 → `RATE_LIMITED`（`retryable`）で全体を止める（途中までの結果は返さない）。ほかの 1 スレッドの失敗（5xx・不正な応答・タイムアウト・通信エラー、読み込み後に消えたスレッド）は、そのスレッドを候補にせず `skipped` に数えて続ける。Gmail のスレッド取得の失敗（認証切れなど）は §1.2 の対応するコードで全体を止める
-- **保存しない・ログに出さない**: API キー・件名・差出人・本文は、ログ・エラー文面・結果のどこにも残さない（NF-S10）。結果（`candidates`）は保存しない
+- **並行・タイムアウト**: AI への同時リクエストは 4 件まで。各リクエストのタイムアウトは 60 秒（AI の他の呼び出しと同じ）。`CancelGenerate(requestId)`・呼び出し側の中止で、実行中の判定を止めて `CANCELLED`
+- **前提の検査（通信・スレッドの読み込みの前）**: `requestId` が空・`refs` が 101 件以上・理由がすべてオフ → `VALIDATION`。AI の理由（`ad`／`notification`／`newsletter`）が 1 つでもオンのときだけ、選んだ AI の前提を検査する: 未選択（で Jev のキーも無い）・API キーまたは ChatGPT のログインが無い・モデルが無い → `AI_NOT_CONFIGURED`（メッセージが「機能ごとに使う AI」での選択、または「AI のつなぎ先」での登録し直しを案内する）、保存済みの Base URL が使えない → `VALIDATION`、同意が未取得 → `AI_CONSENT_REQUIRED`。分類器を作れないとき → `AI_FAILED`（不正な Base URL は `VALIDATION`）
+- **失敗の扱い**: 選んだ AI が 401／403（キー・ログイン不正）→ `AI_FAILED`、429 → `RATE_LIMITED`（`retryable`）、ChatGPT プランの利用枠の上限・対象外 → `AI_FAILED`（`details.reason`・文面は §6 の他の呼び出しと同じ）で全体を止める（途中までの結果は返さない）。ほかの 1 スレッドの失敗（5xx・不正な応答・タイムアウト・通信エラー、読み込み後に消えたスレッド）は、そのスレッドを候補にせず `skipped` に数えて続ける。Gmail のスレッド取得の失敗（認証切れなど）は §1.2 の対応するコードで全体を止める
+- **保存しない・ログに出さない**: API キー・ログイン情報・件名・差出人・本文は、ログ・エラー文面・結果のどこにも残さない（NF-S10）。結果（`candidates`）は保存しない
 
 ### 6.1 モデル一覧（`ListAIModels`）
 
@@ -698,3 +702,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.46 | 2026-11-14 | `invalid_grant` による `NEEDS_REAUTH` の `status_message` を専用の文言にし（画面が原因の案内を足す）、再接続待ちに切り替えるときのログ「account needs reauth」（`reason`・`trigger`・`origin` など）を §10 に追記 | #369 |
 | 1.47 | 2026-11-14 | `AIService.GenerateNewDraft`（新規作成の AI 下書き。指示が必須・入力済みの件名と宛先（To）を渡す）を追加し、`CancelGenerate` の対象に加えた。`ComposeService` に `ListDrafts`（全アカウントの Gmail の下書きを更新の新しい順に 1 つの一覧で。先頭 100 件まで・一部の失敗は `failures`）・`DiscardDraft`（一覧からの破棄）と型 `DraftSummary`／`DraftList`／`DraftRef` を追加。§10 の `users.drafts.get` に `format=metadata` を追記 | #365・#366 |
 | 1.48 | 2026-11-14 | 設定の AI を「つなぎ先」と「機能ごとに使う AI」に分けた。`SetAIConfig` を `SetAIFeature(feature, provider, model, effort?)`（機能ごとの AI・モデル・エフォート。`app_settings.ai.features`）と `SetAIBaseURL(baseUrl)`（OpenAI 互換の Base URL。`ai.connection`）に置き換え、`AIConfig` から `provider`・`model`・`effort`・`configured`・`hasApiKey` を外して `features` を足した。既定のプロバイダは廃止し、機能は選んだ AI だけを使う（つながっていなくても別の AI に切り替えず `AI_NOT_CONFIGURED`）。旧 `ai.config` は起動時のマイグレーションで移す | #376 |
+| 1.49 | 2026-11-14 | Inbox Zero を改めた（#377）。`InboxZeroReasons` に `calendar`（カレンダーの招待・通知。端末内で判定。既定オン）を、`InboxZeroCandidate.reason` に `calendar` を追加。`replied` はスレッドの最後の 1 通（下書きを除く）が自分の送信のときだけにした。`FindInboxZeroCandidates` が使う AI を「機能ごとに使う AI」の `inboxZero` で選んだ AI・モデルにし（Jev 以外はチャットで選択肢と確信度の JSON を返させる。未選択で Jev のキーがあれば Jev）、前提の検査・失敗の扱いをそれに合わせた（§6.3）。バインディングの型 `InboxZeroReasons` に `calendar` が加わる | #377 |
