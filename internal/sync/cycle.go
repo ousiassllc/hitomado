@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/events"
@@ -15,11 +16,14 @@ import (
 // UI に出すステータスメッセージ。機密（トークン・本文・宛先）を含めない。
 const (
 	msgNeedsReauth = "再接続が必要です"
-	msgClientError = "OAuth クライアントの設定（Client ID／Secret）を確認してください"
-	msgOffline     = "ネットワークに接続できません"
-	msgRateLimited = "Gmail のリクエスト制限中です。次の周期で再試行します"
-	msgFailed      = "同期に失敗しました"
-	msgAPIDisabled = "Google Cloud のプロジェクトで Gmail API が有効になっていません。有効にしてください"
+	// MsgTokenRevoked は Google がリフレッシュトークンを拒否した（invalid_grant）ときの状態メッセージ。フロントがこの先頭で判定し、
+	// 原因の案内（OAuth 同意画面が「テスト」だと 7 日で失効する、など）を足す（frontend/src/lib/tokenRevoked.ts と一致させる）。
+	MsgTokenRevoked = "再接続が必要です（Google がトークンを無効にしました）" //nolint:gosec // 画面に出す文言で、資格情報ではない
+	msgClientError  = "OAuth クライアントの設定（Client ID／Secret）を確認してください"
+	msgOffline      = "ネットワークに接続できません"
+	msgRateLimited  = "Gmail のリクエスト制限中です。次の周期で再試行します"
+	msgFailed       = "同期に失敗しました"
+	msgAPIDisabled  = "Google Cloud のプロジェクトで Gmail API が有効になっていません。有効にしてください"
 
 	msgScopeInsufficient = "Gmail の権限（スコープ）が足りません。再接続して、すべての権限を許可してください"
 )
@@ -89,6 +93,7 @@ func (s *Scheduler) syncAccount(ctx context.Context, a *account) error {
 	}
 	if status == store.StatusNeedsReauth {
 		a.paused.Store(true) // 再接続（Start）まで自動再試行しない
+		s.logNeedsReauth(a, acct.Status, "sync", st.LastSyncedAt, err)
 	}
 	s.publishStatus(ctx, a, acct, status, msg)
 	return err
@@ -116,6 +121,9 @@ func classify(err error) (status, msg string) {
 		// ErrNeedsReauth にも分類されるので先に見る。再接続して権限を許可し直すまで止める。
 		return store.StatusNeedsReauth, msgScopeInsufficient
 	case errors.Is(err, gmail.ErrNeedsReauth):
+		if gmail.ReauthReason(err) == gmail.ReasonInvalidGrant {
+			return store.StatusNeedsReauth, MsgTokenRevoked
+		}
 		return store.StatusNeedsReauth, msgNeedsReauth
 	case errors.Is(err, gmail.ErrClientRejected):
 		// 同じ資格情報での再試行は無意味。設定を直して再接続できるよう needs_reauth と同じく止める。
@@ -130,6 +138,19 @@ func classify(err error) (status, msg string) {
 	default:
 		return store.StatusError, msgFailed
 	}
+}
+
+// logNeedsReauth はアカウントを再接続待ちにするとき、その理由（gmail.Reason*）と契機（trigger。sync＝同期周期、action＝利用者の操作）を記録する。
+// フォアグラウンドかバックグラウンド同期かは、この logger に付いた origin（logging.WithOrigin）で分かる。
+// lastSynced は直近に同期できた時刻（無ければゼロ値）。直前まで同期できていたのに失効した（取り消し・パスワード変更など）のか、
+// 長く使っていなかったのか（「テスト」の 7 日・6 か月）を読み分けるために、経過秒を残す。
+// トークン・メールアドレス・応答本文は載せない（アカウントは ID だけ）。prev は切り替え前の状態。
+func (s *Scheduler) logNeedsReauth(a *account, prev, trigger string, lastSynced time.Time, err error) {
+	attrs := []any{"account", a.id, "reason", gmail.ReauthReason(err), "trigger", trigger, "prev_status", prev}
+	if !lastSynced.IsZero() {
+		attrs = append(attrs, "since_last_sync_s", int64(s.clock.Now().Sub(lastSynced).Seconds()))
+	}
+	s.log.Warn("account needs reauth", append(attrs, "err", err)...)
 }
 
 // errKind は機密を含み得るエラーを、ログに出せる固定の種別へ丸める。

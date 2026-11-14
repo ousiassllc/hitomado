@@ -258,6 +258,41 @@ public class SecureStoreTest {
         assertEquals(1, b.resets);
     }
 
+    /** 失敗の原因（例外クラス名の連鎖）は detail に残り、Go へのコードに続く。メッセージ（値が入りうる）は含めない。 */
+    @Test
+    public void failureDetailCarriesClassNamesOnly() throws Exception {
+        FakeBackend b = new FakeBackend();
+        SecureStore s = new SecureStore(b, 0);
+        s.put("k", "v");
+
+        b.failNext.add(new IOException("disk full: secret-value"));
+        try {
+            s.get("k");
+            fail();
+        } catch (SecureStore.SecureStoreException e) {
+            assertEquals("java.io.IOException", e.detail());
+            assertEquals("failed:java.io.IOException", e.wireCode());
+            assertEquals("failed", e.code());
+            assertFalse(e.wireCode().contains("secret-value"));
+        }
+
+        b.failNext.add(new SecurityException("Could not decrypt: secret-value", new InvalidKeyException("gone")));
+        try {
+            s.get("k");
+            fail();
+        } catch (SecureStore.SecureStoreException e) {
+            assertEquals("key_lost:java.lang.SecurityException>java.security.InvalidKeyException", e.wireCode());
+            assertEquals("key_lost", e.code());
+        }
+    }
+
+    @Test
+    public void describeLimitsDepthAndSanitizes() {
+        Throwable deep = new RuntimeException(new RuntimeException(new RuntimeException(new RuntimeException(new RuntimeException()))));
+        assertEquals(4, SecureStore.describe(deep).split(">").length);
+        assertEquals("", SecureStore.describe(null));
+    }
+
     @Test
     public void keyLostClassification() {
         assertTrue(SecureStore.isKeyLost(new InvalidKeyException()));

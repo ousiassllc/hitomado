@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/store"
@@ -148,6 +149,13 @@ func (s *Scheduler) noteReauth(ctx context.Context, a *account, err error) {
 	if getErr != nil {
 		s.log.Warn("get account failed", "account", a.id, "err", getErr)
 		return
+	}
+	if cur.Status != store.StatusNeedsReauth { // すでに再接続待ちなら切り替えではないので記録しない（deps.MarkNeedsReauth と同じ）
+		var lastSynced time.Time
+		if st, stErr := s.store.GetSyncState(ctx, a.id); stErr == nil {
+			lastSynced = st.LastSyncedAt
+		}
+		s.logNeedsReauth(a, cur.Status, "action", lastSynced, err)
 	}
 	s.publishStatus(ctx, a, cur, status, msg)
 }

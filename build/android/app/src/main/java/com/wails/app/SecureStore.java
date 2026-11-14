@@ -29,7 +29,9 @@ import javax.crypto.BadPaddingException;
  * （KeyStoreException・ProviderException。{@link #isAmbiguousKeystoreFailure}）は、短く再試行して同じ失敗が続いたときだけ消す。
  * Go 側はこれを「資格情報が無い」と同じに扱い、再ログインへ案内する。
  *
- * <p>値・キーの中身はログにもエラーメッセージにも出さない（例外のクラス名だけを出す）。
+ * <p>値・キーの中身はログにもエラーメッセージにも出さない（例外のクラス名だけを出す）。失敗の原因（例外クラス名の連鎖）は
+ * {@link SecureStoreException#detail()} に載せ、Go へのコードにも続ける（{@link SecureStoreException#wireCode()}）。
+ * 利用者が書き出すアプリのログ（logcat ではない）に、鍵の喪失や読み出し失敗の原因が残るようにするため（#369）。
  */
 public final class SecureStore {
     private static final String TAG = "SecureStore";
@@ -61,20 +63,39 @@ public final class SecureStore {
 
     public static final class SecureStoreException extends Exception {
         private final Kind kind;
+        private final String detail;
 
         SecureStoreException(Kind kind) {
+            this(kind, "");
+        }
+
+        SecureStoreException(Kind kind, String detail) {
             // メッセージは種類だけ。元の例外は載せない（メッセージに値が含まれうるため。ログには例外のクラス名だけを出す）。
             super(kind.code);
             this.kind = kind;
+            this.detail = detail;
         }
 
         public Kind kind() {
             return kind;
         }
 
-        /** Go 側へ返すコード（"key_lost"／"failed"）。 */
+        /** 種類のコード（"key_lost"／"failed"）。 */
         public String code() {
             return kind.code;
+        }
+
+        /** 原因の例外クラス名の連鎖（{@link #describe}）。無ければ空。メッセージ・値は含まない。 */
+        public String detail() {
+            return detail;
+        }
+
+        /**
+         * Go 側へ返すコード。種類のコードに、あれば原因を ":" で続ける（"key_lost:java.security.InvalidKeyException"）。
+         * Go は ":" の前を種類として扱い、後ろはログにだけ使う（internal/secrets の bridgeError）。
+         */
+        public String wireCode() {
+            return detail.isEmpty() ? kind.code : kind.code + ":" + detail;
         }
     }
 
@@ -204,24 +225,45 @@ public final class SecureStore {
             return (SecureStoreException) e;
         }
         if (!isKeyLost(e)) {
-            Log.e(TAG, "secure storage failed: " + e.getClass().getName());
-            return new SecureStoreException(Kind.FAILED);
+            Log.e(TAG, "secure storage failed: " + describe(e));
+            return new SecureStoreException(Kind.FAILED, describe(e));
         }
         try {
             resetAfterKeyLoss(e);
         } catch (SecureStoreException resetFailure) {
             return resetFailure; // 作り直せなかった。次の呼び出しで再び作り直しを試みる。
         }
-        return new SecureStoreException(Kind.KEY_LOST);
+        return new SecureStoreException(Kind.KEY_LOST, describe(e));
+    }
+
+    /** 連鎖の最大の長さ。 */
+    private static final int MAX_DESCRIBE_CHAIN = 4;
+
+    /**
+     * 失敗の原因を、例外クラス名の連鎖（"java.lang.SecurityException>java.security.InvalidKeyException"。外側から内側へ、最大 4 つ）
+     * で表す。メッセージ（値・キーが入りうる）は含めない。クラス名に使えない文字は '_' にする。
+     */
+    static String describe(Throwable t) {
+        StringBuilder sb = new StringBuilder();
+        int depth = 0;
+        int named = 0;
+        for (Throwable c = t; c != null && depth < MAX_CAUSE_DEPTH && named < MAX_DESCRIBE_CHAIN; c = c.getCause(), depth++) {
+            if (sb.length() > 0) {
+                sb.append('>');
+            }
+            sb.append(c.getClass().getName().replaceAll("[^A-Za-z0-9_.$]", "_"));
+            named++;
+        }
+        return sb.toString();
     }
 
     private void resetAfterKeyLoss(Exception cause) throws SecureStoreException {
-        Log.w(TAG, "Keystore key lost; resetting secure storage (" + cause.getClass().getName() + ")");
+        Log.w(TAG, "Keystore key lost; resetting secure storage (" + describe(cause) + ")");
         try {
             backend.reset();
         } catch (Exception resetFailure) {
-            Log.e(TAG, "secure storage reset failed: " + resetFailure.getClass().getName());
-            throw new SecureStoreException(Kind.FAILED);
+            Log.e(TAG, "secure storage reset failed: " + describe(resetFailure));
+            throw new SecureStoreException(Kind.FAILED, describe(resetFailure));
         }
     }
 

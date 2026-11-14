@@ -128,16 +128,22 @@ func (c *client) newAccount(ctx context.Context, accountID string) (*account, er
 	if err != nil {
 		return nil, fmt.Errorf("gmail: OAuth 資格情報の解決に失敗: %w: %w", ErrGeneric, err)
 	}
+	// 資格情報ストアの失敗は、読めなかった理由（鍵の喪失か、無いのか、Java 側の失敗コードか）を追えるよう元のエラーを %w で残す。
+	// エラーの文言に値は入らない（secrets は値を載せない）。
 	refresh, err := c.opts.Secrets.Get(secrets.RefreshTokenKey(accountID))
 	if errors.Is(err, secrets.ErrNotFound) {
-		return nil, fmt.Errorf("gmail: リフレッシュトークンがありません: %w", ErrNeedsReauth)
+		reason := ReasonSecretNotFound
+		if errors.Is(err, secrets.ErrKeyLost) {
+			reason = ReasonSecretKeyLost // ErrKeyLost は ErrNotFound も満たすので、先に ErrNotFound で受けて区別する
+		}
+		return nil, WithReason(fmt.Errorf("gmail: リフレッシュトークンがありません: %w: %w", ErrNeedsReauth, err), reason)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("gmail: リフレッシュトークンの取得に失敗: %w", ErrGeneric)
+		return nil, fmt.Errorf("gmail: リフレッシュトークンの取得に失敗: %w: %w", ErrGeneric, err)
 	}
 	secret, err := c.opts.Secrets.Get(secrets.OAuthClientSecretKey(rowID))
 	if err != nil {
-		return nil, fmt.Errorf("gmail: Client Secret の取得に失敗: %w", ErrGeneric)
+		return nil, fmt.Errorf("gmail: Client Secret の取得に失敗: %w: %w", ErrGeneric, err)
 	}
 	tokenURL := c.opts.TokenURL
 	if tokenURL == "" {

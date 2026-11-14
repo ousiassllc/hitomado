@@ -112,6 +112,7 @@ func (s *AccountService) StartAddAccount(ctx context.Context, oauthClientID stri
 		s.revokeToken(ctx, res.RefreshToken)
 		return dto.Account{}, apperr.FromInfra(err, "")
 	}
+	logger(s.d).Info("account connected", "accountId", acc.ID, "via", "add") // 再接続待ちまでの期間（「テスト」の 7 日など）を読むための起点（#369）
 	s.d.Sync.Start(acc.ID)
 	(*deps.Deps)(s.d).AccountAdded(len(existing) == 0) // バックグラウンド同期の登録と、最初のアカウントでの通知の許可の要求
 	saved, err := s.d.Store.GetAccount(ctx, acc.ID)
@@ -158,6 +159,7 @@ func (s *AccountService) Reconnect(ctx context.Context, accountID string) (dto.A
 	if err := s.d.Store.SetAccountStatus(ctx, accountID, store.StatusActive, ""); err != nil {
 		return dto.Account{}, apperr.FromInfra(err, accountID)
 	}
+	logger(s.d).Info("account connected", "accountId", accountID, "via", "reconnect")
 	forgetAccounts(s.d, accountID)
 	s.d.Sync.Start(accountID)
 	s.d.Events.Emit(events.AccountStatus, events.AccountStatusPayload{AccountID: accountID, Status: store.StatusActive})
@@ -177,7 +179,9 @@ func (s *AccountService) revokeToken(ctx context.Context, token string) {
 	defer cancel()
 	if err := s.d.OAuth.Revoke(ctx, token); err != nil {
 		logger(s.d).Info("保存しないトークンの revoke に失敗（無視）", "err", err)
+		return
 	}
+	logger(s.d).Info("保存しないトークンを Google 側で revoke しました", "purpose", "unsaved_token") // 理由は account.go の RemoveAccount と同じ（#369）
 }
 
 // revokeUnsaved は認可結果 res を保存できないとき、そのトークンを失効させる。

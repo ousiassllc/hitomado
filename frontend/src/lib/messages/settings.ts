@@ -38,6 +38,9 @@ export const settings = {
     moved: (name: string, pos: number, total: number) =>
       `${name} を ${total} 件中 ${pos} 番目へ移動しました。`,
     needsReauth: '再接続が必要です',
+    /** Google がトークンを無効にした（invalid_grant）ときの案内。何度も続くときに疑う原因を挙げる。 */
+    tokenRevokedHint:
+      'Google がこのアカウントのトークンを無効にしました。再接続すると直ります。何度も続くときは、Google Cloud の OAuth 同意画面（Google Auth Platform → 対象）の公開ステータスが「テスト」のままではないか確認してください。「テスト」では 7 日でトークンが切れます。「本番」にして、もう一度再接続してください。',
     statusError: '同期エラー',
     reconnect: '再接続',
     checkOAuthClient: 'OAuth クライアントを確認',

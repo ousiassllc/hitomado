@@ -11,6 +11,8 @@ import (
 
 // bridgeErrPrefix は Wails の SecureGet/SecureSet/SecureDelete が Java 側の失敗に付ける接頭辞。
 // 残りの部分は Java の SecureStore が返すコード（key_lost／failed）で、値やキーの中身は含まれない。
+// コードの後ろに ":" で原因の例外クラス名の連鎖が続くことがある（"key_lost:java.security.InvalidKeyException"。
+// SecureStoreException#wireCode）。種類の判定には使わず、ログのために残す（#369）。
 const bridgeErrPrefix = "secure storage: "
 
 // Java の SecureStore.Kind.KEY_LOST のコードと一致させる（build/android/.../SecureStore.java）。
@@ -56,10 +58,14 @@ func (s bridgeStore) Delete(key string) error {
 	return nil
 }
 
-// bridgeError は Java 側の失敗を Store のエラーにする。鍵の喪失は ErrKeyLost にし、それ以外は元のエラーを wrap する。
-// 値は引数に取らない（エラー文字列に値が入らないようにする）。
+// bridgeError は Java 側の失敗を Store のエラーにする。鍵の喪失は ErrKeyLost にし（原因の例外クラス名があれば文言に添える）、
+// それ以外は元のエラーを wrap する。値は引数に取らない（エラー文字列に値が入らないようにする）。
 func bridgeError(op, key string, err error) error {
-	if strings.TrimPrefix(err.Error(), bridgeErrPrefix) == bridgeCodeKeyLost {
+	code, cause, _ := strings.Cut(strings.TrimPrefix(err.Error(), bridgeErrPrefix), ":")
+	if code == bridgeCodeKeyLost {
+		if cause != "" {
+			return fmt.Errorf("%w (cause: %s)", ErrKeyLost, cause)
+		}
 		return ErrKeyLost
 	}
 	return fmt.Errorf("secrets: %s %q: %w", op, key, err)
