@@ -2,6 +2,7 @@
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { computed, watch } from 'vue'
 import { settings as msg } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { useLayoutStore } from '../../stores/layout'
 import { usePlatformStore } from '../../stores/platform'
 import { useSettingsStore } from '../../stores/settings'
@@ -53,9 +54,9 @@ watch(open, (isOpen) => {
 </script>
 
 <template>
-  <BaseDialog v-model:open="open" size="lg" :title="msg.title">
+  <BaseDialog v-model:open="open" size="lg" :title="msg.title" :scroll-key="tab" scroll-fade>
     <TabsRoot v-model="tab" class="tabs" :class="{ full: layout.isStack }" orientation="horizontal">
-      <TabsList class="tab-list" :class="{ scroll: layout.isStack }" :aria-label="msg.tabsLabel">
+      <TabsList v-overlay-scroll class="tab-list" :class="{ scroll: layout.isStack }" :aria-label="msg.tabsLabel">
         <TabsTrigger v-for="t in tabs" :key="t.value" :value="t.value" class="tab">
           {{ t.label }}
         </TabsTrigger>

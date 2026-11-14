@@ -2,6 +2,7 @@
 import { WarningTriangle } from '@iconoir/vue'
 import { computed, ref, watch } from 'vue'
 import { compose as msg } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { addressLabel } from '../../lib/recipients'
 import { useComposeStore } from '../../stores/compose'
 import SenderBadge from '../account/SenderBadge.vue'
@@ -80,7 +81,7 @@ function onOpen(open: boolean): void {
         <dd>{{ msg.confirm.attachmentCount(preview.attachmentCount) }}</dd>
         <dt>{{ msg.confirm.bodyPreview }}</dt>
         <!-- biome-ignore lint/a11y/noNoninteractiveTabindex lint/a11y/useSemanticElements: スクロール領域は子にフォーカス可能な要素が無く、Tab で入れないとキーボードで動かせない。ガイド B6 の指定（tabindex=0・role=region・領域名）。dd は dl の中なので section には変えられない -->
-        <dd class="confirm-body" tabindex="0" role="region" :aria-label="msg.confirm.bodyPreview">{{ preview.bodyPreview || msg.confirm.emptyBody }}</dd>
+        <dd v-overlay-scroll class="confirm-body" tabindex="0" role="region" :aria-label="msg.confirm.bodyPreview">{{ preview.bodyPreview || msg.confirm.emptyBody }}</dd>
       </dl>
       <p v-if="shown?.archive" class="confirm-note">{{ msg.confirm.archiveNote }}</p>
       <p v-if="compose.error" class="confirm-error" role="alert">{{ compose.error }}</p>

@@ -2,6 +2,7 @@
 import { MailOpen } from '@iconoir/vue'
 import { computed, nextTick, ref, watch } from 'vue'
 import { thread as msg } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { useComposeStore } from '../../stores/compose'
 import { useLayoutStore } from '../../stores/layout'
 import { useThreadStore } from '../../stores/thread'
@@ -23,6 +24,8 @@ const ai = useThreadAiFlow()
 
 const detail = computed(() => store.current)
 const messages = computed(() => detail.value?.messages ?? [])
+/** 開いているスレッドの識別（別のメールを開いたら、はみ出していればスクロールバーを 1 秒出す。同じスレッドの再取得では出さない）。 */
+const openKey = computed(() => (detail.value ? `${detail.value.account.id}/${detail.value.threadId}` : ''))
 /** 返信・転送の編集を、スレッドの下に埋め込んで出す。1 画面ずつのレイアウトでは AppShell が全画面で出す。 */
 const editing = computed(
   () => !layout.isStack && store.currentRef !== undefined && compose.isOpenForThread(store.currentRef),
@@ -101,7 +104,7 @@ function openDraft(): void {
         :summarize-hint="ai.summarizeHint.value"
         @summarize="ai.start('summarize')"
       />
-      <div v-show="!composeExpanded" ref="scrollEl" class="scroll" data-testid="thread-scroll">
+      <div v-show="!composeExpanded" ref="scrollEl" v-overlay-scroll="{ flashOn: openKey }" class="scroll" data-testid="thread-scroll">
         <ThreadAiPanel :flow="ai" />
         <MessageCard
           v-for="m in messages"

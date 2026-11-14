@@ -11,6 +11,7 @@ import {
 } from 'reka-ui'
 import { computed, onBeforeUnmount, watch } from 'vue'
 import { common } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { vRipple } from '../../lib/ripple'
 import { useUiStore } from '../../stores/ui'
 import AlertStack from '../shell/AlertStack.vue'
@@ -28,8 +29,12 @@ const props = withDefaults(
     size?: 'sm' | 'md' | 'lg'
     /** 本文にフォーカスできる要素が無いとき（テキストだけの確認など）の領域名。指定すると本文が Tab で入れる region になり、キーボードでスクロールできる（ガイド B6）。 */
     bodyLabel?: string
+    /** 変わったら、本文がはみ出していればスクロールバーを 1 秒出す（設定のタブを切り替えたとき）。 */
+    scrollKey?: string
+    /** 本文の続きがある側の端に 16px のフェードを置く（設定）。 */
+    scrollFade?: boolean
   }>(),
-  { description: undefined, busy: false, size: 'md', bodyLabel: undefined },
+  { description: undefined, busy: false, size: 'md', bodyLabel: undefined, scrollKey: undefined, scrollFade: false },
 )
 
 const emit = defineEmits<{ 'update:open': [open: boolean] }>()
@@ -75,6 +80,7 @@ function guard(e: Event): void {
         <DialogDescription v-if="description" class="dlg-desc">{{ description }}</DialogDescription>
         <AlertStack v-if="ui.isTopOverlay(mark)" class="dlg-alerts" />
         <div
+          v-overlay-scroll="{ fade: scrollFade ? 'var(--surface)' : undefined, flashOn: scrollKey }"
           class="dlg-body"
           :tabindex="bodyLabel ? 0 : undefined"
           :role="bodyLabel ? 'region' : undefined"

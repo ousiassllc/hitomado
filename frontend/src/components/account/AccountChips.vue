@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAccountFilter } from '../../composables/useAccountFilter'
 import { nav } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { accountColorVar } from '../../lib/palette'
 import { useAccountsStore } from '../../stores/accounts'
 
@@ -11,7 +12,7 @@ const { selectedIds, allSelected, toggle, selectAll } = useAccountFilter()
 </script>
 
 <template>
-  <ul v-if="accounts.accounts.length > 0" class="chips" :aria-label="nav.accounts.heading" data-testid="account-chips">
+  <ul v-if="accounts.accounts.length > 0" v-overlay-scroll class="chips" :aria-label="nav.accounts.heading" data-testid="account-chips">
     <li>
       <button type="button" class="chip" :aria-pressed="allSelected" @click="selectAll">{{ nav.accounts.all }}</button>
     </li>

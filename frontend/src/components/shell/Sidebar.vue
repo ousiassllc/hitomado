@@ -2,6 +2,7 @@
 import { Settings } from '@iconoir/vue'
 import { parseBindingError } from '../../lib/api'
 import { common } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { SHORTCUT_KEYS } from '../../lib/shortcuts'
 import { useAccountsStore } from '../../stores/accounts'
 import { useComposeStore } from '../../stores/compose'
@@ -38,7 +39,7 @@ async function reconnect(id: string): Promise<void> {
       </BaseTooltip>
     </div>
     <SidebarPlaces />
-    <div class="scroll">
+    <div v-overlay-scroll class="scroll">
       <AccountList @reconnect="reconnect" @add="ui.openDialog('addAccount')" />
     </div>
     <div class="bottom">

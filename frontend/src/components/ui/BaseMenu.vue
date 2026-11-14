@@ -8,6 +8,7 @@ import {
   DropdownMenuRoot,
   DropdownMenuTrigger,
 } from 'reka-ui'
+import { overlayScrollRef } from '../../lib/overlayScroll'
 
 export interface MenuItem {
   key: string
@@ -23,6 +24,8 @@ export interface MenuItem {
 defineProps<{ items: MenuItem[] }>()
 /** `open`: 開閉が変わったとき（ポインタ・Enter・Space・ArrowDown など開いた経路によらず）に通知する。開いたときに取得する項目の読み込み用 */
 const emit = defineEmits<{ select: [key: string]; open: [open: boolean] }>()
+// DropdownMenuContent の $el は Popper の包み。スクロールするのはその中の本体（.menu-pop）。
+const popRef = overlayScrollRef(undefined, '.menu-pop')
 </script>
 
 <template>
@@ -31,7 +34,7 @@ const emit = defineEmits<{ select: [key: string]; open: [open: boolean] }>()
       <slot name="trigger" />
     </DropdownMenuTrigger>
     <DropdownMenuPortal>
-      <DropdownMenuContent class="menu-pop" :side-offset="4" align="end">
+      <DropdownMenuContent :ref="popRef" class="menu-pop" :side-offset="4" align="end">
         <component
           :is="item.checked === undefined ? DropdownMenuItem : DropdownMenuCheckboxItem"
           v-for="item in items"
