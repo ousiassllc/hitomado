@@ -36,7 +36,7 @@ func decodeTray(t *testing.T, size int, variant string) image.Image {
 
 func rgb8(c color.Color) [3]uint8 {
 	r, g, b, _ := c.RGBA()
-	return [3]uint8{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8)}
+	return [3]uint8{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8)} //nolint:gosec // RGBA() は 16 ビット値なので >> 8 は 8 ビットに収まる
 }
 
 // 未読バッジは素材に描いてある。位置・大きさ・色が仕様（右下・一辺の約 40%・#7a4545・白縁）どおりであることを守る。
@@ -132,7 +132,10 @@ func TestTrayImageIsICOOnWindowsAndPNGElsewhere(t *testing.T) {
 }
 
 func TestIcoFromPNGsRejectsBadInput(t *testing.T) {
-	_, err := icoFromPNGs([][]byte{[]byte("not png")})
+	_, err := icoFromPNGs(nil)
+	assert.Error(t, err, "画像が 0 枚")
+
+	_, err = icoFromPNGs([][]byte{[]byte("not png")})
 	assert.Error(t, err)
 
 	big := image.NewRGBA(image.Rect(0, 0, 256, 256))

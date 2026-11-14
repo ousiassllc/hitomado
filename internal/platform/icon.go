@@ -63,9 +63,12 @@ func trayImage(variant, goos string) ([]byte, error) {
 // icoFromPNGs は PNG（それぞれ 255px 以下の正方形）を、PNG 圧縮の画像として 1 つの ICO にまとめる。
 func icoFromPNGs(pngs [][]byte) ([]byte, error) {
 	const headerSize, entrySize = 6, 16
+	if len(pngs) == 0 || len(pngs) > 255 {
+		return nil, fmt.Errorf("ICO needs 1 to 255 images, got %d", len(pngs))
+	}
 	var out bytes.Buffer
-	// ICONDIR: 予約 0・種別 1（ICO）・画像数
-	out.Write([]byte{0, 0, 1, 0, byte(len(pngs)), byte(len(pngs) >> 8)})
+	// ICONDIR: 予約 0・種別 1（ICO）・画像数（255 以下を確認済み）
+	out.Write([]byte{0, 0, 1, 0, byte(len(pngs)), 0}) //nolint:gosec // 画像数は 255 以下を確認済み
 	offset := headerSize + entrySize*len(pngs)
 	for _, p := range pngs {
 		cfg, _, err := image.DecodeConfig(bytes.NewReader(p))
@@ -76,9 +79,9 @@ func icoFromPNGs(pngs [][]byte) ([]byte, error) {
 			return nil, fmt.Errorf("tray icon must be a square of at most 255px, got %dx%d", cfg.Width, cfg.Height)
 		}
 		// ICONDIRENTRY: 幅・高さ・色数 0・予約 0・プレーン 1・ビット深度 32・データ長・データ位置
-		out.Write([]byte{byte(cfg.Width), byte(cfg.Height), 0, 0, 1, 0, 32, 0})
-		_ = binary.Write(&out, binary.LittleEndian, uint32(len(p)))
-		_ = binary.Write(&out, binary.LittleEndian, uint32(offset))
+		out.Write([]byte{byte(cfg.Width), byte(cfg.Height), 0, 0, 1, 0, 32, 0}) //nolint:gosec // 1〜255 を確認済み
+		_ = binary.Write(&out, binary.LittleEndian, uint32(len(p)))             //nolint:gosec // PNG は数 KB
+		_ = binary.Write(&out, binary.LittleEndian, uint32(offset))             //nolint:gosec // 同上
 		offset += len(p)
 	}
 	for _, p := range pngs {
