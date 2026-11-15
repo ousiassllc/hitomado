@@ -312,7 +312,7 @@ sequenceDiagram
   AI-->>FE: 下書き本文（フロントがエディタに挿入。送信は行わない）
 ```
 
-**機能ごとの AI の選択（#376）**: どの AI・モデルを使うかは機能ごとに `app_settings` の `ai.features`（`draft`＝返信・新規作成、`threadAi`＝スレッドの要約・質問、`inboxZero`）に持ち、OpenAI 互換の Base URL はつなぎ先として `ai.connection` に持つ（API キー・トークンは資格情報ストア）。要約・質問は `draft` の選択に頼らず、`threadAi` が未選択なら別の機能の AI へ切り替えず `AI_NOT_CONFIGURED` で止める。実行の入口は `aicore.FeatureAI(ctx, feature)`（選んだ AI を `SelectedAI` で返す）と、その機能の前提確認 `precheck`（選択・資格情報・モデル・Base URL・同意の順に確かめ、欠けていれば `AI_NOT_CONFIGURED`／`AI_CONSENT_REQUIRED`）。以前の `ai.config` は、起動時のマイグレーション `00002_ai_features`（`internal/store/migrations`）で `ai.features.draft`・`ai.features.threadAi`（同じ値）と `ai.connection` に移し、読み取りの互換経路は持たない。
+**機能ごとの AI の選択（#376）**: どの AI・モデルを使うかは機能ごとに `app_settings` の `ai.features`（`draft`＝返信・新規作成、`threadAi`＝スレッドの要約・質問、`inboxZero`）に持ち、OpenAI 互換の Base URL はつなぎ先として `ai.connection` に持つ（API キー・トークンは資格情報ストア）。要約・質問は `draft` の選択に頼らず、`threadAi` が未選択なら別の機能の AI へ切り替えず `AI_NOT_CONFIGURED` で止める。実行の入口は `aicore.FeatureAI(ctx, feature)`（選んだ AI を `SelectedAI` で返す）と、その機能の前提確認 `precheck`（選択・資格情報・モデル・Base URL・同意の順に確かめ、欠けていれば `AI_NOT_CONFIGURED`／`AI_CONSENT_REQUIRED`）。以前の `ai.config` は、起動時のマイグレーション `00002_ai_features`（`internal/store/migrations`）で `ai.features.draft` と `ai.connection` に移し、続く `00003_ai_thread_feature` が `ai.features.threadAi` に `draft` と同じ値を写し、読み取りの互換経路は持たない。
 
 ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークンを `internal/siwc` が資格情報ストアに保持し、`PV` は Responses API（`store: false`・`stream: true`）を呼ぶ。生成中に 401 を受けたときは 1 度だけトークンを更新してやり直し、更新できなければ再ログインを案内する。複数の ChatGPT アカウントはアカウントごと（`client_id` ごと）にトークンと登録を分けて保存し、使用中のアカウントのトークンで生成する。ログイン・更新・ログアウトの手順は [バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)。
 
@@ -474,4 +474,4 @@ sequenceDiagram
 | 1.31 | 2026-11-14 | §7.4 の前提確認を、機能ごとの AI の選択（`ai.features`・`ai.connection`）を読む形に改めた（選んだ AI だけを使い、別の AI へ切り替えない）。旧 `ai.config` はマイグレーションで移した | #376 |
 | 1.32 | 2026-11-14 | §7.7（Inbox Zero）を書き直した。「返信済み」は最後の 1 通（下書きを除く）が自分の送信のときだけにし、カレンダーの招待・通知を端末内の判定で追加（優先順位は 返信済み → カレンダー → AI。カレンダーがオフなら AI にも聞かず除外）。判定の AI は `ai.features.inboxZero` で選んだ AI（未選択で Jev のキーがあれば Jev）にし、チャット系の Classifier（確信度の JSON）を追加した | #377 |
 | 1.33 | 2026-11-15 | §7.7（Inbox Zero）のカレンダーの判定を、端末内の判定（MIME のパート・送信元）から Classifier の選択肢（`calendar`）に改めた。優先順位は 返信済み → AI。カレンダーだけがオンのときも AI の前提を検査する。MIME のパートによる判定の記述を削除した | #377 |
-| 1.34 | 2026-11-15 | §7.4・§7.5・§7.6 で、要約・質問の AI の選択を `ai.features.draft` から専用の `ai.features.threadAi`（「要約・質問」）に改めた（未選択なら `draft` へ切り替えず `AI_NOT_CONFIGURED`）。マイグレーション `00002_ai_features` は旧 `ai.config` を `draft` と `threadAi` の両方へ移す | #376 |
+| 1.34 | 2026-11-15 | §7.4・§7.5・§7.6 で、要約・質問の AI の選択を `ai.features.draft` から専用の `ai.features.threadAi`（「要約・質問」）に改めた（未選択なら `draft` へ切り替えず `AI_NOT_CONFIGURED`）。マイグレーション `00003_ai_thread_feature` が `draft` の選択を `threadAi` へ写す（`00002` を適用済みの DB でも効く） | #376 |
