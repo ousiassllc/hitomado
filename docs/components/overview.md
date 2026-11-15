@@ -675,6 +675,14 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | ペイン全体をドロップ先にするとき | 常設の枠は不要。ドラッグ中だけ `--accent-soft` 地＋1px `--accent` の破線（内側 offset 4） | `ComposePane` の `.file-drop-target-active` がそのとおり（地 `--accent-soft`・`outline: 1px dashed var(--accent)`・`outline-offset: -4px`。`--mute` を `--ink` に上書き）。常設の枠は無い | 既存 |
 | リサイズハンドルの z 層 | `--z-sticky` を流用してよい | `PaneSplitter` は `z-index: var(--z-sticky)`（エージェントのパネルと同じ層） | 既存 |
 
+##### #305 アカウントなど複数対象の識別色
+
+| 項目 | ガイドの決定 | Hitomado の定め・実装 | 区分 |
+|------|-------------|---------------------|------|
+| 識別色（`--account-*`）の規定 | ガイドに規定は無い（ガイドのパレットは UI 無彩色・プリズム（キービジュアル専用）・状態色で、識別色の節は無い。#pane-app に識別色の帯・色見本の選択の値があるが、帯は #345・#347 でやめた）。案件ガイドとして定める | §5.3「ガイド未収載の部品・案件固有部品」の「アカウント識別色」の行が、色数（10 色）・ガイドのトークンとの関係（無い。案件固有）・キーと順序（TS と Go で同じ）・ライト／ダークの地と文字のペアの値・コントラストの基準（地と `--bone`／`--surface` が 4.5:1、`--accent-soft` が 3:1、地と文字が 4.5:1）・使い方・割り当てを定める。値は `tokens.css` の `--account-<key>`／`--account-<key>-text` | 既存 |
+| 実装との一致 | 定めと実装が一致している | `test/palette.test.ts` がライト・ダークの 10 色すべてで、上のコントラストを実測する。キーの順序は `lib/palette.ts` と `internal/domain/palette` で同じ（`palette_test.go`） | 既存 |
+| ガイドへの提案 | — | 識別色の節（色数・地と文字のペア・コントラスト基準）をガイドに足す提案は未提出。ガイドの #pane-app の「アカウント識別色の帯」の行は、帯をやめた（#345・#347）ので実装と合わなくなっている。この 2 点をガイドへ伝える | 残り（提案の提出。承認待ち） |
+
 #### フロントの外にある画面（認可の完了ページ）
 
 OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了ページ（`internal/callbackpage`。`oauth`・`siwc` の両方がここを呼ぶ）は、Vue の外の Go 埋め込み HTML なので `styles/tokens.css` を `import` できない。方針は次のとおり。
