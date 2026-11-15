@@ -70,7 +70,8 @@ function Test-ExeWritable([string]$Path) {
   try {
     [IO.File]::Open($Path, 'Open', 'Write', 'Read').Dispose()
     $true
-  } catch [IO.IOException] {
+  } catch [IO.IOException], [UnauthorizedAccessException] {
+    # 共有違反は IOException、走査中・実行中の exe への書き込み open がアクセス拒否で返ることは UnauthorizedAccessException。
     $false
   }
 }
@@ -83,7 +84,10 @@ function Get-ExeProcesses {
 # hitomado.exe のプロセスが無くなり、exe を書き込みで開けるようになるまで待つ。次のインストーラーが
 # 起動中の exe に当たって終了コード 5 で止まらないよう、続けて入れる前にこれを通す。
 function Wait-ExeReleased {
+  $sw = [Diagnostics.Stopwatch]::StartNew()
   $released = Wait-Until { (Get-ExeProcesses).Count -eq 0 -and (Test-ExeWritable "$installDir\hitomado.exe") }
+  # ほぼ 0 ms なら、この待ちは効いていない（原因は別）。数百 ms 以上なら、2b の直後に exe が実際に掴まれていた証拠になる。
+  Write-Host "waited $([int]$sw.Elapsed.TotalMilliseconds) ms for hitomado.exe to be released (released: $released)"
   if (-not $released) {
     Write-Host "hitomado.exe is still held. processes: $((Get-ExeProcesses | ForEach-Object { "$($_.Id):$($_.ProcessName)" }) -join ', ')"
   }
