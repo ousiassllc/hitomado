@@ -78,3 +78,31 @@ func TestAndroidAdaptiveIconForegroundHasNoPrismHaze(t *testing.T) {
 		}
 	}
 }
+
+// 古いランチャーアイコン（mipmap の ic_launcher・ic_launcher_round。端末が使うのはアダプティブだが manifest の参照先）にも、
+// ロゴの「プリズムのかすみ」（紫・青の半透明の層）を含めない（#379）。
+// 絵は Bone（#f5f5f4）の地にインク（#050505）のリングとフラップだけなので、不透明度が 0 でない画素はすべて無彩色
+// （地とインクとその混ざり。かすみは色味がある）。
+func TestAndroidLauncherMipmapHasNoPrismHaze(t *testing.T) {
+	res := filepath.Join("..", "..", "build", "android", "app", "src", "main", "res")
+	for _, density := range []string{"mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"} {
+		for _, name := range []string{"ic_launcher", "ic_launcher_round"} {
+			b, err := fs.ReadFile(os.DirFS(res), "mipmap-"+density+"/"+name+".png")
+			require.NoError(t, err)
+			img, err := png.Decode(bytes.NewReader(b))
+			require.NoError(t, err)
+			bounds := img.Bounds()
+			for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+				for x := bounds.Min.X; x < bounds.Max.X; x++ {
+					c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+					if c.A == 0 {
+						continue
+					}
+					if hi, lo := max(c.R, c.G, c.B), min(c.R, c.G, c.B); hi-lo > 2 {
+						t.Fatalf("%s %s: (%d,%d) に、地（#f5f5f4）でもインク（#050505）でもない色味の画素 %v（プリズムのかすみが残っている）", density, name, x, y, c)
+					}
+				}
+			}
+		}
+	}
+}
