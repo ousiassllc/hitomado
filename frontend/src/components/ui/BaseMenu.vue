@@ -114,9 +114,9 @@ const emit = defineEmits<{ select: [key: string]; open: [open: boolean] }>()
   color: var(--mute-on-soft);
 }
 
-/* リングは外側（offset 2px + 幅 2px = 4px）に描く。スクロール領域（.menu-pop の overflow: auto）の縁で切れないよう、パネルの padding（--s-1 = 4px）で収める。 */
+/* 強調の行は --accent-soft の地だけ。キーボードで強調したとき（:focus-visible）だけ、--accent の外側のリング（offset 2px + 幅 2px = 4px）を足す。青（--focus）はフォーム入力のフォーカスだけに使う。スクロール領域（.menu-pop の overflow: auto）の縁で切れないよう、パネルの padding（--s-1 = 4px）で収める。 */
 .menu-item[data-highlighted]:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 

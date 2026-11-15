@@ -90,10 +90,11 @@ withDefaults(
   color: var(--bone);
 }
 
-/* 地が --accent なので、先端は文字色と同じ --bone（Spinner の既定の --accent だと溶けて見えない）。 */
+/* 主ボタンは地が --accent なので、スピナーは文字色（--bone）で描く（Spinner の既定の --accent だと溶けて見える）。ライトは黒地に白、ダークは白地に黒。 */
 .btn-primary .spinner {
-  border-color: color-mix(in srgb, var(--bone) 25%, transparent);
-  border-top-color: var(--bone);
+  color: var(--bone);
+  border-color: color-mix(in srgb, currentColor 25%, transparent);
+  border-top-color: currentColor;
 }
 
 .btn-primary:hover:not(:disabled) {
