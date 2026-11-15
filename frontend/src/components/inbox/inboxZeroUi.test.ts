@@ -252,6 +252,7 @@ describe('Inbox Zero の同意のダイアログ（#377）', () => {
     const text = document.body.textContent ?? ''
     expect(text).toContain('TypeSafe AI（Jev） へメールの内容を送ります')
     expect(text).toContain('https://api.typesafe.ai')
+    expect(text).toContain('メールの形の手がかり（パートの種類・添付の種類と拡張子）')
     expect(text).toContain('返信済みの判断は端末内で行い、送信しません')
     w.unmount()
   })

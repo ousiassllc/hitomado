@@ -61,7 +61,7 @@
   display: none;
 }
 
-/* つまみの下の見えないトラック（当たり判定だけ）。押すとつまみの向きへ 1 画面ぶん動く（lib/overlayScroll/thumbInput.ts）。長さは controller.ts が置く（反対側のバーの隅を除く）。 */
+/* つまみの下の見えないトラック（当たり判定だけ）。押すとつまみの向きへ 1 画面ぶん動き、押し続けると繰り返す（lib/overlayScroll/thumbInput.ts）。長さは controller.ts が置く（反対側のバーの隅を除く）。 */
 .os-track {
   position: absolute;
   pointer-events: none;

@@ -3,7 +3,7 @@
 //   - 描く要素（.os-root）は、スクロール領域の次の兄弟として入れ、領域と同じ大きさの `position: absolute` で重ねる。
 //     置く位置は getBoundingClientRect の差から決める（親が position していなくても、transform されていても合う）。
 //   - 出入りは presence.ts。つまみの位置・長さは metrics.ts。見た目と時間（フェード・幅の変化）は CSS。
-//   - つまみの下には、見えない当たり判定のトラック（.os-track）を軸ごとに敷く。トラックを押すと、つまみの向きへ 1 画面ぶん動く（thumbInput.ts）。
+//   - つまみの下には、見えない当たり判定のトラック（.os-track）を軸ごとに敷く。トラックを押すと、つまみの向きへ 1 画面ぶん動き、押し続けると繰り返す（thumbInput.ts）。
 //   - 文書のスクロール（本文の iframe の中。viewport: true）は、documentElement を領域にして `position: fixed` で重ねる。
 // 取り付けたリスナー・オブザーバー・タイマー・rAF は destroy で全部解放する。
 import { type AxisName, create, focusVisible, readAxis, scrollable } from './dom'
