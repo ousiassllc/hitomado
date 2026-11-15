@@ -41,7 +41,7 @@ describe('識別色のチップ（#345）', () => {
     const w = mount(LabelChip, {
       props: { label: { id: 'L1', name: '重要', colorBg: '#ff0000', colorFg: '#ffffff' } },
     })
-    const style = w.attributes('style') ?? ''
+    const style = w.get('.chip').attributes('style') ?? ''
     expect(style).toContain('--chip-tint: #ff0000')
     expect(style).not.toContain('#ffffff')
     expect(style).not.toMatch(/(^|;)\s*(background|color):/)
@@ -49,7 +49,7 @@ describe('識別色のチップ（#345）', () => {
 
   test('色の指定が無いラベルは既定の見た目のまま（tinted にならない）', () => {
     const w = mount(LabelChip, { props: { label: { id: 'L2', name: '色なし' } } })
-    expect(w.classes()).not.toContain('tinted')
+    expect(w.get('.chip').classes()).not.toContain('tinted')
   })
 })
 

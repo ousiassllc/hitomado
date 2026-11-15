@@ -11,6 +11,7 @@ import { useComposeStore } from '../../stores/compose'
 import { usePlatformStore } from '../../stores/platform'
 import { useUiStore } from '../../stores/ui'
 import BaseButton from '../ui/BaseButton.vue'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 
 /** Gmail の添付合計上限（超過の判定は Go。表示用）。 */
 const LIMIT_BYTES = 25 * 1024 * 1024
@@ -62,7 +63,9 @@ onBeforeUnmount(() => stopDrop?.())
     <p v-if="compose.attachmentError" class="attach-error" role="alert">{{ compose.attachmentError }}</p>
     <ul v-if="compose.attachments.length > 0" class="attach-list">
       <li v-for="a in compose.attachments" :key="a.id" class="attach-item">
-        <span class="attach-name" :title="a.filename">{{ a.filename }}</span>
+        <BaseTooltip :text="a.filename">
+          <span class="attach-name">{{ a.filename }}</span>
+        </BaseTooltip>
         <span class="attach-size">{{ formatSize(a.size) }}</span>
         <span v-if="a.source === 'forwarded'" class="attach-tag">{{ msg.attachments.forwarded }}</span>
         <button

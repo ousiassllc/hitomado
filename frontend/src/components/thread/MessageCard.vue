@@ -5,6 +5,7 @@ import type { ThreadMessage } from '../../../bindings/github.com/ousiassllc/hito
 import type { AttachmentInfo } from '../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
 import { formatDateTime } from '../../lib/format'
 import { thread as msg } from '../../lib/messages'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 import AttachmentList from './AttachmentList.vue'
 import MessageBody from './MessageBody.vue'
 import { formatAddress, formatAddresses, shortName } from './threadView'
@@ -32,7 +33,9 @@ watch(
       @click="open = !open"
     >
       <component :is="open ? NavArrowDown : NavArrowRight" class="icon icon-sm toggle-mark" aria-hidden="true" />
-      <span class="sender" :title="formatAddress(message.from)">{{ shortName(message.from) }}</span>
+      <BaseTooltip :text="formatAddress(message.from)">
+        <span class="sender">{{ shortName(message.from) }}</span>
+      </BaseTooltip>
       <template v-if="message.isUnread">
         <span class="dot" aria-hidden="true" />
         <span class="sr-only">{{ msg.unreadMark }}</span>

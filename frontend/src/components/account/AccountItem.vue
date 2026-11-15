@@ -2,6 +2,7 @@
 import { WarningTriangle } from '@iconoir/vue'
 import { common } from '../../lib/messages'
 import BaseIconButton from '../ui/BaseIconButton.vue'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 import AccountChip from './AccountChip.vue'
 
 defineProps<{
@@ -20,12 +21,13 @@ const emit = defineEmits<{ select: [multi: boolean]; reconnect: [] }>()
       type="button"
       class="main"
       :aria-pressed="selected"
-      :title="account.email"
       @click="emit('select', $event.ctrlKey || $event.metaKey)"
     >
       <span class="text">
         <AccountChip class="name" :account="account" />
-        <span class="email">{{ account.email }}</span>
+        <BaseTooltip :text="account.email">
+          <span class="email">{{ account.email }}</span>
+        </BaseTooltip>
       </span>
       <span v-if="unread > 0" class="count" :aria-label="common.sidebar.unread(unread)">{{ unread > 999 ? '999+' : unread }}</span>
     </button>

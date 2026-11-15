@@ -5,6 +5,7 @@ import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/hito
 import { formatDate } from '../../lib/format'
 import { common } from '../../lib/messages'
 import AccountChip from '../account/AccountChip.vue'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 import LabelChip from './LabelChip.vue'
 
 const props = defineProps<{
@@ -57,9 +58,9 @@ const label = computed(
       <div class="line1">
         <AccountChip v-if="account" :account="account" size="sm" />
         <span class="sender">{{ sender }}</span>
-        <span v-if="thread.messageCount > 1" class="count" :title="common.list.messageCount(thread.messageCount)">{{
-          thread.messageCount
-        }}</span>
+        <BaseTooltip v-if="thread.messageCount > 1" :text="common.list.messageCount(thread.messageCount)">
+          <span class="count">{{ thread.messageCount }}</span>
+        </BaseTooltip>
         <span v-if="thread.hasAttachment" class="clip" role="img" :aria-label="common.list.attachment"><Attachment class="icon icon-sm" aria-hidden="true" /></span>
         <time class="date">{{ formatDate(thread.lastMessageAt) }}</time>
       </div>

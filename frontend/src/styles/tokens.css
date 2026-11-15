@@ -120,6 +120,13 @@
   /* トースト（画面下中央・ピル・1 行） */
   --toast-h: 40px;
   --toast-offset: 24px;
+  /* 表示時間（入場が終わってから数える）。ToastHost.vue の TOAST_DURATION_MS・TOAST_DURATION_ACTION_MS と同じ値 */
+  --toast-duration: 3s;
+  --toast-duration-action: 5s;
+
+  /* ツールチップの padding（--s-* に 6・10 が無いので専用のトークン） */
+  --tip-pad-y: 6px;
+  --tip-pad-x: 10px;
 
   /* 識別色（アカウント・ラベル）を一覧のチップに出すときの沈め方（BaseChip の tint）。地は識別色を --surface に --tint-bg、枠は識別色を transparent に --tint-border だけ混ぜる。文字は --ink で、識別色を文字・塗りに使わない。 */
   --tint-bg: 18%;
