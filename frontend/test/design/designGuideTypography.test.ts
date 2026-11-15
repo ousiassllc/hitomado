@@ -1,5 +1,7 @@
 // Ousiass デザインガイド準拠の回帰テスト（#222）。タイポグラフィ（T5）の Mono の指定を確かめる。
+
 import { describe, expect, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
 import { mount } from '@vue/test-utils'
 import AIDestinationBox from '../../src/components/settings/ai/AIDestinationBox.vue'
 import { rule } from './styleRule'
@@ -7,6 +9,13 @@ import { rule } from './styleRule'
 describe('桁を揃える文字の Mono（T5・#222）', () => {
   test('スレッド行のメッセージ件数（数字だけ）は --font-mono', () => {
     expect(rule('inbox/ThreadRow.vue', '.count {')).toContain('font-family: var(--font-mono)')
+  })
+
+  test('--font-mono は日本語が混ざっても Noto Sans JP で描く（Mono の次に置く。#283）', () => {
+    const css = readFileSync(new URL('../../src/styles/tokens.css', import.meta.url), 'utf8')
+    expect(css).toContain(
+      '--font-mono: "JetBrains Mono Variable", "Noto Sans JP Variable", ui-monospace, monospace;',
+    )
   })
 
   test('送信先の URL だけを別要素に分け、--font-mono にする', () => {

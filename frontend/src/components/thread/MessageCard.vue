@@ -135,7 +135,7 @@ watch(
 .date {
   margin-left: auto;
   color: var(--mute);
-  font-family: var(--font-mono), var(--font-sans);
+  font-family: var(--font-mono);
   font-size: var(--font-size-sm);
   white-space: nowrap;
 }

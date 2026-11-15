@@ -26,9 +26,11 @@
   --info-border: color-mix(in srgb, var(--info) 40%, transparent);
   --info-soft: color-mix(in srgb, var(--info) 10%, transparent);
 
-  /* タイポグラフィ: Sora + Noto Sans JP（コード・桁を揃える数値は JetBrains Mono）。いずれも SIL OFL で、アプリに同梱する（App.vue） */
+  /* タイポグラフィ: Sora + Noto Sans JP（コード・桁を揃える数値は JetBrains Mono）。いずれも SIL OFL で、アプリに同梱する（App.vue）。
+     同梱の Variable 版は family 名が "… Variable"（ガイドの "Sora" 等と別名だが許容。スタックの並びは同じ）。
+     --font-mono は日本語が混ざったときに Noto Sans JP で描くよう、2 番目に Noto Sans JP を置く（ガイドの --font-mono と同じ並び）。 */
   --font-sans: "Sora Variable", "Noto Sans JP Variable", sans-serif;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+  --font-mono: "JetBrains Mono Variable", "Noto Sans JP Variable", ui-monospace, monospace;
   --font-size-xs: 12px;
   --font-size-sm: 14px;
   --font-size-base: 16px;
