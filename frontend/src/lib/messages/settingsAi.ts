@@ -78,10 +78,15 @@ export const settingsAi = {
     manualSave: 'モデルを保存',
     fixed: (provider: string) => `${provider}（固定）`,
     soon: '準備中',
-    features: { draft: 'AI で下書き', inboxZero: 'Inbox Zero', agent: 'エージェント' },
+    features: {
+      draft: 'AI で下書き',
+      threadAi: '要約・質問',
+      inboxZero: 'Inbox Zero',
+      agent: 'エージェント',
+    },
   },
   typesafe: {
-    note: 'TypeSafe AI（Jev）は文章を書かないモデルです。「AI で下書き」には選べず、Inbox Zero の「機能ごとに使う AI」にだけ選べます（不要なメールの判断に使います）。',
+    note: 'TypeSafe AI（Jev）は文章を書かないモデルです。「AI で下書き」「要約・質問」には選べず、Inbox Zero の「機能ごとに使う AI」にだけ選べます（不要なメールの判断に使います）。',
   },
   modelPlaceholder: '例: claude-sonnet-4-5',
   modelRequired: 'モデルを入力してください。',

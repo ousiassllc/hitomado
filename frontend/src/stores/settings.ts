@@ -163,7 +163,7 @@ export const useSettingsStore = defineStore('settings', () => {
     started = false
   }
 
-  /** 機能（draft／inboxZero）で使う AI・モデルを保存する（#376）。effort は draft だけで、空は「モデルの既定」（#111）。 */
+  /** 機能（draft／threadAi／inboxZero）で使う AI・モデルを保存する（#376）。effort は draft・threadAi だけで、空は「モデルの既定」（#111）。 */
   async function setAIFeature(
     feature: string,
     provider: string,

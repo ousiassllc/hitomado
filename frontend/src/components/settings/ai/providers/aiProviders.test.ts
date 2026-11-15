@@ -36,4 +36,13 @@ describe('つなぎ先の状態（#376）', () => {
     expect(connectionState('chatgpt', loggedOut)).toBe('reconnect')
     expect(connectionState('chatgpt', cfg({ features: features() }))).toBe('disconnected')
   })
+
+  test('「要約・質問」だけで選んでいる AI も、外されたら「つなぎ直しが必要」', () => {
+    const onlyThreadAi = cfg({
+      apiKeyProviders: [],
+      features: features('', '', { provider: 'anthropic', model: 'claude-x' }),
+    })
+    expect(connectionState('anthropic', onlyThreadAi)).toBe('reconnect')
+    expect(connectionState('openai', onlyThreadAi)).toBe('disconnected')
+  })
 })

@@ -35,6 +35,7 @@ export function result(text: string, included = 1, total = 1): ThreadAIResult {
 export const READY_CONFIG = {
   features: {
     draft: { provider: 'anthropic', model: 'claude-x' },
+    threadAi: { provider: 'anthropic', model: 'claude-x' },
     inboxZero: { provider: '', model: '' },
   },
   apiKeyProviders: ['anthropic'],

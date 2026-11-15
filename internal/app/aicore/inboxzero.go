@@ -35,10 +35,11 @@ const (
 
 // classifyCriteria は判定の AI へ渡す選択肢（この順。Jev でもチャット系のモデルでも同じ）。無効にした理由も含めて常に全部を渡す
 // （無効な理由のメールを「その他」へ寄せず、その理由として選ばせたうえで候補から外すため）。
-// カレンダーは AI に聞かず端末内で先に判定するので、選択肢に含めない。
+// カレンダーの招待・通知も AI が判定する（端末内の MIME・送信元の判定はしない。#377）。通知と重ならないよう、通知の説明でカレンダーを除く。
 var classifyCriteria = []ai.Criterion{
 	{Name: dto.InboxZeroReasonAd, Description: "商品・サービス・イベントなどを宣伝・販売促進する広告のメール（セール、キャンペーン、クーポン、新商品の案内など）。"},
-	{Name: dto.InboxZeroReasonNotification, Description: "サービスやシステムが自動で送る通知だけのメール（ログイン通知、配送状況、利用明細、SNS の更新通知など）で、返信も対応も求めないもの。"},
+	{Name: dto.InboxZeroReasonCalendar, Description: "Google カレンダー・Outlook などの予定の招待・変更・取り消し・返信・リマインダー・予定表のまとめの通知。"},
+	{Name: dto.InboxZeroReasonNotification, Description: "サービスやシステムが自動で送る通知だけのメール（ログイン通知、配送状況、利用明細、SNS の更新通知など）で、返信も対応も求めないもの。カレンダーの招待・通知は除く。"},
 	{Name: dto.InboxZeroReasonNewsletter, Description: "定期的に配信されるニュースレター・メールマガジン・記事やブログの更新まとめ。"},
 	{Name: choiceOther, Description: "通常のメール・個人宛て・重要なもの・判断できない。"},
 }
@@ -52,7 +53,7 @@ const classifyInstructions = "このメールの種類として、最も当て�
 type inboxZeroRun struct {
 	s       *Service
 	reasons dto.InboxZeroReasons
-	// aiReasons は AI で判定する理由（広告・通知・ニュースレター）が 1 つでもオンか。
+	// aiReasons は AI で判定する理由（広告・カレンダー・通知・ニュースレター）が 1 つでもオンか。
 	aiReasons bool
 	// classifier は aiReasons が真のときだけ作る。provider はその AI（エラーの文面の分類に使う）。
 	classifier ai.Classifier
@@ -73,8 +74,8 @@ type slot struct {
 }
 
 // FindInboxZeroCandidates は refs（フロントが読み込み済みの一覧）のうち、設定でオンの理由に当てはまる「不要なメール」の候補を返す。
-// 返信済み・カレンダーは端末内だけで判定し、広告・通知・ニュースレターは Inbox Zero に選んだ AI・モデルで判定する（確率・確信度が高いものだけ）。
-// 前提（選んだ AI のキー・ログインと同意）は通信とスレッドの読み込みの前に確かめる。AI の理由がすべてオフなら、AI の前提は要らない。
+// 返信済みは端末内だけで判定し、広告・カレンダー・通知・ニュースレターは Inbox Zero に選んだ AI・モデルで判定する（確率・確信度が高いものだけ）。
+// 前提（選んだ AI のキー・ログインと同意）は通信とスレッドの読み込みの前に確かめる。返信済みだけをオンにしたときは、AI の前提は要らない。
 // 中止（CancelGenerate・ctx）は CANCELLED。AI の 401／403・429・利用上限は全体を止め、それ以外の失敗は該当スレッドを skipped にする。
 func (s *Service) FindInboxZeroCandidates(ctx context.Context, refs []dto.ThreadRef, requestID string) (dto.InboxZeroResult, error) {
 	if err := validateRequestID(requestID); err != nil {
@@ -96,7 +97,7 @@ func (s *Service) FindInboxZeroCandidates(ctx context.Context, refs []dto.Thread
 	if !reasons.Ad && !reasons.Notification && !reasons.Newsletter && !reasons.Replied && !reasons.Calendar {
 		return dto.InboxZeroResult{}, apperr.New(apperr.Validation, "不要なメールの理由を 1 つ以上オンにしてください。")
 	}
-	run := &inboxZeroRun{s: s, reasons: reasons, aiReasons: reasons.Ad || reasons.Notification || reasons.Newsletter}
+	run := &inboxZeroRun{s: s, reasons: reasons, aiReasons: reasons.Ad || reasons.Calendar || reasons.Notification || reasons.Newsletter}
 	if run.aiReasons {
 		if err := run.setupClassifier(runCtx); err != nil {
 			return dto.InboxZeroResult{}, s.precheckError(runCtx, err)
@@ -221,8 +222,8 @@ func (r *inboxZeroRun) judgeSafe(ctx context.Context, ref dto.ThreadRef) (sl slo
 }
 
 // judge は 1 スレッドを判定する。ctx が終わっていたら何も記録しない（結果は使われない）。
-// 理由の優先順位は、返信済み（オンのとき）→ カレンダー → AI。カレンダーの招待・通知は、カレンダーがオフなら候補にせず
-// （AI にも聞かず、広告・通知など別の理由に寄せない）、オンなら「カレンダー」を理由にする。判定はどれもスレッドの最後の 1 通（下書きを除く）を見る。
+// 理由の優先順位は、返信済み（オンのとき。端末内）→ AI。カレンダーを含む AI の理由は、オンのものだけ候補にする
+// （オフの理由を選んだメールは、2 番目の候補には落とさず候補にしない）。判定はどれもスレッドの最後の 1 通（下書きを除く）を見る。
 func (r *inboxZeroRun) judge(ctx context.Context, ref dto.ThreadRef) slot {
 	thread, err := r.s.d.Threads.Get(ctx, ref.AccountID, ref.ThreadID)
 	if err != nil {
@@ -243,13 +244,6 @@ func (r *inboxZeroRun) judge(ctx context.Context, ref dto.ThreadRef) slot {
 	cand := dto.InboxZeroCandidate{Ref: ref, From: senderLabel(latest), Subject: latest.Subject}
 	if r.reasons.Replied && isOwnMessage(latest, r.emails[ref.AccountID]) {
 		cand.Reason = dto.InboxZeroReasonReplied
-		return slot{cand: &cand}
-	}
-	if isCalendarMail(latest) {
-		if !r.reasons.Calendar {
-			return slot{}
-		}
-		cand.Reason = dto.InboxZeroReasonCalendar
 		return slot{cand: &cand}
 	}
 	reasons := r.aiEligible(msgs)
@@ -285,6 +279,9 @@ func (r *inboxZeroRun) aiEligible(msgs []gmail.MessageFull) []string {
 	var reasons []string
 	if r.reasons.Ad {
 		reasons = append(reasons, dto.InboxZeroReasonAd)
+	}
+	if r.reasons.Calendar {
+		reasons = append(reasons, dto.InboxZeroReasonCalendar)
 	}
 	if r.reasons.Notification {
 		reasons = append(reasons, dto.InboxZeroReasonNotification)

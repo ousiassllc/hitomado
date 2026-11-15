@@ -312,7 +312,7 @@ sequenceDiagram
   AI-->>FE: 下書き本文（フロントがエディタに挿入。送信は行わない）
 ```
 
-**機能ごとの AI の選択（#376）**: どの AI・モデルを使うかは機能ごとに `app_settings` の `ai.features`（`draft`＝返信・新規作成・要約・質問、`inboxZero`）に持ち、OpenAI 互換の Base URL はつなぎ先として `ai.connection` に持つ（API キー・トークンは資格情報ストア）。実行の入口は `aicore.FeatureAI(ctx, feature)`（選んだ AI を `SelectedAI` で返す）と、その機能の前提確認 `precheck`（選択・資格情報・モデル・Base URL・同意の順に確かめ、欠けていれば `AI_NOT_CONFIGURED`／`AI_CONSENT_REQUIRED`）。以前の `ai.config` は、起動時のマイグレーション `00002_ai_features`（`internal/store/migrations`）で `ai.features.draft` と `ai.connection` に移し、読み取りの互換経路は持たない。
+**機能ごとの AI の選択（#376）**: どの AI・モデルを使うかは機能ごとに `app_settings` の `ai.features`（`draft`＝返信・新規作成、`threadAi`＝スレッドの要約・質問、`inboxZero`）に持ち、OpenAI 互換の Base URL はつなぎ先として `ai.connection` に持つ（API キー・トークンは資格情報ストア）。要約・質問は `draft` の選択に頼らず、`threadAi` が未選択なら別の機能の AI へ切り替えず `AI_NOT_CONFIGURED` で止める。実行の入口は `aicore.FeatureAI(ctx, feature)`（選んだ AI を `SelectedAI` で返す）と、その機能の前提確認 `precheck`（選択・資格情報・モデル・Base URL・同意の順に確かめ、欠けていれば `AI_NOT_CONFIGURED`／`AI_CONSENT_REQUIRED`）。以前の `ai.config` は、起動時のマイグレーション `00002_ai_features`（`internal/store/migrations`）で `ai.features.draft`・`ai.features.threadAi`（同じ値）と `ai.connection` に移し、読み取りの互換経路は持たない。
 
 ChatGPT プランでは、ログイン（`SignInChatGPT`）で得たトークンを `internal/siwc` が資格情報ストアに保持し、`PV` は Responses API（`store: false`・`stream: true`）を呼ぶ。生成中に 401 を受けたときは 1 度だけトークンを更新してやり直し、更新できなければ再ログインを案内する。複数の ChatGPT アカウントはアカウントごと（`client_id` ごと）にトークンと登録を分けて保存し、使用中のアカウントのトークンで生成する。ログイン・更新・ログアウトの手順は [バインディング仕様 §6.2](../api/endpoints.md#62-chatgpt-プランsign-in-with-chatgpt)。
 
@@ -350,7 +350,7 @@ sequenceDiagram
   participant GM as gmail.Client
   participant PV as ai.Provider
   FE->>AI: SummarizeThread(ref, requestId)
-  AI->>AI: 機能の選択（ai.features.draft）を読み、選んだ AI の同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認（別の AI へは切り替えない）
+  AI->>AI: 機能の選択（ai.features.threadAi。「AI で下書き」の選択は見ない）を読み、選んだ AI の同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認（別の AI へは切り替えない）
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>AI: 下書きを除き、全メッセージを古い順にテキスト化（合計 40,000 文字を目安。超えたら古いものから外す）
   AI->>PV: 要約の要求（本文は信頼しない入力の枠。エフォートは設定にあれば載せる）
@@ -359,7 +359,7 @@ sequenceDiagram
   Note over FE: フロントがメモリにだけ保持して AI パネルに表示する。Go・DB・ログには残さない
 ```
 
-スレッドは `ref` だけで指定する（作成セッションを使わない）ので、返信を開いていなくても呼べる。AI の設定・同意・トークンの更新・3xx を追従しない扱い・中止（`CancelGenerate`）は §7.4 と同じ。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
+スレッドは `ref` だけで指定する（作成セッションを使わない）ので、返信を開いていなくても呼べる。使う AI は「機能ごとに使う AI」の「要約・質問」（`threadAi`）で選んだもので、「AI で下書き」（`draft`）の選択とは別（未選択なら `AI_NOT_CONFIGURED`。`draft` へは切り替えない）。同意・トークンの更新・3xx を追従しない扱い・中止（`CancelGenerate`）は §7.4 と同じ。契約は [バインディング仕様 §6](../api/endpoints.md#6-aiservice)。
 
 ### 7.6 スレッドへの AI 質問
 
@@ -371,7 +371,7 @@ sequenceDiagram
   participant PV as ai.Provider
   FE->>AI: AskAboutThread(ref, requestId, question, history)
   AI->>AI: question・history を検証（空・2,000 文字超・会話の形・20 件／20,000 文字超は VALIDATION。通信しない）
-  AI->>AI: 機能の選択（ai.features.draft）を読み、選んだ AI の同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認（別の AI へは切り替えない）
+  AI->>AI: 機能の選択（ai.features.threadAi）を読み、選んだ AI の同意済み・キー設定済み（ChatGPT プランはログイン済み。期限が近ければトークンを更新）を確認（別の AI へは切り替えない）
   AI->>GM: threads.get(format=full)（メモリ LRU を優先）
   AI->>AI: 下書きを除き、全メッセージを古い順にテキスト化（§7.5 と同じ。合計 40,000 文字を目安）
   AI->>PV: 役割の指示（system）＋スレッド（信頼しない先頭の user）＋history（user／assistant）＋question（最後の user）
@@ -393,18 +393,16 @@ sequenceDiagram
   participant IS as InboxService
   FE->>AI: FindInboxZeroCandidates(refs, requestId)
   AI->>AI: 検証（requestId・refs は重複を除き 100 件まで・理由が 1 つ以上オン。通信しない）
-  AI->>AI: AI の理由（広告・通知・ニュースレター）が 1 つでもオンなら、Inbox Zero に選んだ AI（`ai.features.inboxZero`。未選択で Jev のキーがあれば Jev）のキー・ログイン（AI_NOT_CONFIGURED）と同意（AI_CONSENT_REQUIRED）を確認して Classifier を作る
+  AI->>AI: AI の理由（広告・カレンダー・通知・ニュースレター）が 1 つでもオンなら、Inbox Zero に選んだ AI（`ai.features.inboxZero`。未選択で Jev のキーがあれば Jev）のキー・ログイン（AI_NOT_CONFIGURED）と同意（AI_CONSENT_REQUIRED）を確認して Classifier を作る
   loop refs を最大 4 件ずつ並行に
     AI->>GM: threads.get(format=full)（メモリ LRU を優先）
     Note over AI: 判定はスレッドの最後の 1 通（下書きを除く）を見る
     alt 返信済みがオンで、最後の 1 通が自分の送信（SENT ラベル、または差出人が受信アカウントのアドレス）
       AI->>AI: 端末内で判定。候補（理由 = 返信済み）。AI には送らない
-    else 最後の 1 通がカレンダーの招待・通知（iCalendar のパート、または Google カレンダーの送信元）
-      AI->>AI: 端末内で判定。カレンダーがオンなら候補（理由 = カレンダー）、オフなら除外。どちらも AI には送らない
-    else 広告・通知・未読のニュースレターのどれかがオン
+    else 広告・カレンダー・通知・未読のニュースレターのどれかがオン
       AI->>CL: Classify(最新の下書きでないメッセージの差出人・件名・本文の先頭約 500 文字)
       CL-->>AI: 選ばれた選択肢と、その確率（Jev）または確信度（チャット系のモデル）
-      AI->>AI: オンの理由で 0.8 以上のときだけ候補（other・オフの理由・既読のニュースレターは候補にしない）
+      AI->>AI: オンの理由で 0.8 以上のときだけ候補（other・オフの理由・既読のニュースレターは候補にしない。カレンダーも AI が「カレンダー」を選んだときだけ）
     end
   end
   AI-->>FE: InboxZeroResult（candidates・examined・skipped）。アーカイブはしない
@@ -412,11 +410,11 @@ sequenceDiagram
   FE->>IS: Archive(チェックしたものだけ。Yes のときのみ)。「元に戻す」は Unarchive
 ```
 
-理由の優先順位は **返信済み → カレンダー → AI** で、1 スレッドの理由は 1 つ。カレンダーのメールは、カレンダーがオフなら AI にも聞かず除外する（AI が「通知」と判断しうるメールを、別の理由に寄せないため）。返信済み・カレンダーは端末内の判定で、AI の理由がすべてオフなら AI の前提（選択・キー・同意）は検査しない。
+理由の優先順位は **返信済み → AI** で、1 スレッドの理由は 1 つ。カレンダーの招待・通知は端末内では判定せず、AI の選択肢の 1 つ（`calendar`）として判定する（通知の選択肢の説明からカレンダーを除き、重ならないようにする）。カレンダーがオフのとき、AI が「カレンダー」を選んだメールは候補にしない（別の理由に寄せない）。端末内で判定するのは返信済みだけで、返信済みだけがオンなら AI の前提（選択・キー・同意）は検査しない。カレンダーだけをオンにした場合は AI の前提が要る。
 
 **Classifier**（`ai.Classifier`）は 2 実装ある。**Jev**（`internal/ai/jev.go`。`POST /v1/systemone` の choice 質問。全選択肢の確率を返す）と、**チャット系**（`internal/ai/chatclassifier.go`。Anthropic・OpenAI 互換・ChatGPT プランの `Provider` が持つチャットの呼び出しに、system 指示で選択肢を渡し、`{"choice","confidence"}` の JSON を返させる）。後者は確率を返せないため、確信度を「選んだ選択肢の確率」として同じ下限 0.8 に当てる。形式が崩れた応答・選択肢にない答えは `ErrFailed`（そのスレッドだけ `skipped`）。メールの内容は user メッセージの `<email>` の中だけに入れ、system 指示には入れない。どちらも `Deps.Classifier`（`deps.ClassifierFactory`。`run.go` では `ai.NewClassifierFor`）で、選んだプロバイダ・モデル・送信先から作る。
 
-判定とアーカイブは分かれていて、Go の `FindInboxZeroCandidates` は候補を返すだけである。アーカイブは利用者が一覧で確認して Yes を押したときに、通常のアーカイブ（F-04）と同じ `InboxService.Archive`／`Unarchive` で行う。選んだ AI の 401／403・429・ChatGPT プランの利用枠の上限・対象外は全体を止め、それ以外の 1 スレッドの失敗は `skipped` に数えて続ける。中止（`CancelGenerate`）は `CANCELLED` で結果を捨てる。送信先は選んだ AI のもの（Jev は `api.typesafe.ai` で固定）で、同意はそのプロバイダ＋送信先ごとに保存する（[非機能要件 §2](../requirements/non-functional.md#2-プライバシー外部通信)）。カレンダーの判定は Gmail の MIME のパートの種類から（`gmail.MessageFull.HasCalendar`。`mimeparse.HasCalendar`）。契約は [バインディング仕様 §6.3](../api/endpoints.md#63-inbox-zerofindinboxzerocandidates314)。
+判定とアーカイブは分かれていて、Go の `FindInboxZeroCandidates` は候補を返すだけである。アーカイブは利用者が一覧で確認して Yes を押したときに、通常のアーカイブ（F-04）と同じ `InboxService.Archive`／`Unarchive` で行う。選んだ AI の 401／403・429・ChatGPT プランの利用枠の上限・対象外は全体を止め、それ以外の 1 スレッドの失敗は `skipped` に数えて続ける。中止（`CancelGenerate`）は `CANCELLED` で結果を捨てる。送信先は選んだ AI のもの（Jev は `api.typesafe.ai` で固定）で、同意はそのプロバイダ＋送信先ごとに保存する（[非機能要件 §2](../requirements/non-functional.md#2-プライバシー外部通信)）。契約は [バインディング仕様 §6.3](../api/endpoints.md#63-inbox-zerofindinboxzerocandidates314)。
 
 ## 8. 主要な設計判断
 
@@ -475,3 +473,5 @@ sequenceDiagram
 | 1.30 | 2026-11-14 | §7.4 に新規作成の AI 下書き（`GenerateNewDraft`。スレッドを読まず、指示・件名・宛先・送信元の表示名と署名から生成）を追記し、§7.4b に下書きの一覧（`ListDrafts`・`DiscardDraft`）のシーケンスを追加した | #365・#366 |
 | 1.31 | 2026-11-14 | §7.4 の前提確認を、機能ごとの AI の選択（`ai.features`・`ai.connection`）を読む形に改めた（選んだ AI だけを使い、別の AI へ切り替えない）。旧 `ai.config` はマイグレーションで移した | #376 |
 | 1.32 | 2026-11-14 | §7.7（Inbox Zero）を書き直した。「返信済み」は最後の 1 通（下書きを除く）が自分の送信のときだけにし、カレンダーの招待・通知を端末内の判定で追加（優先順位は 返信済み → カレンダー → AI。カレンダーがオフなら AI にも聞かず除外）。判定の AI は `ai.features.inboxZero` で選んだ AI（未選択で Jev のキーがあれば Jev）にし、チャット系の Classifier（確信度の JSON）を追加した | #377 |
+| 1.33 | 2026-11-15 | §7.7（Inbox Zero）のカレンダーの判定を、端末内の判定（MIME のパート・送信元）から Classifier の選択肢（`calendar`）に改めた。優先順位は 返信済み → AI。カレンダーだけがオンのときも AI の前提を検査する。MIME のパートによる判定の記述を削除した | #377 |
+| 1.34 | 2026-11-15 | §7.4・§7.5・§7.6 で、要約・質問の AI の選択を `ai.features.draft` から専用の `ai.features.threadAi`（「要約・質問」）に改めた（未選択なら `draft` へ切り替えず `AI_NOT_CONFIGURED`）。マイグレーション `00002_ai_features` は旧 `ai.config` を `draft` と `threadAi` の両方へ移す | #376 |

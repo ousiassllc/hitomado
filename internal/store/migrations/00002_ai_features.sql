@@ -1,10 +1,13 @@
 -- +goose Up
 -- AI 設定を「つなぎ先」と「機能ごとに使う AI」に分ける（#376）。
--- 旧 ai.config（既定のプロバイダ・モデル・Base URL・エフォート）は、「AI で下書き」の選択（ai.features.draft）と、
+-- 旧 ai.config（既定のプロバイダ・モデル・Base URL・エフォート）は、「AI で下書き」の選択（ai.features.draft）・「要約・質問」の選択
+-- （ai.features.threadAi。以前は下書きと同じ設定を使っていたので、同じ値を写す）と、
 -- OpenAI 互換の Base URL（ai.connection）へ移し、旧キーは消す。API キー・ChatGPT のトークン・同意（ai.consent）は変えない。
 
 INSERT INTO app_settings (key, value, updated_at)
-SELECT 'ai.features', json_object('draft', json_remove(value, '$.baseUrl')), updated_at
+SELECT 'ai.features',
+       json_object('draft', json_remove(value, '$.baseUrl'), 'threadAi', json_remove(value, '$.baseUrl')),
+       updated_at
 FROM app_settings
 WHERE key = 'ai.config'
   AND json_type(value) = 'object';
@@ -20,6 +23,7 @@ WHERE key = 'ai.config'
 DELETE FROM app_settings WHERE key = 'ai.config';
 
 -- +goose Down
+-- 旧 ai.config は下書きの選択だけから戻す（threadAi は旧形式に無いので捨てる）。
 INSERT INTO app_settings (key, value, updated_at)
 SELECT 'ai.config',
        CASE

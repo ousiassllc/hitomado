@@ -239,7 +239,7 @@ describe('Inbox Zero の判断中のダイアログ（#343）', () => {
 })
 
 describe('Inbox Zero の同意のダイアログ（#377）', () => {
-  test('同意を求める送信先は、Inbox Zero に選んだ AI（名前と送信先）。返信済み・カレンダーは端末内で、送らない', async () => {
+  test('同意を求める送信先は、Inbox Zero に選んだ AI（名前と送信先）。返信済みだけは端末内で、送らない', async () => {
     document.body.innerHTML = ''
     const ctx = setup({ selected: 'typesafe' })
     ctx.zero.phase = 'consent'
@@ -252,7 +252,7 @@ describe('Inbox Zero の同意のダイアログ（#377）', () => {
     const text = document.body.textContent ?? ''
     expect(text).toContain('TypeSafe AI（Jev） へメールの内容を送ります')
     expect(text).toContain('https://api.typesafe.ai')
-    expect(text).toContain('返信済みとカレンダーの判断は端末内で行い、送信しません')
+    expect(text).toContain('返信済みの判断は端末内で行い、送信しません')
     w.unmount()
   })
 })

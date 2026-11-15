@@ -1,7 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { features } from '../../../../../test/aiConfigKit'
 import { acctA, base, chatgptCfg } from '../aiTestSupport'
-import { featureChoices, optionLabel, optionValue, parseOption } from './aiFeatures'
+import {
+  featureAllowsEffort,
+  featureChoices,
+  featureProviders,
+  optionLabel,
+  optionValue,
+  parseOption,
+} from './aiFeatures'
 
 const models = {
   openai: { provider: 'openai', models: [{ id: 'gpt-a' }, { id: 'gpt-b', displayName: 'GPT B' }] },
@@ -42,6 +49,17 @@ describe('機能ごとの選択肢（#376）', () => {
     const zero = featureChoices('inboxZero', connected, models, none).options.map((o) => o.value)
     expect(draft).not.toContain('typesafe|')
     expect(zero).toContain('typesafe|')
+  })
+
+  test('「要約・質問」も文章を書く機能なので、Jev は出ず、選べるプロバイダは「AI で下書き」と同じ', () => {
+    const thread = featureChoices('threadAi', connected, models, none).options.map((o) => o.value)
+    const draft = featureChoices('draft', connected, models, none).options.map((o) => o.value)
+    expect(thread).toEqual(draft)
+    expect(thread).not.toContain('typesafe|')
+    expect(featureProviders('threadAi')).toEqual(featureProviders('draft'))
+    expect(featureAllowsEffort('threadAi')).toBe(true)
+    expect(featureAllowsEffort('draft')).toBe(true)
+    expect(featureAllowsEffort('inboxZero')).toBe(false)
   })
 
   test('何もつないでいなければ、使える AI が無い。Jev だけなら「AI で下書き」は使える AI が無く、Inbox Zero は Jev だけ', () => {

@@ -49,7 +49,18 @@ describe('overlayScroll.css', () => {
     expect(rules('.os-root')).toMatch(/pointer-events:\s*none/)
     expect(rules('.os-thumb')).toMatch(/pointer-events:\s*none/)
     expect(rules('.os-root[data-shown] .os-thumb')).toMatch(/pointer-events:\s*auto/)
-    expect(css).not.toMatch(/os-track/)
+    expect(rules('.os-track')).not.toMatch(/background|opacity/)
+  })
+
+  test('見えないトラックの当たり判定は 12px 厚。つまみと同じく、出ているときだけ当たり、軸が出ていなければ隠す', () => {
+    expect(rules('.os-track')).toMatch(/position:\s*absolute/)
+    expect(rules('.os-track')).toMatch(/pointer-events:\s*none/)
+    expect(rules('.os-root[data-shown] .os-track')).toMatch(/pointer-events:\s*auto/)
+    expect(rules('.os-track[hidden]')).toMatch(/display:\s*none/)
+    expect(rules('.os-track-y')).toMatch(/width:\s*12px/)
+    expect(rules('.os-track-y')).toMatch(/right:\s*0/)
+    expect(rules('.os-track-x')).toMatch(/height:\s*12px/)
+    expect(rules('.os-track-x')).toMatch(/bottom:\s*0/)
   })
 
   test('フェードインは 120ms、フェードアウトは 200ms', () => {

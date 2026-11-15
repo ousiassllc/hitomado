@@ -22,3 +22,12 @@ func SetDraftAI(svc AIConfigurer, ctx context.Context, provider, model, baseURL,
 	}
 	return svc.SetAIFeature(ctx, dto.AIFeatureDraft, provider, model, effort)
 }
+
+// SetDraftAndThreadAI は SetDraftAI に加えて、同じ AI・モデル・エフォートを「要約・質問」（threadAi）にも選ぶ。
+// マイグレーション 00002 が旧 ai.config を draft と threadAi の両方へ写すのと同じ状態で、要約・質問まで通すテストの前提に使う。
+func SetDraftAndThreadAI(svc AIConfigurer, ctx context.Context, provider, model, baseURL, effort string) (dto.AIConfig, error) {
+	if _, err := SetDraftAI(svc, ctx, provider, model, baseURL, effort); err != nil {
+		return dto.AIConfig{}, err
+	}
+	return svc.SetAIFeature(ctx, dto.AIFeatureThreadAI, provider, model, effort)
+}

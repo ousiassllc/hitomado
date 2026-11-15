@@ -9,7 +9,6 @@ import BaseButton from '../../ui/BaseButton.vue'
 import ConfirmDialog from '../../ui/ConfirmDialog.vue'
 import Spinner from '../../ui/Spinner.vue'
 import ChatGPTAccountRow from './ChatGPTAccountRow.vue'
-import ChatGPTPlanNotice from './ChatGPTPlanNotice.vue'
 
 // Sign in with ChatGPT（OpenAI の公式フロー）。ログインはシステムブラウザの OpenAI の画面で行い、
 // ここではパスワードも Cookie も扱わない。トークンは Go 側の資格情報ストアにだけあり、画面には渡らない。
@@ -53,6 +52,10 @@ async function login(accountId: string): Promise<void> {
   try {
     await store.signInChatGPT(accountId)
     ui.pushToast('success', msg.ai.chatgpt.signedIn)
+    // つないだら次は「機能ごとに使う AI」で選ぶだけなので、そのタブへ移る（最初のログイン・アカウントの追加・再ログインのどれでも）。
+    // 「ChatGPT プランを使っています」の確認は AIProviders にあるので、このページが閉じても出る。
+    ui.aiProviderPage = undefined
+    ui.aiTab = 'use'
   } catch (e) {
     const err = parseBindingError(e)
     // 利用者が自分で中止したときは、エラーとして出さない。
@@ -158,7 +161,6 @@ async function remove(): Promise<void> {
 
 <template>
   <div class="chatgpt" data-testid="ai-chatgpt">
-    <ChatGPTPlanNotice :accounts="props.accounts" />
     <div class="group">
       <h4 class="sub">{{ msg.ai.chatgpt.heading }}</h4>
       <p class="note">{{ msg.ai.chatgpt.intro }}</p>

@@ -39,6 +39,8 @@ describe('設定: Inbox Zero で不要とみなす理由（#314・#377）', () =
       expect(group.text()).toContain(label)
       expect(sw(w, r).attributes('aria-checked')).toBe('true')
     }
+    expect(group.text()).toContain('選んだ AI が確信度が高いと判断したものだけ')
+    expect(group.text()).not.toContain('端末内で判断します')
     w.unmount()
   })
 

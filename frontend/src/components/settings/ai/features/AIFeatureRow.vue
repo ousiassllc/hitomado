@@ -12,6 +12,7 @@ import AIStatusChip from '../providers/AIStatusChip.vue'
 import { isConnected } from '../providers/aiProviders'
 import {
   type AIFeatureId,
+  featureAllowsEffort,
   featureChoices,
   isJevOnly,
   modelListFor,
@@ -21,7 +22,7 @@ import {
 
 // 「機能ごとに使う AI」の 1 行（#376）。つないである AI のモデルだけを選べ、選ぶとすぐ保存する。
 // 選んでいた AI が外された・ログインが切れたときは、選択を残したまま「つなぎ直しが必要」とつなぎ直しの入口を出す（別の AI へは切り替えない）。
-// 「AI で下書き」だけ、モデルの横にエフォートを置く。モデル一覧を取得できないプロバイダは、モデル名を手入力する。
+// 「AI で下書き」「要約・質問」だけ、モデルの横にエフォートを置く。モデル一覧を取得できないプロバイダは、モデル名を手入力する。
 const props = defineProps<{ feature: AIFeatureId; label: string }>()
 /** connect: AI をつなぐ（provider なし）／つなぎ直す（そのプロバイダのページへ）。 */
 const emit = defineEmits<{ connect: [provider?: string] }>()
@@ -48,7 +49,7 @@ const typed = ref<Record<string, string>>({})
 
 const modelList = (provider: string) => (cfg.value ? modelListFor(provider, cfg.value, store.aiModels) : undefined)
 const efforts = computed(() =>
-  props.feature === 'draft' && hasSaved.value
+  featureAllowsEffort(props.feature) && hasSaved.value
     ? effortChoices(saved.value.provider, saved.value.model, modelList(saved.value.provider))
     : [],
 )
@@ -69,7 +70,7 @@ async function save(provider: string, model: string, effort = ''): Promise<void>
 /** 選び直したモデルでも、そのまま選べるエフォートは引き継ぐ（無いときは「モデルの既定」へ戻す。黙って別の値にしない）。 */
 function onChoose(value: string): void {
   const { provider, model } = parseOption(value)
-  const keep = props.feature === 'draft' ? saved.value.effort ?? '' : ''
+  const keep = featureAllowsEffort(props.feature) ? saved.value.effort ?? '' : ''
   const next = effortChoices(provider, model, modelList(provider))
   void save(provider, model, next.includes(keep) ? keep : '')
 }
@@ -132,7 +133,7 @@ function saveManual(provider: string): void {
           </BaseButton>
         </div>
         <AIEffortField
-          v-if="feature === 'draft' && !needsReconnect"
+          v-if="featureAllowsEffort(feature) && !needsReconnect"
           :efforts="efforts"
           :model-value="saved.effort ?? ''"
           @update:model-value="(e) => save(saved.provider, saved.model, e)"

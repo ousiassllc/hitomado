@@ -1,6 +1,7 @@
 /*
  * 重ねて出すスクロールバー（#378）。スクロールしているとき・マウスを乗せたとき・フォーカスがあるときだけ出す。
  * 色と形はデザインガイド §10 のまま（矢印なし・細いつまみ・トラック透明・くすんだ灰 --mute）で、変えるのは「いつ見えるか」だけ。
+ * トラックは描かないが、つまみの下に当たり判定の .os-track を敷く（押すとつまみの向きへ 1 画面ぶん動く。つまみと同じ 12px 幅で、出ているときだけ当たる）。
  *
  * なぜ自前で描くか: ::-webkit-scrollbar の領域は幅を取る（重ねて出せない）。scrollbar-width / scrollbar-color の標準指定は
  *   ふだん隠す・フェード・ホバーで 6→8px・端から 2px 内側・最低 32px のどれもできない。Chromium の overflow: overlay は廃止済み。
@@ -58,6 +59,32 @@
 
 :root[data-touch-ui] .os-root {
   display: none;
+}
+
+/* つまみの下の見えないトラック（当たり判定だけ）。押すとつまみの向きへ 1 画面ぶん動く（lib/overlayScroll/thumbInput.ts）。長さは controller.ts が置く（反対側のバーの隅を除く）。 */
+.os-track {
+  position: absolute;
+  pointer-events: none;
+}
+
+.os-track[hidden] {
+  display: none;
+}
+
+.os-root[data-shown] .os-track {
+  pointer-events: auto;
+}
+
+.os-track-y {
+  top: 0;
+  right: 0;
+  width: 12px;
+}
+
+.os-track-x {
+  left: 0;
+  bottom: 0;
+  height: 12px;
 }
 
 /* つまみ。当たり判定は 12px 幅（見える 6px の外側 2px ずつ + 8px に広がる分）。出ていないときは当たらない。 */

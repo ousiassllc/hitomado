@@ -32,6 +32,7 @@ beforeEach(() => {
     GetAIConfig: {
       features: {
         draft: { provider: 'anthropic', model: 'm' },
+        threadAi: { provider: '', model: '' },
         inboxZero: { provider: '', model: '' },
       },
       apiKeyProviders: null,

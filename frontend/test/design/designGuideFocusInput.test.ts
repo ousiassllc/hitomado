@@ -107,6 +107,7 @@ describe('AiDraftButton の無効の理由（#264）', () => {
     store.aiConfig = {
       features: {
         draft: { provider: 'openai', model: 'gpt' },
+        threadAi: { provider: '', model: '' },
         inboxZero: { provider: '', model: '' },
       },
       apiKeyProviders: [],
@@ -128,6 +129,7 @@ describe('AiDraftButton の無効の理由（#264）', () => {
     store.aiConfig = {
       features: {
         draft: { provider: 'openai', model: 'gpt' },
+        threadAi: { provider: '', model: '' },
         inboxZero: { provider: '', model: '' },
       },
       apiKeyProviders: ['openai'],

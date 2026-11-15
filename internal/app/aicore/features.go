@@ -12,25 +12,26 @@ import (
 )
 
 // 機能ごとに使う AI（#376）。選んだ AI・モデルは app_settings の ai.features に機能ごとに持ち、
-// その機能の実行（下書き・要約・質問は draft、Inbox Zero は inboxZero）は、ここで選んだものだけを使う。
+// その機能の実行（下書きは draft、要約・質問は threadAi、Inbox Zero は inboxZero）は、ここで選んだものだけを使う。
 // つないでいない・外された AI を選んでいても、ほかの AI へ黙って切り替えない（実行は AI_NOT_CONFIGURED で止まる）。
 
 // storedFeature は機能 1 つの選択。Provider が空なら未選択。
 type storedFeature struct {
 	Provider string `json:"provider,omitempty"`
 	Model    string `json:"model,omitempty"`
-	// Effort はモデルのエフォート（#111。draft だけ）。「モデルの既定」はキー自体を書かない。範囲外の保存値は読むときに空にする。
+	// Effort はモデルのエフォート（#111。draft・threadAi だけ）。「モデルの既定」はキー自体を書かない。範囲外の保存値は読むときに空にする。
 	Effort string `json:"effort,omitempty"`
 }
 
 // storedFeatures は app_settings の ai.features（ER §3.9）。
 type storedFeatures struct {
 	Draft     storedFeature `json:"draft"`
+	ThreadAI  storedFeature `json:"threadAi"`
 	InboxZero storedFeature `json:"inboxZero"`
 }
 
 func (f storedFeatures) dto() dto.AIFeatures {
-	return dto.AIFeatures{Draft: f.Draft.dto(), InboxZero: f.InboxZero.dto()}
+	return dto.AIFeatures{Draft: f.Draft.dto(), ThreadAI: f.ThreadAI.dto(), InboxZero: f.InboxZero.dto()}
 }
 
 func (f storedFeature) dto() dto.AIFeatureSetting {
@@ -53,10 +54,15 @@ type SelectedAI struct {
 
 // validFeature は機能 ID か。
 func validFeature(feature string) bool {
-	return feature == dto.AIFeatureDraft || feature == dto.AIFeatureInboxZero
+	return feature == dto.AIFeatureDraft || feature == dto.AIFeatureThreadAI || feature == dto.AIFeatureInboxZero
 }
 
-// validFeatureProvider は feature で選べるプロバイダか。draft は文章を書く AI だけ、Inbox Zero は TypeSafe AI（Jev）も選べる。
+// featureAllowsEffort はその機能がエフォート（#111）を指定できるか。文章を書く draft・threadAi だけで、Inbox Zero の判定は指定しない。
+func featureAllowsEffort(feature string) bool {
+	return feature == dto.AIFeatureDraft || feature == dto.AIFeatureThreadAI
+}
+
+// validFeatureProvider は feature で選べるプロバイダか。draft・threadAi は文章を書く AI だけ、Inbox Zero は TypeSafe AI（Jev）も選べる。
 func validFeatureProvider(feature, provider string) bool {
 	if feature == dto.AIFeatureInboxZero {
 		return validSendProvider(provider)
@@ -65,8 +71,11 @@ func validFeatureProvider(feature, provider string) bool {
 }
 
 func (f *storedFeatures) of(feature string) *storedFeature {
-	if feature == dto.AIFeatureInboxZero {
+	switch feature {
+	case dto.AIFeatureInboxZero:
 		return &f.InboxZero
+	case dto.AIFeatureThreadAI:
+		return &f.ThreadAI
 	}
 	return &f.Draft
 }
@@ -85,13 +94,13 @@ func (s *Service) loadFeatures(ctx context.Context) (storedFeatures, error) {
 	if err := json.Unmarshal([]byte(v), &f); err != nil {
 		return storedFeatures{}, apperr.Wrap(apperr.Internal, "AI 設定を読み込めません。", err)
 	}
-	for _, feature := range []string{dto.AIFeatureDraft, dto.AIFeatureInboxZero} {
+	for _, feature := range []string{dto.AIFeatureDraft, dto.AIFeatureThreadAI, dto.AIFeatureInboxZero} {
 		sel := f.of(feature)
 		if !validFeatureProvider(feature, sel.Provider) {
 			*sel = storedFeature{}
 			continue
 		}
-		if feature != dto.AIFeatureDraft || !ai.ValidEffort(sel.Provider, sel.Effort) {
+		if !featureAllowsEffort(feature) || !ai.ValidEffort(sel.Provider, sel.Effort) {
 			sel.Effort = ""
 		}
 	}
@@ -114,7 +123,7 @@ func (s *Service) loadConnection(ctx context.Context) (storedConnection, error) 
 	return c, nil
 }
 
-// FeatureAI は feature（dto.AIFeatureDraft／dto.AIFeatureInboxZero）で選んだ AI を、送信先（openai は保存済みの Base URL）つきで返す。
+// FeatureAI は feature（dto.AIFeatureDraft／dto.AIFeatureThreadAI／dto.AIFeatureInboxZero）で選んだ AI を、送信先（openai は保存済みの Base URL）つきで返す。
 // saved は選択があるか（false なら sel は空）。つながっているか・同意済みかは確かめない（確かめて実行するのは precheck）。
 // Inbox Zero（#377）の判定は、ここで選ばれた AI・モデルを使う。
 func (s *Service) FeatureAI(ctx context.Context, feature string) (sel SelectedAI, saved bool, err error) {
@@ -136,7 +145,7 @@ func (s *Service) FeatureAI(ctx context.Context, feature string) (sel SelectedAI
 
 // FeaturesAPI は機能ごとに使う AI・つなぎ先の設定（#376）のバインディング面（AIService が埋め込んで公開する。実装は Service）。
 type FeaturesAPI interface {
-	// SetAIFeature は機能（draft／inboxZero）で使う AI・モデル・エフォートを保存する。
+	// SetAIFeature は機能（draft／threadAi／inboxZero）で使う AI・モデル・エフォートを保存する。
 	SetAIFeature(ctx context.Context, feature, provider, model, effort string) (dto.AIConfig, error)
 	// SetAIBaseURL は OpenAI 互換の Base URL（つなぎ先の設定）を保存する。
 	SetAIBaseURL(ctx context.Context, baseURL string) (dto.AIConfig, error)
@@ -144,15 +153,15 @@ type FeaturesAPI interface {
 
 var _ FeaturesAPI = (*Service)(nil)
 
-// SetAIFeature は feature（draft／inboxZero）で使う AI・モデルを保存し、保存後の設定を返す。
-// 選べるプロバイダは draft が anthropic／openai／chatgpt、inboxZero はそれに typesafe を足したもの（範囲外は VALIDATION）。
+// SetAIFeature は feature（draft／threadAi／inboxZero）で使う AI・モデルを保存し、保存後の設定を返す。
+// 選べるプロバイダは draft・threadAi が anthropic／openai／chatgpt、inboxZero はそれに typesafe を足したもの（範囲外は VALIDATION）。
 // typesafe はモデルを持たない（model は無視して空で保存する）。それ以外は model が必須。
-// effort（#111）は draft だけで、省略・空は「モデルの既定」（キーを書かない）。指定できるのはプロバイダごとの段階だけで、範囲外は VALIDATION。
+// effort（#111）は draft・threadAi だけで、省略・空は「モデルの既定」（キーを書かない）。指定できるのはプロバイダごとの段階だけで、範囲外は VALIDATION。
 // 渡さなければ前のエフォートは引き継がず「既定」に戻る。モデルとエフォートの組み合わせは確かめない（確かめるのは画面。
 // 生成時にプロバイダが拒否したら AI_FAILED）。つないでいない AI も保存できる（実行時に AI_NOT_CONFIGURED で止まり、別の AI へは切り替えない）。
 func (s *Service) SetAIFeature(ctx context.Context, feature, provider, model, effort string) (dto.AIConfig, error) {
 	if !validFeature(feature) {
-		return dto.AIConfig{}, apperr.New(apperr.Validation, "AI を使う機能が正しくありません（draft・inboxZero のいずれか）。")
+		return dto.AIConfig{}, apperr.New(apperr.Validation, "AI を使う機能が正しくありません（draft・threadAi・inboxZero のいずれか）。")
 	}
 	if !validFeatureProvider(feature, provider) {
 		return dto.AIConfig{}, errBadProvider()
@@ -164,7 +173,7 @@ func (s *Service) SetAIFeature(ctx context.Context, feature, provider, model, ef
 	case model == "":
 		return dto.AIConfig{}, apperr.New(apperr.Validation, "モデルを選んでください。")
 	}
-	if effort != "" && (feature != dto.AIFeatureDraft || !ai.ValidEffort(provider, effort)) {
+	if effort != "" && (!featureAllowsEffort(feature) || !ai.ValidEffort(provider, effort)) {
 		return dto.AIConfig{}, apperr.New(apperr.Validation, "エフォートが正しくありません。")
 	}
 	f, err := s.loadFeatures(ctx)

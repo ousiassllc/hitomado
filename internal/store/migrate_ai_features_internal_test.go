@@ -12,29 +12,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 00002_ai_features: 旧 ai.config を「AI で下書き」の選択（ai.features）と OpenAI 互換の Base URL（ai.connection）へ移し、旧キーを消す（#376）。
+// 00002_ai_features: 旧 ai.config を「AI で下書き」・「要約・質問」の選択（ai.features。以前は同じ設定を共有していたので同じ値）と
+// OpenAI 互換の Base URL（ai.connection）へ移し、旧キーを消す（#376）。Down は draft だけから旧 ai.config へ戻す（threadAi は捨てる）。
 func TestMigrateAIConfigToFeatures(t *testing.T) {
 	cases := []struct {
 		name       string
 		legacy     string
 		features   string
 		connection string // 空はキー無し
+		restored   string // Down で戻る ai.config
 	}{
 		{
 			name:       "openai は Base URL をつなぎ先へ移す",
 			legacy:     `{"provider":"openai","model":"gpt-old","baseUrl":"https://llm.example/v1","effort":"high"}`,
-			features:   `{"draft":{"provider":"openai","model":"gpt-old","effort":"high"}}`,
+			features:   `{"draft":{"provider":"openai","model":"gpt-old","effort":"high"},"threadAi":{"provider":"openai","model":"gpt-old","effort":"high"}}`,
 			connection: `{"openaiBaseUrl":"https://llm.example/v1"}`,
+			restored:   `{"provider":"openai","model":"gpt-old","baseUrl":"https://llm.example/v1","effort":"high"}`,
 		},
 		{
 			name:     "Base URL の無い anthropic",
 			legacy:   `{"provider":"anthropic","model":"claude-x"}`,
-			features: `{"draft":{"provider":"anthropic","model":"claude-x"}}`,
+			features: `{"draft":{"provider":"anthropic","model":"claude-x"},"threadAi":{"provider":"anthropic","model":"claude-x"}}`,
+			restored: `{"provider":"anthropic","model":"claude-x"}`,
 		},
 		{
 			name:     "chatgpt の旧 Base URL は引き継がない",
 			legacy:   `{"provider":"chatgpt","model":"gpt-plan","baseUrl":"https://ignored.example/v1"}`,
-			features: `{"draft":{"provider":"chatgpt","model":"gpt-plan"}}`,
+			features: `{"draft":{"provider":"chatgpt","model":"gpt-plan"},"threadAi":{"provider":"chatgpt","model":"gpt-plan"}}`,
+			restored: `{"provider":"chatgpt","model":"gpt-plan"}`,
 		},
 	}
 	for _, tc := range cases {
@@ -79,6 +84,17 @@ func TestMigrateAIConfigToFeatures(t *testing.T) {
 			assert.False(t, ok, "旧キーは残さない")
 			_, ok = get("ai.consent")
 			assert.True(t, ok, "同意は変えない")
+
+			// Down は draft から旧形式へ戻し（openai は Base URL も戻す）、threadAi・ai.features・ai.connection は残さない。
+			_, err = p.Down(ctx)
+			require.NoError(t, err)
+			v, ok = get("ai.config")
+			require.True(t, ok)
+			assert.JSONEq(t, tc.restored, v)
+			for _, k := range []string{"ai.features", "ai.connection"} {
+				_, ok = get(k)
+				assert.False(t, ok, k)
+			}
 		})
 	}
 }

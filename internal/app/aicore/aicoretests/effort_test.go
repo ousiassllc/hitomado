@@ -11,6 +11,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/apptest"
+	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
@@ -47,6 +48,33 @@ func TestSetAIFeatureEffortRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, cfg.Features.Draft.Effort)
 	assert.NotContains(t, storedConfig(t, f), "effort")
+}
+
+// 「要約・質問」（threadAi）も draft と同じようにエフォートを選べ、範囲外は VALIDATION、保存値の範囲外は読むときに空にする。
+func TestThreadAIEffort(t *testing.T) {
+	f := newAIFixture(t)
+	cfg, err := f.ai.SetAIFeature(t.Context(), dto.AIFeatureThreadAI, "anthropic", "claude-x", " xhigh ")
+	require.NoError(t, err)
+	assert.Equal(t, "xhigh", cfg.Features.ThreadAI.Effort)
+	assert.Empty(t, cfg.Features.Draft.Effort)
+	assert.Contains(t, storedConfig(t, f), `"threadAi":{"provider":"anthropic","model":"claude-x","effort":"xhigh"}`)
+	got, err := f.ai.GetAIConfig(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "xhigh", got.Features.ThreadAI.Effort)
+
+	_, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureThreadAI, "openai", "m", "xhigh")
+	requireCode(t, "VALIDATION", err)
+
+	require.NoError(t, f.Store.SetSetting(t.Context(), store.SettingAIFeatures,
+		`{"threadAi":{"provider":"openai","model":"gpt-test","effort":"max"}}`))
+	got, err = f.ai.GetAIConfig(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, got.Features.ThreadAI.Effort, "範囲外の保存値は無視する")
+	assert.Equal(t, "gpt-test", got.Features.ThreadAI.Model, "設定は消さない")
+
+	// Inbox Zero はエフォートを持たない（従来どおり VALIDATION）。
+	_, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureInboxZero, "openai", "m", "high")
+	requireCode(t, "VALIDATION", err)
 }
 
 // プロバイダごとの集合の外は VALIDATION（保存しない）。

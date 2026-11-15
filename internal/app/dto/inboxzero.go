@@ -10,8 +10,7 @@ type InboxZeroReasons struct {
 	Newsletter bool `json:"newsletter"`
 	// Replied は返信済みのメール（スレッドの最後の 1 通（下書きを除く）が自分の送信。端末内で判定し、AI は使わない）。
 	Replied bool `json:"replied"`
-	// Calendar はカレンダーの招待・通知のメール（最後の 1 通（下書きを除く）が iCalendar のパートを持つ、または Google カレンダーからのもの。
-	// 端末内で判定し、AI は使わない。#377）。
+	// Calendar はカレンダーの招待・通知のメール（選んだ AI が判定。#377）。
 	Calendar bool `json:"calendar"`
 }
 

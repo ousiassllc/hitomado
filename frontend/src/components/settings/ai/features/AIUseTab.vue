@@ -11,9 +11,9 @@ import AIFeatureRow from './AIFeatureRow.vue'
 import { modelsKeyFor } from './aiFeatures'
 import InboxZeroReasons from './InboxZeroReasons.vue'
 
-// 「機能ごとに使う AI」タブ（#376）。機能ごとに 1 行（AI で下書き・Inbox Zero・エージェント＝準備中）。
+// 「機能ごとに使う AI」タブ（#376）。機能ごとに 1 行（AI で下書き・要約・質問・Inbox Zero・エージェント＝準備中）。
 // 何もつないでいない（選んでいるものも無い）ときは、一覧の代わりにひとつだけ案内を出して「つなぎ先」へ誘導する。
-// 一覧の下に、Inbox Zero で不要とみなす理由のオン・オフ（#377）。AI を使わない理由（返信済み・カレンダー）だけなら、AI をつながなくても使える。
+// 一覧の下に、Inbox Zero で不要とみなす理由のオン・オフ（#377）。AI を使わない理由は返信済みだけなので、それだけなら AI をつながなくても使える。
 const store = useSettingsStore()
 const ui = useUiStore()
 const t = msg.ai.use
@@ -24,7 +24,7 @@ const connectedModelProviders = computed(() =>
 )
 const anySaved = computed(() => {
   const f = cfg.value?.features
-  return f !== undefined && (f.draft.provider !== '' || f.inboxZero.provider !== '')
+  return f !== undefined && (f.draft.provider !== '' || f.threadAi.provider !== '' || f.inboxZero.provider !== '')
 })
 const anyConnected = computed(() => AI_PROVIDERS.some((p) => isConnected(p.id, cfg.value)))
 const showEmpty = computed(() => cfg.value !== undefined && !anyConnected.value && !anySaved.value)
@@ -74,6 +74,11 @@ function fix(provider: string): void {
       <AIFeatureRow
         feature="draft"
         :label="t.features.draft"
+        @connect="(p) => (p ? fix(p) : goConnect())"
+      />
+      <AIFeatureRow
+        feature="threadAi"
+        :label="t.features.threadAi"
         @connect="(p) => (p ? fix(p) : goConnect())"
       />
       <AIFeatureRow

@@ -26,15 +26,30 @@ describe('Inbox Zero: 押せるか（#314・#377）', () => {
     expect(zero.blockedReason).toContain('すべてオフ')
   })
 
-  test('返信済み・カレンダーだけがオンなら、AI を選んでいなくても押せる。一覧が空なら押せない', async () => {
+  test('返信済みだけがオンなら、AI を選んでいなくても押せる。一覧が空なら押せない', async () => {
     const { zero } = await setup({ keyed: false })
     zero.reasons = { ...NONE, replied: true }
-    expect(zero.blockedReason).toBeUndefined()
-    zero.reasons = { ...NONE, calendar: true }
+    expect(zero.needsAI).toBe(false)
     expect(zero.blockedReason).toBeUndefined()
 
     const empty = await setup({ count: 0 })
     expect(empty.zero.blockedReason).toContain('メールがありません')
+  })
+
+  test('カレンダーだけ（または返信済みとカレンダーだけ）がオンでも AI の判断が要るので、AI が無ければ押せない', async () => {
+    const { zero } = await setup({ keyed: false })
+    for (const r of [
+      { ...NONE, calendar: true },
+      { ...NONE, replied: true, calendar: true },
+    ]) {
+      zero.reasons = r
+      expect(zero.needsAI).toBe(true)
+      expect(zero.blockedReason).toContain('Inbox Zero で使う AI が選ばれていません')
+    }
+
+    const keyed = await setup()
+    keyed.zero.reasons = { ...NONE, calendar: true }
+    expect(keyed.zero.blockedReason).toBeUndefined()
   })
 
   test('Inbox Zero に選んだ AI（Jev 以外も）がつながっていれば押せる。選んだ AI がつながっていないときは、ほかの AI があっても押せない', async () => {
@@ -110,13 +125,22 @@ describe('Inbox Zero: 同意（初回）', () => {
     expect(callsOf('FindInboxZeroCandidates')).toHaveLength(0)
   })
 
-  test('返信済み・カレンダーだけがオンなら AI へ送らないので、同意は求めない', async () => {
+  test('返信済みだけがオンなら AI へ送らないので、同意は求めない', async () => {
     const { zero } = await setup({ consented: false })
     zero.reasons = { ...AI_OFF }
     aiCtl.find = { candidates: [cand(1, 'replied')], examined: 3, skipped: 0 }
     await zero.start()
     expect(zero.phase).toBe('review')
     expect(callsOf('RecordAIConsent')).toHaveLength(0)
+  })
+
+  test('カレンダーだけがオンでも AI へ送るので、同意前は同意を求める', async () => {
+    const { zero } = await setup({ consented: false })
+    zero.reasons = { ...NONE, calendar: true }
+    aiCtl.find = { candidates: [cand(1, 'calendar')], examined: 3, skipped: 0 }
+    await zero.start()
+    expect(zero.phase).toBe('consent')
+    expect(callsOf('FindInboxZeroCandidates')).toHaveLength(0)
   })
 })
 

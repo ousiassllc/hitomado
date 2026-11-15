@@ -4,7 +4,8 @@ import "github.com/ousiassllc/hitomado/internal/domain/model"
 
 // AI を使う機能の ID（SetAIFeature の feature。AIFeatures のキーと同じ）。
 const (
-	AIFeatureDraft     = "draft"     // 「AI で下書き」（返信・新規作成。要約・質問も同じ設定を使う）
+	AIFeatureDraft     = "draft"     // 「AI で下書き」（返信・新規作成）
+	AIFeatureThreadAI  = "threadAi"  // スレッドの要約・質問（F-17・F-18。#376）
 	AIFeatureInboxZero = "inboxZero" // Inbox Zero の判定（#377）
 )
 
@@ -15,7 +16,7 @@ type AIFeatureSetting struct {
 	Provider string `json:"provider"`
 	// Model は選んだモデル。typesafe（モデルを選ばない）と未選択は空。
 	Model string `json:"model"`
-	// Effort は生成に渡すモデルのエフォート（reasoning effort。#111。「AI で下書き」だけ）。空は「モデルの既定」（プロバイダへ送らない）。
+	// Effort は生成に渡すモデルのエフォート（reasoning effort。#111。「AI で下書き」・「要約・質問」だけ）。空は「モデルの既定」（プロバイダへ送らない）。
 	// anthropic は low／medium／high／xhigh／max、openai／chatgpt は low／medium／high。範囲外の保存値は空として返す。
 	Effort string `json:"effort,omitempty"`
 }
@@ -23,6 +24,7 @@ type AIFeatureSetting struct {
 // AIFeatures は機能ごとに使う AI・モデル。
 type AIFeatures struct {
 	Draft     AIFeatureSetting `json:"draft"`
+	ThreadAI  AIFeatureSetting `json:"threadAi"`
 	InboxZero AIFeatureSetting `json:"inboxZero"`
 }
 

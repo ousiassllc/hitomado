@@ -217,7 +217,7 @@ describe('TypeSafe AI（Jev）のページ（#314・#315・#376）', () => {
     expect(w.find('input[type="url"]').exists()).toBe(false)
     expect(w.find('[data-testid="ai-chatgpt-login"]').exists()).toBe(false)
     expect(w.get('[data-testid="ai-destination"]').text()).toContain('https://api.typesafe.ai')
-    expect(w.text()).toContain('「AI で下書き」には選べず')
+    expect(w.text()).toContain('「AI で下書き」「要約・質問」には選べず')
     expect(w.find('input[type="password"]').exists()).toBe(true)
     expect(consentEl('ai-consent-body')?.textContent).toContain('api.typesafe.ai') // つなぐ流れの同意の画面が先に出ている
     w.unmount()

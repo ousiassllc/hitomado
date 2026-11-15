@@ -1,8 +1,8 @@
 // Inbox Zero（#314）。ボタンを押すと、今のタブに読み込まれているメール（最大 100 件）を Go が判断して候補を返し、
 // 候補を「差出人・件名」のチェックつき一覧で確認する。「アーカイブする」のときだけ、チェックの入ったものをアーカイブする
 // （アーカイブ・元に戻すは受信箱の通常のアーカイブと同じ。inbox.archive）。「やめる」は何も変えない。
-// 広告・通知・ニュースレターの判断に使う AI は、設定の「機能ごとに使う AI」で Inbox Zero に選んだもの（#377）。
-// 選んだ AI へ送るのは、その AI・送信先への同意をもらってから（同意前は Go も送らない）。返信済み・カレンダーは端末内の判断で、AI も同意も要らない。
+// 広告・カレンダー・通知・ニュースレターの判断に使う AI は、設定の「機能ごとに使う AI」で Inbox Zero に選んだもの（#377）。
+// 選んだ AI へ送るのは、その AI・送信先への同意をもらってから（同意前は Go も送らない）。端末内で判断するのは返信済みだけで、それだけなら AI も同意も要らない。
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { AIService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
@@ -44,12 +44,12 @@ export const useInboxZeroStore = defineStore('inboxZero', () => {
   const skipped = ref(0)
   let requestId: string | undefined
 
-  /** AI に聞く理由（広告・通知・ニュースレター）が 1 つでもオンか。返信済み・カレンダーだけなら AI は要らない。 */
+  /** AI に聞く理由（広告・カレンダー・通知・ニュースレター）が 1 つでもオンか。返信済み（端末内）だけなら AI は要らない。 */
   const needsAI = computed(() => {
     const r = reasons.value
-    return r.ad || r.notification || r.newsletter
+    return r.ad || r.calendar || r.notification || r.newsletter
   })
-  const anyReason = computed(() => needsAI.value || reasons.value.replied || reasons.value.calendar)
+  const anyReason = computed(() => needsAI.value || reasons.value.replied)
 
   /**
    * 判断に使う AI（Inbox Zero に選んだもの）。未選択のときだけ、Jev のキーがあれば Jev（#314 からの互換）。

@@ -7,6 +7,7 @@ import { useSettingsStore } from '../../../../stores/settings'
 import { useUiStore } from '../../../../stores/ui'
 import BaseButton from '../../../ui/BaseButton.vue'
 import AISettings from '../AISettings.vue'
+import ChatGPTPlanNotice from '../ChatGPTPlanNotice.vue'
 import AIFeaturesTab from '../features/AIUseTab.vue'
 import AIConnectTab from './AIConnectTab.vue'
 import AITypeSafePage from './AITypeSafePage.vue'
@@ -75,6 +76,8 @@ watch(
         <TabsContent value="use" class="ipanel"><AIFeaturesTab /></TabsContent>
       </TabsRoot>
     </template>
+    <!-- ChatGPT でログインした直後は、ページから「機能ごとに使う AI」へ移る。そのページに置くと確認が消えるので、ページの外（このタブが出ている間ずっと）に置く。 -->
+    <ChatGPTPlanNotice :accounts="store.aiConfig?.chatgptAccounts ?? []" />
   </div>
 </template>
 

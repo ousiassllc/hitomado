@@ -59,7 +59,7 @@ export interface AIFeatureSetting {
     "model": string;
 
     /**
-     * Effort は生成に渡すモデルのエフォート（reasoning effort。#111。「AI で下書き」だけ）。空は「モデルの既定」（プロバイダへ送らない）。
+     * Effort は生成に渡すモデルのエフォート（reasoning effort。#111。「AI で下書き」・「要約・質問」だけ）。空は「モデルの既定」（プロバイダへ送らない）。
      * anthropic は low／medium／high／xhigh／max、openai／chatgpt は low／medium／high。範囲外の保存値は空として返す。
      */
     "effort"?: string;
@@ -70,6 +70,7 @@ export interface AIFeatureSetting {
  */
 export interface AIFeatures {
     "draft": AIFeatureSetting;
+    "threadAi": AIFeatureSetting;
     "inboxZero": AIFeatureSetting;
 }
 
@@ -409,8 +410,7 @@ export interface InboxZeroReasons {
     "replied": boolean;
 
     /**
-     * Calendar はカレンダーの招待・通知のメール（最後の 1 通（下書きを除く）が iCalendar のパートを持つ、または Google カレンダーからのもの。
-     * 端末内で判定し、AI は使わない。#377）。
+     * Calendar はカレンダーの招待・通知のメール（選んだ AI が判定。#377）。
      */
     "calendar": boolean;
 }

@@ -21,7 +21,7 @@ const { useSettingsStore } = await import('../src/stores/settings')
 const { useUiStore } = await import('../src/stores/ui')
 
 const f = (provider: string, model: string) => ({ provider, model })
-const features = { draft: f('anthropic', 'm'), inboxZero: f('', '') }
+const features = { draft: f('anthropic', 'm'), threadAi: f('', ''), inboxZero: f('', '') }
 const baseAI = { features, consentedProviders: null }
 const baseMcp = {
   enabled: false,

@@ -9,10 +9,11 @@ import (
 
 	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/aicore"
+	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 )
 
-// 「AI で下書き」は、機能ごとに選んだ AI・モデル・エフォートで生成する（返信・要約・質問・新規作成で共通）。
+// 「AI で下書き」は、機能ごとに選んだ AI・モデル・エフォートで生成する（返信・新規作成で共通）。要約・質問は別の選択（threadAi）を使う。
 func TestDraftUsesTheSelectedAIAndModel(t *testing.T) {
 	f := newAIFixture(t)
 	f.ready(t) // openai + Base URL
@@ -31,7 +32,57 @@ func TestDraftUsesTheSelectedAIAndModel(t *testing.T) {
 
 	_, err = f.ai.SummarizeThread(t.Context(), f.ref(), "r2")
 	require.NoError(t, err)
-	assert.Equal(t, "anthropic", f.factory.provider, "要約も「AI で下書き」と同じ設定を使う")
+	assert.Equal(t, "openai", f.factory.provider, "要約は「AI で下書き」ではなく、「要約・質問」に選んだ AI を使う")
+}
+
+// 要約・質問は、「要約・質問」（threadAi）に選んだ AI・モデル・エフォートで実行する。「AI で下書き」の選択は使わない。
+func TestThreadAIUsesItsOwnSelection(t *testing.T) {
+	f := newAIFixture(t)
+	f.ready(t) // draft・threadAi とも openai
+	_, err := f.ai.SetAIApiKey(t.Context(), "anthropic", "sk-anthropic")
+	require.NoError(t, err)
+	_, err = f.ai.RecordAIConsent(t.Context(), "anthropic", "")
+	require.NoError(t, err)
+	_, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureThreadAI, "anthropic", "claude-sum", "max")
+	require.NoError(t, err)
+
+	_, err = f.ai.SummarizeThread(t.Context(), f.ref(), "r1")
+	require.NoError(t, err)
+	assert.Equal(t, [4]string{"anthropic", "claude-sum", "", "sk-anthropic"}, [4]string{f.factory.provider, f.factory.model, f.factory.baseURL, f.factory.key})
+	require.Len(t, f.provider.summaries, 1)
+	assert.Equal(t, "max", f.provider.summaries[0].Effort)
+
+	_, err = f.ai.AskAboutThread(t.Context(), f.ref(), "r2", "いつまで？", nil)
+	require.NoError(t, err)
+	assert.Equal(t, "claude-sum", f.factory.model, "質問も同じ選択を使う")
+
+	s := f.open(t, "reply")
+	require.NoError(t, f.generate(t, s.SessionID))
+	assert.Equal(t, [2]string{"openai", "gpt-test"}, [2]string{f.factory.provider, f.factory.model}, "「AI で下書き」は draft の選択のまま")
+}
+
+// 「AI で下書き」だけ選んでいる（要約・質問は未選択）ときは、draft へ切り替えず AI_NOT_CONFIGURED で止まる。
+func TestThreadAIDoesNotFallBackToTheDraftSelection(t *testing.T) {
+	g := newAIFixture(t)
+	_, err := apptest.SetDraftAI(g.ai, t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
+	require.NoError(t, err)
+	_, err = g.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
+	require.NoError(t, err)
+	_, err = g.ai.RecordAIConsent(t.Context(), "openai", "https://llm.example/v1")
+	require.NoError(t, err)
+
+	_, err = g.ai.SummarizeThread(t.Context(), g.ref(), "r1")
+	ae := requireError(t, "AI_NOT_CONFIGURED", err)
+	assert.Contains(t, ae.Message, "「要約・質問」")
+	assert.Contains(t, ae.Message, "機能ごとに使う AI")
+	_, err = g.ai.AskAboutThread(t.Context(), g.ref(), "r2", "いつまで？", nil)
+	requireCode(t, "AI_NOT_CONFIGURED", err)
+	assert.Empty(t, g.provider.summaries, "draft の AI へは送らない")
+	assert.Empty(t, g.factory.provider, "プロバイダを作ってもいない")
+
+	// 「AI で下書き」は同じ状態で動く。
+	s := g.open(t, "reply")
+	require.NoError(t, g.generate(t, s.SessionID))
 }
 
 // Inbox Zero に選んだ AI は、「AI で下書き」の選択とは別に読める（#377 が判定に使う入口）。

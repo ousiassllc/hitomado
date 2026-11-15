@@ -89,7 +89,8 @@ export const NONE = {
   replied: false,
   calendar: false,
 }
-export const AI_OFF = { ...NONE, replied: true, calendar: true }
+// 端末内で判断する返信済みだけがオン（AI の理由はすべてオフ）。
+export const AI_OFF = { ...NONE, replied: true }
 
 // 既定は、Inbox Zero の AI が未選択で Jev のキーだけがある状態（#314 からの互換）。selected で Inbox Zero に AI を選び、
 // providers でつないである API キーのプロバイダ（同意済みかは consented）を変える。

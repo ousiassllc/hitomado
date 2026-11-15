@@ -1,5 +1,5 @@
-// つまみの操作（ドラッグ・つまみの上のホイール。#378）。つまみは領域の兄弟要素なので、ネイティブのバーが
-// やっていたことをここで代わりにする。
+// つまみの操作（ドラッグ・つまみの上のホイール）と、トラックの押下（1 画面ぶん動く）。#378
+// つまみは領域の兄弟要素なので、ネイティブのバーがやっていたことをここで代わりにする。
 import type { AxisName } from './dom'
 import { type Axis, scrollDeltaFor, type Thumb } from './metrics'
 import type { Presence } from './presence'
@@ -65,6 +65,36 @@ export function bindThumbInput(
         ev.preventDefault()
       },
       { signal, passive: false },
+    )
+  }
+}
+
+/** Chromium のネイティブのバーのトラック押下が動く量（表示の高さ・幅に対する割合）。 */
+const PAGE_RATIO = 0.875
+
+/** 見えないトラックを押したら、つまみのある側と逆なら戻る向き・先なら進む向きへ 1 画面ぶん動く。つまみの上はつまみ（ドラッグ）が受ける。 */
+export function bindTrackInput(
+  scroller: HTMLElement,
+  tracks: Record<AxisName, HTMLElement>,
+  current: Record<AxisName, Current | undefined>,
+  signal: AbortSignal,
+): void {
+  for (const axis of ['y', 'x'] as const) {
+    const el = tracks[axis]
+    el.addEventListener(
+      'pointerdown',
+      (ev) => {
+        const cur = current[axis]
+        if (!cur || ev.button !== 0 || ev.target !== el) return
+        ev.preventDefault()
+        const rect = el.getBoundingClientRect()
+        const at = axis === 'y' ? ev.clientY - rect.top : ev.clientX - rect.left
+        const { offset, length } = cur.thumb
+        if (at >= offset && at <= offset + length) return
+        const step = (at < offset ? -1 : 1) * cur.axis.client * PAGE_RATIO
+        scroller.scrollBy(axis === 'y' ? { top: step } : { left: step })
+      },
+      { signal },
     )
   }
 }

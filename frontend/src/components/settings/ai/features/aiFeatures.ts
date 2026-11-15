@@ -11,13 +11,17 @@ import { settings as msg } from '../../../../lib/messages'
 import type { SelectOption } from '../../../ui/BaseSelect.vue'
 import { AI_PROVIDERS, isConnected } from '../providers/aiProviders'
 
-/** 機能の ID（Go の dto.AIFeatureDraft／AIFeatureInboxZero と同じ）。 */
-export type AIFeatureId = 'draft' | 'inboxZero'
+/** 機能の ID（Go の dto.AIFeatureDraft／AIFeatureThreadAI／AIFeatureInboxZero と同じ）。 */
+export type AIFeatureId = 'draft' | 'threadAi' | 'inboxZero'
 
-/** 機能で選べるプロバイダ（表示順）。Jev は文章を書かないので「AI で下書き」には出さず、Inbox Zero だけ。 */
+/** 機能で選べるプロバイダ（表示順）。Jev は文章を書かないので「AI で下書き」「要約・質問」には出さず、Inbox Zero だけ。 */
 export function featureProviders(feature: AIFeatureId): string[] {
   return AI_PROVIDERS.map((p) => p.id).filter((id) => id !== 'typesafe' || feature === 'inboxZero')
 }
+
+/** その機能がエフォート（モデルの reasoning effort）を指定できるか。文章を書く「AI で下書き」「要約・質問」だけ（Go の featureAllowsEffort と同じ）。 */
+export const featureAllowsEffort = (feature: AIFeatureId): boolean =>
+  feature === 'draft' || feature === 'threadAi'
 
 /** そのプロバイダのモデル一覧の保存キー。OpenAI 互換は保存済みの Base URL ごと。 */
 export function modelsKeyFor(provider: string, cfg: AIConfig): string {

@@ -175,6 +175,30 @@ describe('ThreadPane の AI パネル（F-17・F-18）', () => {
     expect(aiCallsOf('SummarizeThread')).toHaveLength(0)
   })
 
+  test('使う AI は「要約・質問」の選択（threadAi）。「AI で下書き」だけ選んでいても、要約・質問は初回の案内になり送らない', async () => {
+    const w = await open({
+      ...READY_CONFIG,
+      features: features({ provider: 'anthropic', model: 'claude-x' }),
+    })
+    await w.get(tid('act-ai-summarize')).trigger('click')
+    await flushPromises()
+    expect(body('ai-setup')).not.toBeNull()
+    expect(aiCallsOf('SummarizeThread')).toHaveLength(0)
+  })
+
+  test('「要約・質問」に ChatGPT を選んでいて未ログインなら、「AI で下書き」が別の AI でもログインの案内になる', async () => {
+    const w = await open({
+      ...READY_CONFIG,
+      features: features({ provider: 'anthropic', model: 'claude-x' }, '', {
+        provider: 'chatgpt',
+        model: 'gpt-plan',
+      }),
+      consentedProviders: ['anthropic', 'chatgpt'],
+    })
+    expect(w.get(tid('act-ai-summarize')).attributes('disabled')).toBeDefined()
+    expect(w.get(tid('thread-ai-need-key')).text()).toContain('ChatGPT にログインしていません')
+  })
+
   test('設定が未保存なら初回の案内、未同意なら同意の画面（F-08 と同じ）。同意したら押された操作を続ける', async () => {
     const first = await open({
       ...READY_CONFIG,

@@ -26,6 +26,7 @@ const normal = {
   features: features(
     { provider: 'openai', model: 'gpt-a' },
     { provider: 'chatgpt', model: 'gpt-plan' },
+    { provider: 'anthropic', model: 'claude-new' },
   ),
 }
 
@@ -48,11 +49,18 @@ const values = (sel: ReturnType<typeof selects>[number]) =>
   (sel.props('options') as { value: string }[]).map((o) => o.value)
 
 describe('「機能ごとに使う AI」タブ（#376）', () => {
-  test('機能ごとに 1 行（AI で下書き・Inbox Zero・エージェント）。エージェントは「準備中」で選べず保存もしない', async () => {
+  test('機能ごとに 1 行（AI で下書き・要約・質問・Inbox Zero・エージェント）。エージェントは「準備中」で選べず保存もしない', async () => {
     const { w, saved } = open(normal)
     await flushPromises()
-    expect(w.findAll('[data-testid="ai-feature-list"] > li')).toHaveLength(3)
+    const rows = w.findAll('[data-testid="ai-feature-list"] > li')
+    expect(rows.map((li) => li.attributes('data-testid'))).toEqual([
+      'ai-feature-draft',
+      'ai-feature-threadAi',
+      'ai-feature-inboxZero',
+      'ai-feature-agent',
+    ])
     expect(w.text()).toContain('AI で下書き')
+    expect(w.text()).toContain('要約・質問')
     expect(w.text()).toContain('Inbox Zero')
     const agent = w.get('[data-testid="ai-feature-agent"]')
     expect(agent.text()).toContain('準備中')
@@ -66,6 +74,29 @@ describe('「機能ごとに使う AI」タブ（#376）', () => {
     await flushPromises()
     expect(loads.map((l) => l.provider).sort()).toEqual(['anthropic', 'chatgpt', 'openai'])
     w.unmount()
+  })
+
+  test('「要約・質問」の行は、「AI で下書き」とは別に選べ、選ぶとすぐ threadAi として保存する（エフォートも）', async () => {
+    const { w, saved } = open(normal)
+    await flushPromises()
+    const [pick] = selects(w, 'threadAi')
+    expect(values(pick!)).toEqual([
+      'chatgpt|gpt-plan',
+      'anthropic|claude-new',
+      'anthropic|claude-old',
+      'openai|gpt-a',
+      'openai|gpt-b',
+    ])
+    expect(pick?.props('modelValue')).toBe('anthropic|claude-new') // draft（openai|gpt-a）とは別の選択
+    pick?.vm.$emit('update:modelValue', 'openai|gpt-b')
+    await flushPromises()
+    expect(saved).toEqual([['threadAi', 'openai', 'gpt-b', '']])
+
+    saved.length = 0
+    const effort = feat(w, 'threadAi').get('[data-testid="ai-effort"]').getComponent(BaseSelect)
+    effort.vm.$emit('update:modelValue', 'high')
+    await flushPromises()
+    expect(saved).toEqual([['threadAi', 'anthropic', 'claude-new', 'high']])
   })
 
   test('選べるのは、つないであるプロバイダのモデルだけ。選ぶとすぐ保存し、エフォートは持ち越さない', async () => {
@@ -85,7 +116,7 @@ describe('「機能ごとに使う AI」タブ（#376）', () => {
     expect(saved).toEqual([['draft', 'anthropic', 'claude-new', '']])
   })
 
-  test('エフォートは「AI で下書き」の行だけ。選んだモデルで選べる段階を出す（Inbox Zero には出さない）', async () => {
+  test('エフォートは「AI で下書き」「要約・質問」の行だけ。選んだモデルで選べる段階を出す（Inbox Zero には出さない）', async () => {
     const { w, saved } = open({
       ...normal,
       features: features(
@@ -196,6 +227,9 @@ describe('「機能ごとに使う AI」の状態（#376）', () => {
     await draft.get('[data-testid="ai-feature-connect-draft"]').trigger('click')
     expect(useUiStore().aiTab).toBe('connect')
     expect(feat(w, 'inboxZero').find('[data-testid="ai-feature-empty"]').exists()).toBe(false)
+    expect(feat(w, 'threadAi').get('[data-testid="ai-feature-empty"]').text()).toContain(
+      '使える AI がありません',
+    )
   })
 
   test('Jev だけのときの Inbox Zero は「TypeSafe AI（固定）」。選べる AI がそれだけなので、その選択を保存する', async () => {

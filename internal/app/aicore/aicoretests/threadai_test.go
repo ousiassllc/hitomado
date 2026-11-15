@@ -86,7 +86,7 @@ func TestSummarizeThreadPreconditions(t *testing.T) {
 	f := newAIFixture(t)
 	_, err := f.ai.SummarizeThread(t.Context(), f.ref(), "r1")
 	requireCode(t, "AI_NOT_CONFIGURED", err)
-	_, err = apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
+	_, err = apptest.SetDraftAndThreadAI(f.ai, t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestSummarizeThreadPreconditions(t *testing.T) {
 func TestSummarizeThreadSetsEffortAndFailures(t *testing.T) {
 	f := newAIFixture(t)
 	f.ready(t)
-	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "https://llm.example/v1", "high")
+	_, err := f.ai.SetAIFeature(t.Context(), dto.AIFeatureThreadAI, "openai", "gpt-test", "high")
 	require.NoError(t, err)
 	_, err = f.ai.SummarizeThread(t.Context(), f.ref(), "r1")
 	require.NoError(t, err)

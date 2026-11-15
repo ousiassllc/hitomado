@@ -11,7 +11,11 @@ import (
 )
 
 // featureLabels は機能の表示名（エラー文面用）。
-var featureLabels = map[string]string{dto.AIFeatureDraft: "「AI で下書き」", dto.AIFeatureInboxZero: "Inbox Zero"}
+var featureLabels = map[string]string{
+	dto.AIFeatureDraft:     "「AI で下書き」",
+	dto.AIFeatureThreadAI:  "「要約・質問」",
+	dto.AIFeatureInboxZero: "Inbox Zero",
+}
 
 // precheck は feature で選んだ AI の前提条件（選択済み→キー・ログイン済み→モデル→同意済み）を検査する。キーはここ以外に渡さない。
 // 選んだ AI がつながっていないときも、ほかの AI へ切り替えず AI_NOT_CONFIGURED で止める。

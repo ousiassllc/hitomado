@@ -85,7 +85,7 @@ func TestInboxZeroThresholdAndDisabledTopChoice(t *testing.T) {
 		assert.NotEmpty(t, c.Description)
 		names = append(names, c.Name)
 	}
-	assert.Equal(t, []string{"ad", "notification", "newsletter", "other"}, names)
+	assert.Equal(t, []string{"ad", "calendar", "notification", "newsletter", "other"}, names)
 }
 
 // ニュースレターだけをオンにしたとき、読んだスレッドは Jev にも送らない。未読のメッセージが 1 通でもあれば未読。

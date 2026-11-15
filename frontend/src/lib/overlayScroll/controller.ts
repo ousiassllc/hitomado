@@ -3,12 +3,13 @@
 //   - 描く要素（.os-root）は、スクロール領域の次の兄弟として入れ、領域と同じ大きさの `position: absolute` で重ねる。
 //     置く位置は getBoundingClientRect の差から決める（親が position していなくても、transform されていても合う）。
 //   - 出入りは presence.ts。つまみの位置・長さは metrics.ts。見た目と時間（フェード・幅の変化）は CSS。
+//   - つまみの下には、見えない当たり判定のトラック（.os-track）を軸ごとに敷く。トラックを押すと、つまみの向きへ 1 画面ぶん動く（thumbInput.ts）。
 //   - 文書のスクロール（本文の iframe の中。viewport: true）は、documentElement を領域にして `position: fixed` で重ねる。
 // 取り付けたリスナー・オブザーバー・タイマー・rAF は destroy で全部解放する。
 import { type AxisName, create, focusVisible, readAxis, scrollable } from './dom'
 import { type Axis, CORNER, hasMore, overflows, type Thumb, thumbFor } from './metrics'
 import { browserClock, type Clock, Presence } from './presence'
-import { bindThumbInput, type Current } from './thumbInput'
+import { bindThumbInput, bindTrackInput, type Current } from './thumbInput'
 
 export interface OverlayOptions {
   /** 続きがある側（上・下）の端に 16px のフェードを置くときの地の色（CSS の色。例 `var(--surface)`）。無ければ置かない。 */
@@ -54,8 +55,13 @@ export function attachOverlayScroll(
     y: create(doc, 'os-thumb os-thumb-y'),
     x: create(doc, 'os-thumb os-thumb-x'),
   }
-  for (const t of Object.values(thumbs)) t.hidden = true
-  root.append(fadeTop, fadeBottom, thumbs.y, thumbs.x)
+  const tracks: Record<AxisName, HTMLElement> = {
+    y: create(doc, 'os-track os-track-y'),
+    x: create(doc, 'os-track os-track-x'),
+  }
+  for (const el of [...Object.values(thumbs), ...Object.values(tracks)]) el.hidden = true
+  // トラックはつまみより先に入れる（同じ場所に重なるので、後ろのつまみが当たる）。
+  root.append(fadeTop, fadeBottom, tracks.y, tracks.x, thumbs.y, thumbs.x)
   if (viewport) doc.body.append(root)
   else scroller.after(root)
 
@@ -100,8 +106,8 @@ export function attachOverlayScroll(
     root.style.width = `${scroller.clientWidth}px`
     root.style.height = `${scroller.clientHeight}px`
 
-    show('y', ay, overY && ay ? thumbFor(ay, overX ? CORNER : 0) : null)
-    show('x', ax, overX && ax ? thumbFor(ax, overY ? CORNER : 0) : null)
+    show('y', ay, overY && ay ? thumbFor(ay, overX ? CORNER : 0) : null, overX ? CORNER : 0)
+    show('x', ax, overX && ax ? thumbFor(ax, overY ? CORNER : 0) : null, overY ? CORNER : 0)
 
     const more = options.fade !== undefined && ay ? hasMore(ay) : { before: false, after: false }
     root.toggleAttribute('data-fade-top', more.before)
@@ -112,17 +118,23 @@ export function attachOverlayScroll(
     hadOverflow = overflowing
   }
 
-  function show(axis: AxisName, a: Axis | undefined, t: Thumb | null): void {
+  function show(axis: AxisName, a: Axis | undefined, t: Thumb | null, reserve: number): void {
     const el = thumbs[axis]
+    const track = tracks[axis]
     el.hidden = t === null
+    track.hidden = t === null
     current[axis] = t && a ? { axis: a, thumb: t } : undefined
-    if (!t) return
+    if (!t || !a) return
+    // トラックは軸の全長（反対側のバーの隅を除く）。つまみの動ける範囲より両端の余白ぶん広い。
+    const full = `${a.client - reserve}px`
     if (axis === 'y') {
       el.style.height = `${t.length}px`
       el.style.transform = `translateY(${t.offset}px)`
+      track.style.height = full
     } else {
       el.style.width = `${t.length}px`
       el.style.transform = `translateX(${t.offset}px)`
+      track.style.width = full
     }
   }
 
@@ -171,6 +183,8 @@ export function attachOverlayScroll(
   listenHover(scroller)
   listenHover(thumbs.y)
   listenHover(thumbs.x)
+  listenHover(tracks.y)
+  listenHover(tracks.x)
 
   scrollTarget.addEventListener(
     'focusin',
@@ -192,6 +206,7 @@ export function attachOverlayScroll(
   )
 
   bindThumbInput(scroller, thumbs, current, presence, signal)
+  bindTrackInput(scroller, tracks, current, signal)
 
   // --- 大きさの変化（内容が増えた・領域が伸びた） ---
   const Resize = doc.defaultView?.ResizeObserver

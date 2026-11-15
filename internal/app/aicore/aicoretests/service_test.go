@@ -70,10 +70,10 @@ func newAIFixture(t *testing.T) *aiFixture {
 	return f
 }
 
-// ready は設定・キー・同意をすべて済ませる。
+// ready は設定・キー・同意をすべて済ませる（「AI で下書き」と「要約・質問」のどちらも openai に選ぶ）。
 func (f *aiFixture) ready(t *testing.T) {
 	t.Helper()
-	_, err := apptest.SetDraftAI(f.ai, t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
+	_, err := apptest.SetDraftAndThreadAI(f.ai, t.Context(), "openai", "gpt-test", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
@@ -126,32 +126,51 @@ func TestAIFeaturesAreIndependent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, dto.AIFeatureSetting{Provider: "typesafe"}, cfg.Features.InboxZero)
 	assert.Equal(t, "claude", cfg.Features.Draft.Model, "もう一方の機能は変わらない")
+
+	// 「要約・質問」は draft と別に選べ、draft と同じプロバイダだけを選べる（typesafe は VALIDATION）。
+	cfg, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureThreadAI, "openai", "gpt-sum", "low")
+	require.NoError(t, err)
+	assert.Equal(t, dto.AIFeatureSetting{Provider: "openai", Model: "gpt-sum", Effort: "low"}, cfg.Features.ThreadAI)
+	assert.Equal(t, "claude", cfg.Features.Draft.Model, "「AI で下書き」は変わらない")
+	assert.Equal(t, "typesafe", cfg.Features.InboxZero.Provider)
 	_, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureDraft, "typesafe", "", "")
 	requireCode(t, "VALIDATION", err)
+	_, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureThreadAI, "typesafe", "", "")
+	requireCode(t, "VALIDATION", err)
+	_, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureThreadAI, "openai", "  ", "")
+	requireCode(t, "VALIDATION", err)
+	_, err = f.ai.SetAIFeature(t.Context(), dto.AIFeatureThreadAI, "openai", "m", "max")
+	requireCode(t, "VALIDATION", err)
+	cfg, err = f.ai.GetAIConfig(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, "gpt-sum", cfg.Features.ThreadAI.Model, "検証に失敗した保存は選択を変えない")
 }
 
-// 旧バージョンの ai.config は、store のマイグレーションが「AI で下書き」の選択とつなぎ先の設定へ移す（store の migrate_ai_features_test）。
+// 旧バージョンの ai.config は、store のマイグレーションが「AI で下書き」・「要約・質問」の選択とつなぎ先の設定へ移す（store の migrate_ai_features_test）。
 // 移したあとの値は、そのまま読める。
 func TestMigratedFeaturesAreRead(t *testing.T) {
 	f := newAIFixture(t)
-	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.features", `{"draft":{"provider":"openai","model":"gpt-old"}}`))
+	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.features", `{"draft":{"provider":"openai","model":"gpt-old"},"threadAi":{"provider":"openai","model":"gpt-old"}}`))
 	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.connection", `{"openaiBaseUrl":"https://llm.example/v1"}`))
 	cfg, err := f.ai.GetAIConfig(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, dto.AIFeatureSetting{Provider: "openai", Model: "gpt-old"}, cfg.Features.Draft)
+	assert.Equal(t, dto.AIFeatureSetting{Provider: "openai", Model: "gpt-old"}, cfg.Features.ThreadAI)
 	assert.Empty(t, cfg.Features.InboxZero.Provider)
 	assert.Equal(t, "https://llm.example/v1", cfg.BaseURL)
 
 	// その機能で選べないプロバイダ（手で書き換えられた値）は未選択として読む。
-	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.features", `{"draft":{"provider":"gemini","model":"x"},"inboxZero":{"provider":"typesafe"}}`))
+	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.features", `{"draft":{"provider":"gemini","model":"x"},"threadAi":{"provider":"gemini","model":"x"},"inboxZero":{"provider":"typesafe"}}`))
 	cfg, err = f.ai.GetAIConfig(t.Context())
 	require.NoError(t, err)
 	assert.Empty(t, cfg.Features.Draft.Provider)
+	assert.Empty(t, cfg.Features.ThreadAI.Provider)
 	assert.Equal(t, "typesafe", cfg.Features.InboxZero.Provider)
-	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.features", `{"draft":{"provider":"typesafe"}}`))
+	require.NoError(t, f.Store.SetSetting(t.Context(), "ai.features", `{"draft":{"provider":"typesafe"},"threadAi":{"provider":"typesafe"}}`))
 	cfg, err = f.ai.GetAIConfig(t.Context())
 	require.NoError(t, err)
 	assert.Empty(t, cfg.Features.Draft.Provider, "TypeSafe AI は「AI で下書き」に選べない")
+	assert.Empty(t, cfg.Features.ThreadAI.Provider, "TypeSafe AI は「要約・質問」に選べない")
 }
 
 func TestAIConfigValidation(t *testing.T) {

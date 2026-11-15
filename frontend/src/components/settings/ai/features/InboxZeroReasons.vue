@@ -6,7 +6,7 @@ import { useInboxZeroStore } from '../../../../stores/inboxZero'
 import BaseSwitch from '../../../ui/BaseSwitch.vue'
 import { INBOX_ZERO_REASONS, type InboxZeroReason } from './inboxZeroReasons'
 
-// 「機能ごとに使う AI」タブの Inbox Zero の理由のオン・オフ（#314・#377）。どの AI を選んでいても（AI を使わない理由だけのときも）ここで決める。
+// 「機能ごとに使う AI」タブの Inbox Zero の理由のオン・オフ（#314・#377）。どの AI を選んでいても（AI を使わない返信済みだけのときも）ここで決める。
 const zero = useInboxZeroStore()
 onMounted(() => void zero.loadReasons())
 const error = ref<string>()

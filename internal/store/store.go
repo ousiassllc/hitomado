@@ -224,7 +224,7 @@ const (
 	SettingSendConfirm = "compose.send_confirm"
 	// SettingInboxZero は Inbox Zero で使う「不要なメール」の理由ごとのオン・オフ（JSON オブジェクト。未設定は全部オン。保存値に無い理由はオン。#314・#377）。
 	SettingInboxZero = "inbox_zero.reasons"
-	// SettingAIFeatures は機能ごとに使う AI・モデル（JSON オブジェクト。キーは機能 ID の draft／inboxZero。#376）。
+	// SettingAIFeatures は機能ごとに使う AI・モデル（JSON オブジェクト。キーは機能 ID の draft／threadAi／inboxZero。#376）。
 	SettingAIFeatures = "ai.features"
 	// SettingAIConnection は AI のつなぎ先の設定（OpenAI 互換の Base URL。#376）。
 	SettingAIConnection = "ai.connection"

@@ -42,12 +42,3 @@ func nonDraftMessages(thread gmail.ThreadFull) []gmail.MessageFull {
 func isOwnMessage(m gmail.MessageFull, email string) bool {
 	return slices.Contains(m.LabelIDs, labelSent) || (email != "" && strings.EqualFold(strings.TrimSpace(m.From.Email), email))
 }
-
-// googleCalendarSender は Google カレンダーの通知（招待・変更・リマインダー・予定表のまとめ）の送信元アドレス。
-// 招待・変更は iCalendar のパートを持つが、リマインダーや予定表のまとめは持たないので、送信元でも見る。
-const googleCalendarSender = "calendar-notification@google.com"
-
-// isCalendarMail は m がカレンダーの招待・通知か（iCalendar のパートを持つ、または Google カレンダーからの送信。端末内の判定）。
-func isCalendarMail(m gmail.MessageFull) bool {
-	return m.HasCalendar || strings.EqualFold(strings.TrimSpace(m.From.Email), googleCalendarSender)
-}

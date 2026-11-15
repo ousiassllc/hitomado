@@ -103,7 +103,7 @@ func TestInboxZeroRunsOnSelectedOpenAI(t *testing.T) {
 		assert.Equal(t, "gpt-iz", b["model"], "選んだモデルで判定する")
 		msgs := b["messages"].([]any)
 		sys := msgs[0].(map[string]any)["content"].(string)
-		for _, name := range []string{"ad", "notification", "newsletter", "other"} {
+		for _, name := range []string{"ad", "calendar", "notification", "newsletter", "other"} {
 			assert.Contains(t, sys, "- "+name+": ")
 		}
 	}

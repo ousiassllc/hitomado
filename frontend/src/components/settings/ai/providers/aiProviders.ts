@@ -42,7 +42,9 @@ export function needsConsent(id: string, cfg: AIConfig | undefined): boolean {
  */
 export function connectionState(id: string, cfg: AIConfig | undefined): ConnectionState {
   if (isConnected(id, cfg)) return 'connected'
-  const selected = [cfg?.features.draft, cfg?.features.inboxZero].some((f) => f?.provider === id)
+  const selected = [cfg?.features.draft, cfg?.features.threadAi, cfg?.features.inboxZero].some(
+    (f) => f?.provider === id,
+  )
   const hadAccount = id === 'chatgpt' && (cfg?.chatgptAccounts ?? []).length > 0
   return selected || hadAccount ? 'reconnect' : 'disconnected'
 }
