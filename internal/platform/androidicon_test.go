@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"image/color"
 	"image/png"
 	"io/fs"
 	"os"
@@ -43,7 +44,7 @@ func TestAndroidAdaptiveIconRingIsAbout48dp(t *testing.T) {
 			canvas := 108 * scale
 			require.EqualValues(t, canvas, img.Bounds().Dx(), "%s %s: 108dp のキャンバス", density, layer)
 			require.EqualValues(t, canvas, img.Bounds().Dy(), "%s %s", density, layer)
-			// 前景のプリズム（右下の薄いぼかし）は半透明なので、ほぼ不透明（≥ 0.78）の画素だけでリングを測る。
+			// 縁のアンチエイリアスの薄い画素を除き、ほぼ不透明（≥ 0.78）の画素でリングを測る。
 			bounds[i] = opaqueBounds(img, 200)
 			dp := float64(bounds[i].Dx()) / scale
 			assert.InDelta(t, 48, dp, 1.0, "%s %s: リングの外径（dp）", density, layer)
@@ -51,5 +52,29 @@ func TestAndroidAdaptiveIconRingIsAbout48dp(t *testing.T) {
 			assert.InDelta(t, 54, float64(bounds[i].Min.Y+bounds[i].Max.Y)/2/scale, 0.5, "%s %s: 縦の中心", density, layer)
 		}
 		assert.Equal(t, bounds[0], bounds[1], fmt.Sprintf("%s: 前景とモノクロのリングは同じ大きさ", density))
+	}
+}
+
+// 前景はインク（#050505）一色のリングとフラップだけで、ロゴの「プリズムのかすみ」（紫・青の半透明の層）を含まない（#379）。
+// かすみは色味のある（無彩色でない）画素なので、不透明度が 0 でない画素がすべてインク色であることで確かめる。
+func TestAndroidAdaptiveIconForegroundHasNoPrismHaze(t *testing.T) {
+	res := filepath.Join("..", "..", "build", "android", "app", "src", "main", "res")
+	for _, density := range []string{"mdpi", "hdpi", "xhdpi", "xxhdpi", "xxxhdpi"} {
+		b, err := fs.ReadFile(os.DirFS(res), "drawable-"+density+"/ic_launcher_foreground.png")
+		require.NoError(t, err)
+		img, err := png.Decode(bytes.NewReader(b))
+		require.NoError(t, err)
+		bounds := img.Bounds()
+		for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+			for x := bounds.Min.X; x < bounds.Max.X; x++ {
+				c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA)
+				if c.A == 0 {
+					continue
+				}
+				if c.R > 0x10 || c.G > 0x10 || c.B > 0x10 {
+					t.Fatalf("%s: (%d,%d) に、インク（#050505）でない画素 %v（プリズムのかすみが残っている）", density, x, y, c)
+				}
+			}
+		}
 	}
 }
