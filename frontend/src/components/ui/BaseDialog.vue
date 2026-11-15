@@ -63,6 +63,15 @@ function onUpdate(v: boolean): void {
 function guard(e: Event): void {
   if (locked.value) e.preventDefault()
 }
+
+// 開いた直後の初期フォーカスは、先頭にフォーカスできる要素（× ボタン）ではなくダイアログ本体（reka が tabindex="-1" を付ける）に置く。
+// × にフォーカスが行くと、開いただけで :focus-visible のリングが出てしまう。本体なら枠は出さず（.dlg:focus）、スクリーンリーダーには
+// role="dialog" の名前（見出し）が読まれる。Tab を 1 回押すと次のフォーカス可能な要素（先頭の ×）へ進み、そこにリングが出る。
+// フォーカストラップ（loop）・Esc・閉じたあとのフォーカス戻し（closeAutoFocus）は reka の既定のまま。
+function focusDialog(e: Event): void {
+  e.preventDefault()
+  if (e.target instanceof HTMLElement) e.target.focus({ preventScroll: true })
+}
 </script>
 
 <template>
@@ -73,6 +82,7 @@ function guard(e: Event): void {
         class="dlg"
         :class="`dlg-${size}`"
         :aria-describedby="description ? undefined : ''"
+        @open-auto-focus="focusDialog"
         @escape-key-down="guard"
         @pointer-down-outside="guard"
         @interact-outside="guard"
@@ -154,6 +164,11 @@ function guard(e: Event): void {
 
 .dlg-lg {
   --dlg-w: 840px;
+}
+
+/* 初期フォーカスはここ（tabindex="-1" の本体）に置く。操作する要素ではないので、フォーカスの枠は出さない（#376・#377）。 */
+.dlg:focus {
+  outline: none;
 }
 
 .dlg-head {

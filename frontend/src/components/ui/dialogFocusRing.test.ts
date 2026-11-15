@@ -34,6 +34,15 @@ describe('BaseDialog の × ボタン', () => {
   })
 })
 
+// 開いた直後の初期フォーカスは、操作する要素ではないダイアログ本体（tabindex="-1"）に置くので、本体にはフォーカスの枠を描かない（#376・#377）。
+describe('BaseDialog の本体', () => {
+  test('フォーカスされても枠を描かない', async () => {
+    const css = await styleOf('./BaseDialog.vue')
+    const rule = css.match(/\.dlg:focus\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(rule).toMatch(/outline:\s*none;/)
+  })
+})
+
 describe('SettingsDialog の横スクロールするタブ', () => {
   test('フォーカスリングは内側（offset -2px）に描く', async () => {
     const css = await styleOf('../settings/SettingsDialog.vue')

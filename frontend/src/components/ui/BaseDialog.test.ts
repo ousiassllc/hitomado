@@ -62,3 +62,70 @@ describe('ConfirmDialog', () => {
     w.unmount()
   })
 })
+
+// 開いた直後の初期フォーカスは、× ではなくダイアログ本体に置く（#376・#377）。× に置くと、開いただけで :focus-visible のリングが出る。
+// Tab を 1 回押したときの × のリングは、ブラウザでの表示で確かめる（ここはフォーカスの移動だけを確かめる）。
+describe('BaseDialog の初期フォーカス・Esc・フォーカスの戻し', () => {
+  const dialog = () => document.body.querySelector<HTMLElement>('.dlg')
+  const close = () => document.body.querySelector<HTMLElement>('.dlg-close')
+
+  test('開くと、フォーカスはダイアログ本体（tabindex=-1）にあり、× ではない', async () => {
+    const w = mount(BaseDialog, {
+      props: { open: true, title: '設定' },
+      slots: { default: '<input />' },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    expect(dialog()?.getAttribute('tabindex')).toBe('-1')
+    expect(document.activeElement).toBe(dialog())
+    expect(document.activeElement).not.toBe(close())
+    expect(close()).not.toBeNull()
+    w.unmount()
+  })
+
+  test('busy で × が無くても、フォーカスは本体に置く', async () => {
+    const w = mount(BaseDialog, {
+      props: { open: true, title: '送信中', busy: true },
+      slots: { default: '<input />' },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    expect(close()).toBeNull()
+    expect(document.activeElement).toBe(dialog())
+    w.unmount()
+  })
+
+  test('Esc で update:open(false) を出す', async () => {
+    const w = mount(BaseDialog, {
+      props: { open: true, title: '設定' },
+      slots: { default: '<input />' },
+      attachTo: document.body,
+    })
+    await flushPromises()
+    dialog()?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+    )
+    await flushPromises()
+    expect(w.emitted('update:open')?.[0]).toEqual([false])
+    w.unmount()
+  })
+
+  test('閉じると、開く前にフォーカスのあった要素へフォーカスが戻る', async () => {
+    const trigger = document.createElement('button')
+    document.body.append(trigger)
+    trigger.focus()
+    const w = mount(BaseDialog, {
+      props: { open: false, title: '設定' },
+      slots: { default: '<input />' },
+      attachTo: document.body,
+    })
+    await w.setProps({ open: true })
+    await flushPromises()
+    expect(document.activeElement).toBe(dialog())
+    await w.setProps({ open: false })
+    await flushPromises()
+    expect(dialog()).toBeNull()
+    expect(document.activeElement).toBe(trigger)
+    w.unmount()
+  })
+})
