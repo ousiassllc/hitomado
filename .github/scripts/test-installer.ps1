@@ -52,9 +52,42 @@ function Wait-Until([scriptblock]$Condition, [int]$TimeoutSec = 60) {
   return $true
 }
 
+# インストーラーを実行して終了コードを返す。失敗の原因が分かるよう、終了コードは判定の前に必ずログへ出す。
+function Invoke-Installer([string]$Installer, [string[]]$Arguments) {
+  $code = (Start-Process -FilePath $Installer -ArgumentList $Arguments -Wait -PassThru).ExitCode
+  Write-Host "installer $(Split-Path $Installer -Leaf) $($Arguments -join ' ') exit code: $code"
+  $code
+}
+
 # NSIS の /D= は最後の引数で、引用符なし。
 function Install([string]$Installer) {
-  (Start-Process -FilePath $Installer -ArgumentList '/S', "/D=$installDir" -Wait -PassThru).ExitCode
+  Invoke-Installer $Installer @('/S', "/D=$installDir")
+}
+
+# NSIS の CheckNotRunning と同じ判定（hitomado.exe を書き込みで開けるか。共有は読み取りだけ許す）。
+# ウイルス対策ソフトが書いたばかりの exe を走査している間なども、ここで開けない。
+function Test-ExeWritable([string]$Path) {
+  try {
+    [IO.File]::Open($Path, 'Open', 'Write', 'Read').Dispose()
+    $true
+  } catch [IO.IOException] {
+    $false
+  }
+}
+
+# $installDir の hitomado.exe を動かしているプロセス。
+function Get-ExeProcesses {
+  @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.Path -eq "$installDir\hitomado.exe" })
+}
+
+# hitomado.exe のプロセスが無くなり、exe を書き込みで開けるようになるまで待つ。次のインストーラーが
+# 起動中の exe に当たって終了コード 5 で止まらないよう、続けて入れる前にこれを通す。
+function Wait-ExeReleased {
+  $released = Wait-Until { (Get-ExeProcesses).Count -eq 0 -and (Test-ExeWritable "$installDir\hitomado.exe") }
+  if (-not $released) {
+    Write-Host "hitomado.exe is still held. processes: $((Get-ExeProcesses | ForEach-Object { "$($_.Id):$($_.ProcessName)" }) -join ', ')"
+  }
+  $released
 }
 
 function Displayed-Version { (Get-ItemProperty -Path $uninstKey -ErrorAction Stop).DisplayVersion }
@@ -116,11 +149,15 @@ try {
     $running.WaitForExit()
   }
   Assert ($waiting.WaitForExit(60000)) 'installer with /WAIT finishes after hitomado.exe exits'
+  Write-Host "installer with /WAIT exit code: $($waiting.ExitCode)"
   Assert ($waiting.ExitCode -eq 0) 'installer with /WAIT exits 0 after the wait'
   Assert ((Displayed-Version) -eq $NewVersion) "Apps & features shows $NewVersion after the waiting install"
 
   # 3. 上書き（新版。2b で入った同じ版の上に、もう一度入れる）。前回の場所に入る（/D= なしでも InstallLocation を使う）。
-  Assert ((Start-Process -FilePath $NewInstaller -ArgumentList '/S' -Wait -PassThru).ExitCode -eq 0) 'new installer exits 0'
+  # 2b のインストーラーが終わった直後は、書いたばかりの hitomado.exe をまだ書き込みで開けないことがある（#385）。次のインストーラーが
+  # 起動中と取り違えて終了コード 5 で止まらないよう、開けるようになるのを待ってから入れる（固定の sleep ではなく条件で待つ）。
+  Assert (Wait-ExeReleased) 'hitomado.exe is released after the waiting install'
+  Assert ((Invoke-Installer $NewInstaller @('/S')) -eq 0) 'new installer exits 0'
   Assert ((Displayed-Version) -eq $NewVersion) "Apps & features shows $NewVersion after overwrite"
   Assert ((Get-FileHash "$installDir\hitomado.exe").Hash -eq (Get-FileHash $Exe).Hash) 'hitomado.exe was replaced by the new build'
   Assert ((Get-Item "$installDir\hitomado.exe").VersionInfo.ProductVersion -eq $NewVersion) "hitomado.exe file version is $NewVersion"
