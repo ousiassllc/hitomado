@@ -95,6 +95,9 @@ func TestGetThreadFullAlternativeWithInlineAndAttachment(t *testing.T) {
 	assert.NotNil(t, m2.InlineImages)
 	assert.False(t, m2.HasAttachment)
 
+	assert.Equal(t, []string{"text/plain", "text/html", "image/png", "image/gif", "application/pdf"}, m.PartTypes)
+	assert.Equal(t, []string{"text/plain"}, m2.PartTypes)
+
 	assert.Equal(t, "full", e.f.Requests("GET", apiBase+"/threads/t1")[0].Query.Get("format"))
 }
 

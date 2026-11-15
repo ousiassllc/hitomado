@@ -92,6 +92,7 @@ type MessageFull struct {
 	BodyHTML     string
 	BodyText     string
 	Attachments  []model.AttachmentInfo
+	PartTypes    []string              // multipart でないパートの Content-Type（重複なし）。AI の判定の手がかり。text/calendar は method 付き
 	InlineImages map[string]InlinePart // key は mimeparse.NormalizeCID 済みの Content-ID（山括弧・cid: なし、小文字、%デコード済み）
 }
 

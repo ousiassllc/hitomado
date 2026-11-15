@@ -75,6 +75,22 @@ func TestWalkClassifiesParts(t *testing.T) {
 	assert.False(t, HasAttachment(nil))
 }
 
+// 判定の AI へ渡す手がかり。multipart でないパートの Content-Type を重複なく集め、text/calendar は method を残す。
+func TestWalkCollectsPartTypes(t *testing.T) {
+	root := &gmailapi.MessagePart{MimeType: "multipart/mixed", Parts: []*gmailapi.MessagePart{
+		{MimeType: "multipart/alternative", Parts: []*gmailapi.MessagePart{
+			{MimeType: "text/plain", Body: &gmailapi.MessagePartBody{Data: "dA"}},
+			{MimeType: "text/html", Body: &gmailapi.MessagePartBody{Data: "dA"}},
+			{MimeType: "text/calendar", Headers: []*gmailapi.MessagePartHeader{h("Content-Type", `text/calendar; charset="UTF-8"; method=request`)}, Body: &gmailapi.MessagePartBody{Data: "dA"}},
+		}},
+		{MimeType: "application/ics", Filename: "invite.ics", Body: &gmailapi.MessagePartBody{AttachmentId: "a1", Size: 3}},
+		{MimeType: "text/plain", Filename: "n.txt", Body: &gmailapi.MessagePartBody{AttachmentId: "a2", Size: 3}},
+	}}
+	assert.Equal(t, []string{"text/plain", "text/html", "text/calendar; method=REQUEST", "application/ics"}, Walk(root).PartTypes)
+	assert.Empty(t, Walk(&gmailapi.MessagePart{MimeType: "multipart/alternative"}).PartTypes)
+	assert.Equal(t, []string{"text/calendar"}, Walk(&gmailapi.MessagePart{MimeType: "text/calendar"}).PartTypes, "method が無ければ種類だけ")
+}
+
 func TestNormalizeCID(t *testing.T) {
 	cases := map[string]string{
 		"<Logo@Example.COM>": "logo@example.com",

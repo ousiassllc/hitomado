@@ -2,6 +2,7 @@ package inboxzerotests
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -11,6 +12,37 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 )
+
+// Jev へ渡すのは手がかり（パートの Content-Type と添付の種類・拡張子）だけ。端末内ではカレンダーと決めない。
+// text/calendar や .ics があっても、AI が other と答えれば候補にならず、手がかりが無くても AI が calendar と答えれば候補になる。
+func TestInboxZeroSendsInviteCluesWithoutDecidingLocally(t *testing.T) {
+	f := newIZFixture(t)
+	f.jevReady(t)
+	f.setReasons(t, dto.InboxZeroReasons{Calendar: true})
+	inv := msg("i1", "t-inv", 0, "INBOX")
+	inv.PartTypes = []string{"text/plain", "text/html", "text/calendar; method=REQUEST", "application/ics"}
+	inv.Attachments = []model.AttachmentInfo{{ID: "a1", Filename: "秘密の予定.ICS", MimeType: "application/ics", Size: 100}}
+	bare := msg("b1", "t-bare", 0, "INBOX")
+	bare.PartTypes = []string{"text/html"}
+	refs := []dto.ThreadRef{f.thread(t, "t-inv", inv), f.thread(t, "t-bare", bare)}
+	f.answers(map[string]ai.ClassifyAnswer{"t-bare": pick("calendar", 0.95)})
+
+	res, err := f.find(refs...)
+	require.NoError(t, err)
+	assert.Equal(t, map[string]string{"t-bare": "calendar"}, reasonsOf(res), "手がかりでは決めず、AI の答えに従う")
+	require.Equal(t, 2, f.Classifier.Calls())
+	for _, in := range f.Classifier.Inputs {
+		switch {
+		case strings.Contains(in.State, "subject t-inv"):
+			assert.Contains(t, in.State, "\nContent-Types: text/plain, text/html, text/calendar; method=REQUEST, application/ics\n")
+			assert.Contains(t, in.State, "\nAttachments: application/ics (.ics)\n")
+			assert.NotContains(t, in.State, "秘密の予定", "ファイル名は送らない")
+		default:
+			assert.Contains(t, in.State, "\nContent-Types: text/html\n")
+			assert.NotContains(t, in.State, "Attachments:")
+		}
+	}
+}
 
 // カレンダーの招待・通知は端末内では判定せず、Inbox Zero の AI が「calendar」を高い確率で選んだものだけが候補になる（#377）。
 // 確率の下限（0.8）に届かないもの・other は外れる。

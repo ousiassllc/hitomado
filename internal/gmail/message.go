@@ -47,6 +47,7 @@ func (c *client) messageFull(ctx context.Context, accountID string, m *gmailapi.
 		References:   []string{},
 		ReplyTo:      []model.Address{},
 		Attachments:  []model.AttachmentInfo{},
+		PartTypes:    []string{},
 		InlineImages: map[string]InlinePart{},
 	}
 	if m.Payload == nil {
@@ -65,6 +66,7 @@ func (c *client) messageFull(ctx context.Context, accountID string, m *gmailapi.
 	if mf.BodyText, err = c.joinSegments(ctx, accountID, m.Id, parts.Text); err != nil {
 		return MessageFull{}, err
 	}
+	mf.PartTypes = append(mf.PartTypes, parts.PartTypes...)
 	mf.Attachments = append(mf.Attachments, parts.Attachments...)
 	if err := c.collectInlines(ctx, accountID, m.Id, parts.Inlines, &mf); err != nil {
 		return MessageFull{}, err

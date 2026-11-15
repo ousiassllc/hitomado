@@ -58,7 +58,7 @@ type InboxZeroAPI interface {
 	SetInboxZeroReasons(ctx context.Context, reasons dto.InboxZeroReasons) (dto.InboxZeroSettings, error)
 	// FindInboxZeroCandidates は refs（読み込み済みの一覧。重複を除いて 100 件まで）から、オンの理由に当てはまるアーカイブ候補を返す。
 	// 返信済みは端末内で判定し、広告・カレンダー・通知・ニュースレターは「機能ごとに使う AI」の Inbox Zero に選んだ AI・モデル
-	// （件名・差出人・本文の先頭 500 文字を送る。つながっていることと同意が前提）で判定する。返信済みだけをオンにしたときは AI の前提は要らない。
+	// （件名・差出人・メールの形の手がかり・本文の先頭 500 文字を送る。つながっていることと同意が前提）で判定する。返信済みだけをオンにしたときは AI の前提は要らない。
 	// 中止は CancelGenerate（CANCELLED）。アーカイブは行わない（InboxService.Archive を使う）。
 	FindInboxZeroCandidates(ctx context.Context, refs []dto.ThreadRef, requestID string) (dto.InboxZeroResult, error)
 }

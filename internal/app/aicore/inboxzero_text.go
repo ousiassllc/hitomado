@@ -1,6 +1,7 @@
 package aicore
 
 import (
+	"path"
 	"slices"
 	"strings"
 
@@ -9,9 +10,32 @@ import (
 
 // Inbox Zero の判定で使う、メッセージ・文字列を扱う純粋な補助関数。
 
-// classifyState は判定の AI へ送る内容（差出人・件名・本文の先頭 500 文字だけ）。Jev でもチャット系のモデルでも同じ。
+// classifyState は判定の AI へ送る内容（差出人・件名・メールの形の手がかり・本文の先頭 500 文字だけ）。Jev でもチャット系のモデルでも同じ。
+// 手がかり（Content-Types・Attachments）は事実を並べるだけで、カレンダーかどうかは AI が決める（端末内では決めない）。
 func classifyState(m gmail.MessageFull) string {
-	return "From: " + sender(m) + "\nSubject: " + m.Subject + "\n\n" + firstRunes(messageText(m), inboxZeroBodyRunes)
+	var b strings.Builder
+	b.WriteString("From: " + sender(m) + "\nSubject: " + m.Subject + "\n")
+	if len(m.PartTypes) > 0 {
+		b.WriteString("Content-Types: " + strings.Join(m.PartTypes, ", ") + "\n")
+	}
+	if a := attachmentHints(m); a != "" {
+		b.WriteString("Attachments: " + a + "\n")
+	}
+	b.WriteString("\n" + firstRunes(messageText(m), inboxZeroBodyRunes))
+	return b.String()
+}
+
+// attachmentHints は添付の種類と拡張子（".ics" など）をカンマ区切りで返す。ファイル名・サイズは AI へ送らない。
+func attachmentHints(m gmail.MessageFull) string {
+	hints := make([]string, 0, len(m.Attachments))
+	for _, a := range m.Attachments {
+		h := strings.ToLower(a.MimeType)
+		if ext := strings.ToLower(path.Ext(a.Filename)); ext != "" {
+			h += " (" + ext + ")"
+		}
+		hints = append(hints, h)
+	}
+	return strings.Join(hints, ", ")
 }
 
 // sender は差出人を「表示名 <アドレス>」（表示名が無ければアドレス）にする。

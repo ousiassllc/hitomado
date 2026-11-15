@@ -206,7 +206,7 @@ export function attachOverlayScroll(
   )
 
   bindThumbInput(scroller, thumbs, current, presence, signal)
-  bindTrackInput(scroller, tracks, current, signal)
+  bindTrackInput(scroller, tracks, current, env.clock, signal)
 
   // --- 大きさの変化（内容が増えた・領域が伸びた） ---
   const Resize = doc.defaultView?.ResizeObserver
