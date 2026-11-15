@@ -68,7 +68,7 @@ export function Refresh(accountIDs: string[] | null): $CancellablePromise<dto$0.
 
 /**
  * Search は Gmail 検索クエリを各アカウントで並列実行し、最終メッセージ日時の降順で統合する（結果は保存しない）。
- * カーソルはアカウントごとの pageToken と未配信の残りを埋め込んだ不透明文字列で、サーバー側に状態を持たない。
+ * 入力の検証と対象アカウントの解決だけここで行い、検索の本体は searchcore.Search。
  */
 export function Search(q: dto$0.SearchQuery): $CancellablePromise<dto$0.ThreadPage> {
     return $Call.ByID(498908709, q);
