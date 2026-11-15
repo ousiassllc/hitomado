@@ -665,6 +665,16 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 全幅バナーの出入り | アニメーションなし（すぐ出す・すぐ消す） | `BannerStack` は `v-if` だけで `Transition` を使わない | 既存（記述は追加） |
 | 入力下の文字数カウンタ | xs・`--mute`・数字は Mono・超過は `--danger`・`role="status"` | `AiDraftInstruction` の `.instruction-foot`／`.instruction-count`、`ThreadAiQuestionForm` の `.question-count` がどちらも xs・`--mute`・`.num` は `--font-mono`・`.over` は `--danger`・`role="status"` | 既存 |
 
+##### #287 オーバーレイ
+
+| 項目 | ガイドの決定 | Hitomado の定め・実装 | 区分 |
+|------|-------------|---------------------|------|
+| ダイアログの閉じ方（#282 の指摘） | Esc と外側（スクラム）クリックで閉じられ、× も出す。閉じても「確認した」扱いにしない（確認済みにするのは明示のボタンだけ）。閉じる操作を止めてよいのは処理中だけ（× は隠すか無効にし、Esc・外側クリックも受けない）。「確認必須だから常に閉じられない」は不可 | `BaseDialog` は `busy` のときだけ外側・Esc・× を無効にし、終われば戻る。`ChatGPTPlanNotice` は外側・Esc・×で閉じ、閉じても確認済みにしない（[§3.3](#33-基本部品componentsui)。逸脱表の「処理中の固定」の行は、ガイドが採用済みと明記） | 既存（`designGuide.test.ts`・`components.test.ts` が検査） |
+| モバイルナビのドロワー（フォーカス管理・モーダル属性・上限幅・出入り） | `role="dialog"`・`aria-modal="true"`。開いたら最初の項目へフォーカス、閉じたらトリガへ戻す、フォーカストラップ、Esc／Android の戻るで閉じる。幅は 78vw・上限 320px。出入りは fade＋8px の移動（`--motion-*`） | **該当する部品が無い**。スマホのナビは #370 で下 4 タブ（`BottomTabs`）に替わり、ハンバーガーのドロワーは無い。`--z-drawer`（300）は使う部品が無い（ガイドのトークンとして残す）。ドロワーを足すときは、左の決定どおりに作る。右から出る `AgentPanel` は別の部品（次の行） | 既存（該当なし）。要判断: `AgentPanel` をドロワーの規定に合わせるか（次の行） |
+| エージェントのパネル（`AgentPanel`） | （ドロワーの規定の対象外。出入りは fade＋小さな移動で、ガイドの M5） | PC は本文の右端に重ねる（幅 `min(344px, 100%)`・`--z-sticky`）。medium・stack は全幅。出入りは `opacity`＋`translateX(8px)`（入場 `--motion-fade-in`・退出 `--motion-fade-out`。reduced-motion では移動なし）。開いたらパネル自身（名前つきの `aside`）へフォーカスを移し、閉じたら開いた場所へ戻す。Esc・閉じるボタン・Android の戻るで閉じる。下タブがあるレイアウトでは、背後の一覧・本文を `inert` にする。`role="dialog"`・`aria-modal`・フォーカストラップは付けない（PC では本文を操作できる）。スマホでは全幅の重ね表示でも同様 | 既存。要判断: スマホで全幅に重ねるときだけ `role="dialog"`・`aria-modal`・フォーカストラップを足すか（現状は `inert` で背後を止めるだけ） |
+| ペイン全体をドロップ先にするとき | 常設の枠は不要。ドラッグ中だけ `--accent-soft` 地＋1px `--accent` の破線（内側 offset 4） | `ComposePane` の `.file-drop-target-active` がそのとおり（地 `--accent-soft`・`outline: 1px dashed var(--accent)`・`outline-offset: -4px`。`--mute` を `--ink` に上書き）。常設の枠は無い | 既存 |
+| リサイズハンドルの z 層 | `--z-sticky` を流用してよい | `PaneSplitter` は `z-index: var(--z-sticky)`（エージェントのパネルと同じ層） | 既存 |
+
 #### フロントの外にある画面（認可の完了ページ）
 
 OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了ページ（`internal/callbackpage`。`oauth`・`siwc` の両方がここを呼ぶ）は、Vue の外の Go 埋め込み HTML なので `styles/tokens.css` を `import` できない。方針は次のとおり。
