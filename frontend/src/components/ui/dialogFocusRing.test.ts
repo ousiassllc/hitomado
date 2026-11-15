@@ -30,33 +30,37 @@ describe('SettingsDialog の横スクロールするタブ', () => {
   })
 })
 
-// メニュー・セレクトの強調項目（data-highlighted）はポインタの移動でも付くので、ホバーは地だけにする（#258）。
+// セレクトの強調項目（data-highlighted）はポインタの移動でも付くので、ホバーは地だけにする（#258）。
 // キーボードの強調は reka が項目へ DOM フォーカスを当てるので、:focus-visible のときだけリングを描く（#252）。
-// リングの色は、メニューは --accent（青は入力のフォーカスだけ）、セレクトは従来の --focus。
-describe.each([
-  ['BaseMenu', './BaseMenu.vue', '\\.menu-item', ':global\\(\\.menu-pop\\)', '--accent'],
-  ['BaseSelect', './BaseSelect.vue', '\\.sel-item', ':global\\(\\.sel-viewport\\)', '--focus'],
-])('%s の強調項目', (_name, file, item, scroller, ringColor) => {
+// メニュー（BaseMenu）の強調行は地（--accent-soft）だけで、リングを描かない（フォーカスはメニュー全体のもの。#283）。
+describe('BaseSelect の強調項目', () => {
   test('ホバー（data-highlighted だけ）は地のみで、枠を描かない', async () => {
-    const css = await styleOf(file)
-    const rule = css.match(new RegExp(`${item}\\[data-highlighted\\]\\s*\\{([^}]*)\\}`))?.[1] ?? ''
+    const css = await styleOf('./BaseSelect.vue')
+    const rule = css.match(/\.sel-item\[data-highlighted\]\s*\{([^}]*)\}/)?.[1] ?? ''
     expect(rule).toMatch(/background:\s*var\(--accent-soft\);/)
     expect(rule).not.toMatch(/outline/)
   })
 
   test('キーボード操作（:focus-visible）のときだけリングを外側（offset 2px）に描く', async () => {
-    const css = await styleOf(file)
-    const rule =
-      css.match(new RegExp(`${item}\\[data-highlighted\\]:focus-visible\\s*\\{([^}]*)\\}`))?.[1] ??
-      ''
-    expect(rule).toContain(`outline: 2px solid var(${ringColor});`)
+    const css = await styleOf('./BaseSelect.vue')
+    const rule = css.match(/\.sel-item\[data-highlighted\]:focus-visible\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(rule).toContain('outline: 2px solid var(--focus);')
     expect(rule).toMatch(/outline-offset:\s*2px;/)
   })
 
   test('項目を包むスクロール領域は、外側のリング（offset 2px + 幅 2px）が収まる --s-1（4px）の余白を持つ', async () => {
-    const css = await styleOf(file)
-    const rule = css.match(new RegExp(`${scroller}\\s*\\{([^}]*)\\}`))?.[1] ?? ''
+    const css = await styleOf('./BaseSelect.vue')
+    const rule = css.match(/:global\(\.sel-viewport\)\s*\{([^}]*)\}/)?.[1] ?? ''
     expect(rule).toMatch(/padding:\s*var\(--s-1\);/)
+  })
+})
+
+describe('BaseMenu の強調行', () => {
+  test('強調（data-highlighted）は地のみで、行に outline を描かない（キーボード操作でも）', async () => {
+    const css = await styleOf('./BaseMenu.vue')
+    const rule = css.match(/\.menu-item\[data-highlighted\]\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(rule).toMatch(/background:\s*var\(--accent-soft\);/)
+    expect(css).not.toMatch(/:focus-visible/)
   })
 })
 

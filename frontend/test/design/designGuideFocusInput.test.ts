@@ -92,11 +92,15 @@ describe('個別の値（#265・#285・#306）', () => {
     expect(rule('ui/BaseMenu.vue', '.menu-item[data-disabled] {')).toContain('opacity: 0.4')
   })
 
-  test('BaseMenu の強調行のリングは :focus-visible のときだけで、色は青（--focus）でなく --accent', () => {
-    expect(rule('ui/BaseMenu.vue', '.menu-item[data-highlighted]:focus-visible {')).toContain(
-      'outline: 2px solid var(--accent)',
+  test('BaseMenu の強調行は --accent-soft の地だけで、キーボードで強調してもリング（outline・box-shadow）を足さない', () => {
+    const css = sfcStyle('ui/BaseMenu.vue').replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(rule('ui/BaseMenu.vue', '.menu-item[data-highlighted] {')).toContain(
+      'background: var(--accent-soft)',
     )
-    expect(rule('ui/BaseMenu.vue', '.menu-item[data-highlighted] {')).not.toContain('outline')
+    expect(rule('ui/BaseMenu.vue', '.menu-item {')).toContain('outline: none')
+    expect(css).not.toContain(':focus-visible')
+    expect(css).not.toContain('box-shadow')
+    expect(css.match(/outline/g)).toHaveLength(1)
   })
 
   test('トグルの押下（.rte-btn-on）は --accent-soft の地と --ink の文字だけで、枠を足さない', () => {
