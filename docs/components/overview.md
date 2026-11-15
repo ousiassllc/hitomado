@@ -617,6 +617,20 @@ Gmail 互換の単独キー。**入力要素（`input`／`textarea`／`contented
 | 同梱 Variable 版の family 名 | `"Sora Variable"` などの名前は許容。スタックの並び（Sora → Noto Sans JP → sans-serif）は変えない | `tokens.css` の `--font-sans`・`--font-mono` は `"… Variable"` の名前を使う（コメントに許容と明記）。端末のフォント名を使うのは Vue の外の画面だけ（認可の完了ページ・Android の致命エラー画面。[逸脱](#逸脱)） | 追加（コメントで明記）。完了ページ・致命エラー画面の行は逸脱のまま |
 | リッチテキストの利用者の太字 | 600（ガイドの最大ウェイトに揃える） | 作成画面の本文エディタの `<strong>` は 600（`RichTextEditor` の `.rte-body :deep(.editor-content strong)`。`reset.css` の `strong` 400 に勝つ）。700 以上はコンポーネントのどこにも無い。受信メール本文は他人が書いた HTML で、この規定の対象外 | 既存 |
 
+##### #284 間隔・形
+
+| 項目 | ガイドの決定 | Hitomado の定め・実装 | 区分 |
+|------|-------------|---------------------|------|
+| 名前付き間隔トークンと `--s-*` | ガイドの名前付きトークン（`--gap-*`・`--pad-*`）は `--s-*`（4px 基準）の別名。使う部品だけ定義してよい | `tokens.css` が持つのは `--gap-inline`（8）・`--gap-label`（8）・`--gap-help`（4）・`--gap-field`（16）・`--gap-para`（16）・`--gap-card-section`（24）・`--gap-menu`（8）・`--pad-card`（24）・`--pad-card-sm`（16）・`--menu-item-h`（40）・`--menu-pad-x`（12）・`--control-h`（40）・`--control-h-sm`（32）。値はすべて `--s-*` か、下の高さ。使わないトークンは定義しない | 既存 |
+| `--gap-heading-body`・`--gap-option`・`--gap-grid`・`--gap-section`（72） | ペイン型アプリでは、見出し→本文は 8、素のラジオ行は項目間 4（`--gap-option`）、サブセクション間は `--gap-field` 16（`--gap-section-sm` 48 は不要）。72 と 12 カラムのグリッドはページ型向け | **定義しない**。見出し→直後の文は `.group`（`gap: var(--s-2)`＝8）、素のラジオ行・複合行は `ChatGPTAccountRow` の `--s-2`（8）、ブロック間は `--gap-field`（16）。72 の `--gap-section` と `--gap-grid` はページ型向けで、このアプリには無い。必要になった部品で、`--s-*` の組み合わせで足す | 既存（定義しない方針を明記） |
+| ラベル列の幅（`--label-col`） | 名前付きトークン `--label-col`（72〜96px。画面ごとに 1 値を選ぶ） | 作成画面のラベル列（宛先・差出人・件名。`RecipientField`・`SenderField`・`ComposeFields`）は `--compose-label-w`（**56px**）。ラベルが 2〜3 文字（sm 14px で 28〜42px）で、72 では本文の入力欄が無駄に狭くなる。トークン名も画面専用名のままにした | 逸脱（承認待ち）。ガイドへ「ラベルが 3 文字以内なら 56 も可」とするか、`--label-col` に名前を揃えて 72 に直すか、判断が要る |
+| ペイン・設定ダイアログの余白 | ペイン内 padding は `--s-4`（モバイル・デスクトップ共通）。ガター `--s-6` は 12 カラムのページグリッド向け。ダイアログ内サブセクションの間は `--gap-field` | ペイン内は `--s-4`＝`--pad-card-sm`（`ThreadPane` の `.scroll`、一覧の行・`DraftList`／`AgentPanel` の上部バーの左 `--pad-card-sm`）。スレッドのメッセージカードの間は `--s-3`（12）。設定のブロック間は `--gap-field`（16）、ブロックの中（見出し→内容）は 8。ガターは使わない。ダイアログの本体の余白は `BaseDialog` | 既存 |
+| ドロップダウン・セレクト・候補の項目間 | 項目間 gap 0、パネル padding 4（`--s-1`）。ホバーが途切れないようにする | `BaseMenu`（`.menu-pop`）・`BaseSelect`（`.sel-pop`）・`RecipientField` の候補（`.suggest`）はパネル padding `--s-1`・項目は gap なしで、高さ `--menu-item-h`（40）・左右 `--menu-pad-x`（12）。`--gap-menu`（8）は**ドロップダウンでなく**、サイドバーのアカウント一覧（`AccountList`）の項目間にだけ使う | 既存 |
+| `--icon-xl`（32・空状態） | UI アイコンは 16／20／24。空状態は 32 も可 | `--icon-sm`・`--icon-md`・`--icon-lg` の 3 つだけ。空状態（`EmptyState`）のアイコンは 24（`icon-lg`）で、32 は使わない。`--icon-xl` は定義しない（使う部品が出た時点で足す） | 既存（定義しない方針を明記） |
+| モバイルの上部バーの左右 padding | `--s-4`（16。トップナビの 16–24 をモバイルにも適用） | `ThreadListPane` の `.head`（アプリ名と「新規作成」）を `padding: var(--s-1) var(--s-4)`（12→16）にし、アプリ名の左の 4px の余白を外した。一覧の行の左右（`--pad-card-sm`＝16）と文字の左端が揃う。最小の高さは `--topbar-h`（52） | 追加 |
+| タブの高さ・padding・項目間 | 高さ 40、左右 padding `--s-3`（12）、項目間 0〜`--s-1`。選択は下線 2px `--accent`、非選択 `--mute`・ホバー `--ink` | `InboxTabs`・`SettingsDialog` のタブを `height: var(--control-h)`（40。下線 2px を含む）・`padding: 0 var(--s-3)`・項目間 `--s-1` にした（以前は縦 padding 8＋本文の行間（16px×1.8）で 40 を超えていた）。選択の下線・色は元から同じ。タッチ UI は `touch.css` の `.tab`（44px）が上書きする。下 4 タブ（`BottomTabs`）はアイコン＋ラベルの別の部品で、最小の高さ `--tabbar-h`（64）・各項目 44 以上 | 追加 |
+| ブレークポイント `--bp-*` と定数名 | `--bp-*` は `@media` の条件に使えない。JS では定数で持ってよい。CSS の `@media` には値を直接書く | `--bp-*` は `tokens.css` に定義しない。JS は `lib/layout.ts` の定数（`BREAKPOINT_MEDIUM`＝`--bp-sm` 640・`BREAKPOINT_WIDE`＝`--bp-lg` 1024。`--bp-md` 768・`--bp-xl` 1280 は使わないので定数も無い）。名前は幅でなく意味（2 ペイン／3 ペイン）で付ける（ガイドの `BP_SM` などは例）。CSS の `@media` は 640px を直接書く（`SettingsInput`・`SearchBar`・`BaseSelect`・`EditorLinkForm`・`AddAccountDialog`）。値のずれは `test/layout/layout.test.ts` が、コンポーネントの `@media (min/max-width)` の幅が 640・1024 以外なら落ちて検出する。最小ウィンドウ幅 960px（Windows）との関係は[逸脱](#逸脱) | 追加（`@media` の幅の検査を足した） |
+
 #### フロントの外にある画面（認可の完了ページ）
 
 OAuth（Google）と Sign in with ChatGPT の `127.0.0.1` 待受が返す完了ページ（`internal/callbackpage`。`oauth`・`siwc` の両方がここを呼ぶ）は、Vue の外の Go 埋め込み HTML なので `styles/tokens.css` を `import` できない。方針は次のとおり。

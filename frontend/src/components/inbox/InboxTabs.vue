@@ -49,8 +49,12 @@ function onSelect(v: string | number): void {
 }
 
 .tab {
+  display: flex;
+  align-items: center;
   flex: none;
-  padding: var(--s-2) var(--s-3);
+  /* ガイドのタブ: 高さ 40（--control-h。下線 2px を含む）・左右 padding --s-3 */
+  height: var(--control-h);
+  padding: 0 var(--s-3);
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
