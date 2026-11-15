@@ -221,7 +221,7 @@ function onKeydown(e: KeyboardEvent): void {
 }
 
 .recipient-disabled {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .recipient-invalid {

@@ -98,7 +98,7 @@ const emit = defineEmits<{ select: [key: string]; open: [open: boolean] }>()
 .menu-shortcut {
   margin-left: var(--s-4);
   color: var(--mute);
-  font-family: inherit;
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
 }
 
@@ -109,9 +109,9 @@ const emit = defineEmits<{ select: [key: string]; open: [open: boolean] }>()
   background: var(--accent-soft);
 }
 
-/* --accent-soft 地の上では --mute が AA 4.5:1 に届かないので --ink にする（ラベルとは文字サイズで区別が残る）。 */
+/* --accent-soft 地の上では --mute が AA 4.5:1 に届かないので --mute-on-soft にする（ラベルとは文字サイズ・書体で区別が残る）。 */
 .menu-item[data-highlighted] .menu-shortcut {
-  color: var(--ink);
+  color: var(--mute-on-soft);
 }
 
 /* リングは外側（offset 2px + 幅 2px = 4px）に描く。スクロール領域（.menu-pop の overflow: auto）の縁で切れないよう、パネルの padding（--s-1 = 4px）で収める。 */

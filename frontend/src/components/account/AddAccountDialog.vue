@@ -228,7 +228,7 @@ async function save(): Promise<void> {
 }
 
 .text:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .error {

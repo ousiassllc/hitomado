@@ -103,7 +103,7 @@ watch(model, () => void nextTick(fit))
 }
 
 .instruction-input:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .instruction-foot {

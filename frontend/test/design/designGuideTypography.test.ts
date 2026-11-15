@@ -32,6 +32,10 @@ describe('桁を揃える文字の Mono（T5・#222）', () => {
       'font-family: var(--font-mono)',
     )
   })
+
+  test('メニュー項目のショートカット表記は --font-mono', () => {
+    expect(rule('ui/BaseMenu.vue', '.menu-shortcut {')).toContain('font-family: var(--font-mono)')
+  })
 })
 
 describe('行間はスケールの値（T3・T4・#227）', () => {

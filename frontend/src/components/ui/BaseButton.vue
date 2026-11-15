@@ -31,6 +31,7 @@ withDefaults(
 
 <style scoped>
 .btn {
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -61,14 +62,26 @@ withDefaults(
   background: var(--accent-soft);
 }
 
-/* 無効（押せない）ボタンだけを薄くする（opacity .4）。送信中など loading のボタンは文字を読ませたいので、色はそのままにする。 */
+/* 無効（押せない）ボタンだけを薄くする（opacity .4）。送信中など loading のボタンは薄くせず、スピナーで処理中を示す。 */
 .btn:disabled:not([aria-busy='true']) {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
+/* loading は寸法を変えない（opacity も掛けない）。ラベルは透明にして幅だけ残し、スピナーを中央に重ねる。 */
 .btn[aria-busy='true'] {
+  color: transparent;
   cursor: progress;
+}
+
+/* 中央寄せは inset + margin: auto（transform は Spinner の回転が使うので使わない）。絶対配置なので高さも幅も増えない。
+   文字色が透明なので、先端はバリアントの通常の文字色、track は同じ色の 25%。 */
+.btn .spinner {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-color: color-mix(in srgb, var(--ink) 25%, transparent);
+  border-top-color: var(--ink);
 }
 
 .btn-primary {
@@ -77,9 +90,9 @@ withDefaults(
   color: var(--bone);
 }
 
-/* 地が --accent なので、Spinner の既定の先端（--accent）は溶けて見えない。文字色 --bone に反転する（大きさは変えない）。 */
+/* 地が --accent なので、先端は文字色と同じ --bone（Spinner の既定の --accent だと溶けて見えない）。 */
 .btn-primary .spinner {
-  border-color: color-mix(in srgb, var(--bone) 30%, transparent);
+  border-color: color-mix(in srgb, var(--bone) 25%, transparent);
   border-top-color: var(--bone);
 }
 
@@ -97,8 +110,27 @@ withDefaults(
   background: var(--danger-soft);
 }
 
+.btn-danger .spinner {
+  border-color: color-mix(in srgb, var(--danger) 25%, transparent);
+  border-top-color: var(--danger);
+}
+
 .btn-ghost {
   background: transparent;
   border-color: transparent;
+}
+
+/* 強制カラーでは文字色が上書きされ透明にできず、文字がスピナーと重なる。色の強制を外して透明を保ち、スピナーは ButtonText で描く。 */
+@media (forced-colors: active) {
+  .btn[aria-busy='true'] {
+    forced-color-adjust: none;
+    background: ButtonFace;
+    border-color: ButtonText;
+  }
+
+  .btn .spinner {
+    border-color: color-mix(in srgb, ButtonText 25%, transparent);
+    border-top-color: ButtonText;
+  }
 }
 </style>
