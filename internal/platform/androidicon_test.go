@@ -79,6 +79,39 @@ func TestAndroidAdaptiveIconForegroundHasNoPrismHaze(t *testing.T) {
 	}
 }
 
+// 古いランチャーアイコン（mipmap）は画像全体がそのままアイコンになるので、アダプティブアイコンの見えている 72dp に当たる。
+// リングの外径は、アダプティブ（108dp のキャンバスで 48dp）と同じ大きさに見えるよう、タイルの 48/72（≒ 0.667）で、
+// 中心はタイルの中心。輪の太さは輪といっしょに拡大している（前景を中央の 72dp で切り出して拡大しているだけ）（#379）。
+func TestAndroidLauncherMipmapRingMatchesAdaptiveIcon(t *testing.T) {
+	res := filepath.Join("..", "..", "build", "android", "app", "src", "main", "res")
+	for density, scale := range map[string]float64{"mdpi": 1, "hdpi": 1.5, "xhdpi": 2, "xxhdpi": 3, "xxxhdpi": 4} {
+		for _, name := range []string{"ic_launcher", "ic_launcher_round"} {
+			b, err := fs.ReadFile(os.DirFS(res), "mipmap-"+density+"/"+name+".png")
+			require.NoError(t, err)
+			img, err := png.Decode(bytes.NewReader(b))
+			require.NoError(t, err)
+			tile := 48 * scale
+			require.EqualValues(t, tile, img.Bounds().Dx(), "%s %s: 48dp のタイル", density, name)
+			require.EqualValues(t, tile, img.Bounds().Dy(), "%s %s", density, name)
+			// リング（インク）は、地（#f5f5f4）よりずっと暗い画素。縁のアンチエイリアスの薄い画素は除く。
+			ring := image.Rectangle{Min: img.Bounds().Max, Max: img.Bounds().Min}
+			for y := range img.Bounds().Dy() {
+				for x := range img.Bounds().Dx() {
+					if c := color.NRGBAModel.Convert(img.At(x, y)).(color.NRGBA); c.A == 255 && c.R < 0x60 {
+						ring.Min.X, ring.Min.Y = min(ring.Min.X, x), min(ring.Min.Y, y)
+						ring.Max.X, ring.Max.Y = max(ring.Max.X, x+1), max(ring.Max.Y, y+1)
+					}
+				}
+			}
+			// 外径がタイルの 48/72。縁の量子化（±1px）と薄い画素の除外を見て、±1.5px（mdpi で約 0.03）の幅で許す。
+			assert.InDelta(t, tile*48/72, float64(ring.Dx()), 1.5, "%s %s: リングの外径（px）", density, name)
+			assert.InDelta(t, tile*48/72, float64(ring.Dy()), 1.5, "%s %s", density, name)
+			assert.InDelta(t, tile/2, float64(ring.Min.X+ring.Max.X)/2, 0.75, "%s %s: 横の中心", density, name)
+			assert.InDelta(t, tile/2, float64(ring.Min.Y+ring.Max.Y)/2, 0.75, "%s %s: 縦の中心", density, name)
+		}
+	}
+}
+
 // 古いランチャーアイコン（mipmap の ic_launcher・ic_launcher_round。端末が使うのはアダプティブだが manifest の参照先）にも、
 // ロゴの「プリズムのかすみ」（紫・青の半透明の層）を含めない（#379）。
 // 絵は Bone（#f5f5f4）の地にインク（#050505）のリングとフラップだけなので、不透明度が 0 でない画素はすべて無彩色
