@@ -8,9 +8,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/store"
-	syncer "github.com/ousiassllc/hitomado/internal/sync"
 )
 
 // accountDTO は store のアカウントをバインディング DTO に変換する。
@@ -62,18 +60,9 @@ func validation(msg string) *apperr.Error { return apperr.New(apperr.Validation,
 
 func logger(d *Deps) *slog.Logger { return (*deps.Deps)(d).Log() }
 
-// gmailErr は Gmail（とその周辺）のエラーを AppError にする。NEEDS_REAUTH はアカウントを要再接続にして
-// account:status を発行する（バインディング仕様 §10）。err は nil でないこと。
+// gmailErr は Gmail（とその周辺）のエラーを AppError にする（実体は deps.Deps.GmailErr）。err は nil でないこと。
 func gmailErr(d *Deps, ctx context.Context, accountID string, err error) *apperr.Error {
-	ae := apperr.FromInfra(err, accountID)
-	if ae.Code == apperr.NeedsReauth && accountID != "" {
-		message := ae.Message
-		if gmail.ReauthReason(err) == gmail.ReasonInvalidGrant {
-			message = syncer.MsgTokenRevoked // 同期周期の経路と同じメッセージにして、画面が原因の案内を出せるようにする
-		}
-		(*deps.Deps)(d).MarkNeedsReauth(ctx, accountID, message, err)
-	}
-	return ae
+	return (*deps.Deps)(d).GmailErr(ctx, accountID, err)
 }
 
 // accountsByID は全アカウントを ID で引ける形で返す。

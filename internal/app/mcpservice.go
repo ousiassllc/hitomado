@@ -14,7 +14,7 @@ import (
 )
 
 // MCPService は内蔵 MCP サーバーの設定・トークン・起動停止（バインディング仕様 §9）。
-// 既定はオフ。オンにしても Bearer トークンが無い接続は拒否する。公開するツールは mcpbackend.go の読み取りと返信下書きの作成だけ。
+// 既定はオフ。オンにしても Bearer トークンが無い接続は拒否する。公開するツールは mcpcore（backend.go）の読み取りと返信下書きの作成だけ。
 type MCPService struct {
 	d      *Deps
 	mgr    *mcpserver.Manager

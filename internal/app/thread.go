@@ -7,6 +7,7 @@ import (
 
 	"github.com/ousiassllc/hitomado/internal/app/appcore"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
+	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/gmail"
@@ -58,33 +59,15 @@ func (s *ThreadService) GetThread(ctx context.Context, ref dto.ThreadRef) (dto.T
 			detail.Labels = append(detail.Labels, l)
 		}
 	}
-	if detail.DraftID, err = findThreadDraft(ctx, s.d, ref.AccountID, ref.ThreadID, tf.Messages); err != nil {
+	if detail.DraftID, err = (*deps.Deps)(s.d).FindThreadDraft(ctx, ref.AccountID, ref.ThreadID, tf.Messages); err != nil {
 		return dto.ThreadDetail{}, err
 	}
 	return detail, nil
 }
 
-// findThreadDraft はスレッドの下書き ID を返す（無ければ空文字）。DRAFT ラベルのメッセージが無ければ下書きは無いので、
-// drafts.list の全ページ走査を避ける。検索に失敗してもスレッドは読めるよう、ctx の取り消し以外のエラーは警告に留める。
-func findThreadDraft(ctx context.Context, d *Deps, accountID, threadID string, msgs []gmail.MessageFull) (string, error) {
-	if !slices.ContainsFunc(msgs, func(m gmail.MessageFull) bool { return slices.Contains(m.LabelIDs, "DRAFT") }) {
-		return "", nil
-	}
-	draftID, ok, err := d.Gmail.FindDraftForThread(ctx, accountID, threadID)
-	switch {
-	case err != nil && ctx.Err() != nil:
-		return "", apperr.FromInfra(ctx.Err(), accountID)
-	case err != nil:
-		logger(d).Warn("スレッドの下書き検索に失敗", "accountId", accountID, "err", err)
-	case ok:
-		return draftID, nil
-	}
-	return "", nil
-}
-
 func threadMessage(m gmail.MessageFull) dto.ThreadMessage {
 	tm := dto.ThreadMessage{
-		ID: m.ID, From: m.From, To: nonNilAddrs(m.To), Cc: nonNilAddrs(m.Cc), Date: m.InternalDate.UnixMilli(),
+		ID: m.ID, From: m.From, To: appcore.NonNilAddrs(m.To), Cc: appcore.NonNilAddrs(m.Cc), Date: m.InternalDate.UnixMilli(),
 		IsUnread: slices.Contains(m.LabelIDs, "UNREAD"), Attachments: m.Attachments,
 	}
 	if tm.Attachments == nil {
