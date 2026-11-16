@@ -8,8 +8,9 @@ import { useUiStore } from '../../stores/ui'
 // 戻せる結果（アーカイブ・ゴミ箱）は別部品のスナックバー（--surface 地 + border・やや長め・「元に戻す」つき）にして、アクション付きの 5 秒出す（ガイド O3）。
 // 失敗の理由・再試行は AlertStack（インラインアラート）に出す。
 const ui = useUiStore()
-const TOAST_MS = 3000
-const SNACKBAR_MS = 5000
+// 表示時間は tokens.css の --toast-duration（3s）・--toast-duration-action（5s）と同じ値（JS で数えるので定数でも持つ。値の一致は designGuideToast.test.ts が検査する）。
+const TOAST_DURATION_MS = 3000
+const TOAST_DURATION_ACTION_MS = 5000
 let timer: ReturnType<typeof setTimeout> | undefined
 
 function stop(): void {
@@ -35,7 +36,7 @@ function startTimer(): void {
   const current = ui.toast
   if (!current) return
   stop()
-  timer = setTimeout(() => ui.dismissToast(current.id), current.action ? SNACKBAR_MS : TOAST_MS)
+  timer = setTimeout(() => ui.dismissToast(current.id), current.action ? TOAST_DURATION_ACTION_MS : TOAST_DURATION_MS)
 }
 
 onBeforeUnmount(stop)

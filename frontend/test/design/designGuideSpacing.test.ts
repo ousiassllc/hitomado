@@ -144,3 +144,13 @@ describe('入れ子パネルの地・末尾の余白・組どうしの間隔（S
     expect(rule('thread/ai/ThreadAiPanel.vue', '.turn {')).toContain('gap: var(--s-2)')
   })
 })
+
+describe('ツールチップの padding（ガイドの 6×10・#286）', () => {
+  test('--tip-pad-y 6px・--tip-pad-x 10px を BaseTooltip が使う', () => {
+    expect(tokens).toMatch(/--tip-pad-y:\s*6px;/)
+    expect(tokens).toMatch(/--tip-pad-x:\s*10px;/)
+    expect(rule('ui/BaseTooltip.vue', ':global(.tip-pop) {')).toContain(
+      'padding: var(--tip-pad-y) var(--tip-pad-x)',
+    )
+  })
+})

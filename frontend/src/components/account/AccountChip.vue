@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { accountColorVar } from '../../lib/palette'
 import BaseChip from '../ui/BaseChip.vue'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 
 withDefaults(
   defineProps<{
@@ -17,9 +18,11 @@ withDefaults(
     class="account-chip"
     :class="`account-chip-${size}`"
     :tint="accountColorVar(account.color)"
-    :title="account.email"
   >
-    <span class="account-chip-name">{{ account.displayName }}</span>
+    <!-- メールが並んで見えるときは足さない。ツールチップは名前の span に付け、BaseChip のルート（親の scoped class）はそのまま保つ。 -->
+    <BaseTooltip :text="showEmail ? undefined : account.email">
+      <span class="account-chip-name">{{ account.displayName }}</span>
+    </BaseTooltip>
     <span v-if="showEmail" class="account-chip-email">{{ account.email }}</span>
   </BaseChip>
 </template>

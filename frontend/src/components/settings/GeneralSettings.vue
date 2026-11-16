@@ -261,7 +261,7 @@ function openUpdate(): void {
 }
 
 .path {
-  font-family: var(--font-mono), var(--font-sans);
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 </style>

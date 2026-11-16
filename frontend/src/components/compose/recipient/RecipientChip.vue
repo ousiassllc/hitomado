@@ -5,6 +5,7 @@ import type { Address } from '../../../../bindings/github.com/ousiassllc/hitomad
 import { compose as msg } from '../../../lib/messages'
 import { addressLabel, isLikelyEmail } from '../../../lib/recipients'
 import { spawn, vRipple } from '../../../lib/ripple'
+import BaseTooltip from '../../ui/BaseTooltip.vue'
 
 const props = defineProps<{
   address: Address
@@ -24,20 +25,22 @@ function rippleFromHitArea(ev: PointerEvent): void {
 </script>
 
 <template>
-  <span class="chip" :class="{ 'chip-invalid': invalid }" :title="invalid ? msg.fields.invalidAddress : undefined">
-    <WarningTriangle v-if="invalid" class="icon icon-sm chip-icon" aria-hidden="true" />
-    <span class="chip-text">{{ addressLabel(address) }}</span>
-    <button
-      type="button"
-      class="chip-remove"
-      :aria-label="msg.fields.removeRecipient(address.email)"
-      :disabled="disabled"
-      @pointerdown.self="rippleFromHitArea"
-      @click.stop="$emit('remove')"
-    >
-      <span ref="face" v-ripple class="chip-remove-face"><Xmark class="icon icon-sm" aria-hidden="true" /></span>
-    </button>
-  </span>
+  <BaseTooltip :text="invalid ? msg.fields.invalidAddress : undefined">
+    <span class="chip" :class="{ 'chip-invalid': invalid }">
+      <WarningTriangle v-if="invalid" class="icon icon-sm chip-icon" aria-hidden="true" />
+      <span class="chip-text">{{ addressLabel(address) }}</span>
+      <button
+        type="button"
+        class="chip-remove"
+        :aria-label="msg.fields.removeRecipient(address.email)"
+        :disabled="disabled"
+        @pointerdown.self="rippleFromHitArea"
+        @click.stop="$emit('remove')"
+      >
+        <span ref="face" v-ripple class="chip-remove-face"><Xmark class="icon icon-sm" aria-hidden="true" /></span>
+      </button>
+    </span>
+  </BaseTooltip>
 </template>
 
 <style scoped>

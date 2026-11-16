@@ -292,7 +292,7 @@ async function copy(text: string): Promise<void> {
 }
 
 .path {
-  font-family: var(--font-mono), var(--font-sans);
+  font-family: var(--font-mono);
   overflow-wrap: anywhere;
 }
 

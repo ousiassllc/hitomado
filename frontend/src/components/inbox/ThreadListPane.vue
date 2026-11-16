@@ -138,18 +138,18 @@ async function toggleLabel(labelId: string): Promise<void> {
   border-right: 1px solid var(--border);
 }
 
+/* スマホの上部バー: 左右 padding は --s-4（ガイド。行の左右 --pad-card-sm と同じ 16 に揃う） */
 .head {
   display: flex;
   align-items: center;
   gap: var(--s-2);
   min-height: var(--topbar-h);
-  padding: var(--s-1) var(--s-3);
+  padding: var(--s-1) var(--s-4);
   border-bottom: 1px solid var(--border);
 }
 
 .app-name {
   flex: 1;
-  padding-left: var(--s-1);
   font-size: var(--font-size-base);
 }
 </style>

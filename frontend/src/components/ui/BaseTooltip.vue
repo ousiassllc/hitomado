@@ -27,8 +27,7 @@ const platform = usePlatformStore()
 <style scoped>
 /* Popper 本体には scoped 属性が付かない（BaseSelect.vue の .sel-pop と同じ）ので :global で当てる。 */
 :global(.tip-pop) {
-  /* ガイドの 6×10。--s-* に 6・10 が無いので px で書く（トークン化はガイド側へ提案）。 */
-  padding: 6px 10px;
+  padding: var(--tip-pad-y) var(--tip-pad-x);
   border-radius: var(--r-sm);
   background: var(--ink);
   color: var(--bone);

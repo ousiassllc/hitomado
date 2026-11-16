@@ -101,7 +101,7 @@ const label = computed(() => msg.open(props.account?.displayName ?? '', recipien
 .date {
   flex: none;
   color: var(--row-mute);
-  font-family: var(--font-mono), var(--font-sans);
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
 }
 

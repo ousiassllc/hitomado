@@ -101,26 +101,19 @@ const popRef = overlayScrollRef(undefined, '.menu-pop')
 .menu-shortcut {
   margin-left: var(--s-4);
   color: var(--mute);
-  font-family: inherit;
+  font-family: var(--font-mono);
   font-size: var(--font-size-xs);
 }
 
-/* 強調（data-highlighted）は reka がポインタの移動でも付けるので、ホバーは地だけにする（M1）。
-   reka は強調した項目に実際の DOM フォーカスも当てる（ポインタ移動でも .focus() する）ので、
-   キーボードの強調はブラウザの :focus-visible の判定でリングを足す。 */
+/* 強調（data-highlighted）は reka がポインタの移動でもキーボードでも付ける。選択は --accent-soft の地だけで示し、行にリングは付けない
+   （reka は強調した項目に DOM フォーカスも当てるが、フォーカスはメニュー全体のもの。.menu-item は outline: none のまま）。 */
 .menu-item[data-highlighted] {
   background: var(--accent-soft);
 }
 
-/* --accent-soft 地の上では --mute が AA 4.5:1 に届かないので --ink にする（ラベルとは文字サイズで区別が残る）。 */
+/* --accent-soft 地の上では --mute が AA 4.5:1 に届かないので --mute-on-soft にする（ラベルとは文字サイズ・書体で区別が残る）。 */
 .menu-item[data-highlighted] .menu-shortcut {
-  color: var(--ink);
-}
-
-/* リングは外側（offset 2px + 幅 2px = 4px）に描く。スクロール領域（.menu-pop の overflow: auto）の縁で切れないよう、パネルの padding（--s-1 = 4px）で収める。 */
-.menu-item[data-highlighted]:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  color: var(--mute-on-soft);
 }
 
 .menu-item[data-disabled] {
