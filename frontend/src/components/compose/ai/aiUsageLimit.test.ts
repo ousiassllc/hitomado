@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { features } from '../../../../test/aiConfigKit'
 import { isUsageLimit, useAiDraft } from '../../../composables/useAiDraft'
 import { useSettingsStore } from '../../../stores/settings'
 import AiDraftButton from './AiDraftButton.vue'
@@ -83,10 +84,7 @@ describe('利用枠の超過（#80）', () => {
   test('AiDraftButton: 超過すると案内が出て、Manage usage で使用状況の画面を開く（失敗メッセージだけにしない）', async () => {
     const store = useSettingsStore()
     store.aiConfig = {
-      provider: 'chatgpt',
-      model: 'gpt-plan',
-      configured: true,
-      hasApiKey: true,
+      features: features({ provider: 'chatgpt', model: 'gpt-plan' }),
       apiKeyProviders: [],
       consentedProviders: ['chatgpt'],
       chatgptSignedIn: true,
@@ -112,10 +110,7 @@ describe('利用枠の超過（#80）', () => {
   test('AiDraftButton: 生成中にアンマウント（作成セッションを閉じる）すると CancelGenerate を 1 回呼び、後から届いた結果は挿入しない。生成中でなければ呼ばない', async () => {
     const store = useSettingsStore()
     store.aiConfig = {
-      provider: 'chatgpt',
-      model: 'gpt-plan',
-      configured: true,
-      hasApiKey: true,
+      features: features({ provider: 'chatgpt', model: 'gpt-plan' }),
       apiKeyProviders: [],
       consentedProviders: ['chatgpt'],
       chatgptSignedIn: true,

@@ -123,10 +123,11 @@ describe('AiDraftButton の無効の理由（#264）', () => {
   test('キー未設定のとき、ボタンに title を付けず、aria-describedby で見えている .ai-note につなぐ', () => {
     const store = useSettingsStore()
     store.aiConfig = {
-      provider: 'openai',
-      model: 'gpt',
-      configured: true,
-      hasApiKey: false,
+      features: {
+        draft: { provider: 'openai', model: 'gpt' },
+        threadAi: { provider: '', model: '' },
+        inboxZero: { provider: '', model: '' },
+      },
       apiKeyProviders: [],
       consentedProviders: [],
       chatgptSignedIn: false,
@@ -144,11 +145,12 @@ describe('AiDraftButton の無効の理由（#264）', () => {
   test('使えるときは aria-describedby も .ai-note も出さない', () => {
     const store = useSettingsStore()
     store.aiConfig = {
-      provider: 'openai',
-      model: 'gpt',
-      configured: true,
-      hasApiKey: true,
-      apiKeyProviders: [],
+      features: {
+        draft: { provider: 'openai', model: 'gpt' },
+        threadAi: { provider: '', model: '' },
+        inboxZero: { provider: '', model: '' },
+      },
+      apiKeyProviders: ['openai'],
       consentedProviders: ['openai'],
       chatgptSignedIn: false,
       chatgptAccounts: [],

@@ -2,6 +2,7 @@
 import { computed, nextTick, onMounted, ref, useId, watch } from 'vue'
 import { instructionLength, MAX_INSTRUCTION_CHARS } from '../../../lib/aiInstruction'
 import { compose as msg } from '../../../lib/messages'
+import { vOverlayScroll } from '../../../lib/overlayScroll'
 
 // 「AI への指示」の入力欄（F-08。#109）。内容に応じて 2〜6 行まで伸び、超えたら内部スクロールする。
 // 値は呼び出し側（composeStore の作成セッション）が持つ。ここでは保存しない。
@@ -46,6 +47,7 @@ watch(model, () => void nextTick(fit))
     <textarea
       :id="inputId"
       ref="area"
+      v-overlay-scroll
       v-model="model"
       class="instruction-input"
       :rows="MIN_ROWS"

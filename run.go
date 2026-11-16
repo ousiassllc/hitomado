@@ -101,7 +101,7 @@ func run() error {
 	var quitter *platform.Quitter
 	var tray *platform.Tray
 	if caps.SupportsTray {
-		tray, err = platform.NewTray(wapp, win, appIcon, func() { quitter.Request() })
+		tray, err = platform.NewTray(wapp, win, func() { quitter.Request() })
 		if err != nil {
 			return err
 		}
@@ -159,7 +159,7 @@ func run() error {
 		AIModels: func(ctx context.Context, provider, baseURL, credential string) ([]ai.ModelInfo, error) {
 			return ai.ListModels(ctx, provider, baseURL, credential, nil)
 		},
-		Classifier: ai.NewClassifier,
+		Classifier: ai.NewClassifierFor,
 		ChatGPT: siwc.New(siwc.Options{
 			OpenBrowser: platform.NewBrowser(wapp).Open, Secrets: sec, Settings: st, Clock: clk, Logger: logger,
 		}),

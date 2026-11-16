@@ -11,6 +11,7 @@ import {
   SelectValue,
   SelectViewport,
 } from 'reka-ui'
+import { overlayScrollRef } from '../../lib/overlayScroll'
 
 export interface SelectOption {
   value: string
@@ -24,6 +25,7 @@ defineProps<{
   ariaLabel: string
 }>()
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
+const viewportRef = overlayScrollRef()
 </script>
 
 <template>
@@ -34,7 +36,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
     </SelectTrigger>
     <SelectPortal>
       <SelectContent class="sel-pop" position="popper" :side-offset="4">
-        <SelectViewport class="sel-viewport">
+        <SelectViewport :ref="viewportRef" class="sel-viewport">
           <SelectItem v-for="o in options" :key="o.value" :value="o.value" class="sel-item">
             <SelectItemText>{{ o.label }}</SelectItemText>
             <SelectItemIndicator class="sel-check"><Check class="icon icon-sm" aria-hidden="true" /></SelectItemIndicator>
@@ -126,25 +128,8 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 }
 
 /* SelectViewport は reka が描画時に [data-reka-select-viewport] へ scrollbar-width: none と ::-webkit-scrollbar { display: none } を注入する。
-   これだと max-height（280px）を超えてもバーが出ない（§10・B6）。属性を足して詳細度を上げ、scrollbar.css と同じ構造で戻す。 */
-@media (forced-colors: none) {
-  :global(.sel-viewport[data-reka-select-viewport]) {
-    scrollbar-width: thin;
-    scrollbar-color: var(--mute) transparent;
-  }
-
-  @supports selector(::-webkit-scrollbar) {
-    :global(.sel-viewport[data-reka-select-viewport]) {
-      scrollbar-width: auto;
-      scrollbar-color: auto;
-    }
-
-    :global(.sel-viewport[data-reka-select-viewport]::-webkit-scrollbar) {
-      display: block;
-    }
-  }
-}
-
+   通常（Windows・macOS）はそのまま使う: ネイティブのバーは隠れ、v-overlay-scroll（overlayScrollRef）が重ねて出すバーを描く（#378）。
+   OS のバーを出す場所（Android のタッチ UI は OS の重ねて出るバー、ハイコントラストはいつも出したまま）は、属性を足して詳細度を上げ、reka の隠す指定を戻す。 */
 @media (forced-colors: active) {
   :global(.sel-viewport[data-reka-select-viewport]) {
     scrollbar-width: auto;
@@ -153,6 +138,14 @@ const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
   :global(.sel-viewport[data-reka-select-viewport]::-webkit-scrollbar) {
     display: block;
   }
+}
+
+:global(:root[data-touch-ui] .sel-viewport[data-reka-select-viewport]) {
+  scrollbar-width: auto;
+}
+
+:global(:root[data-touch-ui] .sel-viewport[data-reka-select-viewport]::-webkit-scrollbar) {
+  display: block;
 }
 
 .sel-item[data-highlighted]:focus-visible {

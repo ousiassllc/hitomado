@@ -3,20 +3,16 @@ package aicore
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"slices"
 	"strings"
 	"sync"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/deps"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/secrets"
-	"github.com/ousiassllc/hitomado/internal/store"
 )
 
 // AI プロバイダ名（API §6 の AIProvider）。
@@ -24,14 +20,10 @@ const (
 	providerAnthropic = "anthropic"
 	providerOpenAI    = "openai"
 	providerChatGPT   = "chatgpt" // Sign in with ChatGPT（利用者自身の ChatGPT プラン。Responses API）
-	// providerTypeSafe は TypeSafe AI（Jev。#314）。文章を書かない分類用のモデルで、Inbox Zero の判定（FindInboxZeroCandidates）だけに使う。
-	// 返信下書き・要約・質問には使えない（validProvider の外）。API キーと同意（件名・差出人・本文の先頭の送信）は持つ（validSendProvider）。
+	// providerTypeSafe は TypeSafe AI（Jev。#314）。文章を書かない分類用のモデルで、Inbox Zero の判定だけに使える（モデルは選ばない）。
+	// 「AI で下書き」・要約・質問には使えない（validProvider の外）。API キーと同意（件名・差出人・本文の先頭の送信）は持つ（validSendProvider）。
 	providerTypeSafe = "typesafe"
 )
-
-// defaultProvider は AI の設定をまだ保存していないときのプロバイダ（利用者自身の ChatGPT プラン。#104）。
-// 画面の既定もこの値に揃える（GetAIConfig の provider をそのまま使う）。保存済みのプロバイダは変えない。
-const defaultProvider = providerChatGPT
 
 // aiGenerateTimeout はプロバイダ呼び出しのタイムアウト（API §6）。
 const aiGenerateTimeout = 60 * time.Second
@@ -82,16 +74,7 @@ func New(d *deps.Deps, sessions SessionLookup, opts ...Option) *Service {
 	return s
 }
 
-// storedAIConfig は app_settings の ai.config（ER §3.9）。
-type storedAIConfig struct {
-	Provider string `json:"provider"`
-	Model    string `json:"model"`
-	BaseURL  string `json:"baseUrl,omitempty"`
-	// Effort はモデルのエフォート（#111）。「モデルの既定」はキー自体を書かない。範囲外の保存値は loadConfigState が空にする。
-	Effort string `json:"effort,omitempty"`
-}
-
-// validProvider は返信下書き・要約・質問に使えるプロバイダか（AI 設定の provider・モデル一覧）。
+// validProvider は文章を書く AI（「AI で下書き」・要約・質問）に使えるプロバイダか（モデル一覧もこの範囲）。
 func validProvider(p string) bool {
 	return p == providerAnthropic || p == providerOpenAI || p == providerChatGPT
 }
@@ -99,35 +82,6 @@ func validProvider(p string) bool {
 // validSendProvider はメールの内容の送信先になり得るプロバイダ（API キーの登録・同意の対象）か。validProvider に TypeSafe AI を足したもの。
 func validSendProvider(p string) bool {
 	return validProvider(p) || p == providerTypeSafe
-}
-
-// loadConfig は AI 設定を返す。未保存（または保存値が壊れている・未知のプロバイダ）のときは defaultProvider の既定値。
-func (s *Service) loadConfig(ctx context.Context) (storedAIConfig, error) {
-	cfg, _, err := s.loadConfigState(ctx)
-	return cfg, err
-}
-
-// loadConfigState は loadConfig に加えて、AI 設定を保存済みか（有効なプロバイダを持つ値が app_settings にあるか）を返す。
-func (s *Service) loadConfigState(ctx context.Context) (cfg storedAIConfig, saved bool, err error) {
-	cfg = storedAIConfig{Provider: defaultProvider}
-	v, ok, err := s.d.Store.GetSetting(ctx, store.SettingAIConfig)
-	if err != nil {
-		return cfg, false, apperr.FromInfra(err, "")
-	}
-	if !ok {
-		return cfg, false, nil
-	}
-	if err := json.Unmarshal([]byte(v), &cfg); err != nil {
-		return storedAIConfig{Provider: defaultProvider}, false, apperr.Wrap(apperr.Internal, "AI 設定を読み込めません。", err)
-	}
-	if !validProvider(cfg.Provider) {
-		return storedAIConfig{Provider: defaultProvider}, false, nil
-	}
-	// 範囲外の保存値（手で書き換えられた値）は無視して「モデルの既定」として扱い、プロバイダへ送らない。
-	if !ai.ValidEffort(cfg.Provider, cfg.Effort) {
-		cfg.Effort = ""
-	}
-	return cfg, true, nil
 }
 
 // apiKey は資格情報ストアの API キー。未設定は ok=false。
@@ -143,11 +97,15 @@ func (s *Service) apiKey(provider string) (key string, ok bool, err error) {
 }
 
 func (s *Service) config(ctx context.Context) (dto.AIConfig, error) {
-	cfg, configured, err := s.loadConfigState(ctx)
+	conn, err := s.loadConnection(ctx)
 	if err != nil {
 		return dto.AIConfig{}, err
 	}
-	consented, err := s.loadConsent(ctx, cfg)
+	features, err := s.loadFeatures(ctx)
+	if err != nil {
+		return dto.AIConfig{}, err
+	}
+	consented, err := s.loadConsent(ctx, conn.OpenAIBaseURL)
 	if err != nil {
 		return dto.AIConfig{}, err
 	}
@@ -165,62 +123,23 @@ func (s *Service) config(ctx context.Context) (dto.AIConfig, error) {
 			keyed = append(keyed, p)
 		}
 	}
-	has := gpt.SignedIn
-	if cfg.Provider != providerChatGPT {
-		has = slices.Contains(keyed, cfg.Provider)
-	}
 	return dto.AIConfig{
-		Provider: cfg.Provider, Model: cfg.Model, BaseURL: cfg.BaseURL, Effort: cfg.Effort, Configured: configured, HasAPIKey: has,
+		BaseURL: conn.OpenAIBaseURL, Features: features.dto(),
 		APIKeyProviders: keyed, ConsentedProviders: consented,
 		ChatGPTSignedIn: gpt.SignedIn, ChatGPTEmail: gpt.Email, ChatGPTAccounts: chatGPTAccounts(gpt),
 	}, nil
 }
 
-// GetAIConfig は AI 設定を返す（API キー自体は返さない）。
+// GetAIConfig は AI 設定（つなぎ先の状態と、機能ごとに使う AI）を返す（API キー自体は返さない）。
 func (s *Service) GetAIConfig(ctx context.Context) (dto.AIConfig, error) { return s.config(ctx) }
 
 func errBadProvider() error {
-	return apperr.New(apperr.Validation, "AI プロバイダが正しくありません（anthropic・openai・chatgpt のいずれか）。")
+	return apperr.New(apperr.Validation, "AI プロバイダが正しくありません（anthropic・openai・chatgpt・typesafe のいずれか）。")
 }
 
 // errChatGPTNoKey は chatgpt に API キー操作が来たときのエラー（ChatGPT ではログインでトークンを得る）。
 func errChatGPTNoKey() error {
 	return apperr.New(apperr.Validation, "ChatGPT のプランは API キーを使いません。「Continue with ChatGPT」でログインしてください。")
-}
-
-// SetAIConfig は AI 設定を更新する。baseUrl は openai のみ有効で、http(s) の URL を要する
-// （userinfo・query・fragment は拒否。anthropic のときは無視して保存しない）。
-// effort（#111）は省略・空で「モデルの既定」（キーを書かない）。指定できるのはプロバイダごとの段階だけで、範囲外は VALIDATION。
-// モデルとの組み合わせは確かめない（確かめるのは画面。生成時にプロバイダが拒否したら AI_FAILED）。渡さなければ前の値は引き継がず「既定」に戻る。
-func (s *Service) SetAIConfig(ctx context.Context, provider, model, baseURL, effort string) (dto.AIConfig, error) {
-	if !validProvider(provider) {
-		return dto.AIConfig{}, errBadProvider()
-	}
-	effort = strings.TrimSpace(effort)
-	if effort != "" && !ai.ValidEffort(provider, effort) {
-		return dto.AIConfig{}, apperr.New(apperr.Validation, "エフォートが正しくありません。")
-	}
-	baseURL = strings.TrimSpace(baseURL)
-	if provider != providerOpenAI {
-		baseURL = ""
-	}
-	if baseURL != "" {
-		if err := validateBaseURL(baseURL); err != nil {
-			return dto.AIConfig{}, err
-		}
-	}
-	b, err := json.Marshal(storedAIConfig{Provider: provider, Model: strings.TrimSpace(model), BaseURL: baseURL, Effort: effort})
-	if err != nil {
-		return dto.AIConfig{}, apperr.Wrap(apperr.Internal, "AI 設定を保存できません。", err)
-	}
-	if err := s.d.Store.SetSetting(ctx, store.SettingAIConfig, string(b)); err != nil {
-		return dto.AIConfig{}, apperr.FromInfra(err, "")
-	}
-	// 送信先（Base URL のホスト）が変わったプロバイダの同意は無効にする。API キーは維持する。
-	if err := s.pruneConsent(ctx, storedAIConfig{Provider: provider, Model: model, BaseURL: baseURL}); err != nil {
-		return dto.AIConfig{}, err
-	}
-	return s.config(ctx)
 }
 
 // SetAIApiKey は API キーを資格情報ストアへ保存する（NF-S01）。キーはログに出さない。

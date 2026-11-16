@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import type { NewDraftContext } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { features } from '../../../../test/aiConfigKit'
 import { compose as msg } from '../../../lib/messages'
 import { useComposeStore } from '../../../stores/compose'
 import { useSettingsStore } from '../../../stores/settings'
@@ -20,10 +21,7 @@ type NewCall = { sessionId: string; instruction: string; content: NewDraftContex
 function mountNew(consented = true) {
   const settings = useSettingsStore()
   settings.aiConfig = {
-    provider: 'anthropic',
-    model: 'claude-x',
-    configured: true,
-    hasApiKey: true,
+    features: features({ provider: 'anthropic', model: 'claude-x' }),
     apiKeyProviders: ['anthropic'],
     consentedProviders: consented ? ['anthropic'] : [],
     chatgptSignedIn: false,
@@ -126,10 +124,7 @@ describe('新規作成の「AI で下書き」（#365）', () => {
   test('返信では指示は任意のまま（空でも生成する。generateNewDraft は呼ばない）', async () => {
     const settings = useSettingsStore()
     settings.aiConfig = {
-      provider: 'anthropic',
-      model: 'claude-x',
-      configured: true,
-      hasApiKey: true,
+      features: features({ provider: 'anthropic', model: 'claude-x' }),
       apiKeyProviders: ['anthropic'],
       consentedProviders: ['anthropic'],
       chatgptSignedIn: false,

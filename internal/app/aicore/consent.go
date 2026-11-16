@@ -91,21 +91,21 @@ func destination(provider, baseURL string) string {
 	return provider + "|" + defaultAnthropicHost
 }
 
-// currentBaseURL は現在の設定での provider の Base URL（Base URL を持つのは openai のみ）。
-func currentBaseURL(cfg storedAIConfig, provider string) string {
+// currentBaseURL は provider の送信先の Base URL（Base URL を持つのは openai のみ。openaiBaseURL は保存済みのつなぎ先の設定）。
+func currentBaseURL(openaiBaseURL, provider string) string {
 	if provider == providerOpenAI {
-		return cfg.BaseURL
+		return openaiBaseURL
 	}
 	return ""
 }
 
-// valid は同意が現在の設定の送信先に対するものか。
+// valid は同意が現在のつなぎ先（openaiBaseURL は OpenAI 互換の Base URL）の送信先に対するものか。
 // 現在の Base URL が使えない（保存済みの旧設定の非 loopback http:// など）ときは無効とする。
-func (e consentEntry) valid(cfg storedAIConfig) bool {
+func (e consentEntry) valid(openaiBaseURL string) bool {
 	if !validSendProvider(e.Provider) {
 		return false
 	}
-	cur := currentBaseURL(cfg, e.Provider)
+	cur := currentBaseURL(openaiBaseURL, e.Provider)
 	if cur != "" && ai.ValidateBaseURL(cur) != nil {
 		return false
 	}
@@ -150,28 +150,28 @@ func (s *Service) saveConsentEntries(ctx context.Context, entries []consentEntry
 	return nil
 }
 
-// loadConsent は現在の設定（送信先）に対して有効な同意済みプロバイダを返す。
-func (s *Service) loadConsent(ctx context.Context, cfg storedAIConfig) ([]string, error) {
+// loadConsent は現在のつなぎ先（送信先）に対して有効な同意済みプロバイダを返す。
+func (s *Service) loadConsent(ctx context.Context, openaiBaseURL string) ([]string, error) {
 	entries, err := s.loadConsentEntries(ctx)
 	out := []string{}
 	if err != nil {
 		return out, err
 	}
 	for _, e := range entries {
-		if e.valid(cfg) {
+		if e.valid(openaiBaseURL) {
 			out = append(out, e.Provider)
 		}
 	}
 	return out, nil
 }
 
-// pruneConsent は現在の設定の送信先と合わない同意（Base URL が変わったもの）を保存から外す。
-func (s *Service) pruneConsent(ctx context.Context, cfg storedAIConfig) error {
+// pruneConsent は現在のつなぎ先の送信先と合わない同意（Base URL が変わったもの）を保存から外す。
+func (s *Service) pruneConsent(ctx context.Context, openaiBaseURL string) error {
 	entries, err := s.loadConsentEntries(ctx)
 	if err != nil {
 		return err
 	}
-	kept := slices.DeleteFunc(slices.Clone(entries), func(e consentEntry) bool { return !e.valid(cfg) })
+	kept := slices.DeleteFunc(slices.Clone(entries), func(e consentEntry) bool { return !e.valid(openaiBaseURL) })
 	if len(kept) == len(entries) {
 		return nil
 	}
@@ -179,7 +179,7 @@ func (s *Service) pruneConsent(ctx context.Context, cfg storedAIConfig) error {
 }
 
 // hasConsent は provider を baseURL（openai のみ有効。空は既定の送信先）の送信先へ使うことに同意済みか。
-// 保存済みの設定には依らない（保存前のプロバイダ・Base URL に対する同意の確認に使う）。使えない Base URL は未同意として扱う。
+// 保存済みのつなぎ先の設定には依らない（渡された Base URL に対する同意の確認に使う）。使えない Base URL は未同意として扱う。
 func (s *Service) hasConsent(ctx context.Context, provider, baseURL string) (bool, error) {
 	if baseURL != "" && ai.ValidateBaseURL(baseURL) != nil {
 		return false, nil
@@ -193,8 +193,8 @@ func (s *Service) hasConsent(ctx context.Context, provider, baseURL string) (boo
 }
 
 // RecordAIConsent は「スレッド内容が当該プロバイダ・送信先へ送信される」ことへの同意を保存する（F-08）。
-// baseURL は openai のみ有効で、空は既定の送信先。保存済みの設定の送信先ではなく、渡された送信先に対する同意を記録する
-// （設定を保存する前に、選んだプロバイダ・Base URL に同意できるようにする。#105）。使えない Base URL は VALIDATION。
+// baseURL は openai のみ有効で、空は既定の送信先。保存済みのつなぎ先の送信先ではなく、渡された送信先に対する同意を記録する
+// （Base URL を保存する前でも、選んだプロバイダ・Base URL に同意できる。#105）。使えない Base URL は VALIDATION。
 // 同意は「プロバイダ＋送信先」ごとに 1 件で、ほかの送信先の同意は消さない。
 func (s *Service) RecordAIConsent(ctx context.Context, provider, baseURL string) (dto.AIConfig, error) {
 	if !validSendProvider(provider) {

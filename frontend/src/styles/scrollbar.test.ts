@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 
-// Ousiass デザインガイド（§10）のトークンで描くスクロールバー（#208・#289）。値は scrollbar.css から確かめる。
+// Ousiass デザインガイド（§10）のトークンで描く、重ねて出すバーが付かない領域の既定のスクロールバー（#208・#289）。重ねて出す本体は overlayScroll.css（overlayScroll.test.ts）。値は scrollbar.css から確かめる。
 const raw = await Bun.file(new URL('./scrollbar.css', import.meta.url)).text()
 const css = raw.replace(/\/\*[\s\S]*?\*\//g, '')
 const app = await Bun.file(new URL('../App.vue', import.meta.url)).text()
@@ -17,9 +17,16 @@ function block(source: string, opener: RegExp): string {
   throw new Error(`閉じていない: ${opener}`)
 }
 
+const TOUCH_GUARD = ':root:not([data-touch-ui]) '
 const forcedColorsNone = block(css, /@media\s*\(forced-colors:\s*none\)\s*\{/)
-const supports = block(forcedColorsNone, /@supports\s+selector\(::-webkit-scrollbar\)\s*\{/)
-const outsideSupports = forcedColorsNone.replace(supports, '')
+const supportsWithGuard = block(
+  forcedColorsNone,
+  /@supports\s+selector\(::-webkit-scrollbar\)\s*\{/,
+)
+const outsideSupportsWithGuard = forcedColorsNone.replace(supportsWithGuard, '')
+// 詳細は :root:not([data-touch-ui]) を外して見る（外す前の形は「タッチ UI に指定しない」のテストが確かめる）
+const supports = supportsWithGuard.replaceAll(TOUCH_GUARD, '')
+const outsideSupports = outsideSupportsWithGuard.replaceAll(TOUCH_GUARD, '')
 
 describe('scrollbar.css', () => {
   test('カスタムはすべて @media (forced-colors: none) の中に置く（ハイコントラストでは OS の配色に任せる）', () => {
@@ -31,8 +38,17 @@ describe('scrollbar.css', () => {
     ).toBe('')
   })
 
-  test('* に細いスクロールバーを指定する（scrollbar-width は継承されないので :root だけでは非ルートの領域に効かない）', () => {
+  test('* に細いスクロールバーを指定する（scrollbar-width は継承されないので :root だけでは非ルートの領域に効かない）。Android のタッチ UI は除く', () => {
     expect(outsideSupports).toMatch(/\*\s*\{[^}]*scrollbar-width:\s*thin;/)
+  })
+
+  test('Android のタッチ UI（html[data-touch-ui]）には何も指定しない（OS の重ねて出るスクロールバーを使う。#378）', () => {
+    const selectors = [...forcedColorsNone.matchAll(/([^{}@]+)\{/g)]
+      .flatMap((m) => m[1].split(','))
+      .map((sel) => sel.trim())
+      .filter((sel) => sel && !sel.startsWith('supports '))
+    expect(selectors.length).toBeGreaterThan(0)
+    for (const sel of selectors) expect(sel.startsWith(TOUCH_GUARD.trim())).toBe(true)
   })
 
   test('つまみ・溝の色はトークンで指定し、色値は直書きしない（ライト／ダークはトークン側が切り替える）', () => {

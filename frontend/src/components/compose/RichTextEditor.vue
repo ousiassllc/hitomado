@@ -3,6 +3,7 @@ import { Bold, Link, List } from '@iconoir/vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import { onBeforeUnmount, ref, watch } from 'vue'
 import { compose as msg } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { cleanRichHtml } from '../../lib/richtext'
 import { ensureLeadingParagraph } from '../../lib/signature'
 import BaseIconButton from '../ui/BaseIconButton.vue'
@@ -142,7 +143,7 @@ onBeforeUnmount(() => editor.value?.destroy())
         @cancel="closeLink"
       />
     </Transition>
-    <EditorContent :editor="editor" class="rte-body" />
+    <EditorContent v-overlay-scroll :editor="editor" class="rte-body" />
   </div>
 </template>
 

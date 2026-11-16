@@ -5,6 +5,7 @@ import { computed, nextTick, ref, watch } from 'vue'
 import type { ThreadRef, ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { keyOf, rowHeightOf } from '../../lib/inboxItems'
 import { common } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { useAccountsStore } from '../../stores/accounts'
 import BaseButton from '../ui/BaseButton.vue'
 import EmptyState from '../ui/EmptyState.vue'
@@ -100,7 +101,7 @@ function onKeydown(ev: KeyboardEvent): void {
 <template>
   <!-- 枠（.frame）の中に、スクロール領域（.list）を置く。.list の中に、option だけを持つ listbox（.inner）と、その外の兄弟として読み込み中・空表示・「さらに読み込む」を置く（listbox の子は option だけ）。フォーカスリングはスクロールしない .frame の ::after に描く -->
   <div class="frame">
-    <div ref="scroller" class="list">
+    <div ref="scroller" v-overlay-scroll="{ fade: 'var(--surface)' }" class="list">
       <div v-if="loading && items.length === 0" class="state"><Spinner /></div>
       <div v-else-if="items.length === 0" class="state">
         <EmptyState>

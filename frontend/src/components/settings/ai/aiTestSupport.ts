@@ -4,6 +4,7 @@ import type {
   AIConfig,
   AIModelList,
 } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { features } from '../../../../test/aiConfigKit'
 import { aiModelsKey } from '../../../lib/aiConfig'
 import { useSettingsStore } from '../../../stores/settings'
 import AISettings from './AISettings.vue'
@@ -11,10 +12,7 @@ import AISettings from './AISettings.vue'
 export { flushPromises }
 
 export const base: AIConfig = {
-  provider: 'openai',
-  model: 'gpt-old',
-  configured: true,
-  hasApiKey: true,
+  features: features({ provider: 'openai', model: 'gpt-old' }),
   apiKeyProviders: ['openai'],
   consentedProviders: ['openai'],
   chatgptSignedIn: false,
@@ -47,25 +45,19 @@ export function setup(
   return { pinia, store, calls, loads }
 }
 
-/**
- * プロバイダの設定ページ（AISettings）を開く。一覧から開くのと同じく、既定は保存済み（未保存・未読み込みは ChatGPT）の
- * プロバイダのページ。別のプロバイダのページは `switchProvider` で開き直す（一覧から別のプロバイダを選んだのと同じ）。
- */
-export const mountAI = (pinia: ReturnType<typeof createPinia>, provider?: string) =>
+/** プロバイダの「つなぎ先」のページ（AISettings）を開く。既定は OpenAI 互換。 */
+export const mountAI = (pinia: ReturnType<typeof createPinia>, provider = 'openai') =>
   mount(AISettings, {
-    props: { provider: provider ?? useSettingsStore().aiConfig?.provider ?? 'chatgpt' },
+    props: { provider },
     global: { plugins: [pinia] },
     attachTo: document.body,
   })
-
-/** 一覧から別のプロバイダを選んだとき（ページのプロバイダが変わるとき）と同じ。 */
-export const switchProvider = (w: VueWrapper, provider: string) => w.setProps({ provider })
 
 /** 同意の画面（ダイアログは body 直下に出る）の要素。 */
 export const consentEl = (testid: string) =>
   document.body.querySelector<HTMLElement>(`[data-testid="${testid}"]`)
 
-export function button(w: VueWrapper, text: string) {
+export function button(w: Pick<VueWrapper, 'findAll'>, text: string) {
   const b = w.findAll('button').find((x) => x.text().includes(text))
   if (!b) throw new Error(`button not found: ${text}`)
   return b
@@ -97,10 +89,15 @@ export const acctB = {
 export function chatgptCfg(accounts: AIConfig['chatgptAccounts']): Partial<AIConfig> {
   const active = (accounts ?? []).find((a) => a.active)
   return {
-    provider: 'chatgpt',
-    hasApiKey: active?.signedIn === true,
+    features: features({ provider: 'chatgpt', model: 'gpt-plan' }),
     chatgptSignedIn: active?.signedIn === true,
     chatgptEmail: active?.email,
     chatgptAccounts: accounts,
   }
+}
+
+/** 上限付きの条件待ち（固定時間の sleep に頼らない）。 */
+export async function until(cond: () => boolean): Promise<void> {
+  for (let i = 0; i < 200 && !cond(); i++) await new Promise((r) => setTimeout(r, 0))
+  if (!cond()) throw new Error('until: 条件が満たされませんでした')
 }

@@ -44,7 +44,7 @@ type Env struct {
 	Secrets    *secrets.Memory
 	Clock      *clock.Fake
 	ChatGPT    *siwcfake.Fake
-	// Classifier は Inbox Zero の判定（TypeSafe AI。Jev）のフェイク。既定は全件 other。
+	// Classifier は Inbox Zero の判定（選んだ AI。Jev を含む）のフェイク。既定は全件 other。
 	Classifier *FakeClassifier
 
 	defaultClient string // AddAccount が使う OAuth クライアントの行 ID
