@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { settings as msg } from '../../lib/messages'
 import { vOverlayScroll } from '../../lib/overlayScroll'
 import { useLayoutStore } from '../../stores/layout'
@@ -8,6 +8,7 @@ import { usePlatformStore } from '../../stores/platform'
 import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
 import BaseDialog from '../ui/BaseDialog.vue'
+import { revealInline } from '../ui/revealInline'
 import AccountsSettings from './accounts/AccountsSettings.vue'
 import AIProviders from './ai/providers/AIProviders.vue'
 import GeneralSettings from './GeneralSettings.vue'
@@ -51,6 +52,26 @@ const scrollKey = computed(() =>
   tab.value === 'ai' ? `ai:${ui.aiTab ?? ''}:${ui.aiProviderPage ?? ''}` : tab.value,
 )
 
+// 1 画面ずつ（390 幅など）はタブ行が横にスクロールするので、開いた直後・タブの切り替え・向きの変更のとき、選んでいるタブが見える位置に来るようにする（#383）。
+// 横にスクロールしない幅（デスクトップ）では何もしない。フォントの読み込みでタブの幅が変わると位置がずれるので、タブの大きさが変わったときも合わせ直す。
+const tabList = ref<{ $el: HTMLElement } | null>(null)
+watch(
+  [() => tabList.value?.$el, open, tab, () => layout.isStack],
+  ([list, isOpen, , stack], _prev, onCleanup) => {
+    if (!list || !isOpen || !stack) return
+    const reveal = (): void => {
+      const active = list.querySelector<HTMLElement>('[data-state="active"]')
+      if (active) revealInline(list, active)
+    }
+    reveal()
+    if (typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(reveal)
+    for (const el of list.children) observer.observe(el)
+    onCleanup(() => observer.disconnect())
+  },
+  { flush: 'post' },
+)
+
 // 開くたびに最新の AI 設定・アプリ情報を読み込む（開くタブは ui.openSettings が決める）。
 watch(open, (isOpen) => {
   if (!isOpen) return
@@ -61,7 +82,7 @@ watch(open, (isOpen) => {
 <template>
   <BaseDialog v-model:open="open" size="lg" :title="msg.title" :scroll-key="scrollKey" scroll-fade>
     <TabsRoot v-model="tab" class="tabs" :class="{ full: layout.isStack }" orientation="horizontal">
-      <TabsList v-overlay-scroll class="tab-list" :class="{ scroll: layout.isStack }" :aria-label="msg.tabsLabel">
+      <TabsList ref="tabList" v-overlay-scroll class="tab-list" :class="{ scroll: layout.isStack }" :aria-label="msg.tabsLabel">
         <TabsTrigger v-for="t in tabs" :key="t.value" :value="t.value" class="tab">
           {{ t.label }}
         </TabsTrigger>
@@ -122,6 +143,8 @@ watch(open, (isOpen) => {
 
 .tab-list.scroll {
   overflow-x: auto;
+  /* タブの offsetLeft の基準（選んでいるタブを見える位置へ動かす revealInline）。 */
+  position: relative;
 }
 
 .tab-list.scroll .tab {

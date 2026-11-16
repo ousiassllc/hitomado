@@ -73,8 +73,11 @@ export const compose = {
     button: 'AI で下書き',
     generating: 'AI が下書きを作成中…',
     cancel: '生成をキャンセル',
-    needKey: 'AI の API キーが未設定です。設定画面で登録してください',
-    needLogin: 'ChatGPT にログインしていません。設定画面でログインしてください',
+    // 「AI で下書き」に選んだ AI がつながっていないとき。行き先は設定の AI の「AI のつなぎ先」（openSettings のボタン）。
+    needKey:
+      '「AI で下書き」に選んだ AI がつながっていません。設定の「AI のつなぎ先」で API キーを登録してください',
+    needLogin:
+      '「AI で下書き」に選んだ ChatGPT にログインしていません。設定の「AI のつなぎ先」でログインしてください',
     // 利用枠の超過（subscription_sharing_usage_limit_exceeded）。文言（英語）は OpenAI の UI/UX ガイドラインに合わせ、
     // Manage usage を主なアクションにする。Hitomado に独自のクレジットは無いので、購入の導線は出さない。
     usageLimit: {
@@ -84,7 +87,7 @@ export const compose = {
       note: 'Your message text has not been changed.',
       dismiss: 'Dismiss',
     },
-    openSettings: '設定を開く',
+    openSettings: 'AI のつなぎ先を開く',
     // AI への指示（#109）。生成のときだけ送り、保存しない。
     instruction: {
       label: 'AI への指示',
@@ -99,13 +102,13 @@ export const compose = {
       remaining: { before: '残り ', after: ' 文字' },
       tooLong: (max: number) => `AI への指示は ${max} 文字までです。`,
     },
-    // AI の設定がまだ無いときに「AI で下書き」を押した場合の案内（#104）。ChatGPT のログインは設定画面の AI の流れへ進む。
+    // 使う AI を選んでいないときに「AI で下書き」を押した場合の案内（#104）。つなぐ流れは設定画面の AI（「AI のつなぎ先」→「機能ごとに使う AI」）へ進む。
     setup: {
       title: 'AI の下書きを使うには',
-      body: 'AI の設定がまだありません。ChatGPT のプランで、API キーなしで使えます。ChatGPT でログインして、使うモデルを選んでください。',
-      note: 'Anthropic や OpenAI 互換の API キーを使うこともできます。',
+      body: '「AI で下書き」に使う AI がまだ選ばれていません。ChatGPT のプランなら、API キーなしで使えます。ChatGPT でログインしてから、「機能ごとに使う AI」で使うモデルを選んでください。',
+      note: 'Anthropic や OpenAI 互換は、API キーでつなげます。',
       chatgpt: 'Continue with ChatGPT',
-      other: '別のプロバイダを選ぶ',
+      other: 'ほかの AI をつなぐ',
       cancel: 'あとで',
     },
     consentTitle: 'AI プロバイダへの送信に同意',

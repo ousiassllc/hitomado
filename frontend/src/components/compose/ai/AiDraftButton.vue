@@ -51,7 +51,7 @@ const ai = useAiDraft({
   instructionError: () =>
     instructionLength(compose.aiInstruction) > MAX_INSTRUCTION_CHARS ? msg.ai.instruction.tooLong(MAX_INSTRUCTION_CHARS) : undefined,
   cancel: (requestId) => settings.cancelGenerate(requestId),
-  // 初回の案内から、設定画面の AI の流れへ進む。ChatGPT は同意→ログイン→モデルの選択、別のプロバイダはプロバイダの選択から。
+  // 初回の案内から、設定画面の AI の流れへ進む。ChatGPT は同意→ログイン→モデルの選択、「ほかの AI をつなぐ」はプロバイダの選択から。
   openSetup: (choice) => ui.openSettings('ai', choice === 'chatgpt' ? 'chatgpt-login' : undefined),
   onGenerated: (bodyHtml) => emit('generated', bodyHtml),
   newRequestId: () => crypto.randomUUID(),
@@ -115,7 +115,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
       </template>
       <template v-if="ai.needsKey.value">
         <span :id="noteId" class="ai-note">{{ needText }}</span>
-        <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
+        <BaseButton size="sm" variant="ghost" @click="ui.openAiConnect()">{{ msg.ai.openSettings }}</BaseButton>
       </template>
     </div>
     <AiDraftInstruction ref="instructionField" v-model="compose.aiInstruction" :disabled="generating" :required="newMail" />

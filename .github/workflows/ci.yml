@@ -119,6 +119,15 @@ jobs:
       - if: matrix.os == 'ubuntu-latest'
         name: Android ELF alignment check script
         run: bash build/android/scripts/check-elf-align_test.sh
+      # ランチャーアイコンの PNG が、元の SVG（build/android/icons）から書き出した結果と少しの違いなら同じか、その比べ方の単体テスト（docs/environment/android.md §6.2）。
+      # SVG の描画は runner の Chrome（google-chrome）。
+      - if: matrix.os == 'ubuntu-latest'
+        name: Android launcher icons match their SVG sources
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/icons-venv"
+          "${RUNNER_TEMP}/icons-venv/bin/pip" install --quiet -r build/android/scripts/gen-icons.requirements.txt
+          "${RUNNER_TEMP}/icons-venv/bin/python" -B build/android/scripts/gen-icons.py --check
+          "${RUNNER_TEMP}/icons-venv/bin/python" -B -m unittest discover -s build/android/scripts -p 'gen_icons_test.py'
       # prepare-android-signing.sh の単体テスト（keytool を使うので JDK を入れる）。
       - if: matrix.os == 'ubuntu-latest'
         uses: actions/setup-java@v4

@@ -46,7 +46,9 @@ describe('「AI で下書き」: 「AI で下書き」に使う AI を選んで�
     await flushPromises()
     expect(el('ai-setup')?.textContent).toContain('ChatGPT')
     expect(el('ai-setup-chatgpt')?.textContent?.trim()).toBe('Continue with ChatGPT')
-    expect(el('ai-setup-other')).not.toBeNull() // ほかのプロバイダ（API キー）を選ぶ道も残す
+    expect(el('ai-setup-other')).not.toBeNull() // ほかの AI（API キー）をつなぐ道も残す
+    expect(el('ai-setup-other')?.textContent?.trim()).toBe('ほかの AI をつなぐ')
+    expect(el('ai-setup')?.textContent).toContain('「機能ごとに使う AI」')
     expect(calls).toEqual([])
     w.unmount()
   })
@@ -65,7 +67,7 @@ describe('「AI で下書き」: 「AI で下書き」に使う AI を選んで�
     w.unmount()
   })
 
-  test('「別のプロバイダを選ぶ」は AI の設定を開く（ChatGPT の流れは始めない）。「あとで」は閉じるだけ', async () => {
+  test('「ほかの AI をつなぐ」は AI の設定を開く（ChatGPT の流れは始めない）。「あとで」は閉じるだけ', async () => {
     const { w } = mountButton({})
     const ui = useUiStore()
     await w.get('button').trigger('click')
@@ -106,10 +108,20 @@ describe('「AI で下書き」: 「AI で下書き」に使う AI を選んで�
     w.unmount()
   })
 
-  test('保存済みでキー未設定は、従来どおりボタンを無効にして設定へ誘導する', async () => {
+  test('選んだ AI がつながっていなければ、ボタンを無効にして、今の設定の言葉で「AI のつなぎ先」へ誘導する', async () => {
     const { w } = mountButton({ features: features({ provider: 'anthropic', model: 'm' }) })
     expect(w.get('button').attributes('disabled')).toBeDefined()
-    expect(w.text()).toContain('API キーが未設定')
+    expect(w.text()).toContain('「AI で下書き」に選んだ AI がつながっていません')
+    expect(w.text()).toContain('「AI のつなぎ先」で API キーを登録してください')
+    expect(w.text()).not.toContain('未設定')
+    // 行き先も「AI のつなぎ先」（つながっている AI が他にあっても「機能ごとに使う AI」へ行かない）
+    const ui = useUiStore()
+    const open = w.findAll('button').find((b) => b.text() === 'AI のつなぎ先を開く')
+    expect(open).toBeDefined()
+    await open?.trigger('click')
+    expect(ui.dialogs.settings).toBe(true)
+    expect(ui.settingsTab).toBe('ai')
+    expect(ui.aiTab).toBe('connect')
     w.unmount()
   })
 })

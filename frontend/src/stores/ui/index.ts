@@ -148,6 +148,12 @@ export const useUiStore = defineStore('ui', () => {
     openDialog('settings')
   }
 
+  /** 設定の AI を「AI のつなぎ先」タブで開く（選んだ AI がつながっていないときの案内の行き先）。 */
+  function openAiConnect(): void {
+    openSettings('ai')
+    aiTab.value = 'connect'
+  }
+
   /** 「AI のつなぎ先」タブでプロバイダのページを開く。start が真なら、開いたページがつなぐ流れ（同意・ログイン・キーの入力）を始める。 */
   function openAiProvider(id: string, start = false): void {
     aiTab.value = 'connect'
@@ -214,6 +220,7 @@ export const useUiStore = defineStore('ui', () => {
     openDialog,
     closeDialog,
     openSettings,
+    openAiConnect,
     openAiProvider,
     takeAiConnectStart,
     takeAiSetupIntent,

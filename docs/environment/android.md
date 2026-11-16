@@ -196,6 +196,37 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 - AAB（`bundle:fat`）: 生成される base の split APK の manifest も `extractNativeLibs=true` で、`libwails.so` は Deflate で入る（`bundletool build-apks` の結果で確認）。`bundletool validate` も通る。
 - 無圧縮に戻すときは、この 2 つの `useLegacyPackaging` を外す（`android:verify` の検査も外す）。
 
+### 6.2 ランチャーアイコンの書き出し（#386）
+
+前景・モノクロ・mipmap の PNG（20 枚）は、元の SVG から `build/android/scripts/gen-icons.py` で書き出す。手で PNG を直さない。絵を変えるときは SVG を直し、スクリプトを動かして PNG をコミットする。
+
+| 元 | 書き出し先 |
+|---|---|
+| `build/android/icons/ic_launcher_foreground.svg`（108dp のキャンバス。ロゴ v5c のリングとフラップだけ。外径 600 × 0.08 ＝ 48dp。インク `#050505`） | `res/drawable-*dpi/ic_launcher_foreground.png`（108〜432px） |
+| `build/android/icons/ic_launcher_monochrome.svg`（前景と同じ形・大きさ・中心。黒一色） | `res/drawable-*dpi/ic_launcher_monochrome.png` |
+| 前景の xxxhdpi の描画（中央 72dp を切り出し、Bone `#f5f5f4` の地に敷き、Lanczos で各密度へ縮める）。四角の切り抜きの形は `build/appicon.png` の透明度を縮めたもの、`_round` は円 | `res/mipmap-*dpi/ic_launcher.png`・`ic_launcher_round.png`（48〜192px） |
+
+```sh
+pip install -r build/android/scripts/gen-icons.requirements.txt   # Pillow（版を固定。仮想環境でよい）
+python3 build/android/scripts/gen-icons.py          # res/ の PNG を書き出す（Chrome が要る。CHROME に実行ファイルを指定できる）
+python3 build/android/scripts/gen-icons.py --check  # 書き出した結果が、コミット済みの PNG と少しの違いなら同じかを確かめる（CI の test ジョブが同じコマンドを動かす）
+python3 -B -m unittest discover -s build/android/scripts -p 'gen_icons_test.py'  # --check の比べ方の単体テスト（Chrome は要らない）
+```
+
+- 今コミットされている PNG（#379 の直し）と同じものを書き出す。スクリプトを 1 回動かしても `git diff` は空になる（PNG のバイト列まで同じ）。
+- SVG の描画は Chrome（headless）。`--check` はバイト一致ではなく「少しの違いなら通す」比べ方なので、Chrome の版で縁の画素がわずかに動いても落ちない。比べ方（しきい値は `gen-icons.py` の先頭の定数）:
+
+  | 項目 | 値 |
+  |---|---|
+  | 縦横のサイズ | 違えば失敗 |
+  | 画素ごと・チャンネルごとの差 | PNG を RGBA にデコードし、差（0〜255）を出す。色は透明度を掛けた値で比べる（透明な画素の色は見えないので数えない） |
+  | 平均の差（`MEAN_DIFF_MAX`） | 全チャンネルの平均が 1.0 以下 |
+  | はみ出た画素（`PIXEL_DIFF`・`OVER_RATIO_MAX`） | どれかのチャンネルの差が 16 を超えた画素が 0.5% 以下 |
+  | 数える画素 | どちらかの PNG が透明でない画素（絵の領域）だけ。キャンバス全体で割ると、余白の大きい前景でリングの一部が消えても薄まって通るため |
+
+  合格はこの 2 つを両方満たすとき。どちらかを超えたら、ファイル名・平均差・はみ出た画素の割合を出して失敗する。落ちたら、版の差ではなく絵が変わっていないかを見て、絵を変えたのなら PNG を書き出し直してコミットする。
+- 元の SVG のリングとフラップは、ロゴ v5c（`docs/assets/lockup-hitomado-light.svg` のマーク）と同じ形のパス。前景にはプリズムのかすみを入れない（#379）。
+
 ## 7. バインディングと生成物の方針
 
 `wails3 generate bindings -tags android` は、Android で通知サービスを登録しない（`notifsvc_android.go`）ため `frontend/bindings/…/services/notifications/*` を消す。`task check` と CI の「Generated files are up to date」（`wails3 generate bindings -f '-tags purego'` → `git diff --exit-code`）を壊さないよう、**バインディングはデフォルトのタグ（`purego`）でしか生成しない**。
@@ -815,7 +846,7 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 
 - **未確認（実機）**: 実機の Chrome などで OpenAI のログイン画面が開き、`http://127.0.0.1:<ポート>/auth/callback` へ戻って完了するか（§14.1 と同じく、本物の OpenAI と実機のブラウザは使っていない）。ブラウザが前面に出ている間にアプリのプロセスが止められたときは、ログインの待受が消えて完了できず、時間切れかキャンセルとして終わる（§14.3 と同じ理由。Google OAuth のような「途中で止められた」印と案内は、ChatGPT ログインには無い。再度「Continue with ChatGPT」を押せば最初からやり直せる。トークン・登録は完了するまで書き込まれない）。
 - **v0.1.16 の実機で「予期しないエラーが発生しました。」で失敗した**（#185）。Android の転送路がエラーの `cause` を捨てるため、どのエラーもこの定型文になっていた可能性がある。失敗の段階と元のエラーはログに残るようにした（§19）。その後 v0.1.35 の実機で ChatGPT ログインが `token_exchange` の `lookup auth.openai.com: no such host` で失敗していることが分かった（#368）。経路と、エミュレーターで再現した原因は §20。
-- **ログインできないとき**: ログインのエラーを表示し、案内の「別のプロバイダを選ぶ」（設定画面の AI タブ）で Anthropic・OpenAI 互換の API キーを使える。既定が ChatGPT でも、保存済みのプロバイダ（anthropic・openai・chatgpt）の設定は変えない。
+- **ログインできないとき**: ログインのエラーを表示し、案内の「ほかの AI をつなぐ」（設定画面の AI タブ）で Anthropic・OpenAI 互換の API キーを使える。既定が ChatGPT でも、保存済みのプロバイダ（anthropic・openai・chatgpt）の設定は変えない。
 - Android の画面（§16）でも、初回の案内・同意の画面は同じダイアログで、1 画面ずつの幅のときも中央のモーダル（幅は画面幅 − 32px）で出る（`BaseDialog`。外側のクリックで閉じる）。
 
 ## 19. 失敗の原因をログで追う（#184・#185）
