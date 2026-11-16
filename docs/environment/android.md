@@ -196,6 +196,26 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 - AAB（`bundle:fat`）: 生成される base の split APK の manifest も `extractNativeLibs=true` で、`libwails.so` は Deflate で入る（`bundletool build-apks` の結果で確認）。`bundletool validate` も通る。
 - 無圧縮に戻すときは、この 2 つの `useLegacyPackaging` を外す（`android:verify` の検査も外す）。
 
+### 6.2 ランチャーアイコンの書き出し（#386）
+
+前景・モノクロ・mipmap の PNG（20 枚）は、元の SVG から `build/android/scripts/gen-icons.py` で書き出す。手で PNG を直さない。絵を変えるときは SVG を直し、スクリプトを動かして PNG をコミットする。
+
+| 元 | 書き出し先 |
+|---|---|
+| `build/android/icons/ic_launcher_foreground.svg`（108dp のキャンバス。ロゴ v5c のリングとフラップだけ。外径 600 × 0.08 ＝ 48dp。インク `#050505`） | `res/drawable-*dpi/ic_launcher_foreground.png`（108〜432px） |
+| `build/android/icons/ic_launcher_monochrome.svg`（前景と同じ形・大きさ・中心。黒一色） | `res/drawable-*dpi/ic_launcher_monochrome.png` |
+| 前景の xxxhdpi の描画（中央 72dp を切り出し、Bone `#f5f5f4` の地に敷き、Lanczos で各密度へ縮める）。四角の切り抜きの形は `build/appicon.png` の透明度を縮めたもの、`_round` は円 | `res/mipmap-*dpi/ic_launcher.png`・`ic_launcher_round.png`（48〜192px） |
+
+```sh
+pip install -r build/android/scripts/gen-icons.requirements.txt   # Pillow（版を固定。仮想環境でよい）
+python3 build/android/scripts/gen-icons.py          # res/ の PNG を書き出す（Chrome が要る。CHROME に実行ファイルを指定できる）
+python3 build/android/scripts/gen-icons.py --check  # 書き出した結果が、コミット済みの PNG と同じ画素かを確かめる（CI の test ジョブが同じコマンドを動かす）
+```
+
+- 今コミットされている PNG（#379 の直し）と同じものを書き出す。スクリプトを 1 回動かしても `git diff` は空になる（PNG のバイト列まで同じ）。
+- SVG の描画は Chrome（headless）。Chrome の版で縁の画素が動くと `--check` が落ちる。そのときは版の差か絵の変更かを見て、絵を変えたのなら PNG を書き出し直してコミットする。
+- 元の SVG のリングとフラップは、ロゴ v5c（`docs/assets/lockup-hitomado-light.svg` のマーク）と同じ形のパス。前景にはプリズムのかすみを入れない（#379）。
+
 ## 7. バインディングと生成物の方針
 
 `wails3 generate bindings -tags android` は、Android で通知サービスを登録しない（`notifsvc_android.go`）ため `frontend/bindings/…/services/notifications/*` を消す。`task check` と CI の「Generated files are up to date」（`wails3 generate bindings -f '-tags purego'` → `git diff --exit-code`）を壊さないよう、**バインディングはデフォルトのタグ（`purego`）でしか生成しない**。
