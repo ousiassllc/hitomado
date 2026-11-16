@@ -74,8 +74,10 @@ export const compose = {
     generating: 'AI が下書きを作成中…',
     cancel: '生成をキャンセル',
     // 「AI で下書き」に選んだ AI がつながっていないとき。行き先は設定の AI の「AI のつなぎ先」（openSettings のボタン）。
-    needKey: '「AI で下書き」に選んだ AI がつながっていません。設定の「AI のつなぎ先」で API キーを登録してください',
-    needLogin: '「AI で下書き」に選んだ ChatGPT にログインしていません。設定の「AI のつなぎ先」でログインしてください',
+    needKey:
+      '「AI で下書き」に選んだ AI がつながっていません。設定の「AI のつなぎ先」で API キーを登録してください',
+    needLogin:
+      '「AI で下書き」に選んだ ChatGPT にログインしていません。設定の「AI のつなぎ先」でログインしてください',
     // 利用枠の超過（subscription_sharing_usage_limit_exceeded）。文言（英語）は OpenAI の UI/UX ガイドラインに合わせ、
     // Manage usage を主なアクションにする。Hitomado に独自のクレジットは無いので、購入の導線は出さない。
     usageLimit: {

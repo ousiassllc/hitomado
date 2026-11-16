@@ -204,7 +204,9 @@ describe('ThreadPane の AI パネル（F-17・F-18）', () => {
       consentedProviders: ['anthropic', 'chatgpt'],
     })
     expect(w.get(tid('act-ai-summarize')).attributes('disabled')).toBeDefined()
-    expect(w.get(tid('thread-ai-need-key')).text()).toContain('「要約・質問」に選んだ ChatGPT にログインしていません')
+    expect(w.get(tid('thread-ai-need-key')).text()).toContain(
+      '「要約・質問」に選んだ ChatGPT にログインしていません',
+    )
   })
 
   test('設定が未保存なら初回の案内、未同意なら同意の画面（F-08 と同じ）。同意したら押された操作を続ける', async () => {

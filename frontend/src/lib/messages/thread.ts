@@ -63,8 +63,10 @@ export const thread = {
     truncated: (included: number, total: number) =>
       `長いスレッドのため、新しい ${included} 件（全 ${total} 件）を対象にしました`,
     // 「要約・質問」に選んだ AI がつながっていないとき。行き先は設定の AI の「AI のつなぎ先」（openSettings のボタン）。
-    needKey: '「要約・質問」に選んだ AI がつながっていません。設定の「AI のつなぎ先」で API キーを登録してください',
-    needLogin: '「要約・質問」に選んだ ChatGPT にログインしていません。設定の「AI のつなぎ先」でログインしてください',
+    needKey:
+      '「要約・質問」に選んだ AI がつながっていません。設定の「AI のつなぎ先」で API キーを登録してください',
+    needLogin:
+      '「要約・質問」に選んだ ChatGPT にログインしていません。設定の「AI のつなぎ先」でログインしてください',
     openSettings: 'AI のつなぎ先を開く',
     failed: 'AI の処理に失敗しました',
     questionHeading: 'あなたの質問',
