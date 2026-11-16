@@ -76,6 +76,10 @@ class ComparePngs(unittest.TestCase):
         left, top, right, _ = img.getchannel("A").getbbox()
         cx = (left + right) // 2
         img.paste((0, 0, 0, 0), (cx - 30, top, cx + 30, top + 30))
+        # 消した不透明画素が、絵の領域の OVER_RATIO_MAX を明確に超えること（テスト自体が弱くならないように）。
+        ink = lambda im: sum(im.getchannel("A").histogram()[1:])
+        erased = ink(self.base) - ink(img)
+        self.assertGreater(erased, 3 * gen_icons.OVER_RATIO_MAX * ink(self.base))
         ok, why = self.check(img)
         self.assertFalse(ok)
         self.assertIn("平均差", why)
