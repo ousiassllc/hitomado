@@ -209,11 +209,22 @@ AAB の検査には `bundletool` が要る（SDK に含まれない）。`https:
 ```sh
 pip install -r build/android/scripts/gen-icons.requirements.txt   # Pillow（版を固定。仮想環境でよい）
 python3 build/android/scripts/gen-icons.py          # res/ の PNG を書き出す（Chrome が要る。CHROME に実行ファイルを指定できる）
-python3 build/android/scripts/gen-icons.py --check  # 書き出した結果が、コミット済みの PNG と同じ画素かを確かめる（CI の test ジョブが同じコマンドを動かす）
+python3 build/android/scripts/gen-icons.py --check  # 書き出した結果が、コミット済みの PNG と少しの違いなら同じかを確かめる（CI の test ジョブが同じコマンドを動かす）
+python3 -B -m unittest discover -s build/android/scripts -p 'gen_icons_test.py'  # --check の比べ方の単体テスト（Chrome は要らない）
 ```
 
 - 今コミットされている PNG（#379 の直し）と同じものを書き出す。スクリプトを 1 回動かしても `git diff` は空になる（PNG のバイト列まで同じ）。
-- SVG の描画は Chrome（headless）。Chrome の版で縁の画素が動くと `--check` が落ちる。そのときは版の差か絵の変更かを見て、絵を変えたのなら PNG を書き出し直してコミットする。
+- SVG の描画は Chrome（headless）。`--check` はバイト一致ではなく「少しの違いなら通す」比べ方なので、Chrome の版で縁の画素がわずかに動いても落ちない。比べ方（しきい値は `gen-icons.py` の先頭の定数）:
+
+  | 項目 | 値 |
+  |---|---|
+  | 縦横のサイズ | 違えば失敗 |
+  | 画素ごと・チャンネルごとの差 | PNG を RGBA にデコードし、差（0〜255）を出す。色は透明度を掛けた値で比べる（透明な画素の色は見えないので数えない） |
+  | 平均の差（`MEAN_DIFF_MAX`） | 全チャンネルの平均が 1.0 以下 |
+  | はみ出た画素（`PIXEL_DIFF`・`OVER_RATIO_MAX`） | どれかのチャンネルの差が 16 を超えた画素が 0.5% 以下 |
+  | 数える画素 | どちらかの PNG が透明でない画素（絵の領域）だけ。キャンバス全体で割ると、余白の大きい前景でリングの一部が消えても薄まって通るため |
+
+  合格はこの 2 つを両方満たすとき。どちらかを超えたら、ファイル名・平均差・はみ出た画素の割合を出して失敗する。落ちたら、版の差ではなく絵が変わっていないかを見て、絵を変えたのなら PNG を書き出し直してコミットする。
 - 元の SVG のリングとフラップは、ロゴ v5c（`docs/assets/lockup-hitomado-light.svg` のマーク）と同じ形のパス。前景にはプリズムのかすみを入れない（#379）。
 
 ## 7. バインディングと生成物の方針

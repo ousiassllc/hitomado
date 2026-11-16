@@ -2,7 +2,13 @@
 """Android のランチャーアイコン（前景・モノクロ・mipmap）の PNG を、元の SVG から書き出す（#386）。
 
     python3 build/android/scripts/gen-icons.py          # res/ の PNG を書き出す
-    python3 build/android/scripts/gen-icons.py --check  # 書き出した結果が、コミット済みの PNG と同じ画素かを確かめる（書き換えない）
+    python3 build/android/scripts/gen-icons.py --check  # 書き出した結果が、コミット済みの PNG と「少しの違いなら同じ」かを確かめる（書き換えない）
+
+--check の比べ方（Chrome の版で縁の画素がわずかに動いても落とさず、絵が変わったら落とす）:
+縦横が違えば失敗。PNG を RGBA にデコードし、画素ごと・チャンネルごとの差（0〜255。透明な画素の色は見えないので、
+色は透明度を掛けた値で比べる）を出す。全チャンネルの差の平均が MEAN_DIFF_MAX 以下、かつ、どれかのチャンネルの差が
+PIXEL_DIFF を超えた画素の割合が OVER_RATIO_MAX 以下なら合格。平均も割合も、数える画素は「どちらかの PNG が透明でない画素」（絵の領域）だけ
+（キャンバス全体で割ると、透明な余白が大きい前景でリングの一部が消えても薄まって通る）。どちらかを超えたら、ファイル名・平均差・はみ出た割合を出して失敗。
 
 入力は build/android/icons/ic_launcher_{foreground,monochrome}.svg と build/appicon.png（角丸の四角の切り抜きの形だけを使う）。
 mipmap の絵は前景の SVG そのもの（古いランチャーアイコンは画像全体がアイコンになるので、アダプティブの見えている中央 72dp を、
@@ -23,7 +29,7 @@ import sys
 import tempfile
 from pathlib import Path
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageChops, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[3]
 ICONS = ROOT / "build" / "android" / "icons"
@@ -39,6 +45,14 @@ TILE_DP = 48
 MIPMAP_CROP_DP = 72
 # mipmap の地（values/colors.xml の ic_launcher_background）。
 BONE = (245, 245, 244, 255)
+
+# --check の合格のしきい値（docs/environment/android.md §6.2 にも書く）。
+# 絵の領域（どちらかの PNG が透明でない画素）での、全チャンネル（RGBA）の差の平均がこの値以下であること。
+MEAN_DIFF_MAX = 1.0
+# どれかのチャンネルの差がこの値を超えた画素を「はみ出た画素」と数える。
+PIXEL_DIFF = 16
+# はみ出た画素が絵の領域に占める割合の上限（0.005 = 0.5%）。
+OVER_RATIO_MAX = 0.005
 
 
 def find_chrome() -> str:
@@ -105,14 +119,39 @@ def build_all(chrome: str, out_res: Path) -> None:
         circle.save(dest_dir / "ic_launcher_round.png", optimize=True)
 
 
-def same_pixels(a: Path, b: Path) -> bool:
-    ia, ib = Image.open(a).convert("RGBA"), Image.open(b).convert("RGBA")
-    return ia.size == ib.size and ia.tobytes() == ib.tobytes()
+def _premultiplied(path: Path) -> Image.Image:
+    """RGBA にデコードし、色に透明度を掛ける（透明な画素の色は見えないので、差に数えない）。"""
+    img = Image.open(path).convert("RGBA")
+    r, g, b, a = img.split()
+    return Image.merge("RGBA", [ImageChops.multiply(c, a) for c in (r, g, b)] + [a])
+
+
+def compare_pngs(a: Path, b: Path) -> tuple[bool, str]:
+    """2 枚の PNG が「少しの違い」かを比べる。(合格か, 失敗の説明) を返す。"""
+    ia, ib = _premultiplied(a), _premultiplied(b)
+    if ia.size != ib.size:
+        return False, f"サイズが違う: {ia.size[0]}x{ia.size[1]} と {ib.size[0]}x{ib.size[1]}"
+    bands = ImageChops.difference(ia, ib).split()
+    # 数える画素は、どちらかの絵が透明でない画素（絵の領域）だけ。キャンバス全体で割ると、透明な余白が大きい前景・モノクロでは
+    # リングの一部が消えても平均・割合が薄まって通ってしまう。
+    total = sum(ImageChops.lighter(ia.getchannel("A"), ib.getchannel("A")).histogram()[1:])
+    if total == 0:
+        return True, ""
+    mean = sum(v * n for band in bands for v, n in enumerate(band.histogram())) / (total * len(bands))
+    worst = bands[0]
+    for band in bands[1:]:
+        worst = ImageChops.lighter(worst, band)
+    over = sum(worst.histogram()[PIXEL_DIFF + 1 :]) / total
+    if mean > MEAN_DIFF_MAX or over > OVER_RATIO_MAX:
+        return False, (
+            f"平均差 {mean:.3f}（上限 {MEAN_DIFF_MAX}）、差が {PIXEL_DIFF} を超えた画素 {over:.3%}（上限 {OVER_RATIO_MAX:.1%}）"
+        )
+    return True, ""
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--check", action="store_true", help="書き出した結果が res/ のコミット済みの PNG と同じ画素かを確かめる（書き換えない）")
+    ap.add_argument("--check", action="store_true", help="書き出した結果が res/ のコミット済みの PNG と少しの違いなら同じかを確かめる（書き換えない）")
     args = ap.parse_args()
     chrome = find_chrome()
 
@@ -131,12 +170,13 @@ def main() -> int:
             print("PNG の一覧が違う:", [str(p.relative_to(RES)) for p in committed], [str(p.relative_to(out)) for p in generated])
             return 1
         for p in committed:
-            if not same_pixels(p, out / p.relative_to(RES)):
-                mismatched.append(str(p.relative_to(ROOT)))
+            ok, why = compare_pngs(p, out / p.relative_to(RES))
+            if not ok:
+                mismatched.append(f"{p.relative_to(ROOT)}: {why}")
         if mismatched:
-            print("コミット済みの PNG と画素が違う:", *mismatched, sep="\n  ")
+            print("コミット済みの PNG と違う（書き出し直すなら gen-icons.py を --check なしで動かす）:", *mismatched, sep="\n  ")
             return 1
-    print(f"OK: {len(committed)} 枚がコミット済みの PNG と同じ画素")
+    print(f"OK: {len(committed)} 枚がコミット済みの PNG と同じ絵（平均差 {MEAN_DIFF_MAX} 以下、差が {PIXEL_DIFF} 超の画素 {OVER_RATIO_MAX:.1%} 以下）")
     return 0
 
 
