@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- Android アダプティブアイコンの前景（108dp のキャンバス）。ロゴ v5c のリングとフラップだけ（プリズムのかすみは無い）。
-     リングの外径は 600 × 0.08 = 48dp。書き出しは build/android/scripts/gen-icons.py（docs/environment/android.md §Android のランチャーアイコン）。 -->
+     リングの外径は 600 × 0.08 = 48dp。書き出しは build/android/scripts/gen-icons.py（docs/environment/android.md §6.2）。 -->
 <svg xmlns="http://www.w3.org/2000/svg" width="108" height="108" viewBox="0 0 108 108" fill="none">
  <g transform="translate(54 54) scale(0.08) translate(-512 -512)">
   <path fill-rule="evenodd" d="M812.000,512.000 A300.000,300.000 0 1 1 212.000,512.000 A300.000,300.000 0 1 1 812.000,512.000Z M792.082,512.000 A280.082,260.166 0 1 1 231.918,512.000 A280.082,260.166 0 1 1 792.082,512.000Z" fill="#050505"/>

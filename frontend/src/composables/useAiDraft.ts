@@ -1,4 +1,4 @@
-// 「AI で下書き」の状態遷移（F-08）。AI の設定が未保存→初回の案内（ChatGPT でログイン／別のプロバイダ）、キー未設定→設定へ誘導、
+// 「AI で下書き」の状態遷移（F-08）。AI の設定が未保存→初回の案内（ChatGPT でログイン／ほかの AI をつなぐ）、キー未設定→設定へ誘導、
 // 未同意→同意、本文入力済み→置換確認、生成中→キャンセル可。新規作成は指示が必須で、空なら何も始めずに案内する（#365）。
 // 自動生成はしない: start() は利用者のボタン操作からのみ呼ぶ。結果は onGenerated に渡すだけで、失敗時は本文を変えない。
 import { computed, ref } from 'vue'
@@ -12,13 +12,13 @@ import { type AppError, parseBindingError } from '../lib/api'
 
 export type AiStep = 'idle' | 'setup' | 'consent' | 'replace' | 'generating'
 
-/** 初回の案内の選択。chatgpt は ChatGPT でログインする流れ、other は別のプロバイダを選ぶ（どちらも設定画面の AI の流れへ進む）。 */
+/** 初回の案内の選択。chatgpt は ChatGPT でログインする流れ、other は「ほかの AI をつなぐ」（どちらも設定画面の AI の流れへ進む）。 */
 export type AiSetupChoice = 'chatgpt' | 'other'
 
 export interface AiDraftDeps {
   /** 現在の AI 設定（未ロードなら undefined）。 */
   config: () => AiPrecheckConfig | undefined
-  /** 初回の案内から設定画面の AI の流れへ進む（ChatGPT のログイン、または別のプロバイダの選択）。 */
+  /** 初回の案内から設定画面の AI の流れへ進む（ChatGPT のログイン、または「ほかの AI をつなぐ」）。 */
   openSetup: (choice: AiSetupChoice) => void
   /** 署名・引用を除いた本文が入力済みか。 */
   hasBody: () => boolean
