@@ -60,11 +60,3 @@ func (s *ComposeService) DiscardCompose(ctx context.Context, sessionID string) e
 func (s *ComposeService) SuggestContacts(ctx context.Context, accountID, prefix string, limit int) ([]model.Address, error) {
 	return s.core.SuggestContacts(ctx, accountID, prefix, limit)
 }
-
-// nonNilAddrs は nil を空スライスにする（Wails の TS 生成で null にしないため。thread.go とも共用）。
-func nonNilAddrs(a []model.Address) []model.Address {
-	if a == nil {
-		return []model.Address{}
-	}
-	return a
-}

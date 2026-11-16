@@ -1,12 +1,15 @@
-package app
+// Package mcpcore は内蔵 MCP サーバー（mcpserver）の Backend 実装。読み取りと返信下書きの作成だけを公開する。
+package mcpcore
 
 import (
 	"context"
 	"slices"
 	"sort"
+	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/ousiassllc/hitomado/internal/app/appcore"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/bodyhtml"
 	"github.com/ousiassllc/hitomado/internal/app/composecore"
@@ -16,26 +19,34 @@ import (
 	"github.com/ousiassllc/hitomado/internal/domain/textconv"
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/mcpserver"
+	"github.com/ousiassllc/hitomado/internal/store"
 )
 
-// maxMCPBodyRunes は MCP に返す 1 メッセージの本文の上限（巨大なメールでクライアントの文脈を埋めない）。
-const maxMCPBodyRunes = 100_000
+// maxBodyRunes は MCP に返す 1 メッセージの本文の上限（巨大なメールでクライアントの文脈を埋めない）。
+const maxBodyRunes = 100_000
 
-// mcpBackend は mcpserver.Backend の実装。読み取りは既存のサービスと同じ経路（ローカル DB・スレッドの LRU・Gmail）で、
+// InboxPages は MCP の一覧・検索が使う受信箱の読み取り（app.InboxService が満たす）。
+type InboxPages interface {
+	ListInbox(ctx context.Context, q dto.InboxQuery) (dto.ThreadPage, error)
+	Search(ctx context.Context, q dto.SearchQuery) (dto.ThreadPage, error)
+}
+
+// Backend は mcpserver.Backend の実装。読み取りは既存のサービスと同じ経路（ローカル DB・スレッドの LRU・Gmail）で、
 // 下書きは作成セッション（composecore）の OpenCompose→SaveDraft→CloseCompose だけを使う。
 // 送信（PrepareSend／Send）は呼ばない。mcpserver.Backend に送信のメソッドが無いので、MCP からは呼べない。
-type mcpBackend struct {
-	d       *Deps
-	inbox   *InboxService
+type Backend struct {
+	d       *deps.Deps
+	inbox   InboxPages
 	compose *composecore.Service
 }
 
-func newMCPBackend(d *Deps, inbox *InboxService) *mcpBackend {
-	return &mcpBackend{d: d, inbox: inbox, compose: composecore.New((*deps.Deps)(d))}
+// New は Backend を作る。
+func New(d *deps.Deps, inbox InboxPages) *Backend {
+	return &Backend{d: d, inbox: inbox, compose: composecore.New(d)}
 }
 
-func (b *mcpBackend) Status(ctx context.Context) (mcpserver.StatusInfo, error) {
-	list, _, err := accountsByID(b.d, ctx)
+func (b *Backend) Status(ctx context.Context) (mcpserver.StatusInfo, error) {
+	list, err := b.accounts(ctx)
 	if err != nil {
 		return mcpserver.StatusInfo{}, err
 	}
@@ -54,12 +65,21 @@ func (b *mcpBackend) Status(ctx context.Context) (mcpserver.StatusInfo, error) {
 	return out, nil
 }
 
+// accounts は全アカウントを一覧の順で返す。
+func (b *Backend) accounts(ctx context.Context) ([]store.Account, error) {
+	list, err := b.d.Store.ListAccounts(ctx)
+	if err != nil {
+		return nil, apperr.FromInfra(err, "")
+	}
+	return list, nil
+}
+
 func accountInfo(id, email, name, status, statusMessage string) mcpserver.AccountInfo {
 	return mcpserver.AccountInfo{ID: id, Email: email, DisplayName: name, Status: status, StatusMessage: statusMessage}
 }
 
-func (b *mcpBackend) ListAccounts(ctx context.Context) ([]mcpserver.AccountInfo, error) {
-	list, _, err := accountsByID(b.d, ctx)
+func (b *Backend) ListAccounts(ctx context.Context) ([]mcpserver.AccountInfo, error) {
+	list, err := b.accounts(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -70,22 +90,22 @@ func (b *mcpBackend) ListAccounts(ctx context.Context) ([]mcpserver.AccountInfo,
 	return out, nil
 }
 
-func (b *mcpBackend) ListThreads(ctx context.Context, q dto.InboxQuery) (dto.ThreadPage, error) {
+func (b *Backend) ListThreads(ctx context.Context, q dto.InboxQuery) (dto.ThreadPage, error) {
 	return b.inbox.ListInbox(ctx, q)
 }
 
-func (b *mcpBackend) SearchThreads(ctx context.Context, q dto.SearchQuery) (dto.ThreadPage, error) {
+func (b *Backend) SearchThreads(ctx context.Context, q dto.SearchQuery) (dto.ThreadPage, error) {
 	return b.inbox.Search(ctx, q)
 }
 
 // GetThread はスレッドを本文（プレーンテキスト）つきで返す。下書きは除き、時系列昇順。既読にはしない。
-func (b *mcpBackend) GetThread(ctx context.Context, accountID, threadID string) (mcpserver.ThreadView, error) {
+func (b *Backend) GetThread(ctx context.Context, accountID, threadID string) (mcpserver.ThreadView, error) {
 	if _, err := b.d.Store.GetAccount(ctx, accountID); err != nil {
 		return mcpserver.ThreadView{}, apperr.FromInfra(err, accountID)
 	}
 	tf, err := b.d.Threads.Get(ctx, accountID, threadID)
 	if err != nil {
-		return mcpserver.ThreadView{}, gmailErr(b.d, ctx, accountID, err)
+		return mcpserver.ThreadView{}, b.d.GmailErr(ctx, accountID, err)
 	}
 	// threadcache の値はキャッシュと共有されるため、並べ替える前に複製する。
 	msgs := slices.DeleteFunc(slices.Clone(tf.Messages), func(m gmail.MessageFull) bool { return slices.Contains(m.LabelIDs, "DRAFT") })
@@ -98,7 +118,7 @@ func (b *mcpBackend) GetThread(ctx context.Context, accountID, threadID string) 
 	for i, m := range msgs {
 		view.Messages[i] = mcpMessage(m)
 	}
-	if view.DraftID, err = findThreadDraft(ctx, b.d, accountID, threadID, tf.Messages); err != nil {
+	if view.DraftID, err = b.d.FindThreadDraft(ctx, accountID, threadID, tf.Messages); err != nil {
 		return mcpserver.ThreadView{}, err
 	}
 	return view, nil
@@ -110,14 +130,14 @@ func mcpMessage(m gmail.MessageFull) mcpserver.ThreadMessageView {
 		text = textconv.HTMLToText(m.BodyHTML)
 	}
 	v := mcpserver.ThreadMessageView{
-		ID: m.ID, From: m.From, To: nonNilAddrs(m.To), Cc: nonNilAddrs(m.Cc), Date: m.InternalDate.Format(time.RFC3339),
+		ID: m.ID, From: m.From, To: appcore.NonNilAddrs(m.To), Cc: appcore.NonNilAddrs(m.Cc), Date: m.InternalDate.Format(time.RFC3339),
 		IsUnread: slices.Contains(m.LabelIDs, "UNREAD"), BodyText: text, Attachments: m.Attachments,
 	}
 	if v.Attachments == nil {
 		v.Attachments = []model.AttachmentInfo{}
 	}
-	if utf8.RuneCountInString(text) > maxMCPBodyRunes {
-		v.BodyText, v.Truncated = string([]rune(text)[:maxMCPBodyRunes]), true
+	if utf8.RuneCountInString(text) > maxBodyRunes {
+		v.BodyText, v.Truncated = string([]rune(text)[:maxBodyRunes]), true
 	}
 	return v
 }
@@ -125,14 +145,14 @@ func mcpMessage(m gmail.MessageFull) mcpserver.ThreadMessageView {
 // CreateReplyDraft は返信の作成セッションを開き、本文の先頭に req.BodyText を置いて Gmail の下書きとして保存する。
 // 送信元は OpenCompose が返信元スレッドのアカウントに固定する（SaveDraft も accounts.email から From を作る）。
 // 宛先・件名・署名・引用は、アプリで返信ボタンを押したときと同じ規則で決まる。
-func (b *mcpBackend) CreateReplyDraft(ctx context.Context, req mcpserver.ReplyDraftRequest) (mcpserver.ReplyDraft, error) {
-	if trimmed(req.BodyText) == "" {
-		return mcpserver.ReplyDraft{}, validation("返信の本文を指定してください。")
+func (b *Backend) CreateReplyDraft(ctx context.Context, req mcpserver.ReplyDraftRequest) (mcpserver.ReplyDraft, error) {
+	if strings.TrimSpace(req.BodyText) == "" {
+		return mcpserver.ReplyDraft{}, apperr.New(apperr.Validation, "返信の本文を指定してください。")
 	}
 	// 同じスレッドに下書きがすでにあるときは作らない（エージェントの再試行で下書きが増え続けないように）。
 	// 既存の下書きの ID を返すので、利用者がアプリで開いて編集する。
 	if existing, ok, err := b.d.Gmail.FindDraftForThread(ctx, req.AccountID, req.ThreadID); err != nil {
-		return mcpserver.ReplyDraft{}, gmailErr(b.d, ctx, req.AccountID, err)
+		return mcpserver.ReplyDraft{}, b.d.GmailErr(ctx, req.AccountID, err)
 	} else if ok {
 		return mcpserver.ReplyDraft{}, apperr.New(apperr.Validation,
 			"このスレッドにはすでに下書き（"+existing+"）があります。アプリで開いて編集してください。").ForAccount(req.AccountID)
@@ -158,7 +178,7 @@ func (b *mcpBackend) CreateReplyDraft(ctx context.Context, req mcpserver.ReplyDr
 	}
 	out := mcpserver.ReplyDraft{
 		DraftID: saved.DraftID, AccountID: sess.AccountID, ThreadID: req.ThreadID,
-		To: nonNilAddrs(content.To), Cc: nonNilAddrs(content.Cc), Subject: content.Subject,
+		To: appcore.NonNilAddrs(content.To), Cc: appcore.NonNilAddrs(content.Cc), Subject: content.Subject,
 	}
 	if sess.From != nil {
 		out.From = sess.From.Email
@@ -166,4 +186,4 @@ func (b *mcpBackend) CreateReplyDraft(ctx context.Context, req mcpserver.ReplyDr
 	return out, nil
 }
 
-var _ mcpserver.Backend = (*mcpBackend)(nil)
+var _ mcpserver.Backend = (*Backend)(nil)

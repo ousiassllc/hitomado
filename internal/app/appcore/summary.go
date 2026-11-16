@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/hitomado/internal/domain/model"
 	"github.com/ousiassllc/hitomado/internal/gmail"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
@@ -54,4 +55,12 @@ func SummaryFromMeta(accountID string, meta gmail.ThreadMeta, labels []store.Lab
 		}
 	}
 	return sum, true
+}
+
+// NonNilAddrs は nil を空スライスにする（Wails の TS 生成で null にしないため）。
+func NonNilAddrs(a []model.Address) []model.Address {
+	if a == nil {
+		return []model.Address{}
+	}
+	return a
 }
