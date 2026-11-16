@@ -18,6 +18,7 @@ afterAll(restoreAiMocks)
 
 const { useThreadStore } = await import('../../../stores/thread')
 const { useSettingsStore } = await import('../../../stores/settings')
+const { useUiStore } = await import('../../../stores/ui')
 const { default: ThreadPane } = await import('../ThreadPane.vue')
 
 beforeEach(() => {
@@ -167,10 +168,17 @@ describe('ThreadPane の AI パネル（F-17・F-18）', () => {
     expect(localStorage.length).toBe(0)
   })
 
-  test('キー未設定では要約・質問を送れず、設定への案内を出す', async () => {
+  test('選んだ AI がつながっていなければ要約・質問を送れず、「AI のつなぎ先」への案内を出す', async () => {
     const w = await open({ ...READY_CONFIG, apiKeyProviders: [] })
     expect(w.get(tid('act-ai-summarize')).attributes('disabled')).toBeDefined()
-    expect(w.get(tid('thread-ai-need-key')).text()).toContain('API キーが未設定')
+    const need = w.get(tid('thread-ai-need-key'))
+    expect(need.text()).toContain('「要約・質問」に選んだ AI がつながっていません')
+    expect(need.text()).toContain('「AI のつなぎ先」で API キーを登録してください')
+    await need.get('button').trigger('click')
+    const ui = useUiStore()
+    expect(ui.dialogs.settings).toBe(true)
+    expect(ui.settingsTab).toBe('ai')
+    expect(ui.aiTab).toBe('connect')
     expect(w.get(tid('thread-ai-question-input')).attributes('disabled')).toBeDefined()
     expect(aiCallsOf('SummarizeThread')).toHaveLength(0)
   })
@@ -196,7 +204,7 @@ describe('ThreadPane の AI パネル（F-17・F-18）', () => {
       consentedProviders: ['anthropic', 'chatgpt'],
     })
     expect(w.get(tid('act-ai-summarize')).attributes('disabled')).toBeDefined()
-    expect(w.get(tid('thread-ai-need-key')).text()).toContain('ChatGPT にログインしていません')
+    expect(w.get(tid('thread-ai-need-key')).text()).toContain('「要約・質問」に選んだ ChatGPT にログインしていません')
   })
 
   test('設定が未保存なら初回の案内、未同意なら同意の画面（F-08 と同じ）。同意したら押された操作を続ける', async () => {

@@ -193,6 +193,7 @@ func TestChatGPTUnauthorizedRefreshesOnceAndRetries(t *testing.T) {
 	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r2", "")
 	ae := requireError(t, "AI_FAILED", err)
 	assert.Contains(t, ae.Message, "ログイン")
+	assert.Contains(t, ae.Message, "「AI のつなぎ先」", "案内先は今の設定画面のタブ名")
 	assert.NotContains(t, ae.Message, "API キー")
 	assert.NotContains(t, ae.Message, chatgptRefresh)
 	assert.Equal(t, 1, f.ChatGPT.Refreshes, "1 回の生成で更新は 1 度だけ")
@@ -207,6 +208,7 @@ func TestChatGPTReloginIsRequestedWhenRefreshFails(t *testing.T) {
 	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	ae := requireError(t, "AI_NOT_CONFIGURED", err)
 	assert.Contains(t, ae.Message, "「再ログイン」")
+	assert.Contains(t, ae.Message, "「AI のつなぎ先」", "案内先は今の設定画面のタブ名")
 	assert.NotContains(t, ae.Message, chatgptRefresh)
 
 	// 事前の更新（AccessToken）で再ログインが必要と分かった場合も同じ案内。

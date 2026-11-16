@@ -109,7 +109,7 @@ function ask(): void {
     <Transition name="alert">
       <p v-if="flow.needsKey.value" class="notice notice-need-key" data-testid="thread-ai-need-key">
         {{ needText }}
-        <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
+        <BaseButton size="sm" variant="ghost" @click="ui.openAiConnect()">{{ msg.ai.openSettings }}</BaseButton>
       </p>
     </Transition>
 

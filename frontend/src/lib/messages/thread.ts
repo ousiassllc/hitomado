@@ -62,9 +62,10 @@ export const thread = {
     // 長いスレッドで古いメッセージを外したとき
     truncated: (included: number, total: number) =>
       `長いスレッドのため、新しい ${included} 件（全 ${total} 件）を対象にしました`,
-    needKey: 'AI の API キーが未設定です。設定画面で登録してください',
-    needLogin: 'ChatGPT にログインしていません。設定画面でログインしてください',
-    openSettings: '設定を開く',
+    // 「要約・質問」に選んだ AI がつながっていないとき。行き先は設定の AI の「AI のつなぎ先」（openSettings のボタン）。
+    needKey: '「要約・質問」に選んだ AI がつながっていません。設定の「AI のつなぎ先」で API キーを登録してください',
+    needLogin: '「要約・質問」に選んだ ChatGPT にログインしていません。設定の「AI のつなぎ先」でログインしてください',
+    openSettings: 'AI のつなぎ先を開く',
     failed: 'AI の処理に失敗しました',
     questionHeading: 'あなたの質問',
     answerHeading: 'AI の回答',

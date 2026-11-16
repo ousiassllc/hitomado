@@ -148,7 +148,7 @@ func (s *Service) mapProviderError(provider, effort string, err error) error {
 			WithDetail(apperr.DetailReason, apperr.ReasonEffortRejected)
 	}
 	if provider == providerChatGPT && errors.Is(err, ai.ErrUnauthorized) {
-		return apperr.Wrap(apperr.AIFailed, "ChatGPT のログインを確認できませんでした。設定画面でログインし直してください。", err)
+		return apperr.Wrap(apperr.AIFailed, "ChatGPT のログインを確認できませんでした。設定画面の「AI のつなぎ先」の ChatGPT で、ログインし直してください。", err)
 	}
 	return apperr.FromInfra(err, "")
 }

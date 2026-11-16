@@ -115,7 +115,7 @@ const busy = computed(() => compose.sending || compose.preview !== undefined)
       </template>
       <template v-if="ai.needsKey.value">
         <span :id="noteId" class="ai-note">{{ needText }}</span>
-        <BaseButton size="sm" variant="ghost" @click="ui.openSettings()">{{ msg.ai.openSettings }}</BaseButton>
+        <BaseButton size="sm" variant="ghost" @click="ui.openAiConnect()">{{ msg.ai.openSettings }}</BaseButton>
       </template>
     </div>
     <AiDraftInstruction ref="instructionField" v-model="compose.aiInstruction" :disabled="generating" :required="newMail" />
