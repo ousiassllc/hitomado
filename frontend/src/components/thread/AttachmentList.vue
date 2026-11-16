@@ -3,6 +3,7 @@ import type { AttachmentInfo } from '../../../bindings/github.com/ousiassllc/hit
 import { formatSize } from '../../lib/format'
 import { thread as msg } from '../../lib/messages'
 import BaseButton from '../ui/BaseButton.vue'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 
 defineProps<{ attachments: AttachmentInfo[] }>()
 const emit = defineEmits<{ save: [attachment: AttachmentInfo] }>()
@@ -12,7 +13,9 @@ const emit = defineEmits<{ save: [attachment: AttachmentInfo] }>()
   <section v-if="attachments.length > 0" class="attachments" :aria-label="msg.attachments">
     <ul>
       <li v-for="a in attachments" :key="a.id" class="attachment" data-testid="attachment">
-        <span class="attachment-name" :title="a.filename">{{ a.filename }}</span>
+        <BaseTooltip :text="a.filename">
+          <span class="attachment-name">{{ a.filename }}</span>
+        </BaseTooltip>
         <span class="attachment-size">{{ formatSize(a.size) }}</span>
         <BaseButton size="sm" :aria-label="msg.saveAttachmentLabel(a.filename)" @click="emit('save', a)">
           {{ msg.saveAttachment }}

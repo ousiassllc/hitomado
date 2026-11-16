@@ -130,5 +130,5 @@ Linux の CI では確かめられない次の 3 点は、Windows 実機での�
 | MCP サーバー（待ち受け・トークン検証・ツール） | `internal/mcpserver` |
 | 設定・トークンの操作（バインディング） | `internal/app/mcpservice.go`（`MCPService`） |
 | MCP を動かす OS の判定（Android では動かさない） | `internal/capability`（`Capabilities.SupportsMCP`）、`MCPService.Start`、`services_binding.go` |
-| MCP が使うアプリの機能（読み取り・下書き） | `internal/app/mcpbackend.go` |
+| MCP が使うアプリの機能（読み取り・下書き） | `internal/app/mcpcore/backend.go` |
 | フロントのエラー送信・ログ操作（バインディング） | `frontend/src/lib/errorReporter/index.ts`／`internal/app/logservice.go`（`LogService`。実装は `internal/app/logcore`） |

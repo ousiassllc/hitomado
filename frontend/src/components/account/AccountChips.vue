@@ -4,6 +4,7 @@ import { nav } from '../../lib/messages'
 import { vOverlayScroll } from '../../lib/overlayScroll'
 import { accountColorVar } from '../../lib/palette'
 import { useAccountsStore } from '../../stores/accounts'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 
 // スマホのアカウントの絞り込み。検索欄の下に横一列のチップで並べる（サイドバーの「アカウント」と同じ軸・同じ操作）。
 // 先頭は「全アカウント」（カテゴリタブの「すべて」と見分けるため）。選んだチップは地が --accent-soft。識別色は沈めた tint の点だけで、文字・塗りには使わない。
@@ -17,10 +18,12 @@ const { selectedIds, allSelected, toggle, selectAll } = useAccountFilter()
       <button type="button" class="chip" :aria-pressed="allSelected" @click="selectAll">{{ nav.accounts.all }}</button>
     </li>
     <li v-for="a in accounts.accounts" :key="a.id">
-      <button type="button" class="chip" :aria-pressed="selectedIds.has(a.id)" :title="a.email" @click="toggle(a.id, true)">
-        <span class="dot" :style="{ '--chip-tint': accountColorVar(a.color) }" aria-hidden="true" />
-        <span class="name">{{ a.displayName }}</span>
-      </button>
+      <BaseTooltip :text="a.email">
+        <button type="button" class="chip" :aria-pressed="selectedIds.has(a.id)" @click="toggle(a.id, true)">
+          <span class="dot" :style="{ '--chip-tint': accountColorVar(a.color) }" aria-hidden="true" />
+          <span class="name">{{ a.displayName }}</span>
+        </button>
+      </BaseTooltip>
     </li>
   </ul>
 </template>

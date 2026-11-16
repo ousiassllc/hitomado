@@ -9,6 +9,7 @@ import RichTextEditor from '../compose/RichTextEditor.vue'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseDialog from '../ui/BaseDialog.vue'
 import BaseSelect from '../ui/BaseSelect.vue'
+import BaseTooltip from '../ui/BaseTooltip.vue'
 import EmptyState from '../ui/EmptyState.vue'
 import { normalizeSignatureHtml } from './signatureHtml'
 
@@ -151,14 +152,11 @@ async function save(): Promise<void> {
       <div class="actions">
         <span v-if="dirty" class="dirty" role="status">{{ msg.signature.dirty }}</span>
         <span class="spacer" />
-        <BaseButton
-          :loading="fetching"
-          :disabled="saving"
-          :title="msg.signature.fetchHint"
-          @click="fetchFromGmail"
-        >
-          {{ msg.signature.fetchGmail }}
-        </BaseButton>
+        <BaseTooltip :text="msg.signature.fetchHint">
+          <BaseButton :loading="fetching" :disabled="saving" @click="fetchFromGmail">
+            {{ msg.signature.fetchGmail }}
+          </BaseButton>
+        </BaseTooltip>
         <BaseButton :disabled="!dirty || saving" @click="revert">{{ msg.signature.revert }}</BaseButton>
         <BaseButton variant="primary" :disabled="!dirty" :loading="saving" @click="save">
           {{ msg.save }}

@@ -90,7 +90,7 @@ const id = useId()
 }
 
 .field-input:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .field-input[aria-invalid="true"] {

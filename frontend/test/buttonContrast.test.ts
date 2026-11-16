@@ -63,6 +63,20 @@ describe('BaseButton の状態別の見た目', () => {
     expect(['', '1']).toContain(opacityOf({ variant: 'primary', loading: true }))
   })
 
+  test('loading はラベルを透明にして幅を保ち、スピナーを絶対配置で重ねる（寸法を変えない）', () => {
+    document.head.appendChild(sheet)
+    const w = mount(BaseButton, {
+      props: { loading: true },
+      slots: { default: '送信' },
+      attachTo: document.body,
+    })
+    expect(getComputedStyle(w.element).color).toBe('transparent')
+    expect(w.text()).toContain('送信')
+    expect(getComputedStyle(w.get('.spinner').element).position).toBe('absolute')
+    w.unmount()
+    sheet.remove()
+  })
+
   test('disabled の primary は薄くする（押せないことを示す）', () => {
     expect(opacityOf({ variant: 'primary', disabled: true })).toBe('0.4')
   })

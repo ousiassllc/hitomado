@@ -3,6 +3,7 @@ import { Check } from '@iconoir/vue'
 import { useId } from 'vue'
 import { settings as msg } from '../../../lib/messages'
 import { ACCOUNT_COLOR_KEYS, accountColorVar, accountTextVar } from '../../../lib/palette'
+import BaseTooltip from '../../ui/BaseTooltip.vue'
 
 defineProps<{ modelValue: string; disabled?: boolean }>()
 defineEmits<{ 'update:modelValue': [key: string] }>()
@@ -19,26 +20,25 @@ function colorName(key: string): string {
   <fieldset class="picker" :disabled="disabled">
     <legend class="legend">{{ msg.accounts.colorLabel }}</legend>
     <div class="swatches">
-      <label
-        v-for="key in ACCOUNT_COLOR_KEYS"
-        :key="key"
-        class="swatch"
-        :class="{ selected: key === modelValue }"
-        :title="colorName(key)"
-        :style="{ background: accountColorVar(key), color: accountTextVar(key) }"
-      >
-        <input
-          class="radio"
-          type="radio"
-          :name="group"
-          :value="key"
-          :checked="key === modelValue"
-          :aria-label="msg.accounts.colorFor(colorName(key))"
-          @change="$emit('update:modelValue', key)"
-        />
-        <span class="legend">{{ colorName(key) }}</span>
-        <Check v-if="key === modelValue" class="icon icon-sm" aria-hidden="true" />
-      </label>
+      <BaseTooltip v-for="key in ACCOUNT_COLOR_KEYS" :key="key" :text="colorName(key)">
+        <label
+          class="swatch"
+          :class="{ selected: key === modelValue }"
+          :style="{ background: accountColorVar(key), color: accountTextVar(key) }"
+        >
+          <input
+            class="radio"
+            type="radio"
+            :name="group"
+            :value="key"
+            :checked="key === modelValue"
+            :aria-label="msg.accounts.colorFor(colorName(key))"
+            @change="$emit('update:modelValue', key)"
+          />
+          <span class="legend">{{ colorName(key) }}</span>
+          <Check v-if="key === modelValue" class="icon icon-sm" aria-hidden="true" />
+        </label>
+      </BaseTooltip>
     </div>
     <span class="current">{{ msg.accounts.colorCurrent(colorName(modelValue)) }}</span>
   </fieldset>
@@ -101,7 +101,7 @@ function colorName(key: string): string {
 }
 
 .picker:disabled .swatch {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 

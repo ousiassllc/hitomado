@@ -1,5 +1,7 @@
 // Ousiass デザインガイド準拠の回帰テスト（O3）。トーストの表示時間と置き換えを確かめる。
+
 import { afterEach, describe, expect, jest, test } from 'bun:test'
+import { readFileSync } from 'node:fs'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, nextTick } from 'vue'
@@ -146,5 +148,13 @@ describe('スナックバー本文の折り返し（#319）', () => {
     expect(msg).not.toContain('overflow-wrap: anywhere')
     // 長い URL・英数字で .toasts の max-width を超えて広がらないよう、スナックバー自身が縮められる
     expect(rule('shell/ToastHost.vue', '.snackbar {')).toContain('min-width: 0')
+  })
+})
+
+describe('表示時間のトークン（O3・#286）', () => {
+  test('--toast-duration は 3s、--toast-duration-action は 5s（ToastHost の 3000・5000ms と同じ値。上のタイマーのテストが ms を検査する）', () => {
+    const css = readFileSync(new URL('../../src/styles/tokens.css', import.meta.url), 'utf8')
+    expect(css).toMatch(/--toast-duration:\s*3s;/)
+    expect(css).toMatch(/--toast-duration-action:\s*5s;/)
   })
 })

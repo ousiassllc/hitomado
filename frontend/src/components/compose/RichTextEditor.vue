@@ -164,7 +164,7 @@ onBeforeUnmount(() => editor.value?.destroy())
 }
 
 .rte-disabled {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .rte-toolbar {
@@ -175,10 +175,10 @@ onBeforeUnmount(() => editor.value?.destroy())
   background: var(--bone);
 }
 
-/* 押されている（太字・リンク・箇条書きが今の位置で有効な）ボタン。BaseIconButton の hover 等より優先させる。 */
+/* 押されている（太字・リンク・箇条書きが今の位置で有効な）ボタン。地（--accent-soft）と文字（--ink）だけで枠は足さない。BaseIconButton の hover 等より優先させる。 */
 .rte-toolbar :deep(.rte-btn-on) {
-  border-color: var(--accent);
   background: var(--accent-soft);
+  color: var(--ink);
 }
 
 .rte-body {

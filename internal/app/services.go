@@ -1,6 +1,10 @@
 package app
 
-import "github.com/ousiassllc/hitomado/internal/app/threadcache"
+import (
+	"github.com/ousiassllc/hitomado/internal/app/deps"
+	"github.com/ousiassllc/hitomado/internal/app/mcpcore"
+	"github.com/ousiassllc/hitomado/internal/app/threadcache"
+)
 
 // Services は Wails に登録するバインディングサービスの組。
 type Services struct {
@@ -30,6 +34,6 @@ func NewServices(d *Deps) *Services {
 		AI:      NewAIService(d, compose),
 		App:     NewAppService(d),
 		Log:     NewLogService(d),
-		MCP:     NewMCPService(d, newMCPBackend(d, inbox)),
+		MCP:     NewMCPService(d, mcpcore.New((*deps.Deps)(d), inbox)),
 	}
 }

@@ -112,7 +112,7 @@ watch(model, () => void nextTick(fit))
 }
 
 .question-input:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 /* 補足の文は 1 行に収まる幅（27em ≒ 全角 27 字）が取れなければ、文字数・ボタンと同じ行に押し込まず、自分の行に出す（#349）。

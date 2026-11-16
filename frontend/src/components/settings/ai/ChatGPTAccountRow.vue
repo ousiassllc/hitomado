@@ -82,7 +82,7 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
   line-height: var(--line-height-sm);
 }
 
-/* ガイドのラジオ（O8）。ブラウザ標準にせず、外枠 --mute・18px・選択時は --accent 地に --bone の点・フォーカスは --focus の outline（3px・offset 2px）。無効は opacity .5（フォームの無効の値）。 */
+/* ガイドのラジオ（O8）。ブラウザ標準にせず、外枠 --mute・18px・選択時は --accent 地に --bone の点・フォーカスは --focus の outline（3px・offset 2px）。無効は opacity .4（フォームの無効の値）。 */
 .radio {
   appearance: none;
   flex: none;
@@ -116,8 +116,13 @@ defineEmits<{ select: []; logout: []; relogin: []; remove: [] }>()
 }
 
 .radio:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: default;
+}
+
+/* ガイドのラジオの無効はラベルも --mute にする（opacity だけでは文字が ink のまま残る）。 */
+.pick:has(.radio:disabled) {
+  color: var(--mute);
 }
 
 .who {

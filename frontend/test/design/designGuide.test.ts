@@ -211,7 +211,7 @@ describe('モーション（M）', () => {
     )
   })
 
-  test('primary ボタンの loading のスピナーは、--accent 地で見えるよう --bone に反転する（O12）', () => {
+  test('primary ボタンの loading のスピナーは、--accent 地で見えるよう文字色（--bone）の currentColor で描く（O12）', () => {
     const w = mount(BaseButton, {
       props: { variant: 'primary', loading: true },
       slots: { default: '送信' },
@@ -222,8 +222,9 @@ describe('モーション（M）', () => {
     ).descriptor.styles[0].content
     const body =
       style.slice(style.indexOf('.btn-primary .spinner {')).match(/\{([^}]*)\}/)?.[1] ?? ''
-    expect(body).toContain('border-top-color: var(--bone)')
-    expect(body).toContain('color-mix(in srgb, var(--bone) 30%, transparent)')
+    expect(body).toContain('color: var(--bone)')
+    expect(body).toContain('border-top-color: currentColor')
+    expect(body).toContain('color-mix(in srgb, currentColor 25%, transparent)')
     expect(body).not.toMatch(/width|height/)
   })
 
