@@ -46,8 +46,9 @@ type AIFactory func(provider, model, baseURL, apiKey string) (ai.Provider, error
 // credential は API キー（chatgpt では ChatGPT ログインのアクセストークン）。baseURL は openai のみ（空なら既定）。
 type AIModelsLister func(ctx context.Context, provider, baseURL, credential string) ([]ai.ModelInfo, error)
 
-// ClassifierFactory は TypeSafe AI（Jev。Inbox Zero の判定。#314）の API キーから Classifier を作る（テストではフェイクに差し替える）。
-type ClassifierFactory func(apiKey string) ai.Classifier
+// ClassifierFactory は Inbox Zero の判定（#314・#377）に使う Classifier を、選んだ AI から作る（テストではフェイクに差し替える）。
+// provider は typesafe（Jev。model・baseURL は使わない）／anthropic／openai／chatgpt、baseURL は openai のみ（空なら OpenAI 既定）。
+type ClassifierFactory func(provider, model, baseURL, apiKey string) (ai.Classifier, error)
 
 // Deps はサービス層が使う外部依存。具象は main.go（composition root）で組み立てる。
 type Deps struct {
@@ -73,7 +74,7 @@ type Deps struct {
 	Paths    PathOpener
 	AI       AIFactory
 	AIModels AIModelsLister
-	// Classifier は Inbox Zero の判定に使う Jev の Classifier を作る。返信下書きの AI（AI）とは別の経路。
+	// Classifier は Inbox Zero の判定に使う Classifier を作る。返信下書きの AI（AI）とは別の経路。
 	Classifier ClassifierFactory
 	ChatGPT    siwc.Auth // Sign in with ChatGPT（ログイン・更新・ログアウト）
 	Logger     *slog.Logger

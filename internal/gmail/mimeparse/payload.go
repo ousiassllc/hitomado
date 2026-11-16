@@ -4,6 +4,7 @@ import (
 	"encoding/base64"
 	"io"
 	"mime"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -39,6 +40,9 @@ type Parts struct {
 	HTML, Text  []Segment
 	Attachments []model.AttachmentInfo
 	Inlines     []InlineRef
+	// PartTypes は multipart でないパートの Content-Type（重複なし、出てきた順）。本文・添付・インライン画像のどれでもよい。
+	// text/calendar は method（REQUEST・CANCEL など）があれば "text/calendar; method=REQUEST" の形で残す。
+	PartTypes []string
 }
 
 // Walk は MIME パートを再帰的に辿り、本文・添付・インライン画像の候補を集める。
@@ -59,6 +63,7 @@ func walk(p *gmailapi.MessagePart, out *Parts) {
 		}
 		return
 	}
+	out.addPartType(mt, p.Headers)
 	var data, attID string
 	var size int64
 	if p.Body != nil {
@@ -84,6 +89,21 @@ func walk(p *gmailapi.MessagePart, out *Parts) {
 	}
 	if attID != "" {
 		out.Attachments = append(out.Attachments, info)
+	}
+}
+
+// addPartType は multipart でないパートの Content-Type を PartTypes に足す（重複は足さない）。
+func (out *Parts) addPartType(mt string, headers []*gmailapi.MessagePartHeader) {
+	if mt == "" {
+		return
+	}
+	if mt == "text/calendar" {
+		if _, params, err := mime.ParseMediaType(HeaderValue(headers, "Content-Type")); err == nil && params["method"] != "" {
+			mt += "; method=" + strings.ToUpper(params["method"])
+		}
+	}
+	if !slices.Contains(out.PartTypes, mt) {
+		out.PartTypes = append(out.PartTypes, mt)
 	}
 }
 

@@ -1,13 +1,14 @@
 import { describe, expect, test } from 'bun:test'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { features } from '../../../test/aiConfigKit'
 import { useInboxStore } from '../../stores/inbox'
 import { useInboxZeroStore } from '../../stores/inboxZero'
 import { useSettingsStore } from '../../stores/settings'
 import InboxTabs from './InboxTabs.vue'
 import InboxZeroDialog from './InboxZeroDialog.vue'
 
-function setup(opts: { items?: number; keyed?: boolean } = {}) {
+function setup(opts: { items?: number; keyed?: boolean; selected?: string } = {}) {
   const pinia = createPinia()
   setActivePinia(pinia)
   const inbox = useInboxStore()
@@ -25,13 +26,11 @@ function setup(opts: { items?: number; keyed?: boolean } = {}) {
     labels: null,
   }))
   const settings = useSettingsStore()
+  const providers = opts.keyed === false ? [] : ['typesafe']
   settings.aiConfig = {
-    provider: 'chatgpt',
-    model: '',
-    configured: false,
-    hasApiKey: false,
-    apiKeyProviders: opts.keyed === false ? [] : ['typesafe'],
-    consentedProviders: ['typesafe'],
+    features: features('', opts.selected ?? ''),
+    apiKeyProviders: providers,
+    consentedProviders: providers,
     chatgptSignedIn: false,
     chatgptAccounts: [],
   }
@@ -62,16 +61,30 @@ describe('Inbox Zero ボタン（#314）', () => {
     w.unmount()
   })
 
-  test('押せないとき（一覧が空・キー未登録）は aria-disabled で理由を aria-label に含め、押すと理由のトーストだけで判断は始めない', async () => {
+  test('押せないとき（一覧が空・使う AI が無い）は aria-disabled で理由を aria-label に含め、押すと理由のトーストだけで判断は始めない', async () => {
     const { pinia, zero } = setup({ keyed: false })
     const w = mount(InboxTabs, { props: { modelValue: 'all' }, global: { plugins: [pinia] } })
     const btn = w.get('[data-testid="inbox-zero"]')
     expect(btn.attributes('aria-disabled')).toBe('true')
-    expect(btn.attributes('aria-label')).toContain('API キーが未登録')
+    expect(btn.attributes('aria-label')).toContain('Inbox Zero で使う AI が選ばれていません')
     expect(btn.attributes('disabled')).toBeUndefined() // 本物の disabled にするとツールチップ・タップが届かない
     await btn.trigger('click')
     expect(zero.phase).toBe('idle')
     w.unmount()
+  })
+
+  test('Inbox Zero に選んだ AI がつながっていなければ押せず、つながっていれば（Jev 以外でも）押せる', () => {
+    const lost = setup({ selected: 'openai' })
+    const w = mount(InboxTabs, { props: { modelValue: 'all' }, global: { plugins: [lost.pinia] } })
+    const btn = w.get('[data-testid="inbox-zero"]')
+    expect(btn.attributes('aria-disabled')).toBe('true')
+    expect(btn.attributes('aria-label')).toContain('OpenAI 互換 がつながっていません')
+    w.unmount()
+
+    const ok = setup({ selected: 'typesafe' })
+    const w2 = mount(InboxTabs, { props: { modelValue: 'all' }, global: { plugins: [ok.pinia] } })
+    expect(w2.get('[data-testid="inbox-zero"]').attributes('aria-disabled')).toBeUndefined()
+    w2.unmount()
   })
 
   test('判断中はスピナーと aria-busy を出し、押しても二度目の判断は始まらない（やめる操作は判断中のダイアログ）', async () => {
@@ -116,7 +129,7 @@ describe('Inbox Zero の確認の一覧（#314）', () => {
     return { ...ctx, w }
   }
 
-  test('差出人と件名だけをチェックボックスつきで出し、最初は全部チェック済み。Yes／No のボタンがある', async () => {
+  test('差出人と件名だけをチェックボックスつきで出し、最初は全部チェック済み。見出しは「アーカイブする候補」で、上に小さい「Inbox Zero」のラベルがある', async () => {
     document.body.innerHTML = ''
     const { w } = openReview()
     await w.vm.$nextTick()
@@ -130,10 +143,13 @@ describe('Inbox Zero の確認の一覧（#314）', () => {
     expect(list).toContain('広告社')
     expect(list).toContain('半額セール')
     expect(list).toContain('GitHub')
-    expect(dlg.querySelector('[data-testid="inbox-zero-yes"]')?.textContent).toBe(
-      'アーカイブする（Yes）',
+    expect(dlg.querySelector('[data-testid="inbox-zero-yes"]')?.textContent).toBe('アーカイブする')
+    expect(dlg.querySelector('[data-testid="inbox-zero-no"]')?.textContent).toBe('やめる')
+    expect(dlg.querySelector('[role="dialog"]')?.textContent).not.toMatch(/（Yes）|（No）/)
+    expect(dlg.querySelector('[data-testid="dialog-eyebrow"]')?.textContent).toBe('Inbox Zero')
+    expect(dlg.querySelector('h2, [role="dialog"] [id^="reka-dialog-title"]')?.textContent).toBe(
+      'アーカイブする候補',
     )
-    expect(dlg.querySelector('[data-testid="inbox-zero-no"]')?.textContent).toBe('やめる（No）')
     expect(dlg.querySelector('[data-testid="inbox-zero-count"]')?.textContent).toContain(
       '2 件中 2 件を選択中',
     )
@@ -218,6 +234,26 @@ describe('Inbox Zero の判断中のダイアログ（#343）', () => {
     )
     await w.vm.$nextTick()
     expect(zero.phase).toBe('idle')
+    w.unmount()
+  })
+})
+
+describe('Inbox Zero の同意のダイアログ（#377）', () => {
+  test('同意を求める送信先は、Inbox Zero に選んだ AI（名前と送信先）。返信済みだけは端末内で、送らない', async () => {
+    document.body.innerHTML = ''
+    const ctx = setup({ selected: 'typesafe' })
+    ctx.zero.phase = 'consent'
+    const w = mount(InboxZeroDialog, {
+      props: {},
+      global: { plugins: [ctx.pinia] },
+      attachTo: document.body,
+    })
+    await w.vm.$nextTick()
+    const text = document.body.textContent ?? ''
+    expect(text).toContain('TypeSafe AI（Jev） へメールの内容を送ります')
+    expect(text).toContain('https://api.typesafe.ai')
+    expect(text).toContain('メールの形の手がかり（パートの種類・添付の種類と拡張子）')
+    expect(text).toContain('返信済みの判断は端末内で行い、送信しません')
     w.unmount()
   })
 })

@@ -2,6 +2,7 @@
 import { TabsContent, TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { computed, watch } from 'vue'
 import { settings as msg } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { useLayoutStore } from '../../stores/layout'
 import { usePlatformStore } from '../../stores/platform'
 import { useSettingsStore } from '../../stores/settings'
@@ -45,6 +46,11 @@ const tab = computed({
   },
 })
 
+// スクロールバーを 1 秒出す合図。AI のタブは中にも内側のタブ（つなぎ先／機能ごと）と、開いたプロバイダのページがあり、それを切り替えると本文の長さが変わるので、タブと同じく合図を変える。
+const scrollKey = computed(() =>
+  tab.value === 'ai' ? `ai:${ui.aiTab ?? ''}:${ui.aiProviderPage ?? ''}` : tab.value,
+)
+
 // 開くたびに最新の AI 設定・アプリ情報を読み込む（開くタブは ui.openSettings が決める）。
 watch(open, (isOpen) => {
   if (!isOpen) return
@@ -53,9 +59,9 @@ watch(open, (isOpen) => {
 </script>
 
 <template>
-  <BaseDialog v-model:open="open" size="lg" :title="msg.title">
+  <BaseDialog v-model:open="open" size="lg" :title="msg.title" :scroll-key="scrollKey" scroll-fade>
     <TabsRoot v-model="tab" class="tabs" :class="{ full: layout.isStack }" orientation="horizontal">
-      <TabsList class="tab-list" :class="{ scroll: layout.isStack }" :aria-label="msg.tabsLabel">
+      <TabsList v-overlay-scroll class="tab-list" :class="{ scroll: layout.isStack }" :aria-label="msg.tabsLabel">
         <TabsTrigger v-for="t in tabs" :key="t.value" :value="t.value" class="tab">
           {{ t.label }}
         </TabsTrigger>

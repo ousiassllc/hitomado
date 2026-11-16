@@ -3,6 +3,7 @@ import { EditPencil, Refresh } from '@iconoir/vue'
 import { ref } from 'vue'
 import type { DraftSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
 import { common, drafts as msg } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { useAccountsStore } from '../../stores/accounts'
 import { DRAFT_LIST_LIMIT, useDraftsStore } from '../../stores/drafts'
 import BaseIconButton from '../ui/BaseIconButton.vue'
@@ -45,7 +46,7 @@ async function confirmDiscard(): Promise<void> {
         <Refresh class="icon" aria-hidden="true" />
       </BaseIconButton>
     </header>
-    <div class="scroll">
+    <div v-overlay-scroll="{ fade: 'var(--surface)' }" class="scroll">
       <div v-if="store.loading && store.items.length === 0" class="state" role="status" :aria-label="common.loading"><Spinner /></div>
       <div v-else-if="store.items.length === 0" class="state">
         <EmptyState>

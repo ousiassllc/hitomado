@@ -2,6 +2,7 @@
 import { Xmark } from '@iconoir/vue'
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { nav } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import { useUiStore } from '../../stores/ui'
 import BaseIconButton from '../ui/BaseIconButton.vue'
 import EmptyState from '../ui/EmptyState.vue'
@@ -32,7 +33,7 @@ onBeforeUnmount(() => {
         <Xmark class="icon" aria-hidden="true" />
       </BaseIconButton>
     </header>
-    <div class="body">
+    <div v-overlay-scroll="{ fade: 'var(--surface)' }" class="body">
       <EmptyState>
         <template #icon><AgentMascot :size="48" /></template>
         {{ nav.agent.panelBody }}

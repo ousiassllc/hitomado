@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ousiassllc/hitomado/internal/ai"
+	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/siwc"
 )
 
@@ -29,7 +30,7 @@ func (f *aiFixture) chatgptReady(t *testing.T) {
 	f.ChatGPT.NextToken = chatgptRefresh
 	_, err := f.ai.SignInChatGPT(t.Context(), "")
 	require.NoError(t, err)
-	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1", "")
+	_, err = apptest.SetDraftAI(f.ai, t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt", "")
 	require.NoError(t, err)
@@ -53,12 +54,11 @@ func TestChatGPTSignInOutAndConfig(t *testing.T) {
 	acct := cfg.ChatGPTAccounts[0]
 	assert.True(t, acct.SignedIn)
 	assert.True(t, acct.Active)
-	assert.True(t, cfg.HasAPIKey, "既定の chatgpt では、ログイン済みが資格情報あり")
 
-	cfg, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1", "")
+	cfg, err = apptest.SetDraftAI(f.ai, t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1", "")
 	require.NoError(t, err)
-	assert.True(t, cfg.HasAPIKey, "chatgpt では、ログイン済みが資格情報あり")
-	assert.Empty(t, cfg.BaseURL, "baseUrl は openai のみ")
+	assert.True(t, cfg.ChatGPTSignedIn)
+	assert.Empty(t, cfg.BaseURL, "baseUrl は openai を選んだときだけ保存する")
 
 	b, err := json.Marshal(cfg)
 	require.NoError(t, err)
@@ -68,7 +68,8 @@ func TestChatGPTSignInOutAndConfig(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, acct.ID, f.ChatGPT.LastSignOutID)
 	assert.False(t, res.Config.ChatGPTSignedIn)
-	assert.False(t, res.Config.HasAPIKey)
+	assert.False(t, res.Config.ChatGPTSignedIn)
+	assert.Equal(t, "chatgpt", res.Config.Features.Draft.Provider, "ログアウトしても、選んだ AI は残す（別の AI へ切り替えない）")
 	assert.False(t, res.RevocationConfirmed)
 	require.Len(t, res.Config.ChatGPTAccounts, 1, "ログアウトしても登録は残る")
 	assert.False(t, res.Config.ChatGPTAccounts[0].SignedIn)
@@ -137,7 +138,7 @@ func TestChatGPTPreconditionsAndConsent(t *testing.T) {
 		_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 		return err
 	}
-	_, err := f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "", "")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "chatgpt", "gpt-plan", "", "")
 	require.NoError(t, err)
 	requireCode(t, "AI_NOT_CONFIGURED", gen()) // 未ログイン
 
@@ -293,38 +294,10 @@ func TestChatGPTTokenIsNotFetchedBeforeConsent(t *testing.T) {
 	f.ChatGPT.Token = chatgptToken
 	_, err := f.ai.SignInChatGPT(t.Context(), "")
 	require.NoError(t, err)
-	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "", "")
+	_, err = apptest.SetDraftAI(f.ai, t.Context(), "chatgpt", "gpt-plan", "", "")
 	require.NoError(t, err)
 	s := f.open(t, "reply")
 	_, err = f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
 	requireCode(t, "AI_CONSENT_REQUIRED", err)
 	assert.Zero(t, f.ChatGPT.AccessCalls)
-}
-
-// 401 以外（利用枠・対象外・その他の 403 に当たる ErrFailed）ではトークンを更新せず、スレッドを再送しない。
-func TestChatGPTFailureOtherThan401IsNotRetried(t *testing.T) {
-	f := newAIFixture(t)
-	f.chatgptReady(t)
-	s := f.open(t, "reply")
-	calls := 0
-	f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) {
-		calls++
-		return "", fmt.Errorf("%w: HTTP 403", ai.ErrFailed)
-	}
-	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
-	requireCode(t, "AI_FAILED", err)
-	assert.Equal(t, 1, calls)
-	assert.Zero(t, f.ChatGPT.Refreshes)
-}
-
-// 401 のあとの更新の最中に利用者が中止したら、OAUTH_CANCELLED ではなく CANCELLED。
-func TestChatGPTCancelDuringRefreshIsCancelled(t *testing.T) {
-	f := newAIFixture(t)
-	f.chatgptReady(t)
-	s := f.open(t, "reply")
-	f.provider.fn = func(context.Context, ai.ReplyInput) (string, error) { return "", ai.ErrUnauthorized }
-	f.ChatGPT.RefreshErr = context.Canceled
-	f.ChatGPT.OnRefresh = func() { _ = f.ai.CancelGenerate("r1") }
-	_, err := f.ai.GenerateReplyDraft(t.Context(), s.SessionID, "r1", "")
-	requireCode(t, "CANCELLED", err)
 }

@@ -89,6 +89,7 @@ func validateHistory(history []dto.ThreadAITurn) ([]ai.ThreadTurn, error) {
 }
 
 // runThreadAI は要約・質問に共通の流れ（前提の確認→スレッドの取得→プロバイダの呼び出し）を行う。
+// 使う AI は「要約・質問」の選択（threadAi）で、「AI で下書き」の選択には頼らない（未選択でも draft へは切り替えない）。
 // call は組み立てた入力から 1 回のプロバイダ呼び出しを作る。結果が空なら AI_FAILED。
 func (s *Service) runThreadAI(ctx context.Context, ref dto.ThreadRef, requestID string, call func(ai.ThreadInput) providerCall) (dto.ThreadAIResult, error) {
 	runCtx, finish, err := s.begin(ctx, requestID)
@@ -96,7 +97,7 @@ func (s *Service) runThreadAI(ctx context.Context, ref dto.ThreadRef, requestID 
 		return dto.ThreadAIResult{}, err
 	}
 	defer finish()
-	cfg, key, err := s.precheck(runCtx)
+	cfg, key, err := s.precheck(runCtx, dto.AIFeatureThreadAI)
 	if err != nil {
 		return dto.ThreadAIResult{}, s.precheckError(runCtx, err)
 	}

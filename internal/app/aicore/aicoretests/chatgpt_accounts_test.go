@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/ousiassllc/hitomado/internal/app/apptest"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
 )
 
@@ -29,7 +30,7 @@ func TestChatGPTTwoAccountsSwitchAndGenerate(t *testing.T) {
 	assert.False(t, cfg.ChatGPTAccounts[0].Active)
 	assert.True(t, cfg.ChatGPTAccounts[1].Active)
 
-	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "", "")
+	_, err = apptest.SetDraftAI(f.ai, t.Context(), "chatgpt", "gpt-plan", "", "")
 	require.NoError(t, err)
 	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt", "")
 	require.NoError(t, err)

@@ -2,6 +2,7 @@
 import { TabsList, TabsRoot, TabsTrigger } from 'reka-ui'
 import { INBOX_TABS, type InboxTab } from '../../lib/inboxTabs'
 import { common } from '../../lib/messages'
+import { vOverlayScroll } from '../../lib/overlayScroll'
 import InboxZeroButton from './InboxZeroButton.vue'
 
 defineProps<{ modelValue: InboxTab }>()
@@ -17,7 +18,7 @@ function onSelect(v: string | number): void {
   <div class="tabs-row">
     <InboxZeroButton />
     <TabsRoot class="tabs-root" :model-value="modelValue" activation-mode="automatic" orientation="horizontal" @update:model-value="onSelect">
-      <TabsList class="tab-list" :aria-label="common.inboxTabs.label" data-testid="inbox-tabs">
+      <TabsList v-overlay-scroll class="tab-list" :aria-label="common.inboxTabs.label" data-testid="inbox-tabs">
         <TabsTrigger v-for="t in INBOX_TABS" :key="t" :value="t" class="tab" :data-testid="`inbox-tab-${t}`">
           {{ common.inboxTabs[t] }}
         </TabsTrigger>

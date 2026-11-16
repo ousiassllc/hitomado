@@ -6,6 +6,7 @@ import type { Address } from '../../../../bindings/github.com/ousiassllc/hitomad
 import { useContactSuggest } from '../../../composables/useContactSuggest'
 import { call } from '../../../lib/api'
 import { compose as msg } from '../../../lib/messages'
+import { vOverlayScroll } from '../../../lib/overlayScroll'
 import { isLikelyEmail, mergeAddresses, parseAddresses } from '../../../lib/recipients'
 import RecipientChip from './RecipientChip.vue'
 
@@ -161,7 +162,7 @@ function onKeydown(e: KeyboardEvent): void {
         @blur="commit"
       />
       <Transition name="suggest">
-        <div v-show="open" :id="listId" ref="list" class="suggest" role="listbox" :aria-label="msg.fields.suggestions">
+        <div v-show="open" :id="listId" ref="list" v-overlay-scroll class="suggest" role="listbox" :aria-label="msg.fields.suggestions">
           <div
             v-for="(s, i) in shown"
             :id="`${listId}-${i}`"

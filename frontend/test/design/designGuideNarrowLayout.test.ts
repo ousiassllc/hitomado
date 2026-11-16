@@ -55,3 +55,18 @@ describe('AI 補助文の行（#349）', () => {
     expect(count).toContain('margin-left: auto')
   })
 })
+
+describe('Inbox Zero の候補ダイアログのボタン（#377）', () => {
+  // DOM の順は「やめる」「アーカイブする」（広い幅は右寄せの横並びのまま）。狭い幅だけ縦並びにし、column-reverse で実行を上にする。
+  test('stackFooter のダイアログは 640px 以下で、フッターを全幅の縦並び（column-reverse・stretch）にする', () => {
+    const css = style('ui/BaseDialog.vue')
+    const media = css.slice(css.indexOf('@media (max-width: 640px)'))
+    const r = media.match(/\.dlg-foot-stack\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(r).toContain('flex-direction: column-reverse')
+    expect(r).toContain('align-items: stretch')
+    // 広い幅の .dlg-foot（右寄せ・横並び・折り返し）は変えない
+    const foot = rule('ui/BaseDialog.vue', '.dlg-foot {')
+    expect(foot).toContain('justify-content: flex-end')
+    expect(foot).not.toContain('flex-direction')
+  })
+})

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref, useId, watch } from 'vue'
 import { thread as msg } from '../../../lib/messages'
+import { vOverlayScroll } from '../../../lib/overlayScroll'
 import { MAX_QUESTION_CHARS, questionLength } from '../../../lib/threadAi'
 import BaseButton from '../../ui/BaseButton.vue'
 
@@ -50,6 +51,7 @@ watch(model, () => void nextTick(fit))
     <textarea
       :id="inputId"
       ref="area"
+      v-overlay-scroll
       v-model="model"
       class="question-input"
       :rows="MIN_ROWS"

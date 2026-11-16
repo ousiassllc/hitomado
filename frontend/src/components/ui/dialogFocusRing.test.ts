@@ -21,6 +21,28 @@ describe('BaseDialog の本文', () => {
   })
 })
 
+// × ボタンのリングは青（--focus）でなく --accent（ライト＝インク・ダーク＝ボーン色）。キーボード（:focus-visible）のときだけ出し、
+// マウスのクリック（:focus だけ）では出さない（#376・#377）。
+describe('BaseDialog の × ボタン', () => {
+  test('フォーカスリングは :focus-visible のときだけ、--accent の 2px・offset 2px（青の --focus ではない）', async () => {
+    const css = await styleOf('./BaseDialog.vue')
+    const rule = css.match(/\.dlg-close:focus-visible\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(rule).toMatch(/outline:\s*2px solid var\(--accent\);/)
+    expect(rule).toMatch(/outline-offset:\s*2px;/)
+    expect(rule).not.toMatch(/--focus/)
+    expect(css).not.toMatch(/\.dlg-close:focus\s*[{,]/)
+  })
+})
+
+// 開いた直後の初期フォーカスは、操作する要素ではないダイアログ本体（tabindex="-1"）に置くので、本体にはフォーカスの枠を描かない（#376・#377）。
+describe('BaseDialog の本体', () => {
+  test('フォーカスされても枠を描かない', async () => {
+    const css = await styleOf('./BaseDialog.vue')
+    const rule = css.match(/\.dlg:focus\s*\{([^}]*)\}/)?.[1] ?? ''
+    expect(rule).toMatch(/outline:\s*none;/)
+  })
+})
+
 describe('SettingsDialog の横スクロールするタブ', () => {
   test('フォーカスリングは内側（offset -2px）に描く', async () => {
     const css = await styleOf('../settings/SettingsDialog.vue')

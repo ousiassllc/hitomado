@@ -1,4 +1,4 @@
-import { settingsChatgpt } from './settingsChatgpt'
+import { settingsAi } from './settingsAi'
 
 // 設定画面の文言（H4 の領域）。UI は日本語のみ。
 export const settings = {
@@ -121,101 +121,7 @@ export const settings = {
     replaceConfirm: '置き換える',
   },
 
-  ai: {
-    heading: 'AI 返信下書き',
-    intro:
-      '「AI で下書き」ボタンを押したときだけ、スレッドの一部・表示名・署名が下記の送信先へ送信されます。自動で生成・送信することはありません。',
-    destinationHeading: 'データの送信先',
-    destination: (provider: string, url: string) => `${provider}（${url}）`,
-    destinationDefaultNote: '既定の送信先です。',
-    destinationCustomNote: 'Base URL で指定した送信先です。',
-    destinationChatGPTNote:
-      'スレッドの内容は OpenAI の API（Responses）へ送信されます。ログインだけは auth.openai.com の公式画面で行います。',
-    destinationPending: (dest: string) =>
-      `入力中の送信先（${dest}）は未保存です。「設定を保存」するまで、上の送信先が使われます。`,
-    providerOptions: {
-      anthropic: 'Anthropic',
-      openai: 'OpenAI 互換',
-      chatgpt: 'ChatGPT プラン（Continue with ChatGPT）',
-      typesafe: 'TypeSafe AI（Jev）',
-    } as Record<string, string>,
-    // プロバイダの一覧と各プロバイダの設定ページ（#315）。
-    providerList: {
-      heading: 'AI のプロバイダ',
-      intro:
-        '使うプロバイダを選ぶと、そのプロバイダの設定ページが開きます（API キー・ログイン・モデルなど）。チェックが付いているのは、「AI で下書き」の既定のプロバイダです。',
-      listLabel: 'AI のプロバイダの一覧',
-      open: (provider: string) => `${provider} の設定を開く`,
-      back: 'プロバイダ一覧に戻る',
-      draftHint: '「設定を保存」すると、このプロバイダが「AI で下書き」の既定になります。',
-      names: {
-        chatgpt: 'ChatGPT',
-        anthropic: 'Anthropic',
-        openai: 'OpenAI 互換',
-        typesafe: 'TypeSafe AI（Jev）',
-      } as Record<string, string>,
-      // カードの補足。設定済みは文言だけで伝える（色のバッジにしない）。
-      noteConfigured: '設定済み',
-      noteLogin: 'ログイン',
-      noteApiKey: 'API キー',
-    },
-    typesafe: {
-      note: 'TypeSafe AI（Jev）は文章を書かないモデルです。「AI で下書き」の既定のプロバイダにはなりません。受信トレイの Inbox Zero ボタンで、不要なメールの判断に使います。',
-    },
-    model: 'モデル',
-    modelPlaceholder: '例: claude-sonnet-4-5',
-    modelRequired: 'モデルを入力してください。',
-    modelSelectPlaceholder: 'モデルを選択',
-    // モデルのエフォート（#111）。先頭は常に「モデルの既定」（何も送らない）。
-    effort: 'エフォート',
-    effortDefault: 'モデルの既定',
-    effortHint:
-      '考える深さ（使うトークン量）です。「モデルの既定」では何も指定せず、従来と同じ要求になります。',
-    effortLabels: {
-      low: 'low（控えめ）',
-      medium: 'medium（標準）',
-      high: 'high（深く）',
-      xhigh: 'xhigh（より深く）',
-      max: 'max（最大）',
-    } as Record<string, string>,
-    modelNotListed: (id: string) => `${id}（一覧にありません）`,
-    modelsRefresh: '一覧を更新',
-    modelsRefreshing: '取得中…',
-    modelsLoaded: (n: number) => `使えるモデルを ${n} 件取得しました。`,
-    modelsManualHint: '一覧から選べないときは、モデル名を直接入力できます。',
-    baseUrl: 'Base URL（OpenAI 互換のみ）',
-    baseUrlPlaceholder: '空欄で OpenAI の既定（https://api.openai.com）',
-    baseUrlHint: 'OpenAI 互換のサービスを使うときだけ指定します。',
-    saveConfig: '設定を保存',
-    configSaved: 'AI の設定を保存しました。',
-    apiKeyHeading: 'API キー',
-    apiKeyFor: (provider: string) => `${provider} の API キー`,
-    apiKeyPlaceholder: 'API キーを入力',
-    apiKeyStatusSet: '保存済み',
-    apiKeyStatusUnset: '未設定',
-    apiKeySave: 'キーを保存',
-    apiKeyClear: 'キーを削除',
-    apiKeyClearTitle: (provider: string) => `${provider} の API キーを削除しますか？`,
-    apiKeyClearDetail:
-      '保存済みの API キーが資格情報ストアから削除されます。登録し直すまで、この AI は使えなくなります。',
-    apiKeyClearConfirm: '削除する',
-    apiKeySaved: 'API キーを保存しました。',
-    apiKeyCleared: 'API キーを削除しました。',
-    apiKeyRequired: 'API キーを入力してください。',
-    apiKeyStored: 'API キーは資格情報ストアに保存され、画面には再表示されません。',
-    chatgpt: settingsChatgpt,
-    // プロバイダを選んだときの同意（F-08）と、同意のあとの取得。同意の画面の文言は compose.ai の consentTitle／consentBody と共通。
-    consentDialogAgree: '同意して一覧を取得する',
-    consentUnknown: (provider: string) =>
-      `${provider} への送信は、選んだ送信先で未確認です。一覧を取得するときに確認します。`,
-    consentNeeded: (provider: string) =>
-      `${provider} への送信は未同意です。同意すると、使えるモデルの一覧を取得します。`,
-    baseUrlDecide:
-      'Base URL を入力して Enter（または「一覧を更新」）を押すと、その送信先への同意を確認して一覧を取得します。',
-    consentAgreeNow: (dest: string) => `${dest} への送信に同意する`,
-    consentHeading: '送信への同意',
-    consentGiven: (provider: string) => `${provider} への送信に同意済みです。`,
-  },
+  ai: settingsAi,
 
   general: {
     sendConfirm: '送信前に確認画面を出す',

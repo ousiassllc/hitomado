@@ -97,11 +97,11 @@ func newFixture(t *testing.T, opts ...aicore.Option) *fixture {
 	return f
 }
 
-// ready は OpenAI 互換のプロバイダの設定・キー・同意と、Inbox Zero（TypeSafe AI）のキー・同意を済ませる。
+// ready は OpenAI 互換のプロバイダの設定（「AI で下書き」・「要約・質問」とも）・キー・同意と、Inbox Zero（TypeSafe AI）のキー・同意を済ませる。
 func (f *fixture) ready(t *testing.T) {
 	t.Helper()
 	ctx := t.Context()
-	_, err := f.ai.SetAIConfig(ctx, "openai", "gpt-test", "https://llm.example/v1", "")
+	_, err := apptest.SetDraftAndThreadAI(f.ai, ctx, "openai", "gpt-test", "https://llm.example/v1", "")
 	require.NoError(t, err)
 	for _, p := range []string{"openai", "typesafe"} {
 		_, err = f.ai.SetAIApiKey(ctx, p, testKey)
@@ -119,7 +119,7 @@ func (f *fixture) chatgptReady(t *testing.T) {
 	f.ChatGPT.Token = chatgpt
 	_, err := f.ai.SignInChatGPT(t.Context(), "")
 	require.NoError(t, err)
-	_, err = f.ai.SetAIConfig(t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1", "")
+	_, err = apptest.SetDraftAndThreadAI(f.ai, t.Context(), "chatgpt", "gpt-plan", "https://ignored.example/v1", "")
 	require.NoError(t, err)
 	_, err = f.ai.RecordAIConsent(t.Context(), "chatgpt", "")
 	require.NoError(t, err)

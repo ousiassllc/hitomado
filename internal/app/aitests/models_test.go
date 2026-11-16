@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/ousiassllc/hitomado/internal/ai"
+	"github.com/ousiassllc/hitomado/internal/app/apptest"
+	"github.com/ousiassllc/hitomado/internal/app/dto"
 )
 
 // --- モデル一覧（#76） ---
@@ -67,7 +69,7 @@ func TestListAIModelsAnthropicAndChatGPT(t *testing.T) {
 	m := &modelsLister{list: []ai.ModelInfo{{ID: "m1"}}}
 	f.withModels(m)
 
-	_, err := f.ai.SetAIConfig(t.Context(), "anthropic", "claude", "https://ignored.example", "")
+	_, err := apptest.SetDraftAI(f.ai, t.Context(), "anthropic", "claude", "https://ignored.example", "")
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "anthropic", testAPIKey)
 	require.NoError(t, err)
@@ -90,7 +92,7 @@ func TestListAIModelsSendsNothingBeforeConsentOrWithoutCredentials(t *testing.T)
 	f := newAIFixture(t)
 	m := &modelsLister{list: []ai.ModelInfo{{ID: "m1"}}}
 	f.withModels(m)
-	_, err := f.ai.SetAIConfig(t.Context(), "openai", "", readyBaseURL, "")
+	_, err := f.ai.SetAIBaseURL(t.Context(), readyBaseURL)
 	require.NoError(t, err)
 	_, err = f.ai.SetAIApiKey(t.Context(), "openai", testAPIKey)
 	require.NoError(t, err)
@@ -168,8 +170,7 @@ func TestListAIModelsBeforeSavingTheConfig(t *testing.T) {
 
 	cfg, err := f.ai.GetAIConfig(t.Context())
 	require.NoError(t, err)
-	assert.False(t, cfg.Configured, "一覧の取得と同意では設定は保存されない")
-	assert.Equal(t, "chatgpt", cfg.Provider)
+	assert.Equal(t, dto.AIFeatures{}, cfg.Features, "一覧の取得と同意では、機能ごとに使う AI は保存されない")
 }
 
 // 保存前に選んだ OpenAI 互換の Base URL への同意は、その送信先にだけ効き、保存済みの送信先の同意を消さない。
@@ -259,7 +260,7 @@ func TestSavedModelAndConfigAreUntouchedByListing(t *testing.T) {
 	require.NoError(t, err)
 	cfg, err := f.ai.GetAIConfig(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, "gpt-test", cfg.Model, "保存済みのモデルが一覧に無くても消さない")
+	assert.Equal(t, "gpt-test", cfg.Features.Draft.Model, "保存済みのモデルが一覧に無くても消さない")
 }
 
 // Anthropic のモデルごとのエフォートの段階は、そのまま画面へ返す（対応しないモデルは省略。#111）。

@@ -3,6 +3,8 @@
 
 export type {
     AIConfig,
+    AIFeatureSetting,
+    AIFeatures,
     AIModel,
     AIModelList,
     Account,
