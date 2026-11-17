@@ -46,9 +46,14 @@ const labelItems = computed(() => {
 /** 一覧の上に出す失敗（要再接続・オフラインは BannerStack が出す） */
 const noticed = computed(() => inbox.failures.filter((f) => f.code !== 'NEEDS_REAUTH' && f.code !== 'OFFLINE'))
 
+/** 取得に失敗したアカウントがあるのに 0 件（全アカウントが失敗）。上の案内は出さず、空表示に「再試行」を入れる */
+const failedEmpty = computed(() => inbox.items.length === 0 && inbox.failures.length > 0)
+/** 一部のアカウントだけ失敗したとき（取れた分の一覧がある）に、一覧の上へ出す案内 */
+const showNotice = computed(() => !failedEmpty.value && noticed.value.length > 0)
+
 const emptyText = computed(() => {
   // 取得に失敗したアカウントがあるのに 0 件のときは「メールがない」と言わない（要再接続・オフラインだけのときも）
-  if (inbox.items.length === 0 && inbox.failures.length > 0) return common.list.emptyFailed
+  if (failedEmpty.value) return common.list.emptyFailed
   if (inbox.mode === 'search') return common.list.emptySearch
   if (inbox.view === 'sent') return common.list.emptySent
   if (inbox.view === 'archive') return common.list.emptyArchive
@@ -114,7 +119,7 @@ async function toggleLabel(labelId: string): Promise<void> {
         @label="toggleLabel"
         @back-to-inbox="inbox.clearSearch"
       />
-      <InboxFailureNotice v-if="noticed.length > 0" :failures="noticed" :busy="inbox.loading" @retry="inbox.load" />
+      <InboxFailureNotice v-if="showNotice" :failures="noticed" :busy="inbox.loading" @retry="inbox.load" />
       <ThreadList
         :items="inbox.items"
         :selected-key="inbox.selectedKey"
@@ -129,7 +134,12 @@ async function toggleLabel(labelId: string): Promise<void> {
         @extend="inbox.extendChecked"
         @load-more="inbox.loadMore"
         @move="inbox.moveCursor"
-      />
+      >
+        <!-- 再試行が効かない失敗（要再接続・オフライン）だけのときは出さない（BannerStack の案内に任せる） -->
+        <template v-if="failedEmpty && noticed.length > 0" #empty-action>
+          <BaseButton size="sm" data-testid="inbox-failure-retry" @click="() => inbox.load()">{{ common.retry }}</BaseButton>
+        </template>
+      </ThreadList>
     </template>
   </section>
 </template>
