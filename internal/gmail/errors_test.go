@@ -125,8 +125,8 @@ func TestRateLimitBackoffGrowsThenGivesUp(t *testing.T) {
 	require.ErrorIs(t, err, ErrRateLimited)
 	assert.NotContains(t, err.Error(), leakedToken)
 	assert.Equal(t, []time.Duration{
-		time.Second, 2 * time.Second, 4 * time.Second, 8 * time.Second, 16 * time.Second, 32 * time.Second,
-	}, e.sleeper.recorded())
+		4 * time.Second, 8 * time.Second, 16 * time.Second, 32 * time.Second, time.Minute, time.Minute,
+	}, e.sleeper.recorded(), "利用上限の待ちは分単位の枠を越える長さまで伸ばす")
 	assert.Len(t, e.f.Requests("GET", apiBase+"/profile"), maxRetries+1)
 }
 
@@ -143,7 +143,7 @@ func TestRateLimitRecoversAfterRetry(t *testing.T) {
 	got, err := e.c.Profile(context.Background(), testAccount)
 	require.NoError(t, err)
 	assert.Equal(t, "a@example.com", got.Email)
-	assert.Equal(t, []time.Duration{time.Second, 2 * time.Second}, e.sleeper.recorded())
+	assert.Equal(t, []time.Duration{4 * time.Second, 8 * time.Second}, e.sleeper.recorded())
 }
 
 func TestForbiddenWithoutRateLimitReasonIsGeneric(t *testing.T) {

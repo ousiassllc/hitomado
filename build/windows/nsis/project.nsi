@@ -172,7 +172,7 @@ FunctionEnd
 # 上書き更新やアンインストールのあとにタスクバー・スタートメニューへ古いアイコンが残るのを減らす（#391）。
 # ショートカットへ AppUserModelID を付けるには NSIS 標準に機能が無く（サードパーティのプラグインが要る）、アプリ側も付けないので扱わない。
 !macro NOTIFY_SHELL_ICON_CHANGED
-    System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+    System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0x2000, p 0, p 0)'
 !macroend
 
 # 自動アップデートの「再起動して更新」（/RELAUNCH）。インストールが成功したときだけ、新しい hitomado.exe を起動する。

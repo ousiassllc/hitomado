@@ -40,8 +40,9 @@ type accountSearch struct {
 	pt     string        // 次の pageToken（空なら末尾）
 	err    error
 	// partial は、ページの一部のスレッドだけ取得に失敗した（取れたスレッドは queue にある）ときの最初の失敗。
-	// 取れなかったスレッドは続きのカーソルに残さない（一覧の読み直しで取り直す）。
+	// 取れなかったスレッドは failed に持ち、サマリ未取得のまま queue に積む（配信時に取り直し、配信できなければ続きのカーソルに残る）。
 	partial error
+	failed  []string
 	gone    bool // 再試行しても直らない失敗（続きのカーソルに残さない）
 }
 
@@ -85,16 +86,19 @@ func Search(ctx context.Context, p Params) dto.ThreadPage {
 			w.gone = apperr.IsPermanent(w.err)
 			continue // 失敗したアカウントは配信せず、取得済みの分も含めて next に引き継ぐ（時刻順を崩さないため）。
 		}
-		if w.partial != nil {
-			// 取れたスレッドは配信し、取れなかった分は失敗として知らせる（アカウントの結果を丸ごと捨てない）。
-			page.Failures = append(page.Failures, s.failure(ctx, w.acc.ID, w.partial))
-		}
 		all = append(all, w.queue...)
 	}
 	sort.SliceStable(all, func(i, j int) bool { return entryLess(all[i], all[j]) })
 	picked := all[:min(limit, len(all))]
 
 	s.hydratePicked(ctx, work, picked, &page)
+	// 取り直したスレッドは仮の時刻で並べていたので、本当の時刻で並べ直す（同じページの中だけ。残りは仮の時刻のまま続きへ）。
+	for i := range picked {
+		if picked[i].Sum != nil {
+			picked[i].T = picked[i].Sum.LastMessageAt
+		}
+	}
+	sort.SliceStable(picked, func(i, j int) bool { return entryLess(picked[i], picked[j]) })
 	delivered := map[string]struct{}{}
 	for _, e := range picked {
 		if e.Sum != nil {
@@ -103,6 +107,11 @@ func Search(ctx context.Context, p Params) dto.ThreadPage {
 		}
 	}
 	for _, w := range work {
+		// 一部のスレッドが取れなかったアカウント（取れたスレッドは配信する）。取り直しても配信できなかった分が残るときだけ失敗として知らせる。
+		if w.partial != nil && w.err == nil && slices.ContainsFunc(w.failed, func(id string) bool { _, ok := delivered[w.acc.ID+"/"+id]; return !ok }) &&
+			!slices.ContainsFunc(page.Failures, func(f dto.AccountFailure) bool { return f.AccountID == w.acc.ID }) {
+			page.Failures = append(page.Failures, s.failure(ctx, w.acc.ID, w.partial))
+		}
 		if w.gone {
 			continue // 再接続待ち・資格情報拒否・アカウント消滅は再試行しても直らない。Failures にだけ載せる。
 		}
@@ -177,8 +186,8 @@ func (s *searcher) loadAccount(ctx context.Context, w *accountSearch, query stri
 			switch {
 			case e == nil || errors.Is(e, gmail.ErrNotFound):
 				ok++
-			case firstErr == nil:
-				firstErr = e
+			case firstErr == nil || (apperr.IsPermanent(e) && !apperr.IsPermanent(firstErr)):
+				firstErr = e // 再接続などが要る失敗を優先する
 			}
 		}
 		if firstErr != nil && (ok == 0 || apperr.IsPermanent(firstErr)) {
@@ -193,6 +202,25 @@ func (s *searcher) loadAccount(ctx context.Context, w *accountSearch, query stri
 		for _, e := range entries {
 			if e != nil {
 				w.queue = append(w.queue, *e)
+			}
+		}
+		// 取れなかったスレッドは、同じページで取れたスレッドのいちばん古い時刻で仮に並べ（配信時に取り直し、本当の時刻は取り直し後に決まる）、
+		// 続きのカーソルの残りに載せる。ページのトークンは進むので、載せないと黙って欠ける。
+		fallback, found := int64(0), false
+		for _, e := range entries {
+			if e != nil && (!found || e.T < fallback) {
+				fallback, found = e.T, true
+			}
+		}
+		for _, q := range w.queue {
+			if !found || q.T < fallback {
+				fallback, found = q.T, true
+			}
+		}
+		for i, e := range errs {
+			if e != nil && !errors.Is(e, gmail.ErrNotFound) {
+				w.failed = append(w.failed, tl.Threads[i].ID)
+				w.queue = append(w.queue, searchEntry{AccountID: w.acc.ID, ThreadID: tl.Threads[i].ID, T: fallback})
 			}
 		}
 	}

@@ -19,6 +19,7 @@ var (
 	procSendMessage  = user32.NewProc("SendMessageW")
 	procGetDpiForWnd = user32.NewProc("GetDpiForWindow")
 	procMetricsForDp = user32.NewProc("GetSystemMetricsForDpi")
+	procMetrics      = user32.NewProc("GetSystemMetrics")
 	procModuleHandle = kernel32.NewProc("GetModuleHandleW")
 )
 
@@ -40,17 +41,24 @@ func loadAppIcon(hwnd, kind uintptr) uintptr {
 		imageIcon, lrShared    = 1, 0x8000
 		defaultDPI             = 96
 	)
-	// 取得できない（0）ときは、既定の 96 DPI で計算する。
-	dpi, _, _ := procGetDpiForWnd.Call(hwnd)
-	if dpi == 0 {
-		dpi = defaultDPI
-	}
 	cxIdx, cyIdx := uintptr(smCXIcon), uintptr(smCYIcon)
 	if kind == iconSmall {
 		cxIdx, cyIdx = smCXSmIcon, smCYSmIcon
 	}
-	cx, _, _ := procMetricsForDp.Call(cxIdx, dpi)
-	cy, _, _ := procMetricsForDp.Call(cyIdx, dpi)
+	var cx, cy uintptr
+	// GetDpiForWindow・GetSystemMetricsForDpi は Windows 10 1607 以降。無い（未解決の LazyProc は Call が panic する）なら、
+	// システムの DPI の GetSystemMetrics で大きさを決める。取得できない（0）ときは既定の 96 DPI で計算する。
+	if procGetDpiForWnd.Find() == nil && procMetricsForDp.Find() == nil {
+		dpi, _, _ := procGetDpiForWnd.Call(hwnd)
+		if dpi == 0 {
+			dpi = defaultDPI
+		}
+		cx, _, _ = procMetricsForDp.Call(cxIdx, dpi)
+		cy, _, _ = procMetricsForDp.Call(cyIdx, dpi)
+	} else {
+		cx, _, _ = procMetrics.Call(cxIdx)
+		cy, _, _ = procMetrics.Call(cyIdx)
+	}
 	// 失敗は戻り値 0 で表れる（エラーの詳細は使わない）。呼び出し側が 0 を読み込み失敗として扱う。
 	inst, _, _ := procModuleHandle.Call(0)
 	icon, _, _ := procLoadImage.Call(inst, appIconResourceID, imageIcon, cx, cy, lrShared)

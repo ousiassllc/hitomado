@@ -84,7 +84,11 @@ func (c *client) do(ctx context.Context, accountID string, spec callSpec, op fun
 			if attempt < maxRetries {
 				wait := c.jitter(backoff.Delay(attempt))
 				if f.retry == retryLimited {
-					// 上限は分単位の枠なので、並列の呼び出しが別々に待って同時に投げ直すと、また当たる。アカウントで待ちを共有する。
+					// 上限は分単位の枠なので、1 秒起点では枠が戻る前に再試行を使い切る。4 秒起点（4・8・16・32・60・60 秒）で、
+					// 待ちの下限を半分にして（短すぎる待ちを避ける）、合計で 1 分を超えるようにする。
+					d := backoff.Delay(attempt + 2)
+					wait = d/2 + c.jitter(d/2)
+					// 並列の呼び出しが別々に待って同時に投げ直すと、また当たる。アカウントで待ちを共有する。
 					wait = max(wait, a.cool.Remaining())
 					a.cool.Extend(wait)
 				}

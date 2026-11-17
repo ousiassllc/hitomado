@@ -48,6 +48,6 @@ func TestCallWaitsWhileAccountIsCoolingDown(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	require.Len(t, waits, 4, "2 回目の呼び出しは、最初の送信の前にアカウントの待ちが終わるのを待つ")
-	assert.Positive(t, waits[3])
-	assert.LessOrEqual(t, waits[3], 4*time.Second)
+	assert.Greater(t, waits[3], 5*time.Second, "直前の失敗で伸ばした待ち（8〜16 秒）の残り")
+	assert.LessOrEqual(t, waits[3], 16*time.Second)
 }

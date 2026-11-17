@@ -22,12 +22,35 @@ func TestSearchPartialMetadataFailureStillReturnsFetchedThreads(t *testing.T) {
 	ctx := t.Context()
 
 	e.Gmail.Err["GetThreadMetadata:"+a.ID+":hit2"] = gmail.ErrRateLimited
-	p, err := svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 5})
+	p, err := svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 2})
 	require.NoError(t, err)
-	assert.Equal(t, []string{"hit3", "hit1"}, threadIDs(p.Items), "取れたスレッドは出す")
-	require.Len(t, p.Failures, 1)
+	assert.Equal(t, []string{"hit3"}, threadIDs(p.Items), "取れたスレッドは出す（1 ページ 2 件のうち、取れなかった hit2 は取り直しも上限で失敗するまま）")
+	require.Len(t, p.Failures, 1, "アカウントごとに 1 件")
 	assert.Equal(t, a.ID, p.Failures[0].AccountID)
 	assert.Equal(t, apperr.RateLimited, p.Failures[0].Error["code"])
+	require.NotEmpty(t, p.NextCursor, "取れなかった hit2 は続きのカーソルに残る（黙って欠けない）")
+
+	delete(e.Gmail.Err, "GetThreadMetadata:"+a.ID+":hit2")
+	p, err = svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 5, Cursor: p.NextCursor})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hit2", "hit1"}, threadIDs(p.Items), "上限が解けたあとの続きで、残しておいた hit2 を取り直し、次のページの hit1 も出る")
+	assert.Empty(t, p.Failures)
+	assert.Empty(t, p.NextCursor)
+}
+
+// 一部のスレッドが利用上限で取れなくても、配信時の取り直しで取れたなら、失敗として知らせない（取れたメールはすべて出る）。
+func TestSearchPartialFailureRecoveredWhileHydratingIsNotReported(t *testing.T) {
+	svc, e := newInboxSvc(t)
+	a := e.AddAccount(t, "a@x.example")
+	e.PutRemoteThread(a.ID, "hit1", apptest.Msg("m1", "hit1", at(1), "INBOX"))
+	e.PutRemoteThread(a.ID, "hit2", apptest.Msg("m2", "hit2", at(2), "INBOX"))
+	e.Gmail.ErrOnce["GetThreadMetadata:"+a.ID+":hit2"] = gmail.ErrRateLimited
+
+	p, err := svc.Search(t.Context(), dto.SearchQuery{Q: "hit", Limit: 5})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"hit2", "hit1"}, threadIDs(p.Items))
+	assert.Empty(t, p.Failures)
+	assert.Empty(t, p.NextCursor)
 }
 
 // 4 アカウントすべてで、どのスレッドも利用上限で取れなかったときは、空の成功ではなく全アカウントの失敗として返す（#392）。
@@ -78,12 +101,8 @@ func TestSearchReusesThreadMetadataWhileHistoryIDIsUnchanged(t *testing.T) {
 	assert.Equal(t, []string{"hit2", "hit1"}, threadIDs(p.Items))
 	assert.Equal(t, 2, e.Gmail.CallCount("GetThreadMetadata"), "変わっていないスレッドは Gmail に頼み直さない")
 
-	// hit2 が既読になった（historyId が進む）。hit2 だけ取り直し、最新の内容を返す。
-	key := apptest.Key(a.ID, "hit2")
-	tf := e.Gmail.Threads[key]
-	tf.HistoryID = "h-hit2-next"
-	tf.Messages = []gmail.MessageFull{apptest.Msg("m2", "hit2", at(2), "INBOX")}
-	e.Gmail.Threads[key] = tf
+	// hit2 が既読になった（Gmail 側で historyId が進む）。hit2 だけ取り直し、最新の内容を返す。
+	require.NoError(t, e.Gmail.ModifyThread(ctx, a.ID, "hit2", nil, []string{"UNREAD"}))
 	p, err = svc.Search(ctx, dto.SearchQuery{Q: "hit"})
 	require.NoError(t, err)
 	assert.Equal(t, 3, e.Gmail.CallCount("GetThreadMetadata"), "historyId が変わった hit2 だけ取り直す")
