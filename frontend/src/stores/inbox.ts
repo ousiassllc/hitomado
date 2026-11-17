@@ -129,12 +129,11 @@ export const useInboxStore = defineStore('inbox', () => {
         // 条件が変わったのに読み込めなかった。前の条件の行・カーソルを新しい条件の結果として残さない。
         items.value = []
         nextCursor.value = undefined
+        failures.value = []
         selection.pruneSelection()
       }
-      const err = e as AppError
-      if (err.code !== 'OFFLINE') {
+      if ((e as AppError).code !== 'OFFLINE')
         ui.pushAlert(views.loadFailedMessageOf(mode.value, view.value), () => void load())
-      }
     } finally {
       if (gen === generation) loading.value = false
     }

@@ -30,6 +30,6 @@ func (s *InboxService) Search(ctx context.Context, q dto.SearchQuery) (dto.Threa
 	}
 	return searchcore.Search(ctx, searchcore.Params{
 		Deps: (*deps.Deps)(s.d), Accounts: targetAccounts(list, q.AccountIDs), States: states,
-		Query: query, Limit: limit, MaxFetchRounds: maxFetchRounds,
+		Query: query, Limit: limit, MaxFetchRounds: maxFetchRounds, Meta: s.meta,
 	}), nil
 }

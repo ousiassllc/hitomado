@@ -14,6 +14,7 @@ import { useUiStore } from '../../stores/ui'
 import AccountChips from '../account/AccountChips.vue'
 import DraftList from '../drafts/DraftList.vue'
 import BaseButton from '../ui/BaseButton.vue'
+import InboxFailureNotice from './failure/InboxFailureNotice.vue'
 import InboxTabs from './InboxTabs.vue'
 import ListToolbar from './ListToolbar.vue'
 import SearchBar from './SearchBar.vue'
@@ -42,7 +43,12 @@ const labelItems = computed(() => {
   }))
 })
 
+/** 一覧の上に出す失敗（要再接続・オフラインは BannerStack が出す） */
+const noticed = computed(() => inbox.failures.filter((f) => f.code !== 'NEEDS_REAUTH' && f.code !== 'OFFLINE'))
+
 const emptyText = computed(() => {
+  // 取得に失敗したアカウントがあるのに 0 件のときは「メールがない」と言わない（要再接続・オフラインだけのときも）
+  if (inbox.items.length === 0 && inbox.failures.length > 0) return common.list.emptyFailed
   if (inbox.mode === 'search') return common.list.emptySearch
   if (inbox.view === 'sent') return common.list.emptySent
   if (inbox.view === 'archive') return common.list.emptyArchive
@@ -108,6 +114,7 @@ async function toggleLabel(labelId: string): Promise<void> {
         @label="toggleLabel"
         @back-to-inbox="inbox.clearSearch"
       />
+      <InboxFailureNotice v-if="noticed.length > 0" :failures="noticed" :busy="inbox.loading" @retry="inbox.load" />
       <ThreadList
         :items="inbox.items"
         :selected-key="inbox.selectedKey"

@@ -5,6 +5,7 @@ import {
   callsOf,
   failures,
   installMocks,
+  page,
   ref,
   resetKit,
   responses,
@@ -57,6 +58,56 @@ describe('オフライン・要再接続', () => {
     await s.load()
     expect(accounts.statuses.a2).toBe('needs_reauth')
     expect(s.failures[0].accountId).toBe('a2')
+  })
+})
+
+const rateLimited = {
+  accountId: 'a2',
+  error: { code: 'RATE_LIMITED', message: 'Gmail の利用制限に達しました。', retryable: true },
+}
+
+describe('ページの部分失敗（RATE_LIMITED。#392）', () => {
+  test('一部の行があっても failures に残り、アカウント状態・オンライン・アラートは変えない', async () => {
+    responses.ListInbox = { items: base.slice(0, 2), failures: [rateLimited] }
+    const s = useInboxStore()
+    const ui = useUiStore()
+    const accounts = useAccountsStore()
+    await s.load()
+    expect(s.items).toHaveLength(2)
+    expect(s.failures).toEqual([
+      { accountId: 'a2', code: 'RATE_LIMITED', message: 'Gmail の利用制限に達しました。' },
+    ])
+    expect(accounts.statuses.a2).toBeUndefined()
+    expect(ui.online).toBe(true)
+    expect(ui.alerts).toHaveLength(0)
+  })
+
+  test('0 件でも failures に残る（検索）', async () => {
+    responses.Search = { items: [], failures: [rateLimited] }
+    const s = useInboxStore()
+    await s.runSearch('from:x')
+    expect(s.items).toHaveLength(0)
+    expect(s.failures.map((f) => f.code)).toEqual(['RATE_LIMITED'])
+  })
+
+  test('次の成功した取得で failures が空になる', async () => {
+    responses.ListInbox = { items: base, failures: [rateLimited] }
+    const s = useInboxStore()
+    await s.load()
+    expect(s.failures).toHaveLength(1)
+    responses.ListInbox = page(base)
+    await s.load()
+    expect(s.failures).toEqual([])
+  })
+
+  test('条件が変わって読み込めなかったとき、前の条件の failures を残さない', async () => {
+    responses.ListInbox = { items: base, failures: [rateLimited] }
+    const s = useInboxStore()
+    await s.load()
+    failures.Search = appError('INTERNAL')
+    await s.runSearch('x')
+    expect(s.items).toEqual([])
+    expect(s.failures).toEqual([])
   })
 })
 

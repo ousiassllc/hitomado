@@ -46,6 +46,14 @@ func (c *client) do(ctx context.Context, accountID string, spec callSpec, op fun
 	}
 	authRetried := false
 	for attempt := 0; ; attempt++ {
+		if attempt == 0 {
+			// 同じアカウントのほかの呼び出しが利用上限で待っている間は、新しい呼び出しも待つ（上限中に投げ足して延ばさない）。
+			if d := a.cool.Remaining(); d > 0 {
+				if err := c.sleep(ctx, d); err != nil {
+					return ctxError(ctx, spec.name)
+				}
+			}
+		}
 		if err := a.limiter.WaitN(ctx, spec.units); err != nil {
 			return ctxError(ctx, spec.name)
 		}
@@ -75,6 +83,11 @@ func (c *client) do(ctx context.Context, accountID string, spec callSpec, op fun
 		case f.retry == retryLimited || (f.retry == retryServer && spec.retry5xx):
 			if attempt < maxRetries {
 				wait := c.jitter(backoff.Delay(attempt))
+				if f.retry == retryLimited {
+					// 上限は分単位の枠なので、並列の呼び出しが別々に待って同時に投げ直すと、また当たる。アカウントで待ちを共有する。
+					wait = max(wait, a.cool.Remaining())
+					a.cool.Extend(wait)
+				}
 				c.logger.Debug("Gmail API を再試行", slog.String("account_id", accountID),
 					slog.String("op", spec.name), slog.Int("attempt", attempt+1), slog.Int("status", f.status))
 				if err := c.sleep(ctx, wait); err != nil {

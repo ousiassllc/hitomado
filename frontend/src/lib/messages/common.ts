@@ -69,6 +69,13 @@ export const common = {
     emptySearch: '一致するスレッドがありません。',
     emptySent: '送信済みのメールはありません。',
     emptyArchive: 'アーカイブしたメールはありません。',
+    /** 取得に失敗したアカウントがあり、1 件も読み込めなかったとき（「メールがない」とは言わない） */
+    emptyFailed:
+      'メールを取得できませんでした。アカウントごとの理由を確認して、もう一度お試しください。',
+    /** 一部のアカウントが取得に失敗したときの一覧上の案内（#392） */
+    failureTitle: 'メールを取得できなかったアカウントがあります',
+    failedAccount: (name: string, reason: string) => `${name}: ${reason}`,
+    unknownAccount: '不明なアカウント',
     loadMore: 'さらに読み込む',
     loadingMore: '続きを読み込み中…',
     noSubject: '(件名なし)',

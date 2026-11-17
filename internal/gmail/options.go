@@ -17,6 +17,7 @@ import (
 
 	"github.com/ousiassllc/hitomado/internal/clock"
 	"github.com/ousiassllc/hitomado/internal/gmail/backoff"
+	"github.com/ousiassllc/hitomado/internal/gmail/cooldown"
 	"github.com/ousiassllc/hitomado/internal/gmail/tokenauth"
 	"github.com/ousiassllc/hitomado/internal/secrets"
 )
@@ -26,8 +27,9 @@ const (
 	gmailScope = "https://www.googleapis.com/auth/gmail.modify"
 	// userID は認証済みユーザー自身を表す Gmail API の識別子。
 	userID = "me"
-	// quotaPerSecond は Gmail API のユーザーあたりクォータ（units/秒）。
-	quotaPerSecond = 250
+	// quotaPerSecond は 1 アカウントに送る呼び出しの上限（units/秒）。Gmail のユーザーあたりクォータは 250 units/秒（15,000 units/分）だが、
+	// ぎりぎりまで使うと分単位の枠に当たり（rateLimitExceeded）、同期など別の呼び出しとも枠を分け合うので、8 割に抑える。
+	quotaPerSecond = 200
 	// defaultHTTPTimeout は HTTPClient 未指定時の、通常の API 呼び出し 1 回の総時間の上限。
 	// 添付の取得・アップロード（callSpec.transfer）にはこの総時間制限を掛けない。
 	defaultHTTPTimeout = 2 * time.Minute
@@ -73,6 +75,7 @@ type account struct {
 	svc     *gmailapi.Service // 通常の API 呼び出し（総時間の上限あり）
 	xfer    *gmailapi.Service // 添付・生 MIME の転送系呼び出し（総時間の上限なし。打ち切りは ctx と応答ヘッダー待ち）
 	limiter *rate.Limiter
+	cool    cooldown.Cooldown // 利用上限に当たったときの待ちの共有（並列の呼び出しが同時に投げ直さない）
 	auth    *tokenauth.Transport
 }
 

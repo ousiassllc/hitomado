@@ -9,7 +9,9 @@ import (
 )
 
 // SearchParallelism は 1 つの操作内で同時に走らせる Gmail 呼び出し数の上限（レート制限はクライアント側）。
-const SearchParallelism = 8
+// Gmail の利用上限はユーザーあたりの分単位の枠（threads.get は 1 回 10 units）で、同時数を増やしても枠は増えず、
+// 当たったときに失敗する呼び出しが増えるだけなので、同期の取得（fetchConcurrency）と同じ 4 に揃える。
+const SearchParallelism = 4
 
 // ParallelDo は fn(0..n-1) を最大 limit 並列で実行し、すべての完了を待つ。
 // fn は別 goroutine で動くため、panic は呼び出し元の recover に届かずプロセスを落とす。そこで fn ごとに捕捉して

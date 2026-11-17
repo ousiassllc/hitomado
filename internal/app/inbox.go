@@ -6,6 +6,7 @@ import (
 	"github.com/ousiassllc/hitomado/internal/app/appcore"
 	"github.com/ousiassllc/hitomado/internal/app/apperr"
 	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/hitomado/internal/app/searchcore"
 	"github.com/ousiassllc/hitomado/internal/store"
 )
 
@@ -18,10 +19,16 @@ const (
 
 // InboxService は統合受信箱・検索・未読件数・スレッド操作・ラベル（バインディング仕様 §3）。
 // 検索は inbox_search.go、スレッド操作は inbox_ops.go、ラベルは inbox_labels.go。
-type InboxService struct{ d *Deps }
+type InboxService struct {
+	d *Deps
+	// meta は検索の threads.get の結果の再利用（同じ検索・同じスレッドを繰り返し Gmail に頼まない）。
+	meta *searchcore.MetaCache
+}
 
 // NewInboxService は InboxService を作る。
-func NewInboxService(d *Deps) *InboxService { return &InboxService{d: d} }
+func NewInboxService(d *Deps) *InboxService {
+	return &InboxService{d: d, meta: searchcore.NewMetaCache(searchcore.DefaultMetaCacheCapacity)}
+}
 
 func pageLimit(n int) (int, error) {
 	switch {

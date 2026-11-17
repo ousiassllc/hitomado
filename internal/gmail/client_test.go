@@ -36,12 +36,12 @@ func TestTokenIsCachedAcrossCalls(t *testing.T) {
 	assert.Equal(t, 1, e.f.TokenRequests())
 }
 
-func TestAccountLimiterIsPerAccountAt250(t *testing.T) {
+func TestAccountLimiterIsPerAccountBelowGmailQuota(t *testing.T) {
 	e := newTestEnv(t)
 	a, err := e.c.account(context.Background(), testAccount)
 	require.NoError(t, err)
-	assert.EqualValues(t, 250, a.limiter.Burst())
-	assert.EqualValues(t, 250, a.limiter.Limit())
+	assert.Less(t, a.limiter.Burst(), 250, "Gmail のユーザーあたりクォータ（250 units/秒）には届かせない")
+	assert.EqualValues(t, a.limiter.Burst(), a.limiter.Limit())
 }
 
 func TestGetThreadMetadataNotFound(t *testing.T) {
