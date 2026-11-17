@@ -168,8 +168,16 @@ Function un.onInit
     StrCpy $WaitLeft 0
 FunctionEnd
 
+# シェル（Explorer）にアイコンの変更を知らせ、アイコンのキャッシュを更新させる（SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST)）。
+# 上書き更新やアンインストールのあとにタスクバー・スタートメニューへ古いアイコンが残るのを減らす（#391）。
+# ショートカットへ AppUserModelID を付けるには NSIS 標準に機能が無く（サードパーティのプラグインが要る）、アプリ側も付けないので扱わない。
+!macro NOTIFY_SHELL_ICON_CHANGED
+    System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
+!macroend
+
 # 自動アップデートの「再起動して更新」（/RELAUNCH）。インストールが成功したときだけ、新しい hitomado.exe を起動する。
 Function .onInstSuccess
+    !insertmacro NOTIFY_SHELL_ICON_CHANGED
     ${If} $Relaunch == 1
         Exec '"$INSTDIR\${APP_EXE}"'
     ${EndIf}
@@ -253,4 +261,6 @@ Section "Uninstall"
     DeleteRegKey /ifempty HKCU "Software\Hitomado"
 
     DeleteRegKey HKCU "${UNINST_KEY}"
+
+    !insertmacro NOTIFY_SHELL_ICON_CHANGED
 SectionEnd
