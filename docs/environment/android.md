@@ -779,7 +779,7 @@ go test -run '^$' -bench 'InitialSync' -benchtime=3x ./internal/sync/syncertests
 | `BenchmarkInitialSyncHTTP` | 本物の `gmail.Client`（クォータ制御つき）を、`httptest` の偽 Gmail サーバー（`threads.list`・`threads.get`・`profile`・`labels` を実 API の形で返す）に向ける | **約 7.2 秒 / 200 スレッド** |
 | `BenchmarkInitialSyncStore` | ネットワーク・クォータ制御を除き、メモリ上のフェイクの Gmail から同期エンジン→実 SQLite に保存するまで | **約 0.15 秒 / 200 スレッド** |
 
-前者はクライアントの本番どおりの流量制限（ユーザーあたり 250 units/秒、`threads.get` は 10 units → 約 25 スレッド/秒）が支配的で、実 Gmail に対しても同じ上限が掛かる（ネットワークの遅延は含まない）。後者から、**エンジン＋SQLite の分は 200 スレッドで 0.15 秒（ホスト）**で、同期の時間はほぼ API の流量制限で決まる。**これはホスト（デスクトップ CPU）の数値で、Android の実機の値ではない**。実機の SQLite・CPU での数値は未計測。KVM つきのエミュレーター（x86_64・API 35。17.6）での起動時間は 17.6 の表。
+前者はクライアントの流量制限（ユーザーあたり 250 units/秒、`threads.get` は 10 units → 約 25 スレッド/秒。この数値の計測時の値で、本番は Gmail の分単位の利用上限に当たらないよう #392 で 200 units/秒に下げた。再計測はしていない）が支配的で、実 Gmail に対しても同じ上限が掛かる（ネットワークの遅延は含まない）。後者から、**エンジン＋SQLite の分は 200 スレッドで 0.15 秒（ホスト）**で、同期の時間はほぼ API の流量制限で決まる。**これはホスト（デスクトップ CPU）の数値で、Android の実機の値ではない**。実機の SQLite・CPU での数値は未計測。KVM つきのエミュレーター（x86_64・API 35。17.6）での起動時間は 17.6 の表。
 
 **起動時間（エミュレーター。ソフトウェアエミュレーションでの参考値であり、実機の数値ではない）**: `run.sh` が `adb shell am start -W` の `TotalTime`／`Status`（`METRIC am_start_total_ms`）と、起動から一覧の件名が画面に出るまでの秒（`METRIC start_to_list_s`）を出す。実機では `adb shell am start -W -n jp.ousias.hitomado/com.wails.app.MainActivity` の `TotalTime`（コールドスタート。`am force-stop` のあと）と、`adb logcat` の `Displayed` で測れる。
 

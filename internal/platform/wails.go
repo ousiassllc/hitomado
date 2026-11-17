@@ -126,6 +126,7 @@ func NewMainWindow(app *application.App, caps capability.Capabilities, saved Win
 		opts.X, opts.Y = r.X, r.Y
 	}
 	w := app.Window.NewWithOptions(opts)
+	KeepWindowIcon(w) // Windows のタスクバーに古いアイコンが残らないよう、ICON_BIG・ICON_SMALL を自分で設定する（#391）
 	var keeper *WindowKeeper
 	if caps.SupportsWindowState {
 		keeper = newWindowKeeper(app, w, saved, save, log)

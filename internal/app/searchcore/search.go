@@ -21,6 +21,7 @@ import (
 type searcher struct {
 	d              *deps.Deps
 	maxFetchRounds int
+	meta           *MetaCache
 }
 
 // searchEntry は検索結果の 1 件。Sum は取得済みのときのみ（カーソル由来の残りは配信時に取得する）。
@@ -38,7 +39,11 @@ type accountSearch struct {
 	queue  []searchEntry // 最終メッセージ日時の降順
 	pt     string        // 次の pageToken（空なら末尾）
 	err    error
-	gone   bool // 再試行しても直らない失敗（続きのカーソルに残さない）
+	// partial は、ページの一部のスレッドだけ取得に失敗した（取れたスレッドは queue にある）ときの最初の失敗。
+	// 取れなかったスレッドは failed に持ち、サマリ未取得のまま queue に積む（配信時に取り直し、配信できなければ続きのカーソルに残る）。
+	partial error
+	failed  []string
+	gone    bool // 再試行しても直らない失敗（続きのカーソルに残さない）
 }
 
 // Params は Search の入力。検証（クエリ・limit・カーソルの形）と対象アカウントの解決は呼び出し側で済ませる。
@@ -52,12 +57,14 @@ type Params struct {
 	Limit  int
 	// MaxFetchRounds は 1 アカウントが 1 回の呼び出しで Gmail から追加取得する最大ページ数（一覧が埋まらない場合の歯止め）。
 	MaxFetchRounds int
+	// Meta は threads.get の結果の再利用（nil なら使わない）。
+	Meta *MetaCache
 }
 
 // Search は Gmail 検索クエリを各アカウントで並列実行し、最終メッセージ日時の降順で統合する（結果は保存しない）。
 // カーソルはアカウントごとの pageToken と未配信の残りを埋め込んだ不透明文字列で、サーバー側に状態を持たない。
 func Search(ctx context.Context, p Params) dto.ThreadPage {
-	s := &searcher{d: p.Deps, maxFetchRounds: p.MaxFetchRounds}
+	s := &searcher{d: p.Deps, maxFetchRounds: p.MaxFetchRounds, meta: p.Meta}
 	query, limit, states := p.Query, p.Limit, p.States
 	var work []*accountSearch
 	for _, a := range p.Accounts {
@@ -85,6 +92,13 @@ func Search(ctx context.Context, p Params) dto.ThreadPage {
 	picked := all[:min(limit, len(all))]
 
 	s.hydratePicked(ctx, work, picked, &page)
+	// 取り直したスレッドは仮の時刻で並べていたので、本当の時刻で並べ直す（同じページの中だけ。残りは仮の時刻のまま続きへ）。
+	for i := range picked {
+		if picked[i].Sum != nil {
+			picked[i].T = picked[i].Sum.LastMessageAt
+		}
+	}
+	sort.SliceStable(picked, func(i, j int) bool { return entryLess(picked[i], picked[j]) })
 	delivered := map[string]struct{}{}
 	for _, e := range picked {
 		if e.Sum != nil {
@@ -93,6 +107,11 @@ func Search(ctx context.Context, p Params) dto.ThreadPage {
 		}
 	}
 	for _, w := range work {
+		// 一部のスレッドが取れなかったアカウント（取れたスレッドは配信する）。取り直しても配信できなかった分が残るときだけ失敗として知らせる。
+		if w.partial != nil && w.err == nil && slices.ContainsFunc(w.failed, func(id string) bool { _, ok := delivered[w.acc.ID+"/"+id]; return !ok }) &&
+			!slices.ContainsFunc(page.Failures, func(f dto.AccountFailure) bool { return f.AccountID == w.acc.ID }) {
+			page.Failures = append(page.Failures, s.failure(ctx, w.acc.ID, w.partial))
+		}
 		if w.gone {
 			continue // 再接続待ち・資格情報拒否・アカウント消滅は再試行しても直らない。Failures にだけ載せる。
 		}
@@ -156,17 +175,28 @@ func (s *searcher) loadAccount(ctx context.Context, w *accountSearch, query stri
 		appcore.ParallelDo(s.d.Log(), len(tl.Threads), appcore.SearchParallelism, func(i int) {
 			defer logging.RecoverTo(s.d.Log(), "inbox search thread", &errs[i]) // panic も取得失敗にする
 			var meta gmail.ThreadMeta
-			if meta, errs[i] = s.d.Gmail.GetThreadMetadata(ctx, w.acc.ID, tl.Threads[i].ID); errs[i] == nil {
+			if meta, errs[i] = s.threadMeta(ctx, w.acc.ID, tl.Threads[i]); errs[i] == nil {
 				if sum, ok := appcore.SummaryFromMeta(w.acc.ID, meta, w.labels); ok {
 					entries[i] = &searchEntry{AccountID: w.acc.ID, ThreadID: meta.ID, T: sum.LastMessageAt, Sum: &sum}
 				}
 			}
 		})
+		ok, firstErr := 0, error(nil)
 		for _, e := range errs {
-			if e != nil && !errors.Is(e, gmail.ErrNotFound) {
-				w.err = e // このページは取り込まず、w.pt もこのページの手前のまま（次回このページから取り直す）。
-				return
+			switch {
+			case e == nil || errors.Is(e, gmail.ErrNotFound):
+				ok++
+			case firstErr == nil || (apperr.IsPermanent(e) && !apperr.IsPermanent(firstErr)):
+				firstErr = e // 再接続などが要る失敗を優先する
 			}
+		}
+		if firstErr != nil && (ok == 0 || apperr.IsPermanent(firstErr)) {
+			// 1 件も取れない、または再接続などが要る失敗なら、このページは取り込まず、w.pt もこのページの手前のまま（次回このページから取り直す）。
+			w.err = firstErr
+			return
+		}
+		if firstErr != nil && w.partial == nil {
+			w.partial = firstErr // 一部だけ失敗（利用上限など）。取れたスレッドは使う。
 		}
 		w.pt = tl.NextPageToken
 		for _, e := range entries {
@@ -174,8 +204,39 @@ func (s *searcher) loadAccount(ctx context.Context, w *accountSearch, query stri
 				w.queue = append(w.queue, *e)
 			}
 		}
+		// 取れなかったスレッドは、同じページで取れたスレッドのいちばん古い時刻で仮に並べ（配信時に取り直し、本当の時刻は取り直し後に決まる）、
+		// 続きのカーソルの残りに載せる。ページのトークンは進むので、載せないと黙って欠ける。
+		fallback, found := int64(0), false
+		for _, e := range entries {
+			if e != nil && (!found || e.T < fallback) {
+				fallback, found = e.T, true
+			}
+		}
+		for _, q := range w.queue {
+			if !found || q.T < fallback {
+				fallback, found = q.T, true
+			}
+		}
+		for i, e := range errs {
+			if e != nil && !errors.Is(e, gmail.ErrNotFound) {
+				w.failed = append(w.failed, tl.Threads[i].ID)
+				w.queue = append(w.queue, searchEntry{AccountID: w.acc.ID, ThreadID: tl.Threads[i].ID, T: fallback})
+			}
+		}
 	}
 	sort.SliceStable(w.queue, func(i, j int) bool { return entryLess(w.queue[i], w.queue[j]) })
+}
+
+// threadMeta は stub のスレッドの metadata を返す。threads.list の historyId と一致する取得済みの結果があれば Gmail を呼ばない。
+func (s *searcher) threadMeta(ctx context.Context, accountID string, stub gmail.ThreadStub) (gmail.ThreadMeta, error) {
+	if meta, ok := s.meta.get(accountID, stub.ID, stub.HistoryID); ok {
+		return meta, nil
+	}
+	meta, err := s.d.Gmail.GetThreadMetadata(ctx, accountID, stub.ID)
+	if err == nil {
+		s.meta.put(accountID, meta)
+	}
+	return meta, err
 }
 
 // hydratePicked は配信するエントリのうちサマリ未取得のもの（カーソル由来）を取得する。

@@ -9,7 +9,7 @@ import type {
 import * as InboxService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
 import { type AppError, call, list, parseBindingError } from '../lib/api'
 import { EVENTS, onEvent, type SyncUpdatedPayload } from '../lib/events'
-import { keyOf, mergeHead, viewKeyOf } from '../lib/inboxItems'
+import { keyOf, mergeFailures, mergeHead, viewKeyOf } from '../lib/inboxItems'
 import { refreshAccounts } from '../lib/inboxRefresh'
 import type { InboxTab } from '../lib/inboxTabs'
 import * as views from '../lib/inboxViews'
@@ -109,7 +109,7 @@ export const useInboxStore = defineStore('inbox', () => {
     }
   }
 
-  /** 先頭から読み直す（フィルタ変更・検索・初回）。 */
+  /** 先頭から読み直す（フィルタ変更・検索・初回）。0 件でも、失敗があるときは続きを自動で投げ足さない（利用上限に重ねて当たらない）。 */
   async function load(): Promise<void> {
     const gen = ++generation
     const key = viewKey()
@@ -129,16 +129,16 @@ export const useInboxStore = defineStore('inbox', () => {
         // 条件が変わったのに読み込めなかった。前の条件の行・カーソルを新しい条件の結果として残さない。
         items.value = []
         nextCursor.value = undefined
+        failures.value = []
         selection.pruneSelection()
       }
-      const err = e as AppError
-      if (err.code !== 'OFFLINE') {
+      if ((e as AppError).code !== 'OFFLINE')
         ui.pushAlert(views.loadFailedMessageOf(mode.value, view.value), () => void load())
-      }
     } finally {
       if (gen === generation) loading.value = false
     }
-    if (gen === generation && items.value.length === 0 && hasMore.value) await loadMore()
+    if (gen === generation && !items.value.length && !failures.value.length && hasMore.value)
+      await loadMore()
     if (mode.value === 'inbox') await fetchUnreadCounts()
   }
 
@@ -157,7 +157,7 @@ export const useInboxStore = defineStore('inbox', () => {
         )
         items.value = [...items.value, ...more]
         nextCursor.value = page.nextCursor || undefined
-        applyFailures(toFailures(page.failures))
+        applyFailures(mergeFailures(failures.value, toFailures(page.failures)))
         // 追加 0 件で失敗を含むページは 1 回で打ち切る（失敗するアカウントへ連続して再要求しない）。
         if (more.length > 0 || list(page.failures).length > 0) break
       }

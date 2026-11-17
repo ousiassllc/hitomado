@@ -107,6 +107,8 @@ function onKeydown(ev: KeyboardEvent): void {
         <EmptyState>
           <template #icon><Mail class="icon icon-lg" /></template>
           {{ emptyText }}
+          <!-- 空表示の中の操作（取得に失敗したときの「再試行」） -->
+          <template v-if="$slots['empty-action']" #action><slot name="empty-action" /></template>
         </EmptyState>
       </div>
       <div

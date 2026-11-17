@@ -116,3 +116,8 @@ export function cursorAfterRemoval(
   if (kept.length === 0) return undefined
   return keyOf(kept[Math.min(removedFirstIndex, kept.length - 1)])
 }
+
+export function mergeFailures<T extends { accountId: string }>(prev: T[], next: T[]): T[] {
+  const ids = new Set(next.map((f) => f.accountId))
+  return [...prev.filter((f) => !ids.has(f.accountId)), ...next]
+}

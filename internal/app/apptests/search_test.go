@@ -214,27 +214,6 @@ func TestSearchFailureOnFirstPageIsRetriedFromStart(t *testing.T) {
 	assert.Empty(t, p.NextCursor)
 }
 
-func TestSearchMetadataFailureKeepsPageForRetry(t *testing.T) {
-	svc, e := newInboxSvc(t)
-	a := e.AddAccount(t, "a@x.example")
-	e.PutRemoteThread(a.ID, "hit1", apptest.Msg("m1", "hit1", at(1), "INBOX"))
-	e.PutRemoteThread(a.ID, "hit2", apptest.Msg("m2", "hit2", at(2), "INBOX"))
-	ctx := t.Context()
-
-	e.Gmail.Err["GetThreadMetadata:"+a.ID+":hit1"] = gmail.ErrRateLimited
-	p, err := svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 5})
-	require.NoError(t, err)
-	delete(e.Gmail.Err, "GetThreadMetadata:"+a.ID+":hit1")
-	assert.Empty(t, p.Items)
-	require.Len(t, p.Failures, 1)
-	require.NotEmpty(t, p.NextCursor)
-
-	p, err = svc.Search(ctx, dto.SearchQuery{Q: "hit", Limit: 5, Cursor: p.NextCursor})
-	require.NoError(t, err)
-	assert.Equal(t, []string{"hit2", "hit1"}, threadIDs(p.Items))
-	assert.Empty(t, p.NextCursor)
-}
-
 // カーソルの残りから取り直すスレッドのメタデータ取得が panic しても、プロセスは落ちず、失敗として返り、次回の再開に残る。
 func TestSearchRecoversPanicWhenHydratingCursorRest(t *testing.T) {
 	svc, e := newInboxSvc(t)

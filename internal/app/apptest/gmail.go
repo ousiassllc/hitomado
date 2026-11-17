@@ -62,6 +62,8 @@ type FakeGmail struct {
 	Calls             []string // "Method:accountID" の呼び出し順
 
 	Err map[string]error
+	// ErrOnce は Err と同じキーで、最初の 1 回だけ失敗させる（再試行で直る失敗を再現する）。
+	ErrOnce map[string]error
 	// Panic は Err と同じキーで、呼び出しを panic させる（別 goroutine の異常を再現する）。値が panic の値。
 	Panic map[string]any
 
@@ -83,6 +85,7 @@ func NewFakeGmail() *FakeGmail {
 		History:     map[string]gmail.HistoryPage{},
 		Signatures:  map[string]string{},
 		Err:         map[string]error{},
+		ErrOnce:     map[string]error{},
 		Panic:       map[string]any{},
 	}
 }
@@ -97,6 +100,10 @@ func (f *FakeGmail) enter(method, accountID string, extra ...string) error {
 	for i := len(keys) - 1; i >= 0; i-- {
 		if v, ok := f.Panic[keys[i]]; ok {
 			panic(v)
+		}
+		if err, ok := f.ErrOnce[keys[i]]; ok {
+			delete(f.ErrOnce, keys[i])
+			return err
 		}
 		if err := f.Err[keys[i]]; err != nil {
 			return err
@@ -280,6 +287,7 @@ func (f *FakeGmail) relabel(accountID, threadID string, add, remove []string) er
 		msgs[i].LabelIDs = labels
 	}
 	tf.Messages = msgs
+	tf.HistoryID += "+" // 本物の Gmail は変更のたびに historyId が進む（それを前提にした再利用を検証できるように）
 	f.Threads[k] = tf
 	return nil
 }
