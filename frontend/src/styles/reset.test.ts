@@ -8,7 +8,6 @@ const headingClasses: [string, string][] = [
   ['../components/account/AddAccountDialog.vue', 'title'],
   ['../components/compose/ComposePane.vue', 'compose-title'],
   ['../components/compose/ai/UsageLimitNotice.vue', 'title'],
-  ['../components/settings/GeneralSettings.vue', 'block-title'],
   ['../components/settings/McpSettings.vue', 'heading'],
   ['../components/settings/ai/AIApiKey.vue', 'sub'],
   ['../components/settings/ai/AIChatGPTLogin.vue', 'sub'],

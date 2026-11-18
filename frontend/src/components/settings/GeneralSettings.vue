@@ -209,10 +209,10 @@ function openUpdate(): void {
   gap: var(--s-2);
 }
 
+/* 見出しの意味づけは <h3> で残し、見た目はほかの行の見出し（<strong>。太さ 400・base・--ink）と同じにする（#397）。 */
 .block-title {
   margin: 0;
-  font-weight: 600;
-  font-size: var(--font-size-base);
+  font: inherit;
 }
 
 .toggle,
