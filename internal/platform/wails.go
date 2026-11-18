@@ -112,7 +112,7 @@ func NewMainWindow(app *application.App, caps capability.Capabilities, saved Win
 	minW, minH := MinWindowSize(caps)
 	opts := application.WebviewWindowOptions{
 		Name:             "main",
-		Title:            "Hitomado",
+		Title:            "Nefos Inbox",
 		Width:            saved.Width,
 		Height:           saved.Height,
 		MinWidth:         minW,
@@ -164,7 +164,7 @@ func NewTray(app *application.App, window *application.WebviewWindow, quit func(
 	t := &Tray{tray: app.SystemTray.New(), icons: icons}
 	t.badge.apply = t.applyUnread
 	t.showIcons(false)
-	t.tray.SetTooltip("Hitomado")
+	t.tray.SetTooltip("Nefos Inbox")
 	menu := app.Menu.New()
 	menu.Add("開く").OnClick(func(*application.Context) { ShowMainWindow(window) })
 	menu.AddSeparator()
@@ -195,10 +195,10 @@ func (t *Tray) showIcons(unread bool) {
 func (t *Tray) applyUnread(has bool) {
 	t.showIcons(has)
 	if has {
-		t.tray.SetTooltip("Hitomado（未読あり）")
+		t.tray.SetTooltip("Nefos Inbox（未読あり）")
 		return
 	}
-	t.tray.SetTooltip("Hitomado")
+	t.tray.SetTooltip("Nefos Inbox")
 }
 
 // Notifier は notify.Notifier の Wails 実装（Windows のトースト通知）。クリックで notify:open-thread を発行する。

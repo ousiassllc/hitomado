@@ -10,9 +10,9 @@
         <key>CFBundlePackageType</key>
         <string>APPL</string>
         <key>CFBundleName</key>
-        <string>Hitomado</string>
+        <string>Nefos Inbox</string>
         <key>CFBundleDisplayName</key>
-        <string>Hitomado</string>
+        <string>Nefos Inbox</string>
         <key>CFBundleExecutable</key>
         <string>hitomado</string>
         <key>CFBundleIdentifier</key>
@@ -30,6 +30,6 @@
         <key>NSHighResolutionCapable</key>
         <true/>
         <key>NSHumanReadableCopyright</key>
-        <string>Hitomado contributors, AGPL-3.0</string>
+        <string>Nefos Inbox contributors, AGPL-3.0</string>
     </dict>
 </plist>

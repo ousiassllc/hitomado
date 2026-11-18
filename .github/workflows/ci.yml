@@ -229,7 +229,7 @@ jobs:
               if ($p.HasExited) { throw "the app exited early (code $($p.ExitCode))" }
             }
             "alive after 15s; MainWindowTitle='$($p.MainWindowTitle)'"
-            if ($p.MainWindowTitle -ne 'Hitomado') { throw "no Hitomado window (title '$($p.MainWindowTitle)')" }
+            if ($p.MainWindowTitle -ne 'Nefos Inbox') { throw "no Nefos Inbox window (title '$($p.MainWindowTitle)')" }
           } finally {
             if (-not $p.HasExited) { $p.Kill() }
           }

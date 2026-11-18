@@ -32,7 +32,7 @@ func TestSignInRegistersWithTheDocumentedParameters(t *testing.T) {
 
 	q := e.F.LastAuth()
 	assert.Equal(t, "dynamic_agent_client", q.Get("client_id"))
-	assert.Equal(t, "Hitomado", q.Get("agent_name_hint"))
+	assert.Equal(t, "Nefos Inbox", q.Get("agent_name_hint"))
 	assert.Regexp(t, uuidURN, q.Get("ext_agent_host_id"))
 	assert.Equal(t, "code", q.Get("response_type"))
 	assert.Equal(t, "S256", q.Get("code_challenge_method"))
@@ -120,7 +120,7 @@ func TestAddingAnotherAccountKeepsTheFirstOne(t *testing.T) {
 	require.NoError(t, err)
 	q := e.F.LastAuth()
 	assert.Equal(t, "dynamic_agent_client", q.Get("client_id"))
-	assert.Equal(t, "Hitomado", q.Get("agent_name_hint"))
+	assert.Equal(t, "Nefos Inbox", q.Get("agent_name_hint"))
 	for _, k := range []string{"id_token_hint", "login_hint", "prompt"} {
 		assert.False(t, q.Has(k), "追加の登録に別アカウントの %s を付けない", k)
 	}

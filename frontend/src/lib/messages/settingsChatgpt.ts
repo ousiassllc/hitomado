@@ -2,9 +2,9 @@
 export const settingsChatgpt = {
   heading: 'ChatGPT プラン',
   intro:
-    'ChatGPT Plus／Pro のプランの範囲で、API キーなしで下書きを作ります。ログインは OpenAI の公式画面で行い、Hitomado はパスワードも Cookie も受け取りません。',
+    'ChatGPT Plus／Pro のプランの範囲で、API キーなしで下書きを作ります。ログインは OpenAI の公式画面で行い、Nefos Inbox はパスワードも Cookie も受け取りません。',
   notOfficial:
-    'Hitomado は OpenAI の公式アプリではありません。許可は ChatGPT の設定でいつでも取り消せます。',
+    'Nefos Inbox は OpenAI の公式アプリではありません。許可は ChatGPT の設定でいつでも取り消せます。',
   login: 'Continue with ChatGPT',
   loginWaiting: 'ブラウザで ChatGPT のログインを完了してください…',
   loginCancel: 'ログインを中止',
@@ -45,9 +45,9 @@ export const settingsChatgpt = {
   // 初めて ChatGPT プランの利用が有効になったときの確認。文言（英語）は OpenAI の UI/UX ガイドラインに合わせる。
   planNotice: {
     title: "You're using your ChatGPT plan",
-    body: 'Eligible AI requests in Hitomado will use your ChatGPT plan. You can manage usage in ChatGPT settings.',
+    body: 'Eligible AI requests in Nefos Inbox will use your ChatGPT plan. You can manage usage in ChatGPT settings.',
     account: (email: string) => `ChatGPT account: ${email}`,
-    note: 'Hitomado の「AI で下書き」は、あなたの ChatGPT プランの範囲で使われます。使用状況は ChatGPT の設定で確認・管理できます。',
+    note: 'Nefos Inbox の「AI で下書き」は、あなたの ChatGPT プランの範囲で使われます。使用状況は ChatGPT の設定で確認・管理できます。',
     gotIt: 'Got it',
     ackFailed: '確認の記録に失敗しました。次回もう一度表示されます。',
   },

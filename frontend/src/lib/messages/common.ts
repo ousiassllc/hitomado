@@ -1,5 +1,5 @@
 export const common = {
-  appName: 'Hitomado',
+  appName: 'Nefos Inbox',
   cancel: 'キャンセル',
   close: '閉じる',
   save: '保存',

@@ -10,9 +10,9 @@
 #     main.version が版と一致する
 #   - アンインストールでプログラム・ショートカット・登録は消え、利用者のデータ（%APPDATA%\Hitomado）は残る
 #
-# 利用者の環境を壊さないため、既に Hitomado が入っている・データがある PC では -Force なしでは動かない
+# 利用者の環境を壊さないため、既に Nefos Inbox（旧名 Hitomado）が入っている・データがある PC では -Force なしでは動かない
 # （登録キーと %APPDATA%\Hitomado を本物と共有するため）。-Force でも、消すのはこのスクリプトが作った
-# マーカーだけで、本物のデータは消さない（ただし入っている Hitomado は旧版で上書きされ、最後に消える）。
+# マーカーだけで、本物のデータは消さない（ただし入っている Nefos Inbox は旧版で上書きされ、最後に消える）。
 #
 # 使い方（版は、exe に埋め込んだ版を他と取り違えないよう、他に出てこない値にしておく）:
 #   pwsh .github/scripts/test-installer.ps1 -OldInstaller old.exe -OldVersion 0.99.1 `
@@ -32,8 +32,8 @@ $ErrorActionPreference = 'Stop'
 
 $uninstKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\jp.ousias.hitomado'
 $installDir = Join-Path ([IO.Path]::GetTempPath()) 'hitomado-installer-test'
-$startMenuLink = Join-Path ([Environment]::GetFolderPath('Programs')) 'Hitomado.lnk'
-$desktopLink = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Hitomado.lnk'
+$startMenuLink = Join-Path ([Environment]::GetFolderPath('Programs')) 'Nefos Inbox.lnk'
+$desktopLink = Join-Path ([Environment]::GetFolderPath('Desktop')) 'Nefos Inbox.lnk'
 $dataDir = Join-Path $env:APPDATA 'Hitomado'
 $marker = Join-Path $dataDir 'installer-test-marker.txt'
 
@@ -103,7 +103,7 @@ function Embeds-Version([string]$Path, [string]$Version) {
 
 if (-not $Force) {
   if ((Test-Path $uninstKey) -or (Test-Path $dataDir)) {
-    throw 'Hitomado is already installed or has data here. This test shares the registry key and %APPDATA%\Hitomado with the real app; use -Force on a throwaway machine (CI).'
+    throw 'Nefos Inbox is already installed or has data here. This test shares the registry key and %APPDATA%\Hitomado with the real app; use -Force on a throwaway machine (CI).'
   }
 }
 $dataDirExisted = Test-Path $dataDir
@@ -120,7 +120,7 @@ try {
   Assert (Test-Path "$installDir\NOTICE.txt") 'NOTICE.txt is installed'
   Assert (Test-Path $startMenuLink) 'Start Menu shortcut exists'
   Assert ((Displayed-Version) -eq $OldVersion) "Apps & features shows $OldVersion"
-  Assert ((Get-ItemProperty $uninstKey).DisplayName -eq 'Hitomado') 'Apps & features shows the name'
+  Assert ((Get-ItemProperty $uninstKey).DisplayName -eq 'Nefos Inbox') 'Apps & features shows the name'
   Assert ((Get-ItemProperty $uninstKey).InstallLocation -eq $installDir) 'InstallLocation is recorded'
   Assert (-not (Test-Path $desktopLink)) 'desktop shortcut is optional (not created silently)'
   Assert (Embeds-Version "$installDir\hitomado.exe" $OldVersion) "installed hitomado.exe embeds main.version $OldVersion"

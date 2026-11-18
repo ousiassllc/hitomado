@@ -48,7 +48,7 @@ func run() error {
 	caps := capability.Current()
 	mainWindow := &windowRef{}
 	wapp := application.New(application.Options{
-		Name:         "Hitomado",
+		Name:         "Nefos Inbox",
 		Description:  "複数の Gmail を 1 つの受信箱で扱い、正しい送信元で返信するアプリ",
 		Assets:       application.AssetOptions{Handler: application.AssetFileServerFS(assets)},
 		MarshalError: apperr.Marshal,
