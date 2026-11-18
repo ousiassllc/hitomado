@@ -32,7 +32,7 @@ type AccountResult struct {
 
 // Result は 1 回の同期の結果。
 type Result struct {
-	// NewMail は今回の同期で見つけた新着（1 スレッド 1 件。通知が有効なアカウントの INBOX の未読だけ）。
+	// NewMail は今回の同期で見つけた新着（1 スレッド 1 件。通知が有効なアカウントの INBOX の未読のうち、設定「通知するメール」が「メインだけ」（既定）ならカテゴリのラベルが付かないものだけ。#395）。
 	// AppRunning のときは空（アプリ本体の同期が通知を出す）。
 	NewMail []notify.NewMailNotice
 	// Accounts は同期の対象にした（または再接続待ちの）アカウントごとの結果。

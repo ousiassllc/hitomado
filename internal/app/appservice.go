@@ -88,11 +88,28 @@ func (s *AppService) GetAppInfo(ctx context.Context) (dto.AppInfo, error) {
 	if err != nil {
 		return dto.AppInfo{}, err
 	}
+	scope, err := store.LoadNotifyScope(ctx, s.d.Store)
+	if err != nil {
+		return dto.AppInfo{}, apperr.FromInfra(err, "")
+	}
 	return dto.AppInfo{
 		Version: s.d.Version, UpdateCheckEnabled: check,
 		AutoUpdateSupported: s.updates.Supported(), AutoUpdateEnabled: auto, DataDir: s.d.DataDir,
-		SendConfirmEnabled: confirm,
+		SendConfirmEnabled: confirm, NotifyScope: string(scope),
 	}, nil
+}
+
+// SetNotifyScope は新着通知の対象にするメール（"primary"＝メインだけ／"all"＝すべて）を保存する。全アカウント共通で、
+// アカウントごとの通知のオン・オフはこれと別に効く（オフのアカウントは、どちらでも通知しない）。それ以外の値は VALIDATION（#395）。
+func (s *AppService) SetNotifyScope(ctx context.Context, scope string) error {
+	v := store.NotifyScope(scope)
+	if !v.Valid() {
+		return apperr.New(apperr.Validation, "通知するメールは「メインだけ」か「すべて」を選んでください。")
+	}
+	if err := store.SaveNotifyScope(ctx, s.d.Store, v); err != nil {
+		return apperr.FromInfra(err, "")
+	}
+	return nil
 }
 
 // SetSendConfirmEnabled は送信前に確認画面を出すか（既定オン）を保存する。オフでも、送信元は受信したアカウントに

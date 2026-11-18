@@ -17,6 +17,7 @@ describe('GeneralSettings の自動アップデート（Windows 版）', () => {
     autoUpdateSupported: true,
     autoUpdateEnabled: true,
     sendConfirmEnabled: true,
+    notifyScope: 'primary',
     dataDir: '/data/Hitomado',
   }
 

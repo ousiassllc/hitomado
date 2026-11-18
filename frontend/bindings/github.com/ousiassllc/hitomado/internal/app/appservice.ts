@@ -75,6 +75,14 @@ export function SetInboxFilter(filter: dto$0.InboxFilter): $CancellablePromise<v
 }
 
 /**
+ * SetNotifyScope は新着通知の対象にするメール（"primary"＝メインだけ／"all"＝すべて）を保存する。全アカウント共通で、
+ * アカウントごとの通知のオン・オフはこれと別に効く（オフのアカウントは、どちらでも通知しない）。それ以外の値は VALIDATION（#395）。
+ */
+export function SetNotifyScope(scope: string): $CancellablePromise<void> {
+    return $Call.ByID(1300710481, scope);
+}
+
+/**
  * SetSendConfirmEnabled は送信前に確認画面を出すか（既定オン）を保存する。オフでも、送信元は受信したアカウントに
  * 固定され、送信は PrepareSend の確認トークンを使った Send を人がボタンを押したときだけ行う（#313）。
  */

@@ -56,7 +56,7 @@ func TestAppInfoAndUpdateToggle(t *testing.T) {
 	ctx := t.Context()
 	info, err := svc.GetAppInfo(ctx)
 	require.NoError(t, err)
-	assert.Equal(t, dto.AppInfo{Version: "0.1.0", UpdateCheckEnabled: true, DataDir: e.Deps.DataDir, SendConfirmEnabled: true}, info)
+	assert.Equal(t, dto.AppInfo{Version: "0.1.0", UpdateCheckEnabled: true, DataDir: e.Deps.DataDir, SendConfirmEnabled: true, NotifyScope: "primary"}, info)
 
 	require.NoError(t, svc.SetUpdateCheckEnabled(ctx, false))
 	info, _ = svc.GetAppInfo(ctx)
@@ -83,6 +83,32 @@ func TestSendConfirmSetting(t *testing.T) {
 	require.NoError(t, e.Store.SetSetting(ctx, store.SettingSendConfirm, `"garbage"`))
 	info, _ = svc.GetAppInfo(ctx)
 	assert.True(t, info.SendConfirmEnabled, "壊れた保存値は既定（オン）に戻す")
+}
+
+func TestNotifyScopeDefaultsToPrimaryAndRoundTrips(t *testing.T) {
+	svc, e := newAppSvc(t)
+	ctx := t.Context()
+	info, err := svc.GetAppInfo(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, "primary", info.NotifyScope, "保存値が無い（更新した利用者）ときはメインだけ")
+
+	require.NoError(t, svc.SetNotifyScope(ctx, "all"))
+	info, _ = svc.GetAppInfo(ctx)
+	assert.Equal(t, "all", info.NotifyScope)
+	require.NoError(t, svc.SetNotifyScope(ctx, "primary"))
+	info, _ = svc.GetAppInfo(ctx)
+	assert.Equal(t, "primary", info.NotifyScope)
+
+	err = svc.SetNotifyScope(ctx, "everything")
+	var ae *apperr.Error
+	require.ErrorAs(t, err, &ae)
+	assert.Equal(t, apperr.Validation, ae.Code)
+	info, _ = svc.GetAppInfo(ctx)
+	assert.Equal(t, "primary", info.NotifyScope, "未知の値は保存しない")
+
+	require.NoError(t, e.Store.SetSetting(ctx, store.SettingNotifyScope, `"garbage"`))
+	info, _ = svc.GetAppInfo(ctx)
+	assert.Equal(t, "primary", info.NotifyScope, "壊れた保存値はメインだけに戻す")
 }
 
 func TestCheckForUpdate(t *testing.T) {

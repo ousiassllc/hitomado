@@ -197,3 +197,69 @@ func TestAppRefreshLogsNewlyNeedsReauthOnly(t *testing.T) {
 	assert.Equal(t, "app_background", recs[0]["origin"])
 	assert.NotContains(t, buf.String(), "@example.com")
 }
+
+// Android のバックグラウンド同期（Worker が呼ぶ syncWith）も、Windows と同じ「通知するメール」の設定で絞る（#395）。
+func categoryMailScript(a *synctest.Script) {
+	cats := map[string][]string{
+		"main":   {"INBOX", "UNREAD"},
+		"social": {"INBOX", "UNREAD", "CATEGORY_SOCIAL"},
+		"promo":  {"INBOX", "UNREAD", "CATEGORY_PROMOTIONS"},
+		"update": {"INBOX", "UNREAD", "CATEGORY_UPDATES"},
+		"forum":  {"INBOX", "UNREAD", "CATEGORY_FORUMS"},
+	}
+	hp := gmail.HistoryPage{LatestHistoryID: "105"}
+	for _, id := range []string{"main", "social", "promo", "update", "forum"} {
+		meta := gmail.MessageMeta{
+			ID: "m-" + id, ThreadID: id, LabelIDs: cats[id], Subject: "件名 " + id,
+			InternalDate: time.Date(2026, 11, 3, 8, 0, 0, 0, time.UTC),
+			From:         model.Address{Name: "山田", Email: "yamada@example.com"},
+		}
+		hp.ChangedThreadIDs = append(hp.ChangedThreadIDs, id)
+		hp.Added = append(hp.Added, gmail.HistoryAdded{MessageID: meta.ID, ThreadID: id, LabelIDs: meta.LabelIDs})
+		a.Threads[id] = gmail.ThreadMeta{ID: id, HistoryID: "th-" + id, Messages: []gmail.MessageMeta{meta}}
+	}
+	a.History = hp
+}
+
+func newMailThreads(res Result) []string {
+	out := []string{}
+	for _, n := range res.NewMail {
+		out = append(out, n.ThreadID)
+	}
+	return out
+}
+
+func TestSyncWithNotifiesMainOnlyByDefaultAndAllWhenChosen(t *testing.T) {
+	cases := []struct {
+		name  string
+		scope string // 空は保存値なし
+		want  []string
+	}{
+		{"保存値なしはメインだけ", "", []string{"main"}},
+		{"メインだけ", `"primary"`, []string{"main"}},
+		{"すべて", `"all"`, []string{"main", "social", "promo", "update", "forum"}},
+	}
+	for _, c := range cases {
+		st, gm := newEnv(t)
+		addAccount(st, gm, "a", store.StatusActive, true)
+		if c.scope != "" {
+			st.Settings[store.SettingNotifyScope] = c.scope
+		}
+		gm.Edit("a", categoryMailScript)
+		res, err := syncWith(context.Background(), st, gm, testClock, slog.New(slog.DiscardHandler))
+		require.NoError(t, err, c.name)
+		assert.ElementsMatch(t, c.want, newMailThreads(res), c.name)
+	}
+}
+
+func TestSyncWithAccountNotifyOffSilencesBothScopes(t *testing.T) {
+	for _, scope := range []string{`"primary"`, `"all"`} {
+		st, gm := newEnv(t)
+		addAccount(st, gm, "a", store.StatusActive, false)
+		st.Settings[store.SettingNotifyScope] = scope
+		gm.Edit("a", categoryMailScript)
+		res, err := syncWith(context.Background(), st, gm, testClock, slog.New(slog.DiscardHandler))
+		require.NoError(t, err)
+		assert.Empty(t, res.NewMail, scope)
+	}
+}

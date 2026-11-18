@@ -40,6 +40,7 @@ export function installMocks(): void {
       'CheckForUpdate',
       'SetAutoUpdateEnabled',
       'SetSendConfirmEnabled',
+      'SetNotifyScope',
       'GetUpdateStatus',
       'RestartToUpdate',
     ),

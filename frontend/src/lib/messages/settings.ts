@@ -128,6 +128,11 @@ export const settings = {
     sendConfirmSwitch: '送信前の確認画面',
     sendConfirmHint:
       'オフにすると、送信ボタンを押したときに確認画面を出さず、すぐに送信します。送信元は受信したアカウントのまま変わりません。宛先に他の自分のアカウントがある・件名が空・本文が空のときは、オフでも確認画面を出します。',
+    notifyScope: '通知するメール',
+    notifyScopePrimary: 'メインだけ',
+    notifyScopeAll: 'すべて',
+    notifyScopeHint:
+      'メインだけにすると、ソーシャル・プロモーションなどのタブのメールは通知しません。全アカウント共通です（アカウントごとのオン・オフは「アカウント」で設定）。',
     updateCheck: '更新を確認する',
     updateCheckHint:
       '起動時と 24 時間ごとに GitHub で新しいバージョンを確認します。メールやアカウントの情報は送信しません。',
