@@ -98,6 +98,13 @@ describe('青系の色がない（#389。アカウント識別色 --account-* �
       expect(h >= 190 && h <= 270 && s >= 0.25).toBe(false)
     }
   })
+
+  test('--info はライト・ダークとも色味のないミュート灰色（彩度 5% 未満。青みのある灰色にしない）', () => {
+    const tokens = readFileSync(join(srcDir, 'styles/tokens.css'), 'utf8')
+    const infos = [...tokens.matchAll(/^\s*--info:\s*#([0-9a-fA-F]{6})\s*;/gm)].map((m) => m[1])
+    expect(infos).toHaveLength(2) // ライト（:root）とダーク
+    for (const hex of infos) expect(hueOf(hex).s).toBeLessThan(0.05)
+  })
 })
 
 describe('フォーカスリングは :focus-visible のときだけ、--accent で出る（#389）', () => {
