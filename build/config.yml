@@ -6,10 +6,10 @@ version: '3'
 # This information is used to generate the build assets.
 info:
   companyName: "Ousias"
-  productName: "Hitomado"
+  productName: "Nefos Inbox"
   productIdentifier: "jp.ousias.hitomado"
   description: "Multi-account Gmail unified inbox"
-  copyright: "Hitomado contributors, AGPL-3.0"
+  copyright: "Nefos Inbox contributors, AGPL-3.0"
   comments: "https://github.com/ousiassllc/hitomado"
   version: "0.0.0"
 

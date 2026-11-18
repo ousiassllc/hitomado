@@ -2,7 +2,7 @@
 
 > 関連: [プロジェクト概要](../overview.md) / [機能要件](../requirements/functional.md) / [アーキテクチャ設計](../architecture/overview.md) / [ER](../architecture/er.md) / [コンポーネント設計](../components/overview.md)
 
-Hitomado は HTTP サーバーを持たない。フロントエンド（Vue）と Go バックエンドの境界は **Wails v3 のバインディング**（Go のサービスメソッドを TypeScript から呼ぶ）であり、本書がその契約を定める。外部 API（Gmail API・OAuth・AI・GitHub）の利用方法も §10 にまとめる。
+Nefos Inbox は HTTP サーバーを持たない。フロントエンド（Vue）と Go バックエンドの境界は **Wails v3 のバインディング**（Go のサービスメソッドを TypeScript から呼ぶ）であり、本書がその契約を定める。外部 API（Gmail API・OAuth・AI・GitHub）の利用方法も §10 にまとめる。
 
 ## 1. 規約
 
@@ -516,7 +516,7 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 
 - **ログイン**（`SignInChatGPT`）: ブラウザで `https://auth.openai.com/api/accounts/authorize`（エンドポイントは `/.well-known/openid-configuration` から取得）を開く。PKCE（S256）・`state`・`nonce` を試行ごとに作り、リダイレクト先は `http://127.0.0.1:<一時ポート>/auth/callback`（`localhost` は使わない。`state` が合わない要求は無視）。`scope` は `openid profile email offline_access resource.invoke chatgpt.tokens.use.direct`、`resource` は `https://api.openai.com/v1`。client secret は持たない公開クライアント
 - **複数アカウント**（[Accounts and sessions](https://developers.openai.com/siwc/token-sharing-open-source/profiles-and-sessions)）: ChatGPT アカウント（クライアント登録）ごとに、発行された `client_id`・`sub`・メール・トークン（資格情報ストアのキーも `client_id` ごと）を別々に保存し、同じメールアドレスでも別の登録として扱う（同じアカウントでもう一度「追加」すると、別の `client_id` の別の登録になる）。ホスト ID（`ext_agent_host_id`）は全アカウントで共通。設定画面は保存済みのアカウントを一覧にして、使うアカウントを選べる（`SelectChatGPTAccount`。ログアウト済みの行はラジオが無く「再ログイン」を出すが、画面が古いなどでログアウト済みのアカウントを選んだときは、`details.reason = "account_signed_out"` を見て、画面が「このアカウントはログアウト済みです。「再ログイン」からもう一度ログインしてください。」を設定のエラー欄（`role="alert"`）に出し、一覧を読み込み直して「再ログイン」を押せる状態にする。文面は `messages`（`settings.ai.chatgpt.selectSignedOut`）。生成の前提の案内（未ログイン）とは別の文面）。別のアカウントの追加（`SignInChatGPT('')`）・再ログイン（`SignInChatGPT(id)`）は、ID トークンを検証して保存を終えるまで、使用中のアカウントにも保存済みのトークンにも影響しない。ほかのアカウントの `client_id`・ID トークン・メールを認可要求に混ぜない。生成・更新・失効は、使用中のアカウント（更新・失効は対象のアカウント）の `client_id` とトークンだけを使う。新規登録で発行された `client_id` が保存済みの登録と同じだったときは、`sub` が同じ場合だけ同じ登録を更新し、`sub` が違う場合も、保存済みの登録に `sub` が未記録で（旧形式から移行した直後など）同じアカウントと確認できない場合も、既存の登録・トークンを上書きせずに拒否する（`VALIDATION`。得たリフレッシュトークンは失効させる。発行される `client_id` は一意なので通常は起きない。登録済みのアカウントは「再ログイン」で入れ、成功すると `sub` が記録される）。Windows 資格情報マネージャーは資格情報キーの大文字小文字を区別しない（`Abc` と `abc` は同じキー）ので、`client_id` は大文字小文字を無視して一意として扱い、保存済みの登録と大文字小文字だけが違う `client_id` が発行された新規登録は、`sub` に関わらず同じく拒否する（`VALIDATION`・得たリフレッシュトークンは失効）。選んだ登録への再ログインで返った `client_id` が選んだ値と大文字小文字だけ違うときも、コードを交換する前に拒否する。資格情報キーの形式は変えない（変えるとリリース済みのキーの移行が要るため。発行される値は一意なので、拒否だけで足りる）
-- **クライアント登録**: 初回は `client_id=dynamic_agent_client`・`agent_name_hint=Hitomado`・ホスト ID（`ext_agent_host_id`。`urn:uuid:<UUIDv4>`。初回ログインの前に作って `app_settings.ai.chatgpt` に保存し、以後同じ値）で動的登録し、コールバックが返す発行済みの `client_id`（`oaiapp_…`）を保存して以後の認可・更新・失効に使う（発行されなければ未完了として失敗）。再ログインは保存済みの `client_id`（`agent_name_hint` は付けない）と、`login_hint`（メール）・保持している `id_token_hint` を使う。この登録に事前の申請や承認は要らない（OSS 向けの動的登録）
+- **クライアント登録**: 初回は `client_id=dynamic_agent_client`・`agent_name_hint=Nefos Inbox`・ホスト ID（`ext_agent_host_id`。`urn:uuid:<UUIDv4>`。初回ログインの前に作って `app_settings.ai.chatgpt` に保存し、以後同じ値）で動的登録し、コールバックが返す発行済みの `client_id`（`oaiapp_…`）を保存して以後の認可・更新・失効に使う（発行されなければ未完了として失敗）。再ログインは保存済みの `client_id`（`agent_name_hint` は付けない）と、`login_hint`（メール）・保持している `id_token_hint` を使う。この登録に事前の申請や承認は要らない（OSS 向けの動的登録）
 - **検証**: コードをトークンに交換したあと、ID トークンの署名（OpenAI の JWKS）・`iss`・`aud`（発行済みの `client_id`）・`exp`・`nonce` を検証し、`sub` を本人の識別とする。付与された `scope` に `chatgpt.tokens.use.direct` が無ければ ChatGPT プランは使えないとして、得たトークンは保存せず（リフレッシュトークンは失効させる）`OAUTH_DENIED` を返す。ログイン中のアカウント（使用中のアカウントを含む）のセッションは変えない。そのアカウントにセッションが無いときだけ、登録（クライアント ID）をログアウト済みのアカウントとして残し、その登録での次のログインでは `prompt=consent` で同意画面を求め直す。再ログインで選んだ登録と別の `sub` のログインは `VALIDATION` で拒否し（得たリフレッシュトークンは失効させる）、何も上書きしない（別のアカウントを使うには、追加する）。ブラウザで拒否（`access_denied`）は `OAUTH_DENIED`、5 分の時間切れは `OAUTH_TIMEOUT`
 - **保存**: アクセストークン・リフレッシュトークン・ID トークンは資格情報ストア（`hitomado/chatgpt_token/<client_id>/{access,refresh,id}`。1 件の上限を超える値は分割して保存）にだけ置く。ホスト ID・使用中のアカウント・アカウントごとの `client_id`・`sub`・メール・アクセストークンの期限（秘密ではない）は `app_settings.ai.chatgpt`（形式は [ER §3.9](../architecture/er.md)）。v0.1.7 までの 1 アカウントの形式（`hitomado/chatgpt_token/{access,refresh,id}`）は、最初の読み取りで、再ログインなしに新しい形式へ移す（新しい保存先へ書いてから登録を置き換え、最後に旧キーを消す。途中で失敗しても再実行できる。登録を新しい形式へ置き換えたあとに旧キーの削除だけが失敗した場合も、旧キーが残っている間は、プロセスの最初の呼び出し（削除に失敗し続けている間は呼び出しごと）に旧キーの削除をやり直す。旧キーの有無は読むだけで確かめ、無ければ何も消さない・新しい形式のキーには触れない。削除に失敗しても移行したアカウントは失わず、状態の取得・ログインは使える）。トークンはログ・エラーメッセージ・`AIConfig`・MCP のどこにも出さない（エラーはエラーコード名だけを持ち、応答本文は捨てる）
 - **更新**: アクセストークンは 1 時間。期限の 60 秒前から、`grant_type=refresh_token`・発行済みの `client_id`・`resource` で更新し、アクセス・リフレッシュ（置き換え）・ID トークンをまとめて保存する（更新・ログアウトはアカウントごとに直列化し、同じアカウントの並行更新は 1 回にまとまる。別のアカウントの更新・ログアウトは互いを待たない）。`invalid_grant`・`invalid_refresh_token`・`token_expired`・`refresh_token_expired`・`refresh_token_invalidated`・`refresh_token_reused` は、更新に失敗したアカウントのトークンだけを消して再ログインを案内（`AI_NOT_CONFIGURED`。ほかのアカウントのトークンは残る）。通信失敗・5xx ではトークンを消さない。生成中に 401 を受けたときだけ、1 度更新してやり直し、それでも 401 なら `AI_FAILED`（ログインの確認を案内）。403（`subscription_sharing_user_not_eligible` 以外の方針・権限・地域の拒否など）・429・5xx では更新も再送もしない（公式ドキュメントが同じ要求の繰り返しを求めていないため）。トークンは同意の確認が済んでから取得・更新する。エラーコードは `error` が文字列・`error.code`・トップレベルの `code` のいずれでも判定する
@@ -531,7 +531,7 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 
 | 項目 | 結果（環境・日付） |
 |------|--------------------|
-| ChatGPT Plus／Pro で「Continue with ChatGPT」→ OpenAI の画面 → 動的登録（`agent_name_hint=Hitomado`）→ `127.0.0.1` の一時ポートの `/auth/callback` → ログイン完了まで通る | 未確認 |
+| ChatGPT Plus／Pro で「Continue with ChatGPT」→ OpenAI の画面 → 動的登録（`agent_name_hint=Nefos Inbox`）→ `127.0.0.1` の一時ポートの `/auth/callback` → ログイン完了まで通る | 未確認 |
 | 返るアクセストークン・ID トークンの実際の長さ（長さだけを記録する） | 未確認 |
 | 資格情報マネージャーの 1 件の上限（約 2.5KB）を超えたときの分割保存（`hitomado/chatgpt_token/<client_id>/<kind>#N`）が正しく読み書きできる | 未確認 |
 | 期限切れの自動更新（1 時間）・`id_token_hint` つきの再ログイン | 未確認 |
@@ -540,7 +540,7 @@ OpenAI の公式ドキュメント（[Token sharing for open source](https://dev
 | `ListAIModels('chatgpt')` が実際に返す内容 | 未確認 |
 | 利用枠を超えたときの応答（`subscription_sharing_usage_limit_exceeded`）と画面の表示 | 未確認 |
 | ChatGPT Business など Plus／Pro 以外のプランで使えるか | 未確認 |
-| 公式のサインイン画面・同意画面に表示される名前が `Hitomado` | 未確認 |
+| 公式のサインイン画面・同意画面に表示される名前が `Nefos Inbox` | 未確認 |
 
 分割保存が実トークンで動かなければ修正する。
 
@@ -707,3 +707,4 @@ Wails のイベントとして発行する。ペイロードに本文・件名�
 | 1.51 | 2026-11-15 | 要約・質問（F-17・F-18）で使う AI を「AI で下書き」から切り離し、「機能ごとに使う AI」に専用の行「要約・質問」（`AIFeatures.threadAi`）を足した。`SetAIFeature` の `feature` に `threadAi` を加え（選べるプロバイダ・エフォートは `draft` と同じ。`typesafe` は `VALIDATION`）、`SummarizeThread`・`AskAboutThread` は `threadAi` で選んだ AI だけを使う（未選択なら `AI_NOT_CONFIGURED`。`draft` へは切り替えない）。起動時のマイグレーション（1.48）は旧 `ai.config` を `draft` と `threadAi` の両方へ写す。バインディングの型 `AIFeatures` に `threadAi` が加わる | #376 |
 | 1.52 | 2026-11-17 | `Search` の説明に、取得済みスレッドの再利用・一部失敗でも取れたスレッドを返すこと・利用上限での待ち直しを追記した（#392。バインディングの形は変えない） | #392 |
 | 1.53 | 2026-11-18 | `AppService` に `SetNotifyScope`、`GetAppInfo` に `notifyScope` を追加（新着通知の対象を「メインだけ」（既定）か「すべて」にする設定。全アカウント共通） | #395 |
+| 1.54 | 2026-11-18 | 製品の表示名を Hitomado から Nefos Inbox に変更。§1 の冒頭と、ChatGPT プランの動的登録の `agent_name_hint`（§10）・サインイン画面に表示される名前の確認項目を `Nefos Inbox` にした。リポジトリ名・ファイル名・データの保存先・資格情報の名前・`X-Hitomado-Send-Id` は変えない | #399 |

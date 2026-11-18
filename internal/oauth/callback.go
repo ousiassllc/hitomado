@@ -15,8 +15,8 @@ import (
 const (
 	callbackPath = "/callback"
 
-	pageDone   = "認可の操作が完了しました。このタブを閉じて Hitomado に戻ってください。"
-	pageDenied = "認可が完了しませんでした。このタブを閉じて Hitomado に戻ってください。"
+	pageDone   = "認可の操作が完了しました。このタブを閉じて Nefos Inbox に戻ってください。"
+	pageDenied = "認可が完了しませんでした。このタブを閉じて Nefos Inbox に戻ってください。"
 )
 
 // callbackResult はリダイレクトで受け取った結果。code か err のどちらかが入る。

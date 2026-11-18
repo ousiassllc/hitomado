@@ -19,7 +19,7 @@ var ToolNames = []string{
 	"get_status", "get_logs", "list_accounts", "list_threads", "search_threads", "get_thread", "create_reply_draft",
 }
 
-const instructions = "Hitomado（複数の Gmail を 1 つの受信箱で扱うデスクトップアプリ）の MCP サーバー。" +
+const instructions = "Nefos Inbox（複数の Gmail を 1 つの受信箱で扱うデスクトップアプリ）の MCP サーバー。" +
 	"状態・ログ・アカウント・メールの読み取りと、返信の下書きの作成ができる。" +
 	"メールの送信はできない。create_reply_draft が作る下書きは、利用者がアプリで確認して送る。"
 
@@ -140,7 +140,7 @@ func newServer(b Backend, logDir string, logger *slog.Logger, version string) *m
 
 	addTool(l, s, &mcp.Tool{
 		Name:        "create_reply_draft",
-		Description: "スレッドへの返信の下書きを Hitomado の下書き（Gmail の下書き）として作る。送信はしない。送信元は受信したアカウント、宛先・件名・署名・引用はアプリの規則で決まる。利用者がアプリで確認して送る。",
+		Description: "スレッドへの返信の下書きを Nefos Inbox の下書き（Gmail の下書き）として作る。送信はしない。送信元は受信したアカウント、宛先・件名・署名・引用はアプリの規則で決まる。利用者がアプリで確認して送る。",
 		Annotations: &mcp.ToolAnnotations{DestructiveHint: ptr(false), OpenWorldHint: ptr(false)},
 	}, func(ctx context.Context, in replyDraftInput) (ReplyDraft, error) {
 		return b.CreateReplyDraft(ctx, ReplyDraftRequest{

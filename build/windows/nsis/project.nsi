@@ -1,7 +1,7 @@
 ﻿Unicode true
 
 ####
-## Hitomado の Windows インストーラー（利用者ごとのインストール。管理者権限は要らない）。
+## Nefos Inbox の Windows インストーラー（利用者ごとのインストール。管理者権限は要らない）。
 ##
 ## 必須の定義（makensis の -D で渡す。build/windows/Taskfile.yml の installer:nsis が渡す）:
 ##   VERSION   版番号 X.Y.Z（exe の -X main.version と同じ値）
@@ -30,7 +30,9 @@
     !error "OUTFILE is required (-DOUTFILE=path\to\setup.exe)"
 !endif
 
-!define APP_NAME     "Hitomado"
+# 利用者に見せる名前。旧名（Hitomado）は、上書き更新でも変わらない名前（インストール先の既定・旧ショートカット・通知用の登録）の照合にだけ使う。
+!define APP_NAME     "Nefos Inbox"
+!define LEGACY_NAME  "Hitomado"
 !define APP_EXE      "hitomado.exe"
 !define COMPANY      "Ousias"
 !define APP_URL      "https://github.com/ousiassllc/hitomado"
@@ -55,7 +57,7 @@ Var Relaunch
 Name "${APP_NAME} ${VERSION}"
 OutFile "${OUTFILE}"
 RequestExecutionLevel user
-InstallDir "$LOCALAPPDATA\Programs\${APP_NAME}"
+InstallDir "$LOCALAPPDATA\Programs\${LEGACY_NAME}"
 # 上書きインストールでは前回の場所を使う。
 InstallDirRegKey HKCU "${UNINST_KEY}" "InstallLocation"
 ShowInstDetails show
@@ -69,7 +71,7 @@ VIAddVersionKey "CompanyName"     "${COMPANY}"
 VIAddVersionKey "FileDescription" "${APP_NAME} Installer"
 VIAddVersionKey "ProductVersion"  "${VERSION}"
 VIAddVersionKey "FileVersion"     "${VERSION}"
-VIAddVersionKey "LegalCopyright"  "Hitomado contributors, AGPL-3.0"
+VIAddVersionKey "LegalCopyright"  "Nefos Inbox contributors, AGPL-3.0"
 VIAddVersionKey "ProductName"     "${APP_NAME}"
 
 !define MUI_ICON   "..\icon.ico"
@@ -210,6 +212,18 @@ Section "${APP_NAME}（必須）"
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
     CreateShortcut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
+    # 上書き更新のとき、旧名（Hitomado）のショートカットと通知用の登録を新しい名前に置き換える。
+    # デスクトップのショートカットは、旧名のものがあったときだけ新しい名前で作り直す。
+    Delete "$SMPROGRAMS\${LEGACY_NAME}.lnk"
+    ${If} ${FileExists} "$DESKTOP\${LEGACY_NAME}.lnk"
+        Delete "$DESKTOP\${LEGACY_NAME}.lnk"
+        CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
+    ${EndIf}
+    ReadRegStr $0 HKCU "Software\Classes\AppUserModelId\${LEGACY_NAME}" "CustomActivator"
+    ${If} $0 != ""
+        DeleteRegKey HKCU "Software\Classes\CLSID\$0"
+    ${EndIf}
+    DeleteRegKey HKCU "Software\Classes\AppUserModelId\${LEGACY_NAME}"
 
     # 「アプリと機能」への登録。
     WriteRegStr HKCU "${UNINST_KEY}" "DisplayName" "${APP_NAME}"
@@ -247,18 +261,28 @@ Section "Uninstall"
 
     Delete "$SMPROGRAMS\${APP_NAME}.lnk"
     Delete "$DESKTOP\${APP_NAME}.lnk"
+    # 旧名（Hitomado）のときに作ったショートカットが残っていれば、それも消す。
+    Delete "$SMPROGRAMS\${LEGACY_NAME}.lnk"
+    Delete "$DESKTOP\${LEGACY_NAME}.lnk"
 
     RMDir /r "${WEBVIEW_DATA}"
 
     # アプリ（Wails の通知サービス）が起動時に HKCU へ書く通知用の登録。次の起動で作り直されるので、残さない。
-    # CLSID の GUID は AppUserModelId\Hitomado の CustomActivator に入っている。
-    ReadRegStr $0 HKCU "Software\Classes\AppUserModelId\Hitomado" "CustomActivator"
+    # CLSID の GUID は AppUserModelId\<アプリ名> の CustomActivator に入っている。登録の名前は、旧版では Hitomado、今の版では Nefos Inbox。
+    ReadRegStr $0 HKCU "Software\Classes\AppUserModelId\${APP_NAME}" "CustomActivator"
     ${If} $0 != ""
         DeleteRegKey HKCU "Software\Classes\CLSID\$0"
     ${EndIf}
-    DeleteRegKey HKCU "Software\Classes\AppUserModelId\Hitomado"
-    DeleteRegKey HKCU "Software\Hitomado\NotificationCategories"
-    DeleteRegKey /ifempty HKCU "Software\Hitomado"
+    ReadRegStr $0 HKCU "Software\Classes\AppUserModelId\${LEGACY_NAME}" "CustomActivator"
+    ${If} $0 != ""
+        DeleteRegKey HKCU "Software\Classes\CLSID\$0"
+    ${EndIf}
+    DeleteRegKey HKCU "Software\Classes\AppUserModelId\${APP_NAME}"
+    DeleteRegKey HKCU "Software\Classes\AppUserModelId\${LEGACY_NAME}"
+    DeleteRegKey HKCU "Software\${APP_NAME}\NotificationCategories"
+    DeleteRegKey /ifempty HKCU "Software\${APP_NAME}"
+    DeleteRegKey HKCU "Software\${LEGACY_NAME}\NotificationCategories"
+    DeleteRegKey /ifempty HKCU "Software\${LEGACY_NAME}"
 
     DeleteRegKey HKCU "${UNINST_KEY}"
 

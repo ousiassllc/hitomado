@@ -21,9 +21,9 @@ const (
 	// DefaultIssuer は OpenAI の認可サーバー。エンドポイントと JWKS は /.well-known/openid-configuration から得る。
 	DefaultIssuer = "https://auth.openai.com"
 
-	// AgentName は動的登録で名乗る名前（agent_name_hint）。Hitomado 自身の名前を、全インストールで同じにする。
-	// OpenAI やほかのアプリを名乗らない。
-	AgentName = "Hitomado"
+	// AgentName は動的登録で名乗る名前（agent_name_hint）。Nefos Inbox 自身の名前を、全インストールで同じにする。
+	// OpenAI やほかのアプリを名乗らない。登録済みの client_id は保存してあるので、名前を変えても既存のログインには影響しない。
+	AgentName = "Nefos Inbox"
 
 	// DefaultTimeout は認可待ち（ブラウザでの操作）の上限。
 	DefaultTimeout = 5 * time.Minute

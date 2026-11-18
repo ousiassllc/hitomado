@@ -70,3 +70,15 @@ describe('Inbox Zero の候補ダイアログのボタン（#377）', () => {
     expect(foot).not.toContain('flex-direction')
   })
 })
+
+describe('設定 → 一般の「データの保存先」（#400）', () => {
+  // 広い幅は「ラベル｜値」の 2 列のまま。狭い幅だけ、ラベルの下に値を置く縦並びにして、長いパスに全幅を譲る。
+  test('広い幅は 2 列（max-content 1fr）のまま、640px 以下だけ 1 列の縦並びにする', () => {
+    expect(rule('settings/GeneralSettings.vue', '.info {')).toContain(
+      'grid-template-columns: max-content 1fr',
+    )
+    const css = style('settings/GeneralSettings.vue')
+    const media = css.slice(css.indexOf('@media (max-width: 640px)'))
+    expect(media).toMatch(/\.info\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/)
+  })
+})

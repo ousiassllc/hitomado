@@ -63,7 +63,7 @@ func TestAuthorizeCallbackPage(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, http.StatusOK, status)
-	assert.Contains(t, body, "Hitomado に戻って")
+	assert.Contains(t, body, "Nefos Inbox に戻って")
 	assert.Contains(t, body, `lang="ja"`)
 	for _, banned := range []string{"<script", "src=", "href=", "http://", "https://", "@import", "url("} {
 		assert.NotContains(t, body, banned, "外部リソースを参照してはならない")

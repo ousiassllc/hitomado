@@ -14,7 +14,7 @@ import (
 // （"Sora Variable" は同梱した @font-face の名前なので使えない）で指定する。CSP が外部リソースを禁じるため同梱はしない。
 // サイズ・行間はガイドのスケール（見出し 18px/1.7・本文 16px/1.8）。
 const page = `<!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><title>Hitomado</title>
+<html lang="ja"><head><meta charset="utf-8"><title>Nefos Inbox</title>
 <style>
 :root{--ink:#050505;--bone:#f5f5f4;--surface:#ffffff;--border:#e7e7e5}
 @media (prefers-color-scheme:dark){:root{--ink:#ffffff;--bone:#050505;--surface:#141414;--border:#2a2a2a}}
@@ -23,7 +23,7 @@ main{background:var(--surface);padding:24px;border-radius:12px;border:1px solid 
 h1{font-size:18px;line-height:1.7;font-weight:600;margin:0 0 12px}
 p{margin:0;font-size:16px;line-height:1.8}
 </style>
-</head><body><main><h1>Hitomado</h1><p>%s</p></main></body></html>
+</head><body><main><h1>Nefos Inbox</h1><p>%s</p></main></body></html>
 `
 
 // Write は msg を載せた完了ページを w に書く。msg は HTML エスケープする。

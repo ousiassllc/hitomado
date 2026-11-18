@@ -65,7 +65,7 @@ tasks:
     cmds:
       # Windows の task には cat などの外部コマンドが無いので、組み込みの printf だけで書く。
       - >-
-        printf '{"fixed":{"file_version":"%s","product_version":"%s"},"info":{"0409":{"FileVersion":"%s","ProductVersion":"%s","CompanyName":"Ousias","FileDescription":"Hitomado - multi-account Gmail inbox","LegalCopyright":"Hitomado contributors, AGPL-3.0","ProductName":"Hitomado","Comments":"https://github.com/ousiassllc/hitomado"}}}\n'
+        printf '{"fixed":{"file_version":"%s","product_version":"%s"},"info":{"0409":{"FileVersion":"%s","ProductVersion":"%s","CompanyName":"Ousias","FileDescription":"Nefos Inbox - multi-account Gmail inbox","LegalCopyright":"Nefos Inbox contributors, AGPL-3.0","ProductName":"Nefos Inbox","Comments":"https://github.com/ousiassllc/hitomado"}}}\n'
         '{{.APP_VERSION}}' '{{.APP_VERSION}}' '{{.APP_VERSION}}' '{{.APP_VERSION}}'
         > info.generated.json
 

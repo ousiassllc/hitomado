@@ -27,6 +27,8 @@ onMounted(() => {
 onBeforeUnmount(() => window.removeEventListener('focus', refreshPermission))
 
 const info = computed(() => store.appInfo)
+/** 保存先のパスを、区切り（/ と \）の直後で折り返せるように分ける（単語の途中で切れないように。#400）。 */
+const dataDirParts = computed(() => (info.value?.dataDir ?? '').split(/(?<=[/\\])/))
 const update = computed(() => store.update)
 const checking = ref(false)
 /** 手動確認の結果（最新／更新あり）。未確認なら空。 */
@@ -190,7 +192,12 @@ function openUpdate(): void {
       <dt>{{ msg.general.version }}</dt>
       <dd class="path" data-testid="app-version">{{ info?.version ?? msg.general.unknown }}</dd>
       <dt>{{ msg.general.dataDir }}</dt>
-      <dd class="path" data-testid="app-datadir">{{ info?.dataDir ?? msg.general.unknown }}</dd>
+      <dd class="path" data-testid="app-datadir">
+        <template v-if="info?.dataDir">
+          <template v-for="(part, i) in dataDirParts" :key="i">{{ part }}<wbr /></template>
+        </template>
+        <template v-else>{{ msg.general.unknown }}</template>
+      </dd>
     </dl>
     <p class="hint">{{ msg.general.dataDirHint }}</p>
   </section>
@@ -267,5 +274,21 @@ function openUpdate(): void {
 .path {
   font-family: var(--font-mono);
   overflow-wrap: anywhere;
+}
+
+/* 狭い幅（Android など）は、ラベルの下に値を置く縦並びにする。長いパスに幅を譲り、単語の途中で切れないようにする（#400）。 */
+@media (max-width: 640px) {
+  .info {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+
+  .info dd + dt {
+    margin-top: var(--s-3);
+  }
+
+  .info dd {
+    margin-top: var(--s-1);
+  }
 }
 </style>

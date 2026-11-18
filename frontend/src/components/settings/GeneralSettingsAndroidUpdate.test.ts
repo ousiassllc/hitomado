@@ -50,6 +50,21 @@ describe('GeneralSettings の更新（Android）', () => {
     w.unmount()
   })
 
+  test('保存先のパスは / の直後で折り返せる（テキストは変えず、単語の途中では切らない。#400）', () => {
+    const pinia = setup()
+    useSettingsStore().appInfo = {
+      ...info,
+      dataDir: '/data/user/0/jp.ousias.hitomado/files/Hitomado',
+    }
+    usePlatformStore().capabilities = { ...ANDROID_CAPS }
+    const w = mount(GeneralSettings, { global: { plugins: [pinia] } })
+    const dir = w.get('[data-testid="app-datadir"]')
+    expect(dir.text()).toBe('/data/user/0/jp.ousias.hitomado/files/Hitomado')
+    // 区切りごとに折り返しの候補（<wbr>）が 1 つずつ入る（/ が 6 つ、末尾の部分で 1 つ）
+    expect(dir.findAll('wbr')).toHaveLength(7)
+    w.unmount()
+  })
+
   test('更新確認を持たない機能構成では更新確認の項目を出さない', () => {
     const pinia = setup()
     useSettingsStore().appInfo = info

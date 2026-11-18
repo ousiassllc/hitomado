@@ -27,7 +27,7 @@ func main() {
 	}
 	if err != nil {
 		slog.Error("fatal", "err", err.Error())
-		platform.ShowFatal("Hitomado を起動できません", err.Error())
+		platform.ShowFatal("Nefos Inbox を起動できません", err.Error())
 		os.Exit(1)
 	}
 }

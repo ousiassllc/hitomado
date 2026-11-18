@@ -79,7 +79,7 @@ export const compose = {
     needLogin:
       '「AI で下書き」に選んだ ChatGPT にログインしていません。設定の「AI のつなぎ先」でログインしてください',
     // 利用枠の超過（subscription_sharing_usage_limit_exceeded）。文言（英語）は OpenAI の UI/UX ガイドラインに合わせ、
-    // Manage usage を主なアクションにする。Hitomado に独自のクレジットは無いので、購入の導線は出さない。
+    // Manage usage を主なアクションにする。Nefos Inbox に独自のクレジットは無いので、購入の導線は出さない。
     usageLimit: {
       identity: 'ChatGPT',
       title: 'Usage limit reached',

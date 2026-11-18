@@ -1,11 +1,13 @@
 <h1>
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/assets/lockup-hitomado-dark.svg">
-    <img src="docs/assets/lockup-hitomado-light.svg" alt="Hitomado" width="480">
+    <img src="docs/assets/lockup-hitomado-light.svg" alt="Nefos Inbox" width="480">
   </picture>
 </h1>
 
 複数の Gmail／Google Workspace アドレスを 1 つの統合受信箱で扱い、**受信したアカウントから正しい送信元で返信できる**デスクトップアプリ（Windows。Android・macOS は試験段階の検証用配布）。アカウント切替と送信元の取り違えをなくすことが目的です。
+
+旧称は Hitomado です。リポジトリ名・配布ファイル名（`hitomado-vX.Y.Z-…`）・データの保存先（`%APPDATA%\Hitomado\`）・資格情報の名前には、更新とデータを引き継ぐため、今も hitomado の名前が残ります。
 
 - 公開者のサーバーは持ちません。通信は利用者の PC と Google／AI プロバイダ（任意）／GitHub Releases（更新確認）の間だけで完結します。
 - Gmail の制限付きスコープの審査（CASA）を避けるため、**利用者が自分の Google Cloud で OAuth クライアントを作る**方式（BYO OAuth）です。手順は [OAuth クライアントの作り方](#oauth-クライアントの作り方) を参照してください。
@@ -30,9 +32,9 @@
 
 1. [Releases](https://github.com/ousiassllc/hitomado/releases) から最新の `hitomado-vX.Y.Z-windows-amd64-setup.exe` をダウンロードします。同じ Release の `SHA256SUMS.txt` でハッシュを確認できます（PowerShell: `Get-FileHash .\hitomado-vX.Y.Z-windows-amd64-setup.exe -Algorithm SHA256`）。
 2. ダウンロードしたインストーラーを実行します。**管理者権限は要りません**。利用者ごとに `%LOCALAPPDATA%\Programs\Hitomado` へ入ります（インストール先は画面で変えられます）。初回は [SmartScreen の警告](#smartscreen-の警告について)が出ることがあります。
-   - スタートメニューに「Hitomado」が登録されます。デスクトップのショートカットは、インストール時に選んだときだけ作られます。
+   - スタートメニューに「Nefos Inbox」が登録されます。デスクトップのショートカットは、インストール時に選んだときだけ作られます。
    - WebView2 ランタイムが無い PC では、インストーラーが一緒に入れます。
-3. スタートメニューの「Hitomado」から起動します。初回は [OAuth クライアントを作成](#oauth-クライアントの作り方)し、アプリの設定 → OAuth クライアントに登録してから、アカウントを追加します。
+3. スタートメニューの「Nefos Inbox」から起動します。初回は [OAuth クライアントを作成](#oauth-クライアントの作り方)し、アプリの設定 → OAuth クライアントに登録してから、アカウントを追加します。
 
 動作環境: Windows 10（1809 以降）／Windows 11（x64。ARM64 の Windows 11 では x64 エミュレーションで動きます。ARM64 の Windows 10 は対象外）。WebView2 ランタイムが必要です（Windows 11 は標準搭載。未導入ならインストーラーが入れます）。
 
@@ -41,12 +43,12 @@ Android と macOS の試験版（検証用。警告が出る前提）は、[Andr
 ### 更新
 
 - アプリは起動時と 24 時間ごとに新しい版を確認し、あれば設定画面などに表示します（設定でオフにできます）。Windows 版は、新しい版を自動でダウンロードして `SHA256SUMS.txt` と照合し、「再起動して更新」を押したとき、または次にアプリを終了するときに入れ替えます（送信中・下書きの保存中は入れ替えません。設定の「自動アップデート」でオフにでき、オフならリンクを出すだけです）。ハッシュが合わないファイルは使わずに捨てます。
-- 更新するには、新しい版のインストーラーをそのまま実行します（**上書きインストール**）。前回の場所に入り、データ・アカウント・設定はそのまま残ります。Hitomado が起動中なら、タスクトレイのアイコンから「終了」してから実行してください（起動中はインストーラーが先へ進めません）。
+- 更新するには、新しい版のインストーラーをそのまま実行します（**上書きインストール**）。前回の場所に入り、データ・アカウント・設定はそのまま残ります。Nefos Inbox が起動中なら、タスクトレイのアイコンから「終了」してから実行してください（起動中はインストーラーが先へ進めません）。
 - 版番号は、インストーラー・アプリの設定画面・「アプリと機能」・`hitomado.exe` のプロパティで同じ値です。
 
 ### アンインストール
 
-「設定 → アプリ → インストールされているアプリ」（Windows 10 は「アプリと機能」）の「Hitomado」からアンインストールできます。Hitomado を終了してから実行してください。
+「設定 → アプリ → インストールされているアプリ」（Windows 10 は「アプリと機能」）の「Nefos Inbox」からアンインストールできます。Nefos Inbox を終了してから実行してください。
 
 アンインストールで消えるのは、プログラム本体・ショートカット・登録情報だけです。**利用者のデータは消しません**。再インストールすればアカウントを登録し直さずに使えます。
 
@@ -88,7 +90,7 @@ Releases の `hitomado-vX.Y.Z-android-arm64.apk`（arm64 の実機向け。`SHA2
 **警告が出る前提です（意図した状態です）。** Google Play では配布していないので、Play プロテクトの警告が出ることがあります。この APK は、リポジトリの管理者が保管する**固定の署名鍵**で署名していて、どの版も署名証明書が同じです。そのため:
 
 - **新しい版は、入っている版の上に上書きインストールできます**。アカウント・設定・下書きは残ります。新しい APK を開いて「更新」を選ぶか、PC に接続した端末なら `adb install -r hitomado-vX.Y.Z-android-arm64.apk` を実行します。
-- **固定の鍵に切り替えた最初の版だけは、上書きできません。** それより前の APK は、版ごとに作る使い捨ての鍵で署名していたため、入れようとすると「アプリがインストールされていません」「競合するパッケージ」などで失敗します。この切り替えのときだけ、いったんアンインストールして入れ直します。**アプリのデータ（アカウント・設定・下書き）は消えます**。PC に接続した端末なら `adb uninstall jp.ousias.hitomado` の後に `adb install hitomado-vX.Y.Z-android-arm64.apk`、端末だけなら「設定 → アプリ → Hitomado → アンインストール」の後に新しい APK を入れます。次の版からは上書きで更新できます。
+- **固定の鍵に切り替えた最初の版だけは、上書きできません。** それより前の APK は、版ごとに作る使い捨ての鍵で署名していたため、入れようとすると「アプリがインストールされていません」「競合するパッケージ」などで失敗します。この切り替えのときだけ、いったんアンインストールして入れ直します。**アプリのデータ（アカウント・設定・下書き）は消えます**。PC に接続した端末なら `adb uninstall jp.ousias.hitomado` の後に `adb install hitomado-vX.Y.Z-android-arm64.apk`、端末だけなら「設定 → アプリ → Nefos Inbox → アンインストール」の後に新しい APK を入れます。次の版からは上書きで更新できます。
 - アプリ内で新しい版を確認してリンクを出しますが、自動では入れ替えません（新しい APK は Releases から入れてください）。
 - エミュレーター（x86_64）向けの APK は添付していません。
 
@@ -106,7 +108,7 @@ Releases の `hitomado-vX.Y.Z-macos-arm64.zip`（Apple Silicon）または `hito
 
 ## OAuth クライアントの作り方
 
-Hitomado は Gmail API を使うため、Google Cloud で OAuth クライアント（種類: **デスクトップ アプリ**）を作成し、その Client ID と Client Secret を設定画面に登録します。アカウント（会社）ごとに別のクライアントを使うこともできます。
+Nefos Inbox は Gmail API を使うため、Google Cloud で OAuth クライアント（種類: **デスクトップ アプリ**）を作成し、その Client ID と Client Secret を設定画面に登録します。アカウント（会社）ごとに別のクライアントを使うこともできます。
 
 1. [Google Cloud Console](https://console.cloud.google.com/) でプロジェクトを作成（または既存のものを選択）します。
 2. **API とサービス → ライブラリ** で **Gmail API** を有効にします。
@@ -115,7 +117,7 @@ Hitomado は Gmail API を使うため、Google Cloud で OAuth クライアン�
    - アプリ名・サポートメール・連絡先メールを入力します。
    - スコープに `https://www.googleapis.com/auth/gmail.modify` を追加します（`openid`・`email`・`profile` は自動で含まれます）。
 4. **認証情報 → 認証情報を作成 → OAuth クライアント ID** を選び、アプリケーションの種類に **デスクトップ アプリ** を指定して作成します。
-5. 表示された **クライアント ID** と **クライアント シークレット** を、Hitomado の設定 → OAuth クライアントに名前を付けて登録します。
+5. 表示された **クライアント ID** と **クライアント シークレット** を、Nefos Inbox の設定 → OAuth クライアントに名前を付けて登録します。
 6. 設定 → アカウントの追加で、登録した OAuth クライアントを選び、ブラウザで Google の認可を完了します。
 
 ### Android で使う場合の OAuth クライアント
@@ -125,7 +127,7 @@ Android 版（試験段階。[docs/environment/android.md](docs/environment/andr
 - **「Android」種別のクライアントは作らないでください**。Android 版は認可コードを 127.0.0.1 の一時ポートで受け取ります。Google は、この方式を Android 種別のクライアントでは認めておらず（[ループバック移行ガイド](https://developers.google.com/identity/protocols/oauth2/resources/loopback-migration)）、カスタム URI スキームも Android では使えません（[OAuth 2.0 for Desktop apps](https://developers.google.com/identity/protocols/oauth2/native-app)。いずれも 2026-11-03 に確認）。デスクトップ アプリ種別のループバックは引き続きサポートされています。
 - **パッケージ名（`jp.ousias.hitomado`）と署名鍵の SHA-1 は、Google Cloud に登録しません**（Android 種別だけが要るものです）。したがって、デバッグ鍵で入れた APK でも、自分で署名した release 鍵の APK でも、同じクライアントで認可できます。署名が違う APK へ入れ替えるときに要るのは、`adb uninstall jp.ousias.hitomado`（アプリのデータも消えます）だけです。
 - 同意画面が **外部かつ「テスト」** のときは、**Google Auth Platform → 対象（Audience）→ テストユーザー**に、Android で追加する Gmail アドレスを登録してください（登録していないアドレスは認可できません）。「テスト」のままだと 7 日でトークンが失効する点は次のとおりです。
-- 認可はブラウザで行います。同意したあと、ブラウザの「このタブを閉じて Hitomado に戻ってください」の表示を見たら、アプリに戻ってください（自動では戻りません）。ブラウザに出ている間にアプリが終了してしまったときは、アプリに「ログインの途中でアプリが終了したため、完了できませんでした」と出るので、もう一度アカウントの追加からやり直してください。
+- 認可はブラウザで行います。同意したあと、ブラウザの「このタブを閉じて Nefos Inbox に戻ってください」の表示を見たら、アプリに戻ってください（自動では戻りません）。ブラウザに出ている間にアプリが終了してしまったときは、アプリに「ログインの途中でアプリが終了したため、完了できませんでした」と出るので、もう一度アカウントの追加からやり直してください。
 - 実機・本物の Google アカウントでの動作確認はまだです（確認の手順は [docs/environment/android.md §14.6](docs/environment/android.md#146-実機で確認する手順未確認)）。
 
 ### 重要: 「テスト」のままだと 7 日でトークンが失効します
@@ -149,7 +151,7 @@ OAuth 同意画面の公開ステータスが **外部かつ「テスト」** �
 - ローカル DB（`%APPDATA%\Hitomado\hitomado.db`）には、**メール本文・添付は保存しません**。保存するのは差出人・件名・日時・スニペット・ラベル・同期状態・宛先候補のみです。件名とスニペットは暗号化されないため、**BitLocker などのディスク暗号化の利用を推奨**します。
 - 保存した添付ファイルには Windows の Mark-of-the-Web（`Zone.Identifier` の `ZoneId=3`）を付けます。開くときに SmartScreen／保護ビューが働きます（FAT/exFAT など代替データストリーム非対応のボリュームでは付かず、保存自体は成功します）。
 - ログ（`%APPDATA%\Hitomado\logs\`）にトークン・パスワード・OAuth 情報・本文・件名・宛先は出力しません（書き込む前に伏せます）。設定 → ログ から、フォルダを開く・書き出すことができます。形式・保持期間は [docs/mcp.md](docs/mcp.md#ログ) にあります。
-- ChatGPT のプランでのログイン（Sign in with ChatGPT）は OpenAI の公式画面（システムブラウザ）で行い、Hitomado はパスワードもセッション Cookie も受け取りません。Codex CLI など他アプリの認証情報は読みません。Hitomado は OpenAI の公式アプリではありません。使った分は ChatGPT の設定の使用状況（https://chatgpt.com/settings/usage）で確認でき、連携はそこから解除できます。
+- ChatGPT のプランでのログイン（Sign in with ChatGPT）は OpenAI の公式画面（システムブラウザ）で行い、Nefos Inbox はパスワードもセッション Cookie も受け取りません。Codex CLI など他アプリの認証情報は読みません。Nefos Inbox は OpenAI の公式アプリではありません。使った分は ChatGPT の設定の使用状況（https://chatgpt.com/settings/usage）で確認でき、連携はそこから解除できます。
 - MCP サーバーは既定でオフです。オンにしても、アプリが作るトークン（Bearer）が無い接続は拒否します。既定は `127.0.0.1` のみで待ち受け、別のアドレス（tailnet など）は設定で明示的に許可したときだけです。トークンは Windows 資格情報マネージャーに保存し、再発行・無効化できます。MCP には送信の機能が無く、下書きは必ずあなたがアプリで確認して送ります。
 - アプリが行う外部通信先は次の 6 種類だけです。公開者のサーバーへは一切通信しません。テレメトリもありません。
   - Google OAuth（`accounts.google.com`／`oauth2.googleapis.com`／`openidconnect.googleapis.com`。認可・トークン更新・アドレス取得）

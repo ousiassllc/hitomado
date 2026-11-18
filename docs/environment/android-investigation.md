@@ -2,7 +2,7 @@
 
 > 関連: [Android ビルド](android.md) / [環境構築](setup.md) / [アーキテクチャ設計](../architecture/overview.md)
 
-Issue #81 は、Wails v3 の Android 対応（試験的）で Hitomado の Android 版がどこまで動くかを、試作で確かめる調査だった。本書は、その結果表・バックグラウンド同期の案・本実装の Issue 案を 1 か所にまとめる。**各項目の細かい設計・手順・確認の範囲は [Android ビルド](android.md) の節に書いてあり、本書は要約と案内**である。
+Issue #81 は、Wails v3 の Android 対応（試験的）で Nefos Inbox の Android 版がどこまで動くかを、試作で確かめる調査だった。本書は、その結果表・バックグラウンド同期の案・本実装の Issue 案を 1 か所にまとめる。**各項目の細かい設計・手順・確認の範囲は [Android ビルド](android.md) の節に書いてあり、本書は要約と案内**である。
 
 - 試作のブランチは `proto/android-81`（参考として残す。直接は使わない）。本実装は試作から土台を取り込み（#82）、以降の Issue（#83〜#90）で作り込んだ。
 - **Android 版は Releases の検証用 APK として配る。Google Play には出さない**（[Android ビルド §8](android.md#8-ciリリースciymlreleaseyml)・#91）。Play で配るために要る手続きと審査は [Google Play での配布の準備](android-play-distribution.md)（#91。調査のみで、申込み・登録はしていない）にまとめた。

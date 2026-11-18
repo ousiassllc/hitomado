@@ -142,7 +142,7 @@ GitHub Releases の APK は、リポジトリの Secrets に登録した**固定
 - 鍵とパスワードはログに出さない: パスワードは `::add-mask::` で伏せ、keytool には環境変数で渡す（コマンドラインに載せない）。keystore は `$RUNNER_TEMP` に置くだけで、成果物には含めない。`prepare-android-signing_test.sh`（CI の `test` ジョブ）が、鍵の選び方・失敗の条件・ログに値が出ないことを検査する。
 - `task android:verify` は、署名の証明書の **SHA-256**（公開してよい値）を `SIGNING: certificate SHA-256 …` として表示する。Release を作る run のログで、版どうしで同じ値になっていることを確認できる。APK を手元で調べるなら `apksigner verify --print-certs hitomado-vX.Y.Z-android-arm64.apk`。
 
-**固定鍵に切り替えた最初の版だけ**は、入っている使い捨ての鍵の APK の上に上書きできない。端末で `adb uninstall jp.ousias.hitomado`（または「設定 → アプリ → Hitomado → アンインストール」）をしてから入れる（**アプリのデータ（アカウント・設定・下書き）は消える**）。その次の版からは上書きで更新できる。
+**固定鍵に切り替えた最初の版だけ**は、入っている使い捨ての鍵の APK の上に上書きできない。端末で `adb uninstall jp.ousias.hitomado`（または「設定 → アプリ → Nefos Inbox → アンインストール」）をしてから入れる（**アプリのデータ（アカウント・設定・下書き）は消える**）。その次の版からは上書きで更新できる。
 
 Play 配布（#91）でも署名鍵の扱いは同じ問題になる。ここで作る鍵は GitHub Releases の APK 用で、Play App Signing の**アップロード鍵**を兼ねるかどうかは [android-play-distribution.md §6.2](android-play-distribution.md#62-署名鍵) で決める（Play 版と Releases の APK は、Play が配布用の鍵で再署名するので署名が違う）。
 
@@ -169,7 +169,7 @@ Play 配布（#91）でも署名鍵の扱いは同じ問題になる。ここで
 - 置く権限: `INTERNET`、`ACCESS_NETWORK_STATE`（ネットワーク変化の通知）、`VIBRATE`、`POST_NOTIFICATIONS`（§15）。WorkManager が manifest のマージで `WAKE_LOCK`・`RECEIVE_BOOT_COMPLETED` を足す（許可リストに入っている）。前面サービスの権限（`FOREGROUND_SERVICE`・`FOREGROUND_SERVICE_DATA_SYNC`）と `WailsForegroundService` は #88 で削除した（§15.1・§15.7）。
 - 削除した権限: `CAMERA`、`ACCESS_FINE_LOCATION`、`ACCESS_COARSE_LOCATION`、`USE_BIOMETRIC`。`androidx.biometric`（`WailsBridge.java` が参照する）がマージ時に `USE_BIOMETRIC`／`USE_FINGERPRINT` を足すため、`tools:node="remove"` で取り除く。カメラ用の `<queries>` も削除した。
 - `allowBackup="false"`、`fullBackupContent="false"`、`dataExtractionRules`（`res/xml/data_extraction_rules.xml`。クラウドバックアップ・端末間移行ともすべて除外）。DB（メール本文のメタデータを含む）と、Android Keystore の鍵に紐づく暗号化済み資格情報は、別の端末に復元しても使えないため。
-- アイコン（#379）: `android:icon`／`android:roundIcon` は `@mipmap/ic_launcher`／`@mipmap/ic_launcher_round`。ロゴ v5c を、アダプティブ（`res/mipmap-anydpi-v26/ic_launcher{,_round}.xml`。背景は `@drawable/ic_launcher_background`＝`@color/ic_launcher_background`〔`#f5f5f4`〕、前景は `drawable-*dpi/ic_launcher_foreground.png`〔108dp のキャンバス。マークは中央 66dp の安全領域に収め、インク `#050505` のリングとフラップだけ。プリズムのかすみの層は持たない〕、`<monochrome>` は `drawable-*dpi/ic_launcher_monochrome.png`〔黒一色・プリズムなし。Android 13 以降のテーマアイコンが端末の色で塗る〕）と、`res/mipmap-*dpi/` の PNG（48dp。丸の切り抜きの `_round` つき。前景と同じ絵を Bone の地に置いたもの。リングの外径はタイルの 48/72＝0.667 で、アダプティブの 48dp のリングと同じ大きさに見える。プリズムのかすみは持たない）で置く。minSdk が 31 なので端末ではアダプティブ（丸・角丸などのマスク、テーマアイコン）が使われ、mipmap の PNG は manifest の参照先として置いている（API 26 未満は対象外）。通知の小アイコン（`ic_stat_mail`）は別。表示名（`@string/app_name`＝「Hitomado」）は変えていない。
+- アイコン（#379）: `android:icon`／`android:roundIcon` は `@mipmap/ic_launcher`／`@mipmap/ic_launcher_round`。ロゴ v5c を、アダプティブ（`res/mipmap-anydpi-v26/ic_launcher{,_round}.xml`。背景は `@drawable/ic_launcher_background`＝`@color/ic_launcher_background`〔`#f5f5f4`〕、前景は `drawable-*dpi/ic_launcher_foreground.png`〔108dp のキャンバス。マークは中央 66dp の安全領域に収め、インク `#050505` のリングとフラップだけ。プリズムのかすみの層は持たない〕、`<monochrome>` は `drawable-*dpi/ic_launcher_monochrome.png`〔黒一色・プリズムなし。Android 13 以降のテーマアイコンが端末の色で塗る〕）と、`res/mipmap-*dpi/` の PNG（48dp。丸の切り抜きの `_round` つき。前景と同じ絵を Bone の地に置いたもの。リングの外径はタイルの 48/72＝0.667 で、アダプティブの 48dp のリングと同じ大きさに見える。プリズムのかすみは持たない）で置く。minSdk が 31 なので端末ではアダプティブ（丸・角丸などのマスク、テーマアイコン）が使われ、mipmap の PNG は manifest の参照先として置いている（API 26 未満は対象外）。通知の小アイコン（`ic_stat_mail`）は別。表示名（`@string/app_name`＝「Nefos Inbox」）は変えていない。
 
 `task android:verify` は `aapt2 dump badging`／`dump xmltree` と `apksigner verify --print-certs` で、packageName、versionName、versionCode、minSdk（31）、targetSdk（36）、権限が**許可リスト**に収まること（新しい権限が入ると失敗する。意図して増やすときは `verify-apk.sh` の許可リストと manifest を一緒に直す）、`allowBackup=false`、`dataExtractionRules` の有無、debuggable でないこと、`extractNativeLibs=true` と `libwails.so`・`classes.dex` が圧縮（Deflate）で入っていること（§6.1）、`libwails.so` のすべての `LOAD` セグメントが 16KB（`0x4000`）以上で整列していること（`check-elf-align.sh`。リンクの `-extldflags=-Wl,-z,max-page-size=16384` は `Taskfile.yml` の `BUILD_FLAGS`。#205、[Play 配布の調査 §6.1](android-play-distribution.md#61-16kb-ページ対応対応済み205)）、署名の種類（`EXPECT_SIGNING=debug|release` を付けるとその種類でなければ失敗）を確認する。
 
@@ -530,7 +530,7 @@ Android: exportfile.Saver（純 Go。待ち合わせ・一時ファイル・後�
   → Tracker.Begin()（「認可の途中」の印を SecureStore に保存）
   → Android.OpenURL（Intent ACTION_VIEW）で既定のブラウザへ
   → 利用者が Google で同意 → ブラウザが http://127.0.0.1:<ポート>/callback?code=…&state=… へ GET
-  → 待受が code を受け取り、完了ページ「このタブを閉じて Hitomado に戻ってください」を返す
+  → 待受が code を受け取り、完了ページ「このタブを閉じて Nefos Inbox に戻ってください」を返す
   → 利用者がアプリへ戻る（アプリ切替・戻る）→ トークン交換 → userinfo → アカウント作成 → Tracker.End()
 ```
 
@@ -575,7 +575,7 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 
 1. README の手順で、**デスクトップ アプリ種別**の OAuth クライアントを作り（同意画面が外部・「テスト」ならテストユーザーに自分の Gmail を登録）、Client ID と Client Secret を実機のアプリの設定 → OAuth クライアントに登録する。
 2. 設定 → アカウントを追加 → 認可を開始。ブラウザが開き、Google の同意画面が出る（`redirect_uri` が拒否される `invalid_request` や `redirect_uri_mismatch` にならない）。
-3. 同意すると、ブラウザに「認可の操作が完了しました。このタブを閉じて Hitomado に戻ってください」が出る（127.0.0.1 へ届いた）。アプリへ戻ると、アカウントが追加されて同期が始まる。
+3. 同意すると、ブラウザに「認可の操作が完了しました。このタブを閉じて Nefos Inbox に戻ってください」が出る（127.0.0.1 へ届いた）。アプリへ戻ると、アカウントが追加されて同期が始まる。
 4. 追加したアカウントのスレッドを返信で開き、送信元がそのアドレスに固定され、変更できないこと。
 5. 別の鍵（debug／release）の APK に入れ替えたあとも、同じ Client ID で認可できること（SHA-1 を登録していないため）。
 6. プロセス停止: 認可を開始してブラウザが出たら、`adb shell am kill jp.ousias.hitomado`（バックグラウンドのプロセスだけを終了する）でアプリを止め、ブラウザで同意（`127.0.0.1` への接続は失敗する）。アプリを開くと「ログインの途中でアプリが終了したため…やり直してください」のトーストが出る。もう一度アカウントを追加して完了できる。debug ビルドなら `adb shell run-as jp.ousias.hitomado cat shared_prefs/hitomado_secrets.xml` に平文のトークン・`state` が無いこと。
@@ -915,7 +915,7 @@ Android 版（v0.1.35。Galaxy Fold7）で、ChatGPT ログイン（`internal/si
 |------|------|
 | 標準の解決（`getaddrinfo`）が通る | 何も変えない（Android の API を呼ばない） |
 | 名前解決の失敗（`*net.DNSError`）。ほかの失敗（接続拒否など）は触らない | Java の `NetBridge.resolve`（`WailsBridge.netResolve`。`go:linkname` で呼ぶ。`documents` と同じ仕組み）が、有効なネットワークの **`Network.getAllByName`** で引き直す。DNS サーバーは端末の設定（Private DNS・VPN・社内 DNS）に従い、**公開 DNS のアドレスは決め打ちしない**。得た IP へ、要求したポートで順に接続する（ホスト名は URL のままなので TLS の検証は変わらない） |
-| 引き直しも「アプリが背面で、有効なネットワークが無い」（`background_no_network`。アプリの重要度が `visible` より下で `getActiveNetwork()` が `null`） | OS が背面の通信を止めている（Java は「止められている」と「圏外」を区別できず、どちらも同じコードを返す）。**1 秒おきに引き直しを最大 20 回（待ちは 19 回で約 19 秒）、アプリが前面へ戻るのを待つ。** コールバックのページ（「このタブを閉じて Hitomado に戻ってください」）に従って戻れば、トークン交換が通る。待ちは呼び出しの `context`（HTTP クライアントの 30 秒の期限・取り消し）に従う。**前面へ戻らないまま待ちを諦めたら、その後の 1 分（`backgroundWaitCooldown`）は待たず、引き直しを 1 回だけ試してすぐ失敗する**（背面で圏外のとき、60 秒ごとの同期が毎回約 19 秒待たないため）。引き直しが通る・別の結果になる（前面へ戻った）と、この抑止は解ける。前面で通信が無いとき（機内モードなど）は待たず、従来どおりすぐ失敗する |
+| 引き直しも「アプリが背面で、有効なネットワークが無い」（`background_no_network`。アプリの重要度が `visible` より下で `getActiveNetwork()` が `null`） | OS が背面の通信を止めている（Java は「止められている」と「圏外」を区別できず、どちらも同じコードを返す）。**1 秒おきに引き直しを最大 20 回（待ちは 19 回で約 19 秒）、アプリが前面へ戻るのを待つ。** コールバックのページ（「このタブを閉じて Nefos Inbox に戻ってください」）に従って戻れば、トークン交換が通る。待ちは呼び出しの `context`（HTTP クライアントの 30 秒の期限・取り消し）に従う。**前面へ戻らないまま待ちを諦めたら、その後の 1 分（`backgroundWaitCooldown`）は待たず、引き直しを 1 回だけ試してすぐ失敗する**（背面で圏外のとき、60 秒ごとの同期が毎回約 19 秒待たないため）。引き直しが通る・別の結果になる（前面へ戻った）と、この抑止は解ける。前面で通信が無いとき（機内モードなど）は待たず、従来どおりすぐ失敗する |
 | それでも失敗 | 元の `*net.DNSError` をそのまま返す（画面の分類は変わらない）。**手がかりを Warn で 1 件**ログに残す（§20.4） |
 
 **採らなかった案**:

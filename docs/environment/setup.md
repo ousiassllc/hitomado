@@ -150,10 +150,11 @@ flowchart LR
 |------|------|
 | ファイル名 | `hitomado-vX.Y.Z-windows-amd64-setup.exe`（`NOTICE` と `SHA256SUMS.txt` を同じ Release に添付） |
 | 権限・場所 | 利用者ごと（`RequestExecutionLevel user`）。既定 `%LOCALAPPDATA%\Programs\Hitomado`。UAC は出ない |
-| ショートカット | スタートメニュー（必須）。デスクトップは任意（インストーラーのコンポーネント選択。既定はオフ、サイレントでも作らない） |
-| タスクバーのアイコン | インストール・アンインストールの最後に `SHChangeNotify(SHCNE_ASSOCCHANGED)` でシェルのアイコンキャッシュの更新を促す（NSIS）。アプリは、メインウィンドウが表示されるたびに exe のアイコンリソース（ID 3）から `ICON_BIG`・`ICON_SMALL` を設定し直す（`internal/platform/windowicon_windows.go`）ので、上書き更新後に古いアイコンが残りにくい。ショートカット・プロセスへの AppUserModelID の付与は、通知（AppUserModelID `Hitomado`）やピン留めとの関係を変えうるため行わない（#391） |
+| ショートカット | スタートメニュー（必須）。デスクトップは任意（インストーラーのコンポーネント選択。既定はオフ、サイレントでも作らない）。ファイル名は製品の表示名の `Nefos Inbox.lnk`（exe 名の `hitomado.exe`・インストール先の `Hitomado` とは別に、表示名に揃える） |
+| タスクバーのアイコン | インストール・アンインストールの最後に `SHChangeNotify(SHCNE_ASSOCCHANGED)` でシェルのアイコンキャッシュの更新を促す（NSIS）。アプリは、メインウィンドウが表示されるたびに exe のアイコンリソース（ID 3）から `ICON_BIG`・`ICON_SMALL` を設定し直す（`internal/platform/windowicon_windows.go`）ので、上書き更新後に古いアイコンが残りにくい。ショートカット・プロセスへの AppUserModelID の付与は、通知（AppUserModelID `Nefos Inbox`）やピン留めとの関係を変えうるため行わない（#391） |
 | 「アプリと機能」 | `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall\jp.ousias.hitomado`（表示名・版・発行元・`InstallLocation`・`UninstallString`）。このキー名を変えると別アプリ扱いになり、上書き更新できなくなる |
 | 上書き更新 | 新しい版のインストーラーを実行するだけ。前回の `InstallLocation` に入り、exe と登録内容を置き換える。起動中の `hitomado.exe` は置き換えられないため（実行中の exe を書き込みで開けるかで判定）、画面ありなら終了を促して再試行させ、サイレント（`/S`）なら何も変えずエラーコード 5 を設定して中止する（CI で終了コード 5 を確認。ウイルス対策ソフトが exe を一時的に掴んでいる間も同じ扱いになるため、少し待って再実行する）。自動アップデート（NF-D03）は同じインストーラーをサイレントで使う: `/S`（サイレント）・`/WAIT=秒`（サイレント実行のとき、起動中の `hitomado.exe` の終了を最大その秒数〔上限 300〕待ってから上書きする。省略時は待たずに終了コード 5。CI の `test-installer.ps1` が両方を確かめる）・`/RELAUNCH`（成功後にインストール先の `hitomado.exe` を起動する。`.onInstSuccess`）・`/D=パス`（最後の引数・引用符なし）。アプリは終了処理の最後にインストーラーを分離した子プロセスで起動してから終了する（[overview §5.1](../architecture/overview.md#51-自動アップデートwindows-版nf-d03)） |
+| 旧名の掃除（表示名の変更、#399） | 製品の表示名は「Nefos Inbox」。exe 名（`hitomado.exe`）・既定のインストール先（`%LOCALAPPDATA%\Programs\Hitomado`）・「アプリと機能」のキー名（`jp.ousias.hitomado`）・`%APPDATA%\Hitomado\`・資格情報マネージャーのターゲット名は変えない（上書き更新でデータ・認証・インストール先を引き継ぐため）。表示名を変える前の版に上書きインストールすると、インストーラーが旧名の `HKCU\Software\Classes\AppUserModelId\Hitomado`（通知の登録。新しい登録 `...\AppUserModelId\Nefos Inbox` はアプリが起動時に作る）とスタートメニューの `Hitomado.lnk` を消す。旧名の `Hitomado.lnk` がデスクトップにあったときだけ、デスクトップに `Nefos Inbox.lnk` を作り直す（無かったときは作らない） |
 | 版番号 | `VERSION=X.Y.Z` 1 つから、`-X main.version`（アプリの表示・更新確認）、exe のファイルバージョン（`build/windows/info.generated.json` を `generate:syso` の前に書く。git 管理外）、インストーラーの表示と「アプリと機能」の `DisplayVersion` を作る。X.Y.Z 以外はビルドを失敗させる。`VERSION` を渡さない場合の既定値は `0.0.0` で、ルートの `Taskfile.yml` の `includes`（`windows`）の `vars`（`APP_VERSION`）に 1 か所だけ書く（コマンドラインの `VERSION` は、各 Taskfile 先頭の `vars` からは見えず、`includes` の `vars` からは見えるため）。`task dev` は `-X` を付けないため、アプリの表示・更新確認には `main.go` の `version` の既定値（`internal/update` の `DevVersion`）が使われる。この既定値と、`build/config.yml` の `info.version`（Wails テンプレート由来。`task dev` が `-config` で読むファイルだが、`info.version` を使う手順はこのリポジトリにない）、`build/windows/wails.exe.manifest` の `assemblyIdentity` の版（exe に埋め込まれる。`VERSION` とは連動しない固定値）、`frontend/package.json` の `version`（`private` で、フロントのコードや生成物から参照しない。配布物の版とは連動しない）は `0.0.0` に揃えてあり、`VERSION` の既定値を変えるときは `Taskfile.yml`・`main.go`（`DevVersion`）・`config.yml`・manifest・`frontend/package.json` も一緒に変える。`0.0.0` は dev・ローカルビルド専用の版で、更新確認をしない（通信せず、「新しい版あり」にもしない）。配布物（`VERSION=X.Y.Z`。CI の `0.99.x` を含む）の更新確認は変わらない |
 | WebView2 | 無い PC ではインストーラーに同梱したブートストラッパー（Microsoft 配布。ビルド時に `wails3 generate webview2bootstrapper` で取得）で入れる |
 | 対応 | Windows 10 以降の x64、と ARM64 の Windows 11（build 22000 以降）。ARM64 には専用のビルドを作らず、**x64 版の exe とインストーラーを x64 エミュレーションで動かす**（#13。下の「ARM64 の扱い」）。それ以外（ARM64 の Windows 10・32 bit 版など）はインストーラーが中止する（サイレントはエラーコード 64） |
@@ -162,17 +163,17 @@ flowchart LR
 
 **決定**: (a) x64 のインストーラーを ARM64 の Windows 11 でも許可する。ARM64 専用のビルド・インストーラーは作らない。
 
-- 根拠: ARM64 の Windows 11 の実機（GitHub Actions の `windows-11-arm`、Windows 11 Enterprise 10.0.26200）で、CI が作った x64 版の `hitomado.exe` を起動し、15 秒後も動いていて「Hitomado」のウィンドウがあり、WebView2（`msedgewebview2`）が動き、`%APPDATA%\Hitomado` に DB とログができることを確認した。インストーラーは、ARM64 では `${IsNativeAMD64}` が偽になるため、変更前は終了コード 64 で中止した（同じ実機で確認）。
+- 根拠: ARM64 の Windows 11 の実機（GitHub Actions の `windows-11-arm`、Windows 11 Enterprise 10.0.26200）で、CI が作った x64 版の `hitomado.exe` を起動し、15 秒後も動いていて「Nefos Inbox」のウィンドウがあり、WebView2（`msedgewebview2`）が動き、`%APPDATA%\Hitomado` に DB とログができることを確認した。インストーラーは、ARM64 では `${IsNativeAMD64}` が偽になるため、変更前は終了コード 64 で中止した（同じ実機で確認）。
 - インストーラーの条件（`.onInit`）: x64 は Windows 10 以降、ARM64 は Windows 11（`${AtLeastBuild} 22000`）以降。ARM64 の Windows 10 は x64 エミュレーションを持たない（x86 のみ）ため対象外。
-- CI: `ci.yml` の `installer-arm64`（`windows-11-arm`）が、`build` ジョブで作った x64 の成果物（旧版・新版のインストーラーと exe）を受け取り、`test-installer.ps1`（下の「検証」と同じ）と、exe が 15 秒動き続けて「Hitomado」のウィンドウが出る確認を ARM64 の実機で通す。
+- CI: `ci.yml` の `installer-arm64`（`windows-11-arm`）が、`build` ジョブで作った x64 の成果物（旧版・新版のインストーラーと exe）を受け取り、`test-installer.ps1`（下の「検証」と同じ）と、exe が 15 秒動き続けて「Nefos Inbox」のウィンドウが出る確認を ARM64 の実機で通す。
 - 範囲外: 通常の操作（Gmail 同期・返信・設定）をエミュレーション下で通した確認はしていない（起動までの確認）。性能はネイティブより下がりうる。ARM64 のネイティブ版が必要になったら、`build/windows/Taskfile.yml` の `ARCH`（`generate:syso` は `arm64` に対応済み）・インストーラー名の `amd64`・`release.yml` を足す別の作業になる。
 
 #### 第三者ライセンスの表記（`NOTICE`）
 
-Hitomado 本体は AGPL-3.0（`LICENSE`）。同梱する依存のライセンス表記と、MPL-2.0 の依存のソース入手先を、リポジトリ直下の `NOTICE` にまとめる（#3）。
+Nefos Inbox 本体は AGPL-3.0（`LICENSE`）。同梱する依存のライセンス表記と、MPL-2.0 の依存のソース入手先を、リポジトリ直下の `NOTICE` にまとめる（#3）。
 
 - 作り方: `bun .github/scripts/gen-notice.ts`（`NOTICE` を書き換える。`--check` は最新でなければ失敗するだけで書き換えない）。Go はリリースと同じ `GOOS=windows GOARCH=amd64 -tags production` の `go list -deps` で実際に exe へリンクされるモジュールと標準ライブラリ、フロントは `frontend/package.json` の `dependencies` から `bun.lock` をたどった本番用の依存（`devDependencies` は含めない）を対象にする。各パッケージの LICENSE／COPYING／NOTICE を集め、同一の全文はまとめて 1 回だけ載せる。前提は `go mod download` 済みのモジュールキャッシュと `bun install --frozen-lockfile` 済みの `frontend/node_modules`
-- MPL-2.0 の依存（現在は `github.com/hashicorp/golang-lru/v2` と、MPL-2.0 OR Apache-2.0 の `dompurify`）は、冒頭の節に版・リポジトリ・その版のソース一式の入手先（Go は `proxy.golang.org` の zip、npm は `registry.npmjs.org` の tgz）を載せる。Hitomado は MPL の依存のソースを改変しない
+- MPL-2.0 の依存（現在は `github.com/hashicorp/golang-lru/v2` と、MPL-2.0 OR Apache-2.0 の `dompurify`）は、冒頭の節に版・リポジトリ・その版のソース一式の入手先（Go は `proxy.golang.org` の zip、npm は `registry.npmjs.org` の tgz）を載せる。Nefos Inbox は MPL の依存のソースを改変しない
 - ライセンスの種別を判定できない依存（`classify` の規則に無い全文）が増えるとスクリプトは失敗する。全文を確認して `.github/scripts/gen-notice.ts` に規則を足す
 - 更新: `go.mod`・`frontend/package.json`・`bun.lock` を変えたら作り直してコミットする。CI の `lint` ジョブが `--check` で、`NOTICE` が古いまま通ることを防ぐ（生成は入力だけで決まる）。`NOTICE` は生成物のため `.linterly.yml` の `ignore` に入れている
 - 配布: インストーラーが `NOTICE.txt` としてインストール先に置く（アンインストールで消す）。`release.yml` が同じ `NOTICE` を Release の成果物としても添付し、`SHA256SUMS.txt` に載せる
@@ -185,14 +186,14 @@ Hitomado 本体は AGPL-3.0（`LICENSE`）。同梱する依存のライセン�
 |------|------|--------------------|
 | プログラム本体・`uninstall.exe`・`NOTICE.txt`・スタートメニュー／デスクトップのショートカット・「アプリと機能」の登録 | インストール先、スタートメニュー、HKCU | 消す |
 | インストール先フォルダ | `InstallLocation` | 空のときだけ消す（利用者が選んだフォルダの他のファイルを再帰削除しない） |
-| 通知用の登録（Wails の通知サービスが起動時に書く） | `HKCU\Software\Classes\AppUserModelId\Hitomado`、その `CustomActivator` の GUID の `HKCU\Software\Classes\CLSID\{GUID}`、`HKCU\Software\Hitomado\NotificationCategories`（と空になった `HKCU\Software\Hitomado`） | 消す（次の起動で作り直される） |
+| 通知用の登録（Wails の通知サービスが起動時に書く） | `HKCU\Software\Classes\AppUserModelId\Nefos Inbox`、その `CustomActivator` の GUID の `HKCU\Software\Classes\CLSID\{GUID}`、`HKCU\Software\Hitomado\NotificationCategories`（と空になった `HKCU\Software\Hitomado`）。旧名（表示名を変える前の版）が書いた `HKCU\Software\Classes\AppUserModelId\Hitomado` と旧名のショートカット（スタートメニューの `Hitomado.lnk`、あればデスクトップの `Hitomado.lnk`）も、アンインストールで新旧どちらの名前でも消す | 消す（次の起動で作り直される） |
 | WebView2 のキャッシュ | `%APPDATA%\hitomado.exe`（Wails の既定。アプリは Web ストレージを使わないため、利用者のデータは入らない） | 消す |
 | DB・設定・ログ | `%APPDATA%\Hitomado\` | **残す** |
 | 資格情報（リフレッシュトークン・OAuth クライアントシークレット・AI の API キー） | Windows 資格情報マネージャー（ターゲット名 `Hitomado:hitomado/<種別>/<ID>`） | **残す** |
 
 #### 検証
 
-`.github/scripts/test-installer.ps1`（CI の `build` ジョブ（windows-latest）と `installer-arm64` ジョブ（windows-11-arm））が、旧版（`0.99.1`）を入れる → 起動中（実行中の exe がある状態）の上書きが拒否され登録が変わらない → 新版（`0.99.2`）で上書きして `DisplayVersion`・exe の置き換え・exe のファイルバージョンと埋め込まれた `main.version`（exe 内の文字列。`-X` が効いていること）が新版になる → アンインストールでプログラム・ショートカット・登録が消え、`%APPDATA%\Hitomado` のデータは残る、を確認する。ローカルで実行するときは、実機のアプリと登録キー・`%APPDATA%\Hitomado` を共有するため、既に Hitomado が入っている PC では `-Force` を付けない限り動かない（使い捨ての環境で `-Force` を付ける。スクリプトが消すのは自分が作ったマーカーだけ）。GUI のウィザード（コンポーネント選択・完了ページ）は自動検証していない。
+`.github/scripts/test-installer.ps1`（CI の `build` ジョブ（windows-latest）と `installer-arm64` ジョブ（windows-11-arm））が、旧版（`0.99.1`）を入れる → 起動中（実行中の exe がある状態）の上書きが拒否され登録が変わらない → 新版（`0.99.2`）で上書きして `DisplayVersion`・exe の置き換え・exe のファイルバージョンと埋め込まれた `main.version`（exe 内の文字列。`-X` が効いていること）が新版になる → アンインストールでプログラム・ショートカット・登録が消え、`%APPDATA%\Hitomado` のデータは残る、を確認する。ローカルで実行するときは、実機のアプリと登録キー・`%APPDATA%\Hitomado` を共有するため、既に Nefos Inbox（旧名 Hitomado）が入っている PC では `-Force` を付けない限り動かない（使い捨ての環境で `-Force` を付ける。スクリプトが消すのは自分が作ったマーカーだけ）。GUI のウィザード（コンポーネント選択・完了ページ）は自動検証していない。
 
 CI では確かめられない項目（実アプリが起動中の上書き拒否、インストーラーの GUI ウィザード、「アプリと機能」の表示、資格情報マネージャー・トースト・トレイ・単一インスタンス、実 Gmail への通信など）は、[Windows 実機・実 Gmail での確認](windows-verification.md) に手順と確認結果を置く（#174）。
 
@@ -318,7 +319,7 @@ pre-push:
 
 ## 9. Swagger/OpenAPI
 
-対象外。Hitomado は HTTP サーバーを持たず、フロントと Go の境界は Wails のバインディングである。契約は [バインディング仕様](../api/endpoints.md) に記載し、TypeScript クライアントは `wails3 generate bindings` で生成する（生成物の差分検査は §4.1 の `lint` ジョブ）。`SWAGGER_ENABLED` や Stoplight Elements の組み込みは行わない。
+対象外。Nefos Inbox は HTTP サーバーを持たず、フロントと Go の境界は Wails のバインディングである。契約は [バインディング仕様](../api/endpoints.md) に記載し、TypeScript クライアントは `wails3 generate bindings` で生成する（生成物の差分検査は §4.1 の `lint` ジョブ）。`SWAGGER_ENABLED` や Stoplight Elements の組み込みは行わない。
 
 ## 改訂履歴
 
@@ -345,3 +346,4 @@ pre-push:
 | 1.18 | 2026-11-13 | `go.mod` の `go` 行を修正済みのパッチ版（1.26.11）に上げ、§4.1 に `vulncheck` ジョブ（`govulncheck`）と `test` ジョブの `-race` ステップ（ubuntu）を追加 | #328、#331 |
 | 1.19 | 2026-11-14 | §2 のディレクトリ構造に `.github/actions/setup-android`・`build-android-apk`・`build-macos`、`.github/scripts` の `gen-notice.ts`・`prepare-android-signing.sh`、`android-e2e.yml`、`build/darwin/`・`build/android/` を追記。§4.1 の `test` の行に、ubuntu で走るスクリプトテスト 3 本（`next-version_test.sh`・`check-elf-align_test.sh`・`prepare-android-signing_test.sh`）を追記 | #361 |
 | 1.20 | 2026-11-14 | §4.4 のアイコンの行を、`wails3 generate icons` で作る方式から、ロゴ v5c の素材（`appicon.png`・`icon.ico`・`icons.icns`・`icons.iconset/`）をコミットする方式に変更 | #379 |
+| 1.21 | 2026-11-18 | 製品の表示名を Hitomado から Nefos Inbox に変更（#399）。リポジトリ名・ファイル名・データの保存先・資格情報の名前は変えない | #399 |
