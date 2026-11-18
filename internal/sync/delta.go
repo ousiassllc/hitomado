@@ -26,7 +26,11 @@ func (s *Scheduler) deltaSync(ctx context.Context, cyc *cycle, st store.SyncStat
 		return st, err
 	}
 	if cyc.acct.NotifyEnabled {
-		cyc.candidates = candidatesOf(hp.Added)
+		scope, err := store.LoadNotifyScope(ctx, s.store)
+		if err != nil {
+			return st, err
+		}
+		cyc.candidates = candidatesOf(hp.Added, scope)
 	}
 	if err := s.ingest(ctx, cyc, fs); err != nil {
 		return st, err
@@ -49,11 +53,12 @@ func changedThreads(hp gmail.HistoryPage) []string {
 }
 
 // candidatesOf は通知候補（messagesAdded かつ INBOX＋UNREAD。DRAFT は除く）をメッセージ ID で引ける形にする。
-func candidatesOf(added []gmail.HistoryAdded) map[string]gmail.HistoryAdded {
+// scope が「メインだけ」のときは、Gmail のカテゴリのラベル（ソーシャル・プロモーション・新着情報・フォーラム）が付いたものも除く（#395）。
+func candidatesOf(added []gmail.HistoryAdded, scope store.NotifyScope) map[string]gmail.HistoryAdded {
 	out := map[string]gmail.HistoryAdded{}
 	for _, ad := range added {
 		if slices.Contains(ad.LabelIDs, labelInbox) && slices.Contains(ad.LabelIDs, labelUnread) &&
-			!slices.Contains(ad.LabelIDs, labelDraft) {
+			!slices.Contains(ad.LabelIDs, labelDraft) && scope.Allows(ad.LabelIDs) {
 			out[ad.MessageID] = ad
 		}
 	}

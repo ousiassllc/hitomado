@@ -17,6 +17,8 @@ type AppInfo struct {
 	DataDir           string `json:"dataDir"`
 	// SendConfirmEnabled は送信前に確認画面を出す設定（既定オン。#313）。
 	SendConfirmEnabled bool `json:"sendConfirmEnabled"`
+	// NotifyScope は新着通知の対象にするメール（"primary"＝メインだけ／"all"＝すべて。既定 "primary"。全アカウント共通。#395）。
+	NotifyScope string `json:"notifyScope"`
 }
 
 // UpdateInfo は新バージョン確認の結果。

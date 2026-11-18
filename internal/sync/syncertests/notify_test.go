@@ -93,3 +93,77 @@ func TestDraftsAreNotStoredNorNotified(t *testing.T) {
 		assert.NotEqual(t, "acct-a@example.com", c.Email)
 	}
 }
+
+// mailsByCategory は、メイン・ソーシャル・プロモーション・新着情報・フォーラムの INBOX＋UNREAD の新着を 1 通ずつ届ける。
+func mailsByCategory(h *harness, account string) {
+	cats := map[string][]string{
+		"main":   {"INBOX", "UNREAD"},
+		"social": {"INBOX", "UNREAD", "CATEGORY_SOCIAL"},
+		"promo":  {"INBOX", "UNREAD", "CATEGORY_PROMOTIONS"},
+		"update": {"INBOX", "UNREAD", "CATEGORY_UPDATES"},
+		"forum":  {"INBOX", "UNREAD", "CATEGORY_FORUMS"},
+	}
+	order := []string{"main", "social", "promo", "update", "forum"}
+	h.gm.Edit(account, func(a *synctest.Script) {
+		hp := gmail.HistoryPage{LatestHistoryID: "105"}
+		for _, id := range order {
+			hp.ChangedThreadIDs = append(hp.ChangedThreadIDs, id)
+			hp.Added = append(hp.Added, gmail.HistoryAdded{MessageID: "m-" + id, ThreadID: id, LabelIDs: cats[id]})
+			a.Threads[id] = thread(id, msg("m-"+id, id, cats[id]...))
+		}
+		a.History = hp
+	})
+}
+
+func setNotifyScope(h *harness, v string) {
+	h.st.Mu.Lock()
+	defer h.st.Mu.Unlock()
+	h.st.Settings[store.SettingNotifyScope] = v
+}
+
+func TestNotifyScopeDefaultsToPrimaryOnly(t *testing.T) {
+	h := newHarness(t)
+	h.account("a", true, synced("100"))
+	knownLabels(h, "a")
+	mailsByCategory(h, "a") // 保存値は無い（今の利用者が更新した状態）
+	h.s.Start("a")
+	h.waitActive("a", 1)
+	assert.Equal(t, []string{"main"}, noticeThreads(h), "既定はメインだけ。ソーシャル・プロモーション・新着情報・フォーラムは通知しない")
+}
+
+func TestNotifyScopeAllNotifiesEveryInboxMail(t *testing.T) {
+	h := newHarness(t)
+	h.account("a", true, synced("100"))
+	knownLabels(h, "a")
+	setNotifyScope(h, `"all"`)
+	mailsByCategory(h, "a")
+	h.s.Start("a")
+	h.waitActive("a", 1)
+	assert.ElementsMatch(t, []string{"main", "social", "promo", "update", "forum"}, noticeThreads(h))
+}
+
+func TestNotifyScopePrimaryExplicitAndCorruptValueNotifyMainOnly(t *testing.T) {
+	for _, raw := range []string{`"primary"`, `{"x":1}`, `"bogus"`} {
+		h := newHarness(t)
+		h.account("a", true, synced("100"))
+		knownLabels(h, "a")
+		setNotifyScope(h, raw)
+		mailsByCategory(h, "a")
+		h.s.Start("a")
+		h.waitActive("a", 1)
+		assert.Equal(t, []string{"main"}, noticeThreads(h), raw)
+	}
+}
+
+func TestAccountNotifyOffSilencesBothScopes(t *testing.T) {
+	for _, raw := range []string{`"primary"`, `"all"`} {
+		h := newHarness(t)
+		h.account("a", false, synced("100"))
+		knownLabels(h, "a")
+		setNotifyScope(h, raw)
+		mailsByCategory(h, "a")
+		h.s.Start("a")
+		h.waitActive("a", 1)
+		assert.Empty(t, h.nt.Got(), "アカウントの通知がオフなら %s でも通知しない", raw)
+	}
+}

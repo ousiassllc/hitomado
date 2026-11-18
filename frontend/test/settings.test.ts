@@ -38,6 +38,7 @@ const baseInfo = {
   autoUpdateSupported: false,
   autoUpdateEnabled: false,
   sendConfirmEnabled: true,
+  notifyScope: 'primary',
   dataDir: '/data',
 }
 

@@ -26,6 +26,7 @@ describe('送信前の確認画面の設定（#313）', () => {
       autoUpdateSupported: false,
       autoUpdateEnabled: false,
       sendConfirmEnabled,
+      notifyScope: 'primary',
       dataDir: '/d',
     }) as const
 

@@ -26,6 +26,7 @@ type Store struct {
 	Deleted    []string
 	StatusLog  []string // "account:status:message"
 	PurgeCh    chan time.Time
+	Settings   map[string]string // 設定（キー → JSON 文字列）。未設定のキーは無い
 }
 
 func NewStore() *Store {
@@ -38,7 +39,22 @@ func NewStore() *Store {
 		ApplyErr: map[string]error{},
 		Replaced: map[string][]string{},
 		PurgeCh:  make(chan time.Time, 16),
+		Settings: map[string]string{},
 	}
+}
+
+func (f *Store) GetSetting(_ context.Context, key string) (string, bool, error) {
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
+	v, ok := f.Settings[key]
+	return v, ok, nil
+}
+
+func (f *Store) SetSetting(_ context.Context, key, value string) error {
+	f.Mu.Lock()
+	defer f.Mu.Unlock()
+	f.Settings[key] = value
+	return nil
 }
 
 func (f *Store) ListAccounts(context.Context) ([]store.Account, error) {

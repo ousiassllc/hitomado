@@ -333,6 +333,7 @@ erDiagram
 | `update.check_enabled` | `true` | 新バージョン確認の有効／無効（NF-D03） |
 | `update.auto_enabled` | `true` | 自動アップデート（Windows 版。新しい版の自動ダウンロードと入れ替え）の有効／無効（NF-D03）。未設定・壊れた値は有効。入れ替えを行わないビルド（Android・dev ビルド）では保存値にかかわらず無効 |
 | `compose.send_confirm` | `true` | 送信前に確認画面を出すか（真偽。#313）。未設定・壊れた値は `true`（出す）。値は JSON として妥当な `true`／`false` |
+| `notify.scope` | `"primary"` | 新着通知の対象にするメール（#395）。`"primary"`＝メインだけ（既定）、`"all"`＝受信トレイの新着すべて。全アカウント共通。未設定・壊れた値・未知の値は `"primary"`（更新前から使っている利用者も「メインだけ」）。「メインだけ」は、新着メッセージに `CATEGORY_SOCIAL`・`CATEGORY_PROMOTIONS`・`CATEGORY_UPDATES`・`CATEGORY_FORUMS` のどれも付いていないものだけを通知する（[F-10](../requirements/functional.md)）。値は JSON の文字列 |
 | `update.last_checked_at` | `1730000000000` | 最終確認日時 |
 | `window.state` | `{"x":100,"y":60,"width":1280,"height":800,"maximized":false}` | ウィンドウ状態。位置・サイズは最大化していないときの DIP 値（`x`／`y` は省略可。省略時は位置を OS に任せる）。画面外の位置は起動時に捨てる（[F-10](../requirements/functional.md)） |
 | `mcp.config` | `{"enabled":false,"host":"127.0.0.1","port":47650,"allowNonLoopback":false}` | 内蔵 MCP サーバーの設定（[MCP](../mcp.md)）。未設定・壊れた値は既定（オフ。`host` は `127.0.0.1`、`port` は `47650`）として読み、空の `host`・`port` 0 も既定で埋める。`allowNonLoopback` は loopback 以外での待ち受けを明示的に許可する。**トークンは含まない**（資格情報ストアの `hitomado/mcp_token`） |
@@ -388,3 +389,4 @@ erDiagram
 | 1.22 | 2026-11-14 | §3.9 の `inbox_zero.reasons` に `calendar`（カレンダーの招待・通知。既定オン。保存値に無ければオン）を追加し、AI で判定する理由と端末内で判定する理由を明記した | #377 |
 | 1.23 | 2026-11-15 | §3.9 の `inbox_zero.reasons` で、`calendar` を端末内の判定から AI で判定する理由に改めた（端末内の判定は `replied` だけ） | #377 |
 | 1.24 | 2026-11-15 | §3.9 の `ai.features` に `threadAi`（「要約・質問」で使う AI。選べるプロバイダ・`effort` は `draft` と同じ）を追加した。要約・質問は `draft` の選択に頼らない。マイグレーション `00003_ai_thread_feature` が、`threadAi` が無く `draft` がある `ai.features` に `draft` の選択を写す（`00002` を適用済みの DB でも効く。`00002` は変えない。Down は `threadAi` を捨てる） | #376 |
+| 1.25 | 2026-11-18 | §3.9 の `app_settings` に `notify.scope`（新着通知の対象。`"primary"`＝メインだけ〔既定〕／`"all"`）を追加した | #395 |

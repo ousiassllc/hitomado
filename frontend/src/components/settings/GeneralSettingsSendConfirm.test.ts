@@ -22,6 +22,7 @@ const info = {
   autoUpdateSupported: false,
   autoUpdateEnabled: false,
   sendConfirmEnabled: true,
+  notifyScope: 'primary',
   dataDir: '/data/Hitomado',
 }
 

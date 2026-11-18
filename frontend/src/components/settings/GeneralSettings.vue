@@ -9,6 +9,7 @@ import { useSettingsStore } from '../../stores/settings'
 import { useUiStore } from '../../stores/ui'
 import BaseButton from '../ui/BaseButton.vue'
 import BaseSwitch from '../ui/BaseSwitch.vue'
+import NotifyScopeField from './general/NotifyScopeField.vue'
 
 const store = useSettingsStore()
 const ui = useUiStore()
@@ -109,6 +110,9 @@ function openUpdate(): void {
       </div>
       <p class="body">{{ msg.general.sendConfirmHint }}</p>
     </div>
+
+    <!-- 新着通知の対象（#395）。Windows・Android とも出す。 -->
+    <NotifyScopeField />
 
     <!-- アプリ内の更新確認を持たない機能構成では出さない。Android は確認と新しい版のリンクだけ（自動アップデートは下の別ブロック）。 -->
     <div v-if="platform.supportsAutoUpdate" class="block">

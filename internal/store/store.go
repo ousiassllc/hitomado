@@ -222,6 +222,8 @@ const (
 	SettingMCPConfig   = "mcp.config"
 	// SettingSendConfirm は送信前の確認画面を出すか（真偽。未設定は true。#313）。
 	SettingSendConfirm = "compose.send_confirm"
+	// SettingNotifyScope は新着通知の対象にするメール（JSON 文字列 "primary"（メインだけ）／"all"（すべて）。未設定・壊れた値は "primary"。全アカウント共通。#395）。
+	SettingNotifyScope = "notify.scope"
 	// SettingInboxZero は Inbox Zero で使う「不要なメール」の理由ごとのオン・オフ（JSON オブジェクト。未設定は全部オン。保存値に無い理由はオン。#314・#377）。
 	SettingInboxZero = "inbox_zero.reasons"
 	// SettingAIFeatures は機能ごとに使う AI・モデル（JSON オブジェクト。キーは機能 ID の draft／threadAi／inboxZero。#376）。
