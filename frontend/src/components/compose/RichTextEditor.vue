@@ -157,10 +157,8 @@ onBeforeUnmount(() => editor.value?.destroy())
   color: var(--ink);
 }
 
-.rte:focus-within {
-  border-color: var(--focus);
-  outline: 2px solid var(--focus);
-  outline-offset: -1px;
+.rte:has(:focus-visible) {
+  border-color: var(--accent);
 }
 
 .rte-disabled {

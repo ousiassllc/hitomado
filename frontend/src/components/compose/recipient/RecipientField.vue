@@ -215,9 +215,9 @@ function onKeydown(e: KeyboardEvent): void {
   background: var(--surface);
 }
 
-.recipient-box:focus-within {
-  border-color: var(--focus);
-  outline: 2px solid var(--focus);
+.recipient-box:has(:focus-visible) {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 

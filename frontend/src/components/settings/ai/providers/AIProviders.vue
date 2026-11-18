@@ -134,7 +134,7 @@ watch(
 }
 
 .itab:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 

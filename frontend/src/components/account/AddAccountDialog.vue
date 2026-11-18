@@ -214,9 +214,9 @@ async function save(): Promise<void> {
   font-size: var(--font-size-sm);
 }
 
-.text:focus {
-  border-color: var(--focus);
-  outline: 2px solid var(--focus);
+.text:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 

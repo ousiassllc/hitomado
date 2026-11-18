@@ -21,10 +21,10 @@ describe('BaseDialog の本文', () => {
   })
 })
 
-// × ボタンのリングは青（--focus）でなく --accent（ライト＝インク・ダーク＝ボーン色）。キーボード（:focus-visible）のときだけ出し、
+// × ボタンのリングは --accent（ライト＝インク・ダーク＝ボーン色）。キーボード（:focus-visible）のときだけ出し、
 // マウスのクリック（:focus だけ）では出さない（#376・#377）。
 describe('BaseDialog の × ボタン', () => {
-  test('フォーカスリングは :focus-visible のときだけ、--accent の 2px・offset 2px（青の --focus ではない）', async () => {
+  test('フォーカスリングは :focus-visible のときだけ、--accent の 2px・offset 2px', async () => {
     const css = await styleOf('./BaseDialog.vue')
     const rule = css.match(/\.dlg-close:focus-visible\s*\{([^}]*)\}/)?.[1] ?? ''
     expect(rule).toMatch(/outline:\s*2px solid var\(--accent\);/)
@@ -47,7 +47,7 @@ describe('SettingsDialog の横スクロールするタブ', () => {
   test('フォーカスリングは内側（offset -2px）に描く', async () => {
     const css = await styleOf('../settings/SettingsDialog.vue')
     const rule = css.match(/\.tab-list\.scroll \.tab:focus-visible\s*\{([^}]*)\}/)?.[1] ?? ''
-    expect(rule).toMatch(/outline:\s*2px solid var\(--focus\);/)
+    expect(rule).toMatch(/outline:\s*2px solid var\(--accent\);/)
     expect(rule).toMatch(/outline-offset:\s*-2px;/)
   })
 })
@@ -66,7 +66,7 @@ describe('BaseSelect の強調項目', () => {
   test('キーボード操作（:focus-visible）のときだけリングを外側（offset 2px）に描く', async () => {
     const css = await styleOf('./BaseSelect.vue')
     const rule = css.match(/\.sel-item\[data-highlighted\]:focus-visible\s*\{([^}]*)\}/)?.[1] ?? ''
-    expect(rule).toContain('outline: 2px solid var(--focus);')
+    expect(rule).toContain('outline: 2px solid var(--accent);')
     expect(rule).toMatch(/outline-offset:\s*2px;/)
   })
 

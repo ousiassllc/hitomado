@@ -33,7 +33,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
 }
 
 .sw:focus-visible {
-  outline: 3px solid var(--focus);
+  outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 

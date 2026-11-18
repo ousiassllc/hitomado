@@ -10,13 +10,12 @@
   --accent-soft: #e7e7e5;
   /* --accent-soft（ホバー・選択）の地の上の補助文字。--mute は AA 4.5:1 に届かない（Light 4.29・Dark 4.22）ので、--ink へ 15% 寄せる。ダークは :root の --mute 上書きに追従する。--ink にできない（未読/既読の対比や名前とメールの階層を残す）箇所だけが使う。 */
   --mute-on-soft: color-mix(in srgb, var(--mute) 85%, var(--ink));
-  --focus: #4a72d0;
   --success: #3d5c4a;
   --warning: #7a6a3a;
   --danger: #7a4545;
-  --info: #4a5a6a;
+  --info: #6b6b6e;
   --scrim: rgb(5 5 5 / 40%);
-  /* 状態のピル・バッジ・アラートは、枠を状態色の 40%・地を 10%（どちらも transparent に混ぜる。C4）。フォーカスは --focus の outline で描く（--ring は使わない。#248）。 */
+  /* 状態のピル・バッジ・アラートは、枠を状態色の 40%・地を 10%（どちらも transparent に混ぜる。C4）。フォーカスは --accent の outline で描く（--ring は使わない。#248・#389）。 */
   --success-border: color-mix(in srgb, var(--success) 40%, transparent);
   --success-soft: color-mix(in srgb, var(--success) 10%, transparent);
   --warning-border: color-mix(in srgb, var(--warning) 40%, transparent);
@@ -164,11 +163,10 @@
     --border: #2a2a2a;
     --accent: #f5f5f4;
     --accent-soft: #2a2a2a;
-    --focus: #60a5fa;
     --success: #8fafa0;
     --warning: #c4b87a;
     --danger: #c49a9a;
-    --info: #9aabbc;
+    --info: #8b8b8e;
     --scrim: rgb(5 5 5 / 60%);
     --shadow-modal: 0 1px 2px rgb(0 0 0 / 40%);
 

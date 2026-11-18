@@ -154,7 +154,7 @@ watch(open, (isOpen) => {
 
 /* 横スクロール（overflow-x: auto）の中なので、外側のリングは上下で切れる。内側に描く（docs §5.3 逸脱）。 */
 .tab-list.scroll .tab:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 </style>

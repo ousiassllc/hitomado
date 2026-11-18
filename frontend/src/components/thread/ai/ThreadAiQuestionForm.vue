@@ -105,9 +105,9 @@ watch(model, () => void nextTick(fit))
   overflow-y: auto;
 }
 
-.question-input:focus {
-  border-color: var(--focus);
-  outline: 2px solid var(--focus);
+.question-input:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 

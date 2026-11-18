@@ -35,10 +35,10 @@ describe('ThreadList の listbox フォーカスリング（#337）', () => {
     expect(block(style, '.frame')).not.toMatch(/overflow/)
   })
 
-  test('リングは --focus の 2px・内側（offset -2px）の outline（box-shadow は forced-colors で消える）', async () => {
+  test('リングは --accent の 2px・内側（offset -2px）の outline（box-shadow は forced-colors で消える）', async () => {
     const style = await css()
     const ring = block(style, '.frame:has(.inner:focus-visible)::after')
-    expect(ring).toMatch(/outline:\s*2px solid var\(--focus\);/)
+    expect(ring).toMatch(/outline:\s*2px solid var\(--accent\);/)
     expect(ring).toMatch(/outline-offset:\s*-2px;/)
     expect(ring).not.toMatch(/box-shadow/)
   })
