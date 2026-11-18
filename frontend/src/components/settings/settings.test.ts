@@ -194,6 +194,7 @@ describe('GeneralSettings の通知の許可（Android）', () => {
     const { w } = mountWith('granted')
     const box = w.get('[data-testid="notification-permission"]')
     expect(box.attributes('data-state')).toBe('granted')
+    expect(box.get('h3').text()).toBe('通知')
     expect(box.text()).toContain('許可されています')
     expect(box.findAll('button')).toHaveLength(0)
     w.unmount()
