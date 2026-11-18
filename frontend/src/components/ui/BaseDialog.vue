@@ -214,7 +214,7 @@ function focusDialog(e: Event): void {
   background: var(--accent-soft);
 }
 
-/* × のフォーカスリングは青（--focus）でなく、ライトはインク・ダークはボーン色（#376・#377）。--accent がそれ（ライト #050505・ダーク #f5f5f4）。
+/* × のフォーカスリングは --accent（ライト＝インク #050505・ダーク＝ボーン色 #f5f5f4。#376・#377）。
    キーボード（:focus-visible）のときだけ描く。マウスのクリックでは出さない。 */
 .dlg-close:focus-visible {
   outline: 2px solid var(--accent);

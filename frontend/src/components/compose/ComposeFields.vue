@@ -132,9 +132,9 @@ defineExpose({ commitPending })
   font-size: var(--font-size-base);
 }
 
-.subject-input:focus {
-  border-color: var(--focus);
-  outline: 2px solid var(--focus);
+.subject-input:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 

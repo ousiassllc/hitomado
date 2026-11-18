@@ -53,7 +53,7 @@ defineProps<{ summary: string }>()
 
 /* 角丸と overflow: hidden で外側の outline が切れるので内側に出す */
 .disclosure-summary:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 

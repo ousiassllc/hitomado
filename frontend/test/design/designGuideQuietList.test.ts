@@ -69,19 +69,19 @@ describe('スレッド行（#345）', () => {
     expect(rule('inbox/ThreadRow.vue', '.line1,')).toContain('gap: var(--gap-inline)')
   })
 
-  test('現在行・選択・複数選択・キーボードカーソルの地は --accent-soft、行自体は --focus の囲みを持たない', () => {
+  test('現在行・選択・複数選択・キーボードカーソルの地は --accent-soft、行自体は outline の囲みを持たない', () => {
     const src = readFileSync(
       new URL('../../src/components/inbox/ThreadRow.vue', import.meta.url),
       'utf8',
     )
     expect(rule('inbox/ThreadRow.vue', '.row:hover,')).toContain('background: var(--accent-soft)')
     expect(src).toContain('.row.active {')
-    expect(src).not.toContain('--focus')
+    expect(src).not.toContain('outline')
   })
 
-  test('--focus の囲みは listbox にキーボードフォーカスがあるときだけ、カーソル行に出る', () => {
+  test('--accent の囲みは listbox にキーボードフォーカスがあるときだけ、カーソル行に出る', () => {
     expect(rule('inbox/ThreadList.vue', '.inner:focus-visible :deep(.row.active) {')).toContain(
-      'outline: 2px solid var(--focus)',
+      'outline: 2px solid var(--accent)',
     )
   })
 

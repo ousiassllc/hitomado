@@ -83,9 +83,9 @@ const id = useId()
   font-family: var(--font-sans);
 }
 
-.field-input:focus {
-  border-color: var(--focus);
-  outline: 2px solid var(--focus);
+.field-input:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 

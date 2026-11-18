@@ -184,7 +184,7 @@ function onKeydown(ev: KeyboardEvent): void {
 }
 
 .frame:has(.inner:focus-visible)::after {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
@@ -194,9 +194,9 @@ function onKeydown(ev: KeyboardEvent): void {
   outline: none;
 }
 
-/* キーボードカーソルの行の囲み。--focus の囲みはキーボードフォーカスのときだけ（選択・現在行の地は --accent-soft だけ。#345）。 */
+/* キーボードカーソルの行の囲み。--accent の囲みはキーボードフォーカスのときだけ（選択・現在行の地は --accent-soft だけ。#345）。 */
 .inner:focus-visible :deep(.row.active) {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 

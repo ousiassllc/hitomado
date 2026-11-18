@@ -70,9 +70,9 @@ function submit(): void {
   font-size: var(--font-size-sm);
 }
 
-.rte-link-input:focus {
-  border-color: var(--focus);
-  outline: 2px solid var(--focus);
+.rte-link-input:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 

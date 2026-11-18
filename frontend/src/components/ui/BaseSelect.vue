@@ -65,8 +65,8 @@ const viewportRef = overlayScrollRef()
 }
 
 .sel:focus-visible {
-  border-color: var(--focus);
-  outline: 2px solid var(--focus);
+  border-color: var(--accent);
+  outline: 2px solid var(--accent);
   outline-offset: -1px;
 }
 
@@ -149,7 +149,7 @@ const viewportRef = overlayScrollRef()
 }
 
 .sel-item[data-highlighted]:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 

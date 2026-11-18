@@ -60,7 +60,7 @@ function onKeydown(ev: KeyboardEvent): void {
   touch-action: none;
 }
 
-/* キーボードフォーカスは reset.css のグローバルな :focus-visible（--focus の 2px・offset 2）に任せる。 */
+/* キーボードフォーカスは reset.css のグローバルな :focus-visible（--accent の 2px・offset 2）に任せる。 */
 .splitter:hover {
   background: var(--accent);
 }

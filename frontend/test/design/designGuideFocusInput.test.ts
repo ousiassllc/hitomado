@@ -18,26 +18,36 @@ function sfcStyle(file: string): string {
     .descriptor.styles[0].content
 }
 
-describe('フォーカスは --focus の outline（--ring・box-shadow をやめる。#248）', () => {
-  // 入力系 2px・offset −1px（枠を --focus にして 2px の線で囲う）
+describe('フォーカスは --accent の outline（--ring・--focus・box-shadow をやめる。#248・#389）', () => {
+  // 入力系 2px・offset −1px（枠を --accent にして 2px の線で囲う）。出すのは :focus-visible のときだけ
   test.each([
-    ['settings/SettingsInput.vue', '.field-input:focus {'],
+    ['settings/SettingsInput.vue', '.field-input:focus-visible {'],
     ['ui/BaseSelect.vue', '.sel:focus-visible {'],
-    ['inbox/SearchBar.vue', '.input:focus {'],
-    ['compose/ComposeFields.vue', '.subject-input:focus {'],
-    ['compose/recipient/RecipientField.vue', '.recipient-box:focus-within {'],
-    ['compose/RichTextEditor.vue', '.rte:focus-within {'],
-    ['compose/EditorLinkForm.vue', '.rte-link-input:focus {'],
-    ['compose/ai/AiDraftInstruction.vue', '.instruction-input:focus {'],
-    ['thread/ai/ThreadAiQuestionForm.vue', '.question-input:focus {'],
-    ['account/AddAccountDialog.vue', '.text:focus {'],
+    ['inbox/SearchBar.vue', '.input:focus-visible {'],
+    ['compose/ComposeFields.vue', '.subject-input:focus-visible {'],
+    ['compose/recipient/RecipientField.vue', '.recipient-box:has(:focus-visible) {'],
+    ['compose/EditorLinkForm.vue', '.rte-link-input:focus-visible {'],
+    ['compose/ai/AiDraftInstruction.vue', '.instruction-input:focus-visible {'],
+    ['thread/ai/ThreadAiQuestionForm.vue', '.question-input:focus-visible {'],
+    ['account/AddAccountDialog.vue', '.text:focus-visible {'],
   ])('入力系 %s は 2px・offset -1px', (file, selector) => {
     const r = rule(file, selector)
-    expect(r).toContain('border-color: var(--focus)')
-    expect(r).toContain('outline: 2px solid var(--focus)')
+    expect(r).toContain('border-color: var(--accent)')
+    expect(r).toContain('outline: 2px solid var(--accent)')
     expect(r).toContain('outline-offset: -1px')
     expect(r).not.toContain('box-shadow')
     expect(r).not.toContain('outline: none')
+  })
+
+  // 本文エディタは太いリングを出さず、1px の枠線の色を --accent に変えるだけ（:focus-visible のときだけ）
+  test('本文エディタの外枠は :focus-visible のとき、枠線（1px のまま）の色だけ --accent にする', () => {
+    const r = rule('compose/RichTextEditor.vue', '.rte:has(:focus-visible) {')
+    expect(r).toContain('border-color: var(--accent)')
+    expect(r).not.toMatch(/outline|box-shadow|border-width|border:/)
+    expect(rule('compose/RichTextEditor.vue', '.rte {')).toContain(
+      'border: 1px solid var(--border)',
+    )
+    expect(sfcStyle('compose/RichTextEditor.vue')).not.toContain(':focus-within')
   })
 
   // 離散コントロール 3px・offset 2px
@@ -46,7 +56,7 @@ describe('フォーカスは --focus の outline（--ring・box-shadow をやめ
     ['settings/ai/ChatGPTAccountRow.vue', '.radio:focus-visible {'],
   ])('離散コントロール %s は 3px・offset 2px', (file, selector) => {
     const r = rule(file, selector)
-    expect(r).toContain('outline: 3px solid var(--focus)')
+    expect(r).toContain('outline: 3px solid var(--accent)')
     expect(r).toContain('outline-offset: 2px')
     expect(r).not.toContain('box-shadow')
   })

@@ -70,7 +70,7 @@ function onClick(): void {
 }
 
 .zero-btn:focus-visible {
-  outline: 2px solid var(--focus);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
