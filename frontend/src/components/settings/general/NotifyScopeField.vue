@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { type NotifyScope, notifyScopeOf, setNotifyScope } from '../../../composables/useNotifyScopeSetting'
 import { parseBindingError } from '../../../lib/api'
 import { settings as msg } from '../../../lib/messages'
@@ -11,102 +11,108 @@ const store = useSettingsStore()
 const ui = useUiStore()
 
 const scope = computed(() => notifyScopeOf(store.appInfo?.notifyScope))
-const listEl = ref<HTMLElement>()
+const options: { value: NotifyScope; label: string }[] = [
+  { value: 'primary', label: msg.general.notifyScopePrimary },
+  { value: 'all', label: msg.general.notifyScopeAll },
+]
 
-/** 押したラジオが選択されたまま残らないよう、保存に失敗したら保存済みの値の表示へ戻す（要素は作り直さない）。 */
-function resyncRadios(): void {
-  for (const el of listEl.value?.querySelectorAll<HTMLInputElement>('input[type="radio"]') ?? []) {
-    el.checked = el.value === scope.value
-  }
-}
-
+// 選択の表示は保存済みの値（appInfo）だけから決まるので、保存に失敗すれば appInfo が変わらず、表示も元のまま。
 async function choose(next: NotifyScope): Promise<void> {
+  if (next === scope.value) return
   try {
     await setNotifyScope(next)
   } catch (e) {
     ui.pushAlert(parseBindingError(e).message)
-    resyncRadios()
   }
 }
 </script>
 
 <template>
-  <fieldset ref="listEl" class="field" data-testid="notify-scope" :data-scope="scope" aria-describedby="notify-scope-hint">
-    <legend class="title">{{ msg.general.notifyScope }}</legend>
-    <label class="pick">
-      <input class="radio" type="radio" name="notify-scope" value="primary" :checked="scope === 'primary'" @change="choose('primary')" />
-      <span>{{ msg.general.notifyScopePrimary }}</span>
-    </label>
-    <label class="pick">
-      <input class="radio" type="radio" name="notify-scope" value="all" :checked="scope === 'all'" @change="choose('all')" />
-      <span>{{ msg.general.notifyScopeAll }}</span>
-    </label>
-    <p id="notify-scope-hint" class="hint">{{ msg.general.notifyScopeHint }}</p>
-  </fieldset>
+  <div class="block" data-testid="notify-scope" :data-scope="scope">
+    <strong id="notify-scope-title">{{ msg.general.notifyScope }}</strong>
+    <p id="notify-scope-hint" class="body">{{ msg.general.notifyScopeHint }}</p>
+    <!-- ガイドのセグメント（.seg。テーマ切替と同じ「グループ＋aria-pressed」。ラジオにはしない）。 -->
+    <fieldset class="seg" aria-labelledby="notify-scope-title" aria-describedby="notify-scope-hint">
+      <button
+        v-for="o in options"
+        :key="o.value"
+        type="button"
+        class="seg-btn"
+        :data-value="o.value"
+        :aria-pressed="scope === o.value"
+        @click="choose(o.value)"
+      >
+        {{ o.label }}
+      </button>
+    </fieldset>
+  </div>
 </template>
 
 <style scoped>
-.field {
+.block {
   display: flex;
   flex-direction: column;
   gap: var(--s-2);
-  margin: 0;
-  padding: 0;
-  border: 0;
   min-width: 0;
 }
 
-.title {
-  padding: 0;
-  margin-bottom: var(--s-2);
-  font-weight: 600;
-  font-size: var(--font-size-base);
-}
-
-.pick {
-  display: flex;
-  align-items: center;
-  gap: var(--s-2);
-  cursor: pointer;
-}
-
-/* ガイドのラジオ（O8）。ブラウザ標準にせず、外枠 --mute・18px・選択時は --accent 地に --bone の点・フォーカスは --accent の outline（3px・offset 2px）。 */
-.radio {
-  appearance: none;
-  flex: none;
-  display: grid;
-  place-content: center;
-  width: 18px;
-  height: 18px;
+.body {
   margin: 0;
-  border: 1px solid var(--mute);
+  color: var(--ink);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-sm);
+}
+
+/* ガイドの .seg：ピル型の枠（1px --border・--r-full・padding 3px・--surface 地）に、選択中だけ --accent 地・--bone 字の塗り。狭い Android でも 2 つが横に並ぶ。 */
+.seg {
+  display: inline-flex;
+  align-self: flex-start;
+  min-width: 0;
+  margin: 0;
+  padding: 3px;
+  border: 1px solid var(--border);
   border-radius: var(--r-full);
   background: var(--surface);
+}
+
+.seg-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: var(--r-full);
+  background: none;
+  color: var(--mute);
+  font-weight: 600;
+  font-size: var(--font-size-sm);
+  line-height: 1.2;
+  white-space: nowrap;
+  padding: 6px 14px;
   cursor: pointer;
 }
 
-.radio:checked {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.radio:checked::after {
+/* 見た目の高さは変えず、当たり判定だけ縦に広げて 44px 以上にする（ガイドの .seg と同じ）。 */
+.seg-btn::before {
   content: '';
-  width: 6px;
-  height: 6px;
-  border-radius: var(--r-full);
-  background: var(--bone);
+  position: absolute;
+  inset: -8px 0;
 }
 
-.radio:focus-visible {
+.seg-btn[aria-pressed='true'] {
+  background: var(--accent);
+  color: var(--bone);
+}
+
+.seg-btn:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 
-.hint {
-  margin: 0;
-  color: var(--mute);
-  font-size: var(--font-size-sm);
-  line-height: var(--line-height-sm);
+@media (forced-colors: active) {
+  .seg-btn[aria-pressed='true'] {
+    background: Highlight;
+    color: HighlightText;
+    forced-color-adjust: none;
+  }
 }
 </style>
