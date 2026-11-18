@@ -167,3 +167,21 @@ func TestAccountNotifyOffSilencesBothScopes(t *testing.T) {
 		assert.Empty(t, h.nt.Got(), "アカウントの通知がオフなら %s でも通知しない", raw)
 	}
 }
+
+func TestDraftIsNotNotifiedEvenWhenScopeIsAll(t *testing.T) {
+	h := newHarness(t)
+	h.account("a", true, synced("1"))
+	knownLabels(h, "a")
+	setNotifyScope(h, `"all"`)
+	h.gm.Edit("a", func(a *synctest.Script) {
+		a.History = gmail.HistoryPage{
+			LatestHistoryID:  "2",
+			ChangedThreadIDs: []string{"t1"},
+			Added:            []gmail.HistoryAdded{{MessageID: "d1", ThreadID: "t1", LabelIDs: []string{"DRAFT", "INBOX", "UNREAD"}}},
+		}
+		a.Threads["t1"] = thread("t1", msg("m0", "t1", "INBOX"), msg("d1", "t1", "DRAFT", "INBOX", "UNREAD"))
+	})
+	h.s.Start("a")
+	h.waitActive("a", 1)
+	assert.Empty(t, h.nt.Got())
+}

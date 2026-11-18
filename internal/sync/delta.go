@@ -28,7 +28,8 @@ func (s *Scheduler) deltaSync(ctx context.Context, cyc *cycle, st store.SyncStat
 	if cyc.acct.NotifyEnabled {
 		scope, err := store.LoadNotifyScope(ctx, s.store)
 		if err != nil {
-			return st, err
+			// 通知の好みを読めなくても同期は止めない（LoadNotifyScope はエラー時も「メインだけ」を返す）。
+			s.log.Warn("load notify scope failed", "account", accountID)
 		}
 		cyc.candidates = candidatesOf(hp.Added, scope)
 	}

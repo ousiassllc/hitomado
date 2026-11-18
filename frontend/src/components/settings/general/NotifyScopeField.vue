@@ -31,7 +31,7 @@ async function choose(next: NotifyScope): Promise<void> {
 </script>
 
 <template>
-  <fieldset ref="listEl" class="field" data-testid="notify-scope" :data-scope="scope">
+  <fieldset ref="listEl" class="field" data-testid="notify-scope" :data-scope="scope" aria-describedby="notify-scope-hint">
     <legend class="title">{{ msg.general.notifyScope }}</legend>
     <label class="pick">
       <input class="radio" type="radio" name="notify-scope" value="primary" :checked="scope === 'primary'" @change="choose('primary')" />
@@ -41,7 +41,7 @@ async function choose(next: NotifyScope): Promise<void> {
       <input class="radio" type="radio" name="notify-scope" value="all" :checked="scope === 'all'" @change="choose('all')" />
       <span>{{ msg.general.notifyScopeAll }}</span>
     </label>
-    <p class="hint">{{ msg.general.notifyScopeHint }}</p>
+    <p id="notify-scope-hint" class="hint">{{ msg.general.notifyScopeHint }}</p>
   </fieldset>
 </template>
 
