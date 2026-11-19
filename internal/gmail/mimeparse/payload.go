@@ -11,7 +11,7 @@ import (
 	"golang.org/x/net/html/charset"
 	gmailapi "google.golang.org/api/gmail/v1"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
 )
 
 // MaxInlineImageBytes はインライン画像 1 枚あたりの取得上限（超えたらスキップ）。

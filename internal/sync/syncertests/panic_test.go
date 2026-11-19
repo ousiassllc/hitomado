@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/store"
-	"github.com/ousiassllc/hitomado/internal/synctest"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/synctest"
 )
 
 // 手動更新の goroutine が panic しても、Refresh は戻ってエラーを返し、ログに panic が残り、次の Refresh が再び実行される。

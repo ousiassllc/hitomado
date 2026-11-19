@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
 )
 
 // Inbox Zero の判定で使う、メッセージ・文字列を扱う純粋な補助関数。

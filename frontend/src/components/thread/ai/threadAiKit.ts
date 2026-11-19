@@ -1,12 +1,12 @@
 // スレッドの AI（threadAiStore・ThreadPane の AI パネル）のテスト用ハーネス。AIService のバインディングをモックする。
 // スレッド側のモック（threadTestKit）と合わせて使う。ストアを import する前に installAiMocks() を呼ぶ。
 import { mock } from 'bun:test'
-import * as realBindings from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app'
-import type { ThreadAIResult } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import * as realBindings from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
+import type { ThreadAIResult } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { installMocks, resetState, restoreMocks } from '../threadTestKit'
 
 // AIService は index（バインディングの束）から import されるので、index をモックする（葉のモジュールは先に評価されていると効かない）。
-const APP = '../../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+const APP = '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 
 export type AiCall = { name: string; args: unknown[] }
 export const aiCalls: AiCall[] = []

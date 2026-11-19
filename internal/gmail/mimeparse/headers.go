@@ -12,7 +12,7 @@ import (
 	"golang.org/x/net/html/charset"
 	gmailapi "google.golang.org/api/gmail/v1"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
 )
 
 // wordDecoder は RFC 2047 のエンコード語を、ISO-2022-JP／Shift_JIS 等も含めてデコードする。

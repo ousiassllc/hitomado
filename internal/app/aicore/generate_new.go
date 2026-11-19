@@ -6,11 +6,11 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/domain/textconv"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/textconv"
 )
 
 // 新規作成の AI 下書きに渡す、入力済みの件名・宛先の上限（長いものは渡さずに切る）。

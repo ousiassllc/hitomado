@@ -1,11 +1,11 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
-import * as realCompose from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/composeservice'
+import * as realCompose from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/composeservice'
 import { callsOf, installMocks, resetKit, responses, restoreMocks } from '../../../test/inboxKit'
 
 installMocks()
 // 下書きの一覧（#366）を開く入口を試すため、ListDrafts だけ差し替える（ほかは本物）。
-const COMPOSE = '../../../bindings/github.com/ousiassllc/hitomado/internal/app/composeservice'
+const COMPOSE = '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/composeservice'
 const listDrafts: unknown[] = []
 mock.module(COMPOSE, () => ({
   ...realCompose,

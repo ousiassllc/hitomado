@@ -2,7 +2,7 @@
 //   draft = 文章を書くプロバイダ（同意・API キーまたはログイン・OpenAI 互換は Base URL。AISettings）、
 //   key   = API キーだけを登録するプロバイダ（文章を書かないモデル。AITypeSafePage）。
 // どちらも「つなぐ」ためのページで、モデルは選ばない（モデルは「機能ごとに使う AI」で選ぶ。#376）。
-import type { AIConfig } from '../../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { AIConfig } from '../../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { hasProviderCredential } from '../../../../lib/aiConfig'
 
 export type AIProviderId = 'chatgpt' | 'anthropic' | 'openai' | 'typesafe'

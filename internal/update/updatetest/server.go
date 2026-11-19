@@ -11,7 +11,7 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/ousiassllc/hitomado/internal/update"
+	"github.com/ousiassllc/nefos-inbox/internal/update"
 )
 
 // Server は Releases API とファイルの配信を 1 つの TLS サーバーで行う偽の Release。
@@ -45,7 +45,7 @@ func NewServer(t testing.TB, version string, installer []byte) *Server {
 
 // Checker は偽の Release を見る update.Checker。
 func (s *Server) Checker() update.Checker {
-	return update.NewGitHub(update.Options{HTTPClient: s.Client(), BaseURL: s.URL, UserAgent: "Hitomado/test"})
+	return update.NewGitHub(update.Options{HTTPClient: s.Client(), BaseURL: s.URL, UserAgent: "NefosInbox/test"})
 }
 
 // Stager は偽の Release の配信を許可した update.Stager（保存先は dir）。
@@ -68,7 +68,7 @@ func (s *Server) TotalHits() int {
 	defer s.mu.Unlock()
 	n := 0
 	for p, c := range s.hits {
-		if p != "/repos/ousiassllc/hitomado/releases/latest" {
+		if p != "/repos/ousiassllc/nefos-inbox/releases/latest" {
 			n += c
 		}
 	}
@@ -90,7 +90,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request) {
 
 	name := update.InstallerName(version)
 	switch r.URL.Path {
-	case "/repos/ousiassllc/hitomado/releases/latest":
+	case "/repos/ousiassllc/nefos-inbox/releases/latest":
 		assets := ""
 		if !omitInstaller {
 			assets += fmt.Sprintf(`{"name":%q,"browser_download_url":"%s/dl/%s","size":%d}`, name, s.URL, name, len(installer))

@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"regexp"
 
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // oauthErrorRE は OAuth の error コード（RFC 6749 §5.2。invalid_grant など）として記録してよい形。

@@ -4,9 +4,9 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/store"
-	syncer "github.com/ousiassllc/hitomado/internal/sync"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
+	syncer "github.com/ousiassllc/nefos-inbox/internal/sync"
 )
 
 // ThreadKey はスレッドの参照（FakeSync の記録用）。

@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
 )
 
 // Gmail API 呼び出しのエラー分類。実装は errors.Is で判定できる形で wrap して返す。

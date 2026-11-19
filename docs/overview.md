@@ -48,7 +48,7 @@
 
 ## ライセンス・配布
 
-- AGPL-3.0。GitHub（`ousiassllc/hitomado`）で無料公開
+- AGPL-3.0。GitHub（`ousiassllc/nefos-inbox`）で無料公開
 - Windows 向けにビルド成果物を配布（Android の APK・macOS の zip は検証用の試験版として同じ Release に添付。NF-D06）
 
 ## システム全体像

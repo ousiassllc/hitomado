@@ -16,8 +16,8 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/api/googleapi"
 
-	"github.com/ousiassllc/hitomado/internal/gmail/tokenauth"
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/tokenauth"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 const secretBody = "SECRET-BODY-should-never-leak"

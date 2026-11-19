@@ -13,10 +13,10 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 
-	"github.com/ousiassllc/hitomado/internal/capability"
-	appevents "github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/exportfile"
-	"github.com/ousiassllc/hitomado/internal/notify"
+	"github.com/ousiassllc/nefos-inbox/internal/capability"
+	appevents "github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
 )
 
 // Emitter は events.Emitter の Wails 実装。

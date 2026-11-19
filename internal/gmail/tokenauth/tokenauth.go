@@ -12,8 +12,8 @@ import (
 
 	"golang.org/x/oauth2"
 
-	"github.com/ousiassllc/hitomado/internal/clock"
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/clock"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 // expiryMargin はアクセストークンを期限切れ前に更新する余裕。

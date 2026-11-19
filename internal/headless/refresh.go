@@ -7,11 +7,11 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/logging"
-	"github.com/ousiassllc/hitomado/internal/notify"
-	"github.com/ousiassllc/hitomado/internal/store"
-	syncer "github.com/ousiassllc/hitomado/internal/sync"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
+	syncer "github.com/ousiassllc/nefos-inbox/internal/sync"
 )
 
 // accountLister は store.Store のうちアカウント一覧だけ。

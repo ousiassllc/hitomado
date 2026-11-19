@@ -1,4 +1,4 @@
-import * as InboxService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
+import * as InboxService from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/inboxservice'
 import type { useAccountsStore } from '../stores/accounts'
 import { reportRefreshResults } from '../stores/inboxFailures'
 import type { useUiStore } from '../stores/ui'

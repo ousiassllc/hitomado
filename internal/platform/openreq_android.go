@@ -7,8 +7,8 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	appevents "github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/notify"
+	appevents "github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
 )
 
 // openThreadEvent は Java（MainActivity が通知のタップの Intent を受けたとき）が Go へ送る合図のイベント名。

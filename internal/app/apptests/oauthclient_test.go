@@ -7,9 +7,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/apptest"
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apptest"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 func TestOAuthClientCRUD(t *testing.T) {

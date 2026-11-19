@@ -5,10 +5,10 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // refreshLabels は labels.list の結果でラベルのキャッシュを更新し、保存した全ラベルを返す。

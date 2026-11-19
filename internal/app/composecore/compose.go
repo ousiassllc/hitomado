@@ -6,15 +6,15 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/domain/confirm"
-	"github.com/ousiassllc/hitomado/internal/domain/contacts"
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/domain/senderpolicy"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/confirm"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/contacts"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/senderpolicy"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // confirmTTL は送信確認トークンの有効期間（API §5.2）。

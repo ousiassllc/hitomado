@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/store/db"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/store/db"
 )
 
 // defaultInboxLimit は InboxFilter.Limit が 0 以下のときの取得件数。

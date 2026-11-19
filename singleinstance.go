@@ -3,8 +3,8 @@ package main
 import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/ousiassllc/hitomado/internal/capability"
-	"github.com/ousiassllc/hitomado/internal/platform"
+	"github.com/ousiassllc/nefos-inbox/internal/capability"
+	"github.com/ousiassllc/nefos-inbox/internal/platform"
 )
 
 // singleInstanceOptions は多重起動の防止の設定を返す。OS が持たない（Android。多重起動は OS が管理する）ときは nil。

@@ -3,7 +3,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import type {
   AIConfig,
   AIModelList,
-} from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { features } from '../../../../test/aiConfigKit'
 import { aiModelsKey } from '../../../lib/aiConfig'
 import { useSettingsStore } from '../../../stores/settings'

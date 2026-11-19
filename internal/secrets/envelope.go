@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ousiassllc/hitomado/internal/asciijson"
+	"github.com/ousiassllc/nefos-inbox/internal/asciijson"
 )
 
 // envelopeBridge は「メソッド名と String 引数で Java を呼び、JSON の封筒を返す」呼び出し口を Bridge にする。

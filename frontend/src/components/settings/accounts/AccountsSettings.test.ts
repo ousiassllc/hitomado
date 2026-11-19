@@ -2,10 +2,11 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import * as realAccount from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/accountservice'
-import type { Account } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import * as realAccount from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/accountservice'
+import type { Account } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 
-const BINDINGS = '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/accountservice'
+const BINDINGS =
+  '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/accountservice'
 
 const state = {
   updateCalls: [] as unknown[][],

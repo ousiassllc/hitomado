@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/ousiassllc/hitomado/internal/asciijson"
+	"github.com/ousiassllc/nefos-inbox/internal/asciijson"
 )
 
 // 以下は Java（build/android/.../DocumentExporter.java）との間でやり取りする JSON。JNI を使う呼び出し自体は

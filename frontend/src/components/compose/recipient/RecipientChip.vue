@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { WarningTriangle, Xmark } from '@iconoir/vue'
 import { computed, ref } from 'vue'
-import type { Address } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+import type { Address } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/domain/model'
 import { compose as msg } from '../../../lib/messages'
 import { addressLabel, isLikelyEmail } from '../../../lib/recipients'
 import { spawn, vRipple } from '../../../lib/ripple'

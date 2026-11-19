@@ -1,14 +1,14 @@
 // threadStore のテスト用ハーネス（バインディング・イベントのモックと共通のフィクスチャ）。
 import { expect, mock } from 'bun:test'
-import * as realAccount from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/accountservice'
-import * as realApp from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/appservice'
-import type { ThreadDetail } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import * as realInbox from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
-import * as realNotify from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/notifycore/notifyservice'
-import * as realThread from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/threadservice'
+import * as realAccount from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/accountservice'
+import * as realApp from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/appservice'
+import type { ThreadDetail } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
+import * as realInbox from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/inboxservice'
+import * as realNotify from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/notifycore/notifyservice'
+import * as realThread from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/threadservice'
 import * as realEvents from '../../lib/events'
 
-const B = '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+const B = '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 
 type Handler = (payload: unknown) => void
 

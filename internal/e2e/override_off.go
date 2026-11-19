@@ -11,9 +11,9 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/secrets"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // Enabled は E2E 用ビルド（タグ e2e かつ production でない）のとき true。

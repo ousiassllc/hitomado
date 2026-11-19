@@ -3,8 +3,8 @@ package mcpserver
 import (
 	"context"
 
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
 )
 
 // Backend は MCP のツールが使うアプリの機能。読み取りと返信下書きの作成だけを持つ。

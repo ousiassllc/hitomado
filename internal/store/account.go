@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/store/db"
+	"github.com/ousiassllc/nefos-inbox/internal/store/db"
 )
 
 func accountFromRow(r db.Account) Account {

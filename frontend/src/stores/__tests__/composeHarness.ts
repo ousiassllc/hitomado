@@ -1,17 +1,17 @@
 // composeStore のテスト用ハーネス: バインディングをモックし、呼び出しを記録する。
 import { expect, mock } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
-import * as realAccount from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/accountservice'
-import * as realApp from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/appservice'
-import * as realCompose from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/composeservice'
+import * as realAccount from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/accountservice'
+import * as realApp from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/appservice'
+import * as realCompose from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/composeservice'
 import type {
   ComposeSession,
   SendPreview,
-} from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import * as realInbox from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
+} from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
+import * as realInbox from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/inboxservice'
 import { buildSignatureBlock } from '../../lib/signature'
 
-const B = '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+const B = '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 
 export const calls: { name: string; args: unknown[] }[] = []
 /** 可変のモック状態（テストごとに reset で初期化）。 */

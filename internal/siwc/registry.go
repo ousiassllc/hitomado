@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/secrets"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // Settings は app_settings への読み書き（store.Store が満たす）。登録情報（秘密ではない）の保存先。
@@ -88,7 +88,7 @@ func (r *registry) upsert(clientID string) *account {
 // 実際の形式を弾いてログインできなくならないよう、文字は許可リストではなく、キーの区切りと衝突するものだけを禁止する。
 const maxClientIDLen = 128
 
-// validClientID は client_id を資格情報ストアのキー（hitomado/chatgpt_token/<client_id>/<kind>、分割保存の `#<n>`）の
+// validClientID は client_id を資格情報ストアのキー（nefos-inbox/chatgpt_token/<client_id>/<kind>、分割保存の `#<n>`）の
 // 一部に使ってよいか。空・長すぎる値、キーの区切り（`/`・`#`・`\`）、空白・制御文字、ASCII 以外を含む値は使わない。
 func validClientID(id string) bool {
 	if id == "" || len(id) > maxClientIDLen {
@@ -163,7 +163,7 @@ func (m *Manager) updateRegistry(ctx context.Context, fn func(*registry) error) 
 	return m.writeRegistry(ctx, r)
 }
 
-// migrate は旧形式（ai.chatgpt が client_id を直接持ち、トークンが hitomado/chatgpt_token/<kind>）を
+// migrate は旧形式（ai.chatgpt が client_id を直接持ち、トークンが nefos-inbox/chatgpt_token/<kind>）を
 // 複数アカウントの形（アカウントごとの client_id のキー）へ移す。移行済みなら何もしない。
 // 途中で失敗しても、再実行で同じ結果になる（新しい保存先へ書いてから登録を置き換え、旧キーを最後に消す）。
 // 旧キーの削除は、登録を新形式へ置き換えたあとの呼び出しでも、残っていれば（プロセスごとの最初の 1 回）続きをやり直す。
@@ -226,7 +226,7 @@ func (m *Manager) migrateLegacyAccount(ctx context.Context, old legacyRegistrati
 	return m.writeRegistry(ctx, reg)
 }
 
-// dropLegacyTokens は旧キー（hitomado/chatgpt_token/<kind>）が残っていれば消す。無ければ何もしない（読むだけ）。
+// dropLegacyTokens は旧キー（nefos-inbox/chatgpt_token/<kind>）が残っていれば消す。無ければ何もしない（読むだけ）。
 // 新形式のキーには触れない。
 func (m *Manager) dropLegacyTokens() error {
 	b := legacyTokenBases()

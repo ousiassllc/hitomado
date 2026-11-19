@@ -6,15 +6,15 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/bodyhtml"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/domain/confirm"
-	"github.com/ousiassllc/hitomado/internal/domain/contacts"
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/domain/textconv"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/bodyhtml"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/confirm"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/contacts"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/textconv"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // bodyPreviewRunes は SendPreview.BodyPreview の最大文字数（改行を含む）。

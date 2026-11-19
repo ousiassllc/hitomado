@@ -6,15 +6,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/domain/palette"
-	"github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/logging"
-	"github.com/ousiassllc/hitomado/internal/oauth"
-	"github.com/ousiassllc/hitomado/internal/secrets"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/palette"
+	"github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/oauth"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // tokenForgetter は gmail.Client の実装が持つ任意メソッド（再接続時に古いトークンのキャッシュを捨てる）。

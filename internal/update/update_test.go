@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/update"
+	"github.com/ousiassllc/nefos-inbox/internal/update"
 )
 
 func TestIsDev(t *testing.T) {
@@ -81,17 +81,17 @@ func TestLatest(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath, gotUA, gotAccept = r.URL.RequestURI(), r.Header.Get("User-Agent"), r.Header.Get("Accept")
 		gotAuth, gotCookie = r.Header.Get("Authorization"), r.Header.Get("Cookie")
-		_, _ = w.Write([]byte(`{"tag_name":"v0.2.0","html_url":"https://github.com/ousiassllc/hitomado/releases/tag/v0.2.0","name":"x"}`))
+		_, _ = w.Write([]byte(`{"tag_name":"v0.2.0","html_url":"https://github.com/ousiassllc/nefos-inbox/releases/tag/v0.2.0","name":"x"}`))
 	}))
 	t.Cleanup(srv.Close)
 
-	c := update.NewGitHub(update.Options{HTTPClient: srv.Client(), BaseURL: srv.URL + "/", UserAgent: "Hitomado/0.1.0"})
+	c := update.NewGitHub(update.Options{HTTPClient: srv.Client(), BaseURL: srv.URL + "/", UserAgent: "NefosInbox/0.1.0"})
 	rel, err := c.Latest(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, "0.2.0", rel.Version)
-	assert.Equal(t, "https://github.com/ousiassllc/hitomado/releases/tag/v0.2.0", rel.URL)
-	assert.Equal(t, "/repos/ousiassllc/hitomado/releases/latest", gotPath)
-	assert.Equal(t, "Hitomado/0.1.0", gotUA)
+	assert.Equal(t, "https://github.com/ousiassllc/nefos-inbox/releases/tag/v0.2.0", rel.URL)
+	assert.Equal(t, "/repos/ousiassllc/nefos-inbox/releases/latest", gotPath)
+	assert.Equal(t, "NefosInbox/0.1.0", gotUA)
 	assert.Contains(t, gotAccept, "application/vnd.github")
 	assert.Empty(t, gotAuth, "未認証")
 	assert.Empty(t, gotCookie)
@@ -100,9 +100,9 @@ func TestLatest(t *testing.T) {
 // 更新確認（新しい版かどうか）はタグとリリースページだけで判定し、添付ファイルは一覧として持つだけ。
 func TestLatestKeepsAssets(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		_, _ = w.Write([]byte(`{"tag_name":"v0.1.2","html_url":"https://github.com/ousiassllc/hitomado/releases/tag/v0.1.2",
+		_, _ = w.Write([]byte(`{"tag_name":"v0.1.2","html_url":"https://github.com/ousiassllc/nefos-inbox/releases/tag/v0.1.2",
 			"assets":[
-				{"name":"hitomado-v0.1.2-windows-amd64-setup.exe","browser_download_url":"https://example.invalid/setup.exe","size":1234},
+				{"name":"nefos-inbox-v0.1.2-windows-amd64-setup.exe","browser_download_url":"https://example.invalid/setup.exe","size":1234},
 				{"name":"SHA256SUMS.txt","browser_download_url":"https://example.invalid/SHA256SUMS.txt","size":181}]}`))
 	}))
 	t.Cleanup(srv.Close)
@@ -110,9 +110,9 @@ func TestLatestKeepsAssets(t *testing.T) {
 	rel, err := update.NewGitHub(update.Options{HTTPClient: srv.Client(), BaseURL: srv.URL}).Latest(context.Background())
 	require.NoError(t, err)
 	assert.Equal(t, "0.1.2", rel.Version)
-	assert.Equal(t, "https://github.com/ousiassllc/hitomado/releases/tag/v0.1.2", rel.URL)
+	assert.Equal(t, "https://github.com/ousiassllc/nefos-inbox/releases/tag/v0.1.2", rel.URL)
 	assert.Equal(t, []update.Asset{
-		{Name: "hitomado-v0.1.2-windows-amd64-setup.exe", URL: "https://example.invalid/setup.exe", Size: 1234},
+		{Name: "nefos-inbox-v0.1.2-windows-amd64-setup.exe", URL: "https://example.invalid/setup.exe", Size: 1234},
 		{Name: "SHA256SUMS.txt", URL: "https://example.invalid/SHA256SUMS.txt", Size: 181},
 	}, rel.Assets)
 	assert.True(t, update.IsNewer("0.1.1", rel.Version), "インストーラーが入れた版（0.1.1）より新しい")

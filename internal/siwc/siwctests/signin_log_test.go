@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/siwc"
-	"github.com/ousiassllc/hitomado/internal/siwc/siwctest"
+	"github.com/ousiassllc/nefos-inbox/internal/siwc"
+	"github.com/ousiassllc/nefos-inbox/internal/siwc/siwctest"
 )
 
 // ログインの失敗は、どの段階で何が起きたかをログに残す（#185。画面には「予期しないエラー」などとしか出ないため）。

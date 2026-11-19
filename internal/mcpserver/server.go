@@ -20,7 +20,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"golang.org/x/time/rate"
 
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // Path は MCP のエンドポイントのパス。

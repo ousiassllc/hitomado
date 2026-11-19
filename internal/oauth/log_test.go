@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // logRecords はテスト用 logger（logging と同じ伏せ処理つき）が書いた JSON Lines を読む。

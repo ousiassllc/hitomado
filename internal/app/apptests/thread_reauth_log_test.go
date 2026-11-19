@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/logging"
-	"github.com/ousiassllc/hitomado/internal/store"
-	syncer "github.com/ousiassllc/hitomado/internal/sync"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
+	syncer "github.com/ousiassllc/nefos-inbox/internal/sync"
 )
 
 // 利用者の操作の失敗で再接続待ちになるときも、理由と契機をログに残す（アカウントは ID だけ）。invalid_grant は同期周期の経路と同じ

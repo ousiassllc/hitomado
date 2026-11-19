@@ -1,7 +1,7 @@
 import type {
   ThreadPage,
   ThreadSummary,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { list } from './api'
 import { common } from './messages'
 

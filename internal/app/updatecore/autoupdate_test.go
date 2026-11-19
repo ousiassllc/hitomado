@@ -11,19 +11,19 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/app"
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/apptest"
-	appdeps "github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/updatecore"
-	"github.com/ousiassllc/hitomado/internal/capability"
-	"github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/store"
-	"github.com/ousiassllc/hitomado/internal/update"
-	"github.com/ousiassllc/hitomado/internal/update/updatetest"
+	"github.com/ousiassllc/nefos-inbox/internal/app"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apptest"
+	appdeps "github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/updatecore"
+	"github.com/ousiassllc/nefos-inbox/internal/capability"
+	"github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/update"
+	"github.com/ousiassllc/nefos-inbox/internal/update/updatetest"
 )
 
-var fakeInstaller = []byte("MZ fake installer for hitomado")
+var fakeInstaller = []byte("MZ fake installer for nefos-inbox")
 
 // autoUpdateEnv は偽の GitHub Release（httptest）と、実際の Stager・Manager を組んだ環境。
 // インストーラーの起動は実行せず、呼び出しを記録するだけ（launches）。
@@ -118,14 +118,14 @@ func TestAutoUpdateDetectDownloadVerifyApply(t *testing.T) {
 	st, err := a.Svc.GetUpdateStatus(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, events.UpdateStageReady, st.Stage)
-	assert.Equal(t, []string{"hitomado-v0.2.0-windows-amd64-setup.exe"}, a.files(t))
+	assert.Equal(t, []string{"nefos-inbox-v0.2.0-windows-amd64-setup.exe"}, a.files(t))
 	assert.Empty(t, a.launches, "ダウンロードしただけでは入れ替えない")
 
 	// 次の終了で入れ替える（起動し直しは付けない）。
 	assert.True(t, a.applyOnExit(ctx))
 	require.Len(t, a.launches, 1)
 	assert.False(t, a.launches[0].Relaunch)
-	assert.Equal(t, filepath.Join(a.Dir, "hitomado-v0.2.0-windows-amd64-setup.exe"), a.paths[0])
+	assert.Equal(t, filepath.Join(a.Dir, "nefos-inbox-v0.2.0-windows-amd64-setup.exe"), a.paths[0])
 }
 
 func TestAutoUpdateRestartToUpdate(t *testing.T) {

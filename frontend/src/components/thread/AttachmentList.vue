@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { AttachmentInfo } from '../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+import type { AttachmentInfo } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/domain/model'
 import { formatSize } from '../../lib/format'
 import { thread as msg } from '../../lib/messages'
 import BaseButton from '../ui/BaseButton.vue'

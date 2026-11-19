@@ -6,7 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ousiassllc/hitomado/internal/gmail/cooldown"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/cooldown"
 )
 
 func TestCooldownKeepsTheLongestWait(t *testing.T) {

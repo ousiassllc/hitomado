@@ -3,9 +3,9 @@ import { computed, ref, watch } from 'vue'
 import type {
   ThreadDetail,
   ThreadRef,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import * as NotifyService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/notifycore/notifyservice'
-import * as ThreadService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/threadservice'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
+import * as NotifyService from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/notifycore/notifyservice'
+import * as ThreadService from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/threadservice'
 import { type AppError, call, list, parseBindingError } from '../lib/api'
 import { applyErrorEffects } from '../lib/errorEffects'
 import {

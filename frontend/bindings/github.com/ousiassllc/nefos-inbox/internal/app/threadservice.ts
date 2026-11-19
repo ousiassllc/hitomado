@@ -19,14 +19,14 @@ import * as dto$0 from "./dto/models.js";
  * GetThread はスレッド詳細を返す。下書きは除き、時系列昇順。状態は変更しない（既読化は MarkRead）。
  */
 export function GetThread(ref: dto$0.ThreadRef): $CancellablePromise<dto$0.ThreadDetail> {
-    return $Call.ByID(243811463, ref);
+    return $Call.ByID(1657990064, ref);
 }
 
 /**
  * OpenExternal は http／https／mailto のみ許可する（NF-S07）。
  */
 export function OpenExternal(rawURL: string): $CancellablePromise<void> {
-    return $Call.ByID(3741676278, rawURL);
+    return $Call.ByID(2150089539, rawURL);
 }
 
 /**
@@ -37,5 +37,5 @@ export function OpenExternal(rawURL: string): $CancellablePromise<void> {
  * Result.Path は Windows では保存したパス、Android では利用者が選んだ保存先のファイル名（Uri・内部パスは返さない）。
  */
 export function SaveAttachment(ref: dto$0.MessageRef, attachmentID: string, suggestedName: string): $CancellablePromise<dto$0.SaveAttachmentResult> {
-    return $Call.ByID(4231123365, ref, attachmentID, suggestedName);
+    return $Call.ByID(1634967412, ref, attachmentID, suggestedName);
 }

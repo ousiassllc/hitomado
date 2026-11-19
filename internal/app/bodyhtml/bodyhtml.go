@@ -10,8 +10,8 @@ import (
 	xhtml "golang.org/x/net/html"
 	"golang.org/x/net/html/atom"
 
-	"github.com/ousiassllc/hitomado/internal/domain/signature"
-	"github.com/ousiassllc/hitomado/internal/domain/textconv"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/signature"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/textconv"
 )
 
 var paragraphBreak = regexp.MustCompile(`\n[ \t]*\n+`)

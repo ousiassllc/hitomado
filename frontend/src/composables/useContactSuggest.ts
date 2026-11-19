@@ -1,7 +1,7 @@
 // 宛先オートコンプリート（F-13）。入力が止まって 150ms で SuggestContacts を呼ぶ。
 // 候補は送信元アカウントごと。古い応答は捨てる。タイマーは注入可能（テストで固定時間待ちをしない）。
 import { getCurrentScope, onScopeDispose, ref } from 'vue'
-import type { Address } from '../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+import type { Address } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/domain/model'
 
 export const SUGGEST_DELAY_MS = 150
 export const SUGGEST_LIMIT = 8

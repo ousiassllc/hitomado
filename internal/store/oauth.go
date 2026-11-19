@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/store/db"
+	"github.com/ousiassllc/nefos-inbox/internal/store/db"
 )
 
 func (s *sqlStore) ListOAuthClients(ctx context.Context) ([]OAuthClient, error) {

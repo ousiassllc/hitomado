@@ -6,9 +6,9 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/secrets"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // Marker は E2E モードのバイナリにだけ入る文字列。リリース APK の検査（build/android/scripts/verify-apk.sh）が、

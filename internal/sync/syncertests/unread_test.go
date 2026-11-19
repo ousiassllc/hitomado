@@ -11,11 +11,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/clock"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/store"
-	syncer "github.com/ousiassllc/hitomado/internal/sync"
-	"github.com/ousiassllc/hitomado/internal/synctest"
+	"github.com/ousiassllc/nefos-inbox/internal/clock"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
+	syncer "github.com/ousiassllc/nefos-inbox/internal/sync"
+	"github.com/ousiassllc/nefos-inbox/internal/synctest"
 )
 
 // overlapProbe は「未読数の取得 → SetUnread」の区間が重なったことを検出する。

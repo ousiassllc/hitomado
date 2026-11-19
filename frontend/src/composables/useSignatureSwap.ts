@@ -1,7 +1,7 @@
 // 新規作成で送信元を切り替えたときの署名差し替え（F-07、components/overview.md §3.7）。composeStore の一部。
 // 確認が必要な場合（署名部分を編集済み）は conflict に入れ、利用者の選択を resolve で受ける。
 import { type Ref, ref } from 'vue'
-import type { ComposeSession } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ComposeSession } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { applySignature, findSignature, replaceSignature, signatureContent } from '../lib/signature'
 
 interface BodyHolder {

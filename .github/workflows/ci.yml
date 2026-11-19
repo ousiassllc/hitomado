@@ -172,8 +172,8 @@ jobs:
       - name: Keep the old build
         shell: bash
         run: |
-          mv bin/hitomado-v0.99.1-windows-amd64-setup.exe old-setup.exe
-          mv bin/hitomado.exe old-hitomado.exe
+          mv bin/nefos-inbox-v0.99.1-windows-amd64-setup.exe old-setup.exe
+          mv bin/nefos-inbox.exe old-nefos-inbox.exe
       - name: Build the installer (new version)
         shell: bash
         run: wails3 package VERSION=0.99.2
@@ -181,13 +181,13 @@ jobs:
         shell: pwsh
         run: >-
           .github/scripts/test-installer.ps1 -Force
-          -OldInstaller "$PWD\old-setup.exe" -OldVersion 0.99.1 -OldExe "$PWD\old-hitomado.exe"
-          -NewInstaller "$PWD\bin\hitomado-v0.99.2-windows-amd64-setup.exe" -NewVersion 0.99.2
-          -Exe "$PWD\bin\hitomado.exe"
+          -OldInstaller "$PWD\old-setup.exe" -OldVersion 0.99.1 -OldExe "$PWD\old-nefos-inbox.exe"
+          -NewInstaller "$PWD\bin\nefos-inbox-v0.99.2-windows-amd64-setup.exe" -NewVersion 0.99.2
+          -Exe "$PWD\bin\nefos-inbox.exe"
       - uses: actions/upload-artifact@v4
         with:
-          name: hitomado-windows-amd64-setup
-          path: bin/hitomado-v0.99.2-windows-amd64-setup.exe
+          name: nefos-inbox-windows-amd64-setup
+          path: bin/nefos-inbox-v0.99.2-windows-amd64-setup.exe
           if-no-files-found: error
       # ARM64 の Windows 11（x64 エミュレーション）で同じ検証を通すための入力（下の installer-arm64）。
       - uses: actions/upload-artifact@v4
@@ -195,9 +195,9 @@ jobs:
           name: installer-lifecycle-inputs
           path: |
             old-setup.exe
-            old-hitomado.exe
-            bin/hitomado.exe
-            bin/hitomado-v0.99.2-windows-amd64-setup.exe
+            old-nefos-inbox.exe
+            bin/nefos-inbox.exe
+            bin/nefos-inbox-v0.99.2-windows-amd64-setup.exe
           retention-days: 1
           if-no-files-found: error
 
@@ -216,13 +216,13 @@ jobs:
         shell: pwsh
         run: >-
           .github/scripts/test-installer.ps1 -Force
-          -OldInstaller "$PWD\in\old-setup.exe" -OldVersion 0.99.1 -OldExe "$PWD\in\old-hitomado.exe"
-          -NewInstaller "$PWD\in\bin\hitomado-v0.99.2-windows-amd64-setup.exe" -NewVersion 0.99.2
-          -Exe "$PWD\in\bin\hitomado.exe"
+          -OldInstaller "$PWD\in\old-setup.exe" -OldVersion 0.99.1 -OldExe "$PWD\in\old-nefos-inbox.exe"
+          -NewInstaller "$PWD\in\bin\nefos-inbox-v0.99.2-windows-amd64-setup.exe" -NewVersion 0.99.2
+          -Exe "$PWD\in\bin\nefos-inbox.exe"
       - name: Smoke test (the x64 exe stays up for 15 seconds under emulation)
         shell: pwsh
         run: |
-          $p = Start-Process -FilePath "$PWD\in\bin\hitomado.exe" -PassThru
+          $p = Start-Process -FilePath "$PWD\in\bin\nefos-inbox.exe" -PassThru
           try {
             for ($i = 0; $i -lt 15; $i++) {
               Start-Sleep -Seconds 1
@@ -258,21 +258,21 @@ jobs:
         uses: ./.github/actions/build-android-apk
         with:
           version: 0.99.1
-          output: bin/hitomado-arm64.apk
+          output: bin/nefos-inbox-arm64.apk
       - name: Release AAB (arm64 + x86_64)
         run: wails3 task android:bundle:fat VERSION=0.99.1
       - name: Validate the AAB
         run: |
           curl -fsSL -o "${RUNNER_TEMP}/bundletool.jar" \
             "https://github.com/google/bundletool/releases/download/${BUNDLETOOL_VERSION}/bundletool-all-${BUNDLETOOL_VERSION}.jar"
-          java -jar "${RUNNER_TEMP}/bundletool.jar" validate --bundle bin/hitomado.aab
-          unzip -l bin/hitomado.aab | grep -E 'base/lib/(arm64-v8a|x86_64)/libwails.so'
+          java -jar "${RUNNER_TEMP}/bundletool.jar" validate --bundle bin/nefos-inbox.aab
+          unzip -l bin/nefos-inbox.aab | grep -E 'base/lib/(arm64-v8a|x86_64)/libwails.so'
       - uses: actions/upload-artifact@v4
         with:
-          name: hitomado-android
+          name: nefos-inbox-android
           path: |
-            bin/hitomado-arm64.apk
-            bin/hitomado.aab
+            bin/nefos-inbox-arm64.apk
+            bin/nefos-inbox.aab
           if-no-files-found: error
 
   # macOS の .app（ad-hoc 署名）と zip を作って検査する（Apple Silicon は起動の確認つき。Intel はクロスビルドのみ）。
@@ -293,6 +293,6 @@ jobs:
           arch: ${{ matrix.arch }}
       - uses: actions/upload-artifact@v4
         with:
-          name: hitomado-macos-${{ matrix.arch }}
-          path: bin/hitomado-v0.99.1-macos-${{ matrix.arch }}.zip
+          name: nefos-inbox-macos-${{ matrix.arch }}
+          path: bin/nefos-inbox-v0.99.1-macos-${{ matrix.arch }}.zip
           if-no-files-found: error

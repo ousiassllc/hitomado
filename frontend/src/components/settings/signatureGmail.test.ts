@@ -1,11 +1,11 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import * as realAccount from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/accountservice'
-import type { Account } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import * as realAccount from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/accountservice'
+import type { Account } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { settings as msg } from '../../lib/messages'
 
-const B = '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+const B = '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 
 const calls: { name: string; args: unknown[] }[] = []
 const ctl: { responses: Record<string, unknown>; failures: Record<string, unknown> } = {

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { Pinia } from 'pinia'
-import type { ChatGPTAccount } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ChatGPTAccount } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { useUiStore } from '../../../stores/ui'
 import { acctA, acctB, base, chatgptCfg, setup } from './aiTestSupport'
 import AIProviders from './providers/AIProviders.vue'

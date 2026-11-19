@@ -4,7 +4,7 @@ import type {
   AIConfig,
   AIFeatureSetting,
   AIModelList,
-} from '../../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { aiModelsKey } from '../../../../lib/aiConfig'
 import { list } from '../../../../lib/api'
 import { settings as msg } from '../../../../lib/messages'

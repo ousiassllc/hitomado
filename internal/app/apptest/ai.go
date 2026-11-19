@@ -3,7 +3,7 @@ package apptest
 import (
 	"context"
 
-	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
 )
 
 // AIConfigurer は AI のつなぎ先と機能ごとに使う AI を設定できるもの（aicore.Service・app.AIService）。

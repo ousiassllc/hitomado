@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
 )
 
 func turns(roles ...string) []dto.ThreadAITurn {

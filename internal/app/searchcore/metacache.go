@@ -3,7 +3,7 @@ package searchcore
 import (
 	lru "github.com/hashicorp/golang-lru/v2"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
 )
 
 // DefaultMetaCacheCapacity は MetaCache が覚えるスレッド数の目安。

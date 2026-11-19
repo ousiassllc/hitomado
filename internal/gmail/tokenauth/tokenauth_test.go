@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/oauth2"
 
-	"github.com/ousiassllc/hitomado/internal/clock"
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/clock"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 func newTransport(t *testing.T, tokenHandler http.HandlerFunc, store secrets.Store, clk clock.Clock) (*Transport, *httptest.Server) {

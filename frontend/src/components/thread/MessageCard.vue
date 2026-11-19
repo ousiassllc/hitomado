@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { NavArrowDown, NavArrowRight } from '@iconoir/vue'
 import { ref, watch } from 'vue'
-import type { ThreadMessage } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import type { AttachmentInfo } from '../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+import type { ThreadMessage } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
+import type { AttachmentInfo } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/domain/model'
 import { formatDateTime } from '../../lib/format'
 import { thread as msg } from '../../lib/messages'
 import BaseTooltip from '../ui/BaseTooltip.vue'

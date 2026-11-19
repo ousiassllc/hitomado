@@ -7,7 +7,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/gmail/googleerr"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/googleerr"
 )
 
 // 利用者が自分で直せる原因の判定に使う Google の reason。errors[].reason（旧形式）と details[].reason（ErrorInfo）の両方を見る。

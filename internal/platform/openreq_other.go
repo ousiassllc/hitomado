@@ -7,8 +7,8 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	appevents "github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/notify"
+	appevents "github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
 )
 
 // NewOpenRequests は通知のタップで開くスレッドの受け渡し口を返す。Windows のトーストのクリックは Notifier.onResponse が

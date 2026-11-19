@@ -3,8 +3,8 @@ package main
 import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/ousiassllc/hitomado/internal/app"
-	"github.com/ousiassllc/hitomado/internal/capability"
+	"github.com/ousiassllc/nefos-inbox/internal/app"
+	"github.com/ousiassllc/nefos-inbox/internal/capability"
 )
 
 // bindingServices はフロントへ公開する（バインディングの）サービスを返す。

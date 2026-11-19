@@ -1,9 +1,9 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
-import * as realPlatform from '../../../bindings/github.com/ousiassllc/hitomado/internal/capability/platformservice'
+import * as realPlatform from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/capability/platformservice'
 import { useUiStore } from '../ui'
 
-const B = '../../../bindings/github.com/ousiassllc/hitomado/internal/capability'
+const B = '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/capability'
 
 const ANDROID = {
   os: 'android',

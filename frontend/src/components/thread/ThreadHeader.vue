@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { ThreadDetail } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ThreadDetail } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { common, thread as msg } from '../../lib/messages'
 import { SHORTCUT_KEYS } from '../../lib/shortcuts'
 import { useThreadStore } from '../../stores/thread'

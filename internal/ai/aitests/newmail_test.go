@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
 )
 
 var newMailInput = ai.ReplyInput{

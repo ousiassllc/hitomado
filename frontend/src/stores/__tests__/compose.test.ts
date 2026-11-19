@@ -1,5 +1,5 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
-import type { ComposeSession } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ComposeSession } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { findSignature } from '../../lib/signature'
 import {
   appError,

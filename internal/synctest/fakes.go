@@ -7,8 +7,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/notify"
+	"github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
 )
 
 // Events は発行されたイベントを記録する。

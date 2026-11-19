@@ -4,9 +4,9 @@ import (
 	"context"
 	"errors"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/siwc"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/siwc"
 )
 
 // chatGPTStatus は ChatGPT のログイン状態（通信しない）。使用中のアカウントの状態と、保存済みのアカウントの一覧。

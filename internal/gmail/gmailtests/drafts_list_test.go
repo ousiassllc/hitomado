@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
 )
 
 // metadataDraft は drafts.get format=metadata の応答。

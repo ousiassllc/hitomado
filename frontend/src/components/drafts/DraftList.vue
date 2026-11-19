@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { EditPencil, Refresh } from '@iconoir/vue'
 import { ref } from 'vue'
-import type { DraftSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { DraftSummary } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { common, drafts as msg } from '../../lib/messages'
 import { vOverlayScroll } from '../../lib/overlayScroll'
 import { useAccountsStore } from '../../stores/accounts'

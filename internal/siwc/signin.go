@@ -12,7 +12,7 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // SignIn は Auth の実装。ブラウザでの OpenAI の公式画面（パスワード・Cookie は Hitomado が受け取らない）で

@@ -3,7 +3,7 @@
 package platform
 
 import (
-	"github.com/ousiassllc/hitomado/internal/notify"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
 )
 
 // toast は Android の通知（NotificationManager）を Java（WailsBridge.notifyNewMail → NewMailNotifier）で出す。

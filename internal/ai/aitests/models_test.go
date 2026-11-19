@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
 )
 
 // listFor は provider ごとの ListModels 呼び出し。anthropic・chatgpt は baseURL を使うため hc を渡す。

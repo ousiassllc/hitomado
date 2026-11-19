@@ -4,10 +4,10 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/logging"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // Log は Logger（未設定なら slog の既定）。

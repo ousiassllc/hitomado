@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
-import type { DraftSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { DraftSummary } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import {
   calls,
   h,

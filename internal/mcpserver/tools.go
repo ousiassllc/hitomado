@@ -9,9 +9,9 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // ToolNames は公開するツールの全部。送信するツールはここに無く、作らない。
@@ -81,7 +81,7 @@ type replyDraftInput struct {
 
 // newServer は Backend のツールを持つ MCP サーバーを作る。呼び出しは logger に残す（引数・本文は残さない）。
 func newServer(b Backend, logDir string, logger *slog.Logger, version string) *mcp.Server {
-	s := mcp.NewServer(&mcp.Implementation{Name: "hitomado", Version: version}, &mcp.ServerOptions{Instructions: instructions})
+	s := mcp.NewServer(&mcp.Implementation{Name: "nefos-inbox", Version: version}, &mcp.ServerOptions{Instructions: instructions})
 	readOnly := &mcp.ToolAnnotations{ReadOnlyHint: true, IdempotentHint: true, OpenWorldHint: ptr(false)}
 	l := &callLogger{logger: logger}
 	s.AddReceivingMiddleware(l.middleware)

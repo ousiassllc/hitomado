@@ -1,7 +1,7 @@
 import type {
   AIConfig,
   AIModelList,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { list } from './api'
 
 /** モデル一覧の保存キー。OpenAI 互換は Base URL ごとに別の一覧になる（Base URL が空の既定の送信先は、プロバイダ名だけ）。 */

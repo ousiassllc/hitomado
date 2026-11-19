@@ -5,7 +5,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
 )
 
 var (

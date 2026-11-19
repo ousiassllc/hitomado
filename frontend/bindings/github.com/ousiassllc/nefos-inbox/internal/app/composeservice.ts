@@ -18,55 +18,55 @@ import * as dto$0 from "./dto/models.js";
 import * as model$0 from "../domain/model/models.js";
 
 export function AddAttachments(sessionID: string, paths: string[] | null): $CancellablePromise<dto$0.ComposeAttachment[] | null> {
-    return $Call.ByID(2479985130, sessionID, paths);
+    return $Call.ByID(3103363685, sessionID, paths);
 }
 
 export function CloseCompose(sessionID: string): $CancellablePromise<void> {
-    return $Call.ByID(1537117705, sessionID);
+    return $Call.ByID(3906126054, sessionID);
 }
 
 export function DiscardCompose(sessionID: string): $CancellablePromise<void> {
-    return $Call.ByID(2111825115, sessionID);
+    return $Call.ByID(315294624, sessionID);
 }
 
 /**
  * DiscardDraft は一覧から選んだ下書きを Gmail から削除する（作成セッションを開かない）。
  */
 export function DiscardDraft(ref: dto$0.DraftRef): $CancellablePromise<void> {
-    return $Call.ByID(2173131268, ref);
+    return $Call.ByID(1386977775, ref);
 }
 
 /**
  * ListDrafts は accountIDs（空は全アカウント）の Gmail の下書きを、更新の新しい順の 1 つの一覧で返す。
  */
 export function ListDrafts(accountIDs: string[] | null): $CancellablePromise<dto$0.DraftList> {
-    return $Call.ByID(3083644845, accountIDs);
+    return $Call.ByID(1155411858, accountIDs);
 }
 
 export function OpenCompose(req: dto$0.OpenComposeRequest): $CancellablePromise<dto$0.ComposeSession> {
-    return $Call.ByID(3127894739, req);
+    return $Call.ByID(2620445866, req);
 }
 
 export function PrepareSend(sessionID: string, content: dto$0.ComposeContent, options: dto$0.SendOptions): $CancellablePromise<dto$0.SendPreview> {
-    return $Call.ByID(2499458454, sessionID, content, options);
+    return $Call.ByID(1508938915, sessionID, content, options);
 }
 
 export function RemoveAttachment(sessionID: string, attachmentID: string): $CancellablePromise<dto$0.ComposeAttachment[] | null> {
-    return $Call.ByID(1588462796, sessionID, attachmentID);
+    return $Call.ByID(3709549259, sessionID, attachmentID);
 }
 
 export function SaveDraft(sessionID: string, content: dto$0.ComposeContent): $CancellablePromise<dto$0.SaveDraftResult> {
-    return $Call.ByID(220803295, sessionID, content);
+    return $Call.ByID(1435096418, sessionID, content);
 }
 
 export function Send(sessionID: string, confirmToken: string, content: dto$0.ComposeContent): $CancellablePromise<dto$0.SendResult> {
-    return $Call.ByID(3532833467, sessionID, confirmToken, content);
+    return $Call.ByID(3062720312, sessionID, confirmToken, content);
 }
 
 export function SetComposeSender(sessionID: string, accountID: string): $CancellablePromise<dto$0.ComposeSession> {
-    return $Call.ByID(4270270320, sessionID, accountID);
+    return $Call.ByID(3588673127, sessionID, accountID);
 }
 
 export function SuggestContacts(accountID: string, prefix: string, limit: number): $CancellablePromise<model$0.Address[] | null> {
-    return $Call.ByID(3472426084, accountID, prefix, limit);
+    return $Call.ByID(786811853, accountID, prefix, limit);
 }

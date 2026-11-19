@@ -10,12 +10,12 @@ includes:
 # ARCH は arm64（既定は実行中の Mac のもの）か amd64。Apple Silicon の Mac で ARCH=amd64 を渡すと Intel 向けにクロスビルドする。
 # 署名は ad-hoc（codesign -s -）だけで、Developer ID の署名も公証もしない（Gatekeeper の警告が出る。README.md）。
 vars:
-  # .app の名前。実行ファイル（Contents/MacOS/hitomado）は APP_NAME のまま、Finder に出る名前だけ大文字で始める。
-  BUNDLE_NAME: Hitomado
+  # .app の名前。実行ファイル（Contents/MacOS/nefos-inbox）は APP_NAME のまま、Finder に出る名前は表示名（Nefos Inbox）。
+  BUNDLE_NAME: Nefos Inbox
 
 tasks:
   build:
-    summary: Builds the executable (bin/hitomado) natively with cgo
+    summary: Builds the executable (bin/nefos-inbox) natively with cgo
     deps:
       - task: common:build:frontend
         vars:
@@ -40,7 +40,7 @@ tasks:
       MACOSX_DEPLOYMENT_TARGET: "12.0"
 
   package:
-    summary: Builds bin/Hitomado.app (ad-hoc signed) and bin/hitomado-vX.Y.Z-macos-<arch>.zip
+    summary: Builds bin/Nefos Inbox.app (ad-hoc signed) and bin/nefos-inbox-vX.Y.Z-macos-<arch>.zip
     cmds:
       - task: build
         vars:
@@ -52,7 +52,7 @@ tasks:
           ARCH: '{{.ARCH}}'
 
   create:app:bundle:
-    summary: Creates the ad-hoc signed bin/Hitomado.app from bin/hitomado
+    summary: Creates the ad-hoc signed bin/Nefos Inbox.app from bin/nefos-inbox
     cmds:
       # 前のビルドの .app を再利用すると署名が壊れるので、毎回作り直す。
       - test -n "{{.BIN_DIR}}" && rm -rf -- "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app"
@@ -66,7 +66,7 @@ tasks:
       - codesign --verify --deep --strict "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app"
 
   zip:
-    summary: Zips bin/Hitomado.app into bin/hitomado-vX.Y.Z-macos-<arch>.zip (ditto keeps the signature and symlinks)
+    summary: Zips bin/Nefos Inbox.app into bin/nefos-inbox-vX.Y.Z-macos-<arch>.zip (ditto keeps the signature and symlinks)
     cmds:
       - ditto -c -k --keepParent "{{.BIN_DIR}}/{{.BUNDLE_NAME}}.app" "{{.BIN_DIR}}/{{.APP_NAME}}-v{{.APP_VERSION}}-macos-{{.TARGET_ARCH}}.zip"
     vars:

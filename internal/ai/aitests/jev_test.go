@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
 )
 
 const jevOKResponse = `{"model":"jev-1.13.0","answers":{"category":{"type":"choice","choice":"ad","confidence":0.9,"probabilities":{"ad":0.9,"notification":0.05,"newsletter":0.03,"other":0.02}}},"usage":{"input_tokens":10,"output_tokens":2}}`

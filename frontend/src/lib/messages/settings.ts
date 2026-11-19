@@ -72,7 +72,7 @@ export const settings = {
     intro:
       'Google Cloud で作成した OAuth クライアント（種類: デスクトップアプリ）の Client ID と Client Secret を登録します。複数登録できます。',
     guide: 'OAuth クライアントの作成手順（README）を開く',
-    guideUrl: 'https://github.com/ousiassllc/hitomado#readme',
+    guideUrl: 'https://github.com/ousiassllc/nefos-inbox#readme',
     empty: 'OAuth クライアントが登録されていません。',
     listLabel: 'OAuth クライアント一覧',
     add: 'クライアントを追加',

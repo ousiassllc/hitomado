@@ -7,7 +7,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/ousiassllc/hitomado/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
 )
 
 // Open は Android の Intent（ACTION_VIEW）で URL を開く。Wails の app.Browser.OpenURL は
@@ -18,7 +18,7 @@ func (b *Browser) Open(url string) error {
 }
 
 // OpenPath はファイルを既定のアプリで開く（ACTION_VIEW + FileProvider。Issue #85）。
-// 開けるのはアプリのログのディレクトリ（files/Hitomado/logs。FileProvider が公開する範囲）の中のファイルだけで、
+// 開けるのはアプリのログのディレクトリ（files/Nefos Inbox/logs。FileProvider が公開する範囲）の中のファイルだけで、
 // 範囲外は Java 側が拒否する。フォルダは開けない（アプリ専用の領域を表示するファイルマネージャーの経路が無い。
 // exportfile.ErrFolderNotSupported）。開けるアプリが無ければ exportfile.ErrNoApp。
 func (p *Paths) OpenPath(path string) error {

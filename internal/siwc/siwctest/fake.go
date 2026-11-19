@@ -18,7 +18,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/clock"
+	"github.com/ousiassllc/nefos-inbox/internal/clock"
 )
 
 // FakeOpenAI は OpenAI の認可サーバー（discovery・JWKS・トークン・失効）。認可画面は持たず、

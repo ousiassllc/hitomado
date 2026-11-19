@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
 )
 
 // OAuth クライアントの資格情報が拒否されたとき（invalid_client 等）は、再接続を促す ErrNeedsReauth とも

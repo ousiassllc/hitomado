@@ -3,12 +3,12 @@ package composecore
 import (
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/domain/confirm"
-	"github.com/ousiassllc/hitomado/internal/domain/contacts"
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/domain/senderpolicy"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/confirm"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/contacts"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/senderpolicy"
 )
 
 // normalizeAddrs は空のアドレスを除き、メールアドレスを小文字・前後空白除去、表示名を前後空白除去する。

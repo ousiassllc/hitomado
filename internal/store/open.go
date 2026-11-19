@@ -15,8 +15,8 @@ import (
 	"modernc.org/sqlite"
 	sqlitelib "modernc.org/sqlite/lib"
 
-	"github.com/ousiassllc/hitomado/internal/clock"
-	"github.com/ousiassllc/hitomado/internal/store/db"
+	"github.com/ousiassllc/nefos-inbox/internal/clock"
+	"github.com/ousiassllc/nefos-inbox/internal/store/db"
 )
 
 //go:embed migrations/*.sql

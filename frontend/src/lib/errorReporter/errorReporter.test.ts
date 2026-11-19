@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { createApp } from 'vue'
-import type { ClientError } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ClientError } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { call } from '../api'
 import { createErrorReporter, describeThrown, sanitizeStack } from './index'
 

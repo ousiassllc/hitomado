@@ -13,27 +13,27 @@ import (
 	wevents "github.com/wailsapp/wails/v3/pkg/events"
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
-	"github.com/ousiassllc/hitomado/internal/app"
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	appdeps "github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/notifycore"
-	"github.com/ousiassllc/hitomado/internal/app/threadcache"
-	"github.com/ousiassllc/hitomado/internal/app/updatecore"
-	"github.com/ousiassllc/hitomado/internal/capability"
-	"github.com/ousiassllc/hitomado/internal/clock"
-	"github.com/ousiassllc/hitomado/internal/e2e"
-	appevents "github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/headless"
-	"github.com/ousiassllc/hitomado/internal/logging"
-	"github.com/ousiassllc/hitomado/internal/oauth"
-	"github.com/ousiassllc/hitomado/internal/platform"
-	"github.com/ousiassllc/hitomado/internal/secrets"
-	"github.com/ousiassllc/hitomado/internal/siwc"
-	"github.com/ousiassllc/hitomado/internal/store"
-	syncer "github.com/ousiassllc/hitomado/internal/sync"
-	"github.com/ousiassllc/hitomado/internal/update"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/app"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	appdeps "github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/notifycore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/threadcache"
+	"github.com/ousiassllc/nefos-inbox/internal/app/updatecore"
+	"github.com/ousiassllc/nefos-inbox/internal/capability"
+	"github.com/ousiassllc/nefos-inbox/internal/clock"
+	"github.com/ousiassllc/nefos-inbox/internal/e2e"
+	appevents "github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/headless"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/oauth"
+	"github.com/ousiassllc/nefos-inbox/internal/platform"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/siwc"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
+	syncer "github.com/ousiassllc/nefos-inbox/internal/sync"
+	"github.com/ousiassllc/nefos-inbox/internal/update"
 )
 
 // applyUpdateTimeout は終了時の更新の入れ替え（設定の読み取りとインストーラーの起動）に掛ける時間の上限。
@@ -134,7 +134,7 @@ func run() error {
 	if caps.SupportsAutoUpdate && update.AutoInstallSupported && !update.IsDev(version) {
 		updatesDir := filepath.Join(dir, updatecore.DirName)
 		updates = update.NewManager(update.ManagerOptions{
-			Fetcher: update.NewStager(update.StagerOptions{Dir: updatesDir, UserAgent: "Hitomado/" + version}),
+			Fetcher: update.NewStager(update.StagerOptions{Dir: updatesDir, UserAgent: "NefosInbox/" + version}),
 			Launch:  update.NewLauncher(),
 			Busy:    busy.Active,
 			OnChange: func(st update.State) {
@@ -147,7 +147,7 @@ func run() error {
 
 	deps := &app.Deps{
 		Store: st, Gmail: gm, Secrets: sec, OAuth: flow, OAuthTracker: oauthTracker, Sync: sched, Notifier: notifier,
-		Update:  update.NewGitHub(update.Options{UserAgent: "Hitomado/" + version}),
+		Update:  update.NewGitHub(update.Options{UserAgent: "NefosInbox/" + version}),
 		Updates: updates, Busy: busy,
 		Events: events, Clock: clk,
 		Files:   platform.NewFiles(wapp, func() application.Window { return win }),

@@ -4,7 +4,7 @@ import { computed, type Ref, ref } from 'vue'
 import type {
   ThreadRef,
   ThreadSummary,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { cursorAfterRemoval, keyOf, rangeKeys, refFromKey, removeKeys } from '../lib/inboxItems'
 
 export function useInboxSelection(items: Ref<ThreadSummary[]>) {

@@ -5,11 +5,11 @@
 // 選んだ AI へ送るのは、その AI・送信先への同意をもらってから（同意前は Go も送らない）。端末内で判断するのは返信済みだけで、それだけなら AI も同意も要らない。
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { AIService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import { AIService } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 import type {
   InboxZeroCandidate,
   InboxZeroReasons,
-} from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { hasProviderCredential } from '../../lib/aiConfig'
 import { call, list, parseBindingError } from '../../lib/api'
 import { keyOf, refOf } from '../../lib/inboxItems'

@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 // 資格情報ストアのトークンの種類（secrets.ChatGPTTokenKey の kind）。

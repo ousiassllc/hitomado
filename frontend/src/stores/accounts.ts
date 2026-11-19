@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import * as AccountService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/accountservice'
+import * as AccountService from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/accountservice'
 import type {
   Account,
   AccountPatch,
   GmailSignature,
   OAuthClient,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { call, list, parseBindingError } from '../lib/api'
 import { type AccountStatus, type AccountStatusPayload, EVENTS, onEvent } from '../lib/events'
 import { common } from '../lib/messages'

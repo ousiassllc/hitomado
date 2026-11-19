@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/app/appcore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/appcore"
 )
 
 func TestMarkInternetZoneWritesZoneIdentifier(t *testing.T) {

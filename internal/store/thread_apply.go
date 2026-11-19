@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/store/db"
+	"github.com/ousiassllc/nefos-inbox/internal/store/db"
 )
 
 // Gmail のシステムラベル ID（集計に使う）。

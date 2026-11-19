@@ -4,9 +4,9 @@ import (
 	"context"
 	"slices"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	syncer "github.com/ousiassllc/hitomado/internal/sync"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	syncer "github.com/ousiassllc/nefos-inbox/internal/sync"
 )
 
 // GmailErr は Gmail（とその周辺）のエラーを AppError にする。NEEDS_REAUTH はアカウントを要再接続にして

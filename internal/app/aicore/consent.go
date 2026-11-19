@@ -8,10 +8,10 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // 既定の送信先（internal/ai の既定 Base URL と同じ scheme://ホスト）。

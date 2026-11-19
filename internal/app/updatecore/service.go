@@ -9,12 +9,12 @@ import (
 	"log/slog"
 	"strconv"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/store"
-	"github.com/ousiassllc/hitomado/internal/update"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/update"
 )
 
 // DirName はデータフォルダの下の、更新ファイル（ダウンロードしたインストーラー）の保存先フォルダ名。

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import type { Label } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import * as InboxService from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
+import type { Label } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
+import * as InboxService from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/inboxservice'
 import { call, list, parseBindingError } from '../../lib/api'
 import { keyOf } from '../../lib/inboxItems'
 import { viewShowsUnreadOnly } from '../../lib/inboxViews'

@@ -1,10 +1,10 @@
 import { mock } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
-import * as realIndex from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import * as realIndex from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 import type {
   InboxZeroCandidate,
   ThreadSummary,
-} from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { features } from '../../../test/aiConfigKit'
 import {
   callsOf,
@@ -17,7 +17,7 @@ import {
 
 // Inbox Zero のストアのテストの共通部分（#314・#377）。選んだ AI（Jev・OpenAI など）の実 API は呼ばない。ストア（inboxZero.ts）が import する Go のバインディング（index の AIService）をモックする。
 // 同意の保存（settings.recordAIConsent）は、すでに読み込まれた settings ストアのメソッドを setup で差し替える。
-const B = '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+const B = '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 installMocks()
 export const aiCtl: { find: unknown; failures: Record<string, unknown> } = {
   find: undefined,

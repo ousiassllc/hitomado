@@ -11,7 +11,7 @@ import (
 
 	"google.golang.org/api/googleapi"
 
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // 取り出す量の上限。

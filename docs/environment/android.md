@@ -30,16 +30,16 @@ sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;26.3.11579264" "plat
 | コマンド | 内容 | 出力 |
 |----------|------|------|
 | `task android:build [ARCH=arm64\|amd64]` | フロントをビルドし、`libwails.so` を作る（Go のみ。APK にはしない）。ほかの ABI の古い `libwails.so` は先に消す | `build/android/app/src/main/jniLibs/<abi>/libwails.so` |
-| `task android:package [ARCH=arm64\|amd64] VERSION=X.Y.Z` | release APK（署名あり、§4）。`ARCH` の ABI だけを含む | `bin/hitomado.apk` |
-| `task android:package:fat VERSION=X.Y.Z` | arm64＋x86_64 を含む release APK | `bin/hitomado.apk` |
-| `task android:bundle [ARCH=…] VERSION=X.Y.Z` | release AAB（単一 ABI） | `bin/hitomado.aab` |
-| `task android:bundle:fat VERSION=X.Y.Z` | release AAB（arm64＋x86_64。Play へ上げる形） | `bin/hitomado.aab` |
+| `task android:package [ARCH=arm64\|amd64] VERSION=X.Y.Z` | release APK（署名あり、§4）。`ARCH` の ABI だけを含む | `bin/nefos-inbox.apk` |
+| `task android:package:fat VERSION=X.Y.Z` | arm64＋x86_64 を含む release APK | `bin/nefos-inbox.apk` |
+| `task android:bundle [ARCH=…] VERSION=X.Y.Z` | release AAB（単一 ABI） | `bin/nefos-inbox.aab` |
+| `task android:bundle:fat VERSION=X.Y.Z` | release AAB（arm64＋x86_64。Play へ上げる形） | `bin/nefos-inbox.aab` |
 | `task android:verify [APK=<path>] VERSION=X.Y.Z` | APK を検査する（`build/android/scripts/verify-apk.sh`。§6） | — |
-| `task android:install [DEVICE_ID=<serial>] [APK=<path>]` | `adb install -r` で実機へ入れる（既定は `bin/hitomado.apk`） | — |
-| `task android:run` / `android:run:device` | debug ビルドをエミュレーター／実機へ入れて起動する（`bin/hitomado-debug.apk`） | — |
+| `task android:install [DEVICE_ID=<serial>] [APK=<path>]` | `adb install -r` で実機へ入れる（既定は `bin/nefos-inbox.apk`） | — |
+| `task android:run` / `android:run:device` | debug ビルドをエミュレーター／実機へ入れて起動する（`bin/nefos-inbox-debug.apk`） | — |
 | `task android:test` | Java の単体テスト（`build/android/app/src/test`。JVM のみで端末は不要。§11） | — |
 | `task android:lint` | android タグ側の Go lint（§8） | — |
-| `task android:e2e:apk [ARCH=…]` / `android:e2e:run` | E2E 用 debug APK（ビルドタグ `e2e`。シード済みのフェイク Gmail）を作る／接続中の端末で E2E を回す（§17.3）。release には使わない | `bin/hitomado-e2e.apk` |
+| `task android:e2e:apk [ARCH=…]` / `android:e2e:run` | E2E 用 debug APK（ビルドタグ `e2e`。シード済みのフェイク Gmail）を作る／接続中の端末で E2E を回す（§17.3）。release には使わない | `bin/nefos-inbox-e2e.apk` |
 | `task android:clean` | 生成物を消す | — |
 
 `task` の代わりに `wails3 task …` でも同じ。`package:fat`・`bundle:fat` の最初の ABI は `arm64`、2 つ目が `amd64`（x86_64）。
@@ -47,9 +47,9 @@ sdkmanager "platforms;android-36" "build-tools;36.0.0" "ndk;26.3.11579264" "plat
 実機へ入れる手順:
 
 ```bash
-task android:package ARCH=arm64 VERSION=0.1.0     # bin/hitomado.apk（署名は §4）
+task android:package ARCH=arm64 VERSION=0.1.0     # bin/nefos-inbox.apk（署名は §4）
 adb devices                                       # 端末の USB デバッグを有効にして接続
-task android:install                              # = adb install -r bin/hitomado.apk
+task android:install                              # = adb install -r bin/nefos-inbox.apk
 ```
 
 署名の鍵が違う同名のアプリが入っていると `INSTALL_FAILED_UPDATE_INCOMPATIBLE` になる（デバッグ鍵と release 鍵の入れ替え、Releases の固定鍵に切り替える前の使い捨て鍵の APK など）。`adb uninstall jp.ousias.hitomado` で消してから入れる（**アプリのデータも消える**）。
@@ -105,28 +105,28 @@ GitHub Releases の APK は、リポジトリの Secrets に登録した**固定
 1. 鍵を作る（リポジトリの外。パスワードはコマンドラインに書かず、プロンプトで入力する）:
 
    ```bash
-   keytool -genkeypair -keystore hitomado-release.jks -alias hitomado \
+   keytool -genkeypair -keystore nefos-inbox-release.jks -alias hitomado \
      -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Hitomado"
    ```
 
-2. **登録する前に控えを取る**。Secrets は登録後に値を読み戻せないので、`hitomado-release.jks`・パスワード・エイリアスを、GitHub の外（パスワードマネージャー、暗号化したバックアップなど）に保管する。保管場所は運用で決め、鍵そのものやパスワードをリポジトリ・Issue・PR・チャットに書かない。
+2. **登録する前に控えを取る**。Secrets は登録後に値を読み戻せないので、`nefos-inbox-release.jks`・パスワード・エイリアスを、GitHub の外（パスワードマネージャー、暗号化したバックアップなど）に保管する。保管場所は運用で決め、鍵そのものやパスワードをリポジトリ・Issue・PR・チャットに書かない。
 3. keystore を base64 にする（改行なしの 1 行。折り返しがあっても `prepare-android-signing.sh` は空白・改行を無視する）:
 
    ```bash
-   base64 -w0 hitomado-release.jks > hitomado-release.jks.b64                    # Linux
-   base64 -i hitomado-release.jks -o hitomado-release.jks.b64                    # macOS（折り返しなしで出力する）
+   base64 -w0 nefos-inbox-release.jks > nefos-inbox-release.jks.b64                    # Linux
+   base64 -i nefos-inbox-release.jks -o nefos-inbox-release.jks.b64                    # macOS（折り返しなしで出力する）
    ```
 
 4. 4 つの Secrets を登録する（Settings → Secrets and variables → Actions → New repository secret。または `gh`。`gh` はリポジトリの外で実行しても対象が決まるよう `--repo` を付ける。パスワードは標準入力から渡し、シェルの履歴に残さない）:
 
    ```bash
-   gh secret set ANDROID_KEYSTORE_BASE64 --repo ousiassllc/hitomado < hitomado-release.jks.b64
-   gh secret set ANDROID_KEYSTORE_PASSWORD --repo ousiassllc/hitomado     # 値の入力を求められる
-   gh secret set ANDROID_KEY_ALIAS --repo ousiassllc/hitomado --body hitomado
-   gh secret set ANDROID_KEY_PASSWORD --repo ousiassllc/hitomado          # 値の入力を求められる
+   gh secret set ANDROID_KEYSTORE_BASE64 --repo ousiassllc/nefos-inbox < nefos-inbox-release.jks.b64
+   gh secret set ANDROID_KEYSTORE_PASSWORD --repo ousiassllc/nefos-inbox     # 値の入力を求められる
+   gh secret set ANDROID_KEY_ALIAS --repo ousiassllc/nefos-inbox --body hitomado
+   gh secret set ANDROID_KEY_PASSWORD --repo ousiassllc/nefos-inbox          # 値の入力を求められる
    ```
 
-5. ローカルの `hitomado-release.jks.b64` を消す（`hitomado-release.jks` は手順 2 の保管場所に残す）。
+5. ローカルの `nefos-inbox-release.jks.b64` を消す（`nefos-inbox-release.jks` は手順 2 の保管場所に残す）。
 
 **登録の前にマージしない**: この変更（固定鍵での署名。#310）を main へマージするより前に、上の 4 つの Secrets を登録する。未登録のままマージすると、`release.yml` の `android` ジョブが `require-fixed-key: "true"` で失敗し、成果物の欠けた Release は作られない（登録したあと、同じコミットの run を再実行すれば公開できる）。
 
@@ -140,13 +140,13 @@ GitHub Releases の APK は、リポジトリの Secrets に登録した**固定
 - PR の CI に固定鍵を渡さないのは、PR のコード（ワークフロー・ビルドスクリプトを書き換えられる）に実鍵を触らせず、PR が作るアーティファクトを実鍵で署名させないため。固定鍵で署名するのは、レビュー済みで main に入ったコードだけ。
 - 登録が不完全（一部だけ）なとき、keystore が開けない（パスワード違い）とき、エイリアスが keystore に無いとき、鍵のパスワードで鍵を取り出せないとき（JKS で鍵のパスワードがストアと別の場合の取り違え。PKCS12 はストアと同じ値でなければならない）は、ビルドの前に失敗する（使い捨ての鍵に黙って落とさない）。`require-fixed-key` は `true`／`1`（大文字小文字は問わない）で有効、`false`／`0`／空で無効、それ以外の値は誤記として失敗する。
 - 鍵とパスワードはログに出さない: パスワードは `::add-mask::` で伏せ、keytool には環境変数で渡す（コマンドラインに載せない）。keystore は `$RUNNER_TEMP` に置くだけで、成果物には含めない。`prepare-android-signing_test.sh`（CI の `test` ジョブ）が、鍵の選び方・失敗の条件・ログに値が出ないことを検査する。
-- `task android:verify` は、署名の証明書の **SHA-256**（公開してよい値）を `SIGNING: certificate SHA-256 …` として表示する。Release を作る run のログで、版どうしで同じ値になっていることを確認できる。APK を手元で調べるなら `apksigner verify --print-certs hitomado-vX.Y.Z-android-arm64.apk`。
+- `task android:verify` は、署名の証明書の **SHA-256**（公開してよい値）を `SIGNING: certificate SHA-256 …` として表示する。Release を作る run のログで、版どうしで同じ値になっていることを確認できる。APK を手元で調べるなら `apksigner verify --print-certs nefos-inbox-vX.Y.Z-android-arm64.apk`。
 
 **固定鍵に切り替えた最初の版だけ**は、入っている使い捨ての鍵の APK の上に上書きできない。端末で `adb uninstall jp.ousias.hitomado`（または「設定 → アプリ → Nefos Inbox → アンインストール」）をしてから入れる（**アプリのデータ（アカウント・設定・下書き）は消える**）。その次の版からは上書きで更新できる。
 
 Play 配布（#91）でも署名鍵の扱いは同じ問題になる。ここで作る鍵は GitHub Releases の APK 用で、Play App Signing の**アップロード鍵**を兼ねるかどうかは [android-play-distribution.md §6.2](android-play-distribution.md#62-署名鍵) で決める（Play 版と Releases の APK は、Play が配布用の鍵で再署名するので署名が違う）。
 
-`task android:run`／`android:run:device` は debug ビルド（`assembleDebug`。debug 鍵、`bin/hitomado-debug.apk`）。
+`task android:run`／`android:run:device` は debug ビルド（`assembleDebug`。debug 鍵、`bin/nefos-inbox-debug.apk`）。
 
 ## 5. 版番号
 
@@ -173,7 +173,7 @@ Play 配布（#91）でも署名鍵の扱いは同じ問題になる。ここで
 
 `task android:verify` は `aapt2 dump badging`／`dump xmltree` と `apksigner verify --print-certs` で、packageName、versionName、versionCode、minSdk（31）、targetSdk（36）、権限が**許可リスト**に収まること（新しい権限が入ると失敗する。意図して増やすときは `verify-apk.sh` の許可リストと manifest を一緒に直す）、`allowBackup=false`、`dataExtractionRules` の有無、debuggable でないこと、`extractNativeLibs=true` と `libwails.so`・`classes.dex` が圧縮（Deflate）で入っていること（§6.1）、`libwails.so` のすべての `LOAD` セグメントが 16KB（`0x4000`）以上で整列していること（`check-elf-align.sh`。リンクの `-extldflags=-Wl,-z,max-page-size=16384` は `Taskfile.yml` の `BUILD_FLAGS`。#205、[Play 配布の調査 §6.1](android-play-distribution.md#61-16kb-ページ対応対応済み205)）、署名の種類（`EXPECT_SIGNING=debug|release` を付けるとその種類でなければ失敗）を確認する。
 
-AAB の検査には `bundletool` が要る（SDK に含まれない）。`https://github.com/google/bundletool/releases` の `bundletool-all-<版>.jar`（CI は 1.18.3）を取得して `java -jar bundletool-all-1.18.3.jar validate --bundle bin/hitomado.aab` を実行する。`dump manifest --bundle` で manifest を見られる。
+AAB の検査には `bundletool` が要る（SDK に含まれない）。`https://github.com/google/bundletool/releases` の `bundletool-all-<版>.jar`（CI は 1.18.3）を取得して `java -jar bundletool-all-1.18.3.jar validate --bundle bin/nefos-inbox.aab` を実行する。`dump manifest --bundle` で manifest を見られる。
 
 ### 6.1 `.so` と dex を圧縮して格納する（サイズ優先）
 
@@ -242,7 +242,7 @@ python3 -B -m unittest discover -s build/android/scripts -p 'gen_icons_test.py' 
   - `setup-android`: Go・bun・JDK 17・wails3（`WAILS_VERSION`）・SDK platform 36・build-tools・NDK（`sdkmanager`）・フロントの依存。呼び出し元の `env` に `WAILS_VERSION`・`ANDROID_NDK_VERSION`・`ANDROID_BUILD_TOOLS_VERSION` が要る（NDK は `build/android/Taskfile.yml` の `NDK_VERSION` と同じ値）。
   - `build-android-apk`（入力 `version`・`output`、署名鍵の入力 `keystore-base64`・`keystore-password`・`key-alias`・`key-password`・`require-fixed-key`）: `.github/scripts/prepare-android-signing.sh` で署名鍵を決める（§4.1。固定鍵の入力が 4 つ揃っていればその鍵、4 つとも空なら **使い捨ての鍵**を `keytool` で作る、`require-fixed-key: "true"` で空なら失敗、一部だけなら失敗。パスワードは `::add-mask::` で伏せ、成果物には含めない）→ 環境変数で渡して `android:package ARCH=arm64 VERSION=…` → `EXPECT_SIGNING=release android:verify` を通した APK を `output` へ置く。
 - `ci.yml` の `android` ジョブ（ubuntu-latest、**pull_request のみ**。`release.yml` が呼ぶとき（push）は動かさず、リリース用の APK は `release.yml` の `android` ジョブが同じ action で作る）: `setup-android` のあと、SecureStore の JVM 単体テスト、デバッグ鍵（フォールバック）の APK の検査、`build-android-apk`（版 `0.99.1`。Secrets は渡さないので使い捨ての鍵。フォークの PR も同じ）、AAB（arm64＋x86_64）の作成と `bundletool validate` を行い、`hitomado-android` のアーティファクトに上げる。
-- `release.yml` の `android` ジョブ（ubuntu-latest。`needs: [version, ci]`）: `setup-android` → `build-android-apk`（版はタグから `v` を除いた値）で `hitomado-vX.Y.Z-android-arm64.apk` を作り、`publish` が Release に添付して `SHA256SUMS.txt` に載せる。**署名は Secrets の固定鍵**（§4.1。`require-fixed-key: "true"`）なので、版が変わっても署名証明書が同じで、前の版の上に上書きインストールで更新できる（固定鍵に切り替えた最初の版だけは、入っている使い捨ての鍵の APK を `adb uninstall jp.ousias.hitomado` で消してから入れる。アプリのデータは消える）。固定鍵の Secrets が無い・一部だけのときは、使い捨ての鍵で公開せずこのジョブが失敗する。Google Play では配布しない。arm64 だけで、AAB・x86_64 は Release に添付しない。この APK のビルドが落ちると `publish` が動かず、Release は作られない。
+- `release.yml` の `android` ジョブ（ubuntu-latest。`needs: [version, ci]`）: `setup-android` → `build-android-apk`（版はタグから `v` を除いた値）で `nefos-inbox-vX.Y.Z-android-arm64.apk` を作り、`publish` が Release に添付して `SHA256SUMS.txt` に載せる。**署名は Secrets の固定鍵**（§4.1。`require-fixed-key: "true"`）なので、版が変わっても署名証明書が同じで、前の版の上に上書きインストールで更新できる（固定鍵に切り替えた最初の版だけは、入っている使い捨ての鍵の APK を `adb uninstall jp.ousias.hitomado` で消してから入れる。アプリのデータは消える）。固定鍵の Secrets が無い・一部だけのときは、使い捨ての鍵で公開せずこのジョブが失敗する。Google Play では配布しない。arm64 だけで、AAB・x86_64 は Release に添付しない。この APK のビルドが落ちると `publish` が動かず、Release は作られない。
 - Gradle のキャッシュは明示していない（初回は Gradle 本体の取得を含む）。
 - `android-e2e.yml`（**workflow_dispatch のみ**。`ci.yml` には入れていない）: KVM つきのエミュレーターでの E2E（§17.4）。
 
@@ -292,7 +292,7 @@ Go の secrets.Store（internal/secrets/bridge.go。純 Go。鍵の喪失を Err
 | 保存先（SharedPreferences ファイル） | `hitomado_secrets`。Wails の既定（`wails_secure`）とは分ける。試作（#81）の保存分は引き継がない（試作はエミュレーターの検証のみで、本番のデータは無い） |
 | Keystore の鍵の別名 | `hitomado_secrets_master_key`（AES256-GCM）。androidx の既定の別名とは分ける |
 | キーの暗号化／値の暗号化 | `AES256_SIV`／`AES256_GCM`（security-crypto の標準） |
-| 名前空間 | キー名は Windows と同じ `hitomado/<種別>/<ID>`（[ER §1](../architecture/er.md)）。保存先のファイルが専用なので、Windows の「サービス名 `Hitomado`」に当たる区切りは別にいらない |
+| 名前空間 | キー名は Windows と同じ `nefos-inbox/<種別>/<ID>`（[ER §1](../architecture/er.md)）。保存先のファイルが専用なので、Windows の「サービス名 `Nefos Inbox`」に当たる区切りは別にいらない。v0.1.46 までの `hitomado/<種別>/<ID>` は、読んだときに同じ保存先の中で新しいキー名へ移す（`secrets.WithLegacy`。#402。保存先のファイル名 `hitomado_secrets` と Keystore の鍵の別名は変えない。変えると暗号化した値を読めなくなる） |
 | 値の大きさ | SharedPreferences に Windows 資格情報マネージャーのような 2.5KB の上限は無い。4096 バイトを超える値（ChatGPT の JWT など）もそのまま往復できる（`bridge_test.go`・`SecureStoreTest`）。`internal/siwc` の分割保存は上限が無くても動く |
 | API レベル | minSdk は 31（§3）。暗号化ストア（EncryptedSharedPreferences・Android Keystore の AES256-GCM）が要る API 23 を常に満たすので、「暗号化ストアを使えない」失敗コードも分岐も無い（資格情報を平文で置くフォールバックも作らない） |
 | 削除 | 無いキーの削除はエラーにしない（`secrets.Store` の契約） |
@@ -331,7 +331,7 @@ Go の secrets.Store（internal/secrets/bridge.go。純 Go。鍵の喪失を Err
 
 ```java
 // Worker（Activity なし）での使い方
-String refreshToken = SecureStore.getInstance(getApplicationContext()).get("hitomado/refresh_token/" + accountId);
+String refreshToken = SecureStore.getInstance(getApplicationContext()).get("nefos-inbox/refresh_token/" + accountId);
 // 無ければ null。鍵が失われていれば SecureStoreException（kind() == KEY_LOST。ストアは作り直し済み）→ 再ログインが必要として扱う。
 ```
 
@@ -340,7 +340,7 @@ String refreshToken = SecureStore.getInstance(getApplicationContext()).get("hito
 
 ### 11.5 ログに出さない
 
-- Go: `Store` のエラーは `secrets: <操作> "<キー名>": <Java の失敗コード>` だけで、値を含まない（キー名は `hitomado/<種別>/<ID>` で秘密ではない）。`slog` に値を渡している箇所は無い（`internal/` を grep して確認）。
+- Go: `Store` のエラーは `secrets: <操作> "<キー名>": <Java の失敗コード>` だけで、値を含まない（キー名は `nefos-inbox/<種別>/<ID>` で秘密ではない）。`slog` に値を渡している箇所は無い（`internal/` を grep して確認）。
 - Java: `SecureStore`／`WailsBridge` の失敗コードは `key_lost`／`failed`／`empty key` だけで、例外のメッセージ（値を含みうる）は返さず、logcat にも例外のクラス名だけを出す。失敗コードの後ろには、原因の**例外クラス名の連鎖**だけを `:` で続ける（`key_lost:java.lang.SecurityException>java.security.InvalidKeyException`。外側から内側へ最大 4 つ。#369）。Go は `:` の前だけを種類として判定し、後ろはエラーの文言に添えてアプリのログに残す（logcat ではなく、利用者が書き出せるログに鍵の喪失・読み出し失敗の原因が残るように。§21）。
 - **Wails のテンプレートが debug ビルドで logcat に出していた JS からの呼び出しの本文を、長さだけに変えた**（`WailsBridge.handleMessage`／`handleRuntimeCall`、`WailsJSBridge.invoke`／`invokeAsync`）。バインディング呼び出しの引数（`SetAIApiKey` の API キー、`AddOAuthClient` の Client Secret）が本文に入るため。release ビルド（`BuildConfig.DEBUG` が偽）は元から出さない。`MainActivity` の `Wails API call`（パスとクエリだけ）、WebView のコンソールのメッセージ（debug のみ）は、フロントが `console.error(err)` を出す 1 か所（`errorReporter/index.ts`。AppError のメッセージで、値は含まない）を除き、値を出す箇所が無い。
 - Go 側の Wails のフレームワークのログ（`[JS message]`、`runtime call returned status`）は `production` タグで無効になる（release のビルドは `-tags production,android`）。debug ビルド（`android:run`）では `[JS message]`（ウィンドウのメッセージ）が logcat に出る。
@@ -397,7 +397,7 @@ String refreshToken = SecureStore.getInstance(getApplicationContext()).get("hito
 
 | 場合 | 結果 |
 |------|------|
-| パッチあり（`task android:build ARCH=amd64`） | プロセスが生き続け、アプリ内に `files/Hitomado/hitomado.db`（と `-wal`・`-shm`）ができる。取り出して `sqlite3` で見ると、`goose_db_version` に 0・1 の 2 行が適用済み、テーブル 11 個（`accounts`・`threads`・`messages` ほか）、`PRAGMA integrity_check` は `ok`（`journal_mode=wal`）＝ `store.Open` のマイグレーションと書き込みがアプリ内で動いた |
+| パッチあり（`task android:build ARCH=amd64`） | プロセスが生き続け、アプリ内に `files/Nefos Inbox/hitomado.db`（と `-wal`・`-shm`）ができる。取り出して `sqlite3` で見ると、`goose_db_version` に 0・1 の 2 行が適用済み、テーブル 11 個（`accounts`・`threads`・`messages` ほか）、`PRAGMA integrity_check` は `ok`（`journal_mode=wal`）＝ `store.Open` のマイグレーションと書き込みがアプリ内で動いた |
 | パッチなし（対照。`go build` に `-modfile` を付けない） | `Fatal signal 31 (SIGSYS), code 1 (SYS_SECCOMP), syscall 6`。`hitomado.db` はできない |
 
 **arm64（実機の Android）: アプリ内の SQLite の実行は未確認。** 実機と KVM が無い。arm64 のエミュレーターは、このホスト（x86_64）では Android Emulator が拒否する（`FATAL | Avd's CPU Architecture 'arm64' is not supported by the QEMU2 emulator on x86_64 host. System image must match the host architecture.`。`-accel off` でも同じ。arm64 の system-image は取得済みだが起動できない）。したがって「arm64 のアプリ内で `hitomado.db` の作成・マイグレーション・読み書きができる」は**未確認**で、実機で確認する（§12.4）。
@@ -418,9 +418,9 @@ String refreshToken = SecureStore.getInstance(getApplicationContext()).get("hito
 task android:run:device                       # arm64 の debug APK を実機へ入れて起動（既存のアプリは消える）
 adb shell pidof jp.ousias.hitomado            # プロセスが生きている（SIGSYS で落ちていない）
 adb logcat -d | grep -E "SIGSYS|SYS_SECCOMP|Fatal signal"   # 何も出ない
-adb shell run-as jp.ousias.hitomado ls -la files/Hitomado    # hitomado.db・hitomado.db-wal がある
-adb exec-out run-as jp.ousias.hitomado cat files/Hitomado/hitomado.db > hitomado.db
-adb exec-out run-as jp.ousias.hitomado cat files/Hitomado/hitomado.db-wal > hitomado.db-wal
+adb shell run-as jp.ousias.hitomado ls -la files/Nefos Inbox    # hitomado.db・hitomado.db-wal がある
+adb exec-out run-as jp.ousias.hitomado cat files/Nefos Inbox/hitomado.db > hitomado.db
+adb exec-out run-as jp.ousias.hitomado cat files/Nefos Inbox/hitomado.db-wal > hitomado.db-wal
 sqlite3 hitomado.db "select version_id,is_applied from goose_db_version; pragma integrity_check;"
 ```
 
@@ -482,8 +482,8 @@ Android: exportfile.Saver（純 Go。待ち合わせ・一時ファイル・後�
 
 ### 13.3 ファイルを開く（`OpenPath`）
 
-- `ACTION_VIEW` + FileProvider（`WailsBridge.documentOpen`）。開けるのは **`files/Hitomado/logs` の配下のファイルだけ**（`DocumentPaths.resolveUnder` と FileProvider の公開範囲の両方で制限）。
-- `res/xml/file_paths.xml` は Wails のテンプレートでは試作の `cache-path captures/`（カメラ用）だったが、**ログ（`<files-path path="Hitomado/logs/">`）だけを公開する**ものに替えた。データベース・資格情報・保存の一時ファイルは公開しない。カメラ撮影（`launchCameraCapture`）はこのアプリでは使わない（CAMERA 権限を持たない。§6）。
+- `ACTION_VIEW` + FileProvider（`WailsBridge.documentOpen`）。開けるのは **`files/Nefos Inbox/logs` の配下のファイルだけ**（`DocumentPaths.resolveUnder` と FileProvider の公開範囲の両方で制限）。
+- `res/xml/file_paths.xml` は Wails のテンプレートでは試作の `cache-path captures/`（カメラ用）だったが、**ログ（`<files-path path="Nefos Inbox/logs/">`）だけを公開する**ものに替えた。データベース・資格情報・保存の一時ファイルは公開しない。カメラ撮影（`launchCameraCapture`）はこのアプリでは使わない（CAMERA 権限を持たない。§6）。
 - **フォルダは開けない**（アプリ専用の領域を表示するファイルマネージャーの経路が Android に無い）。`OpenLogFolder` は `exportfile.ErrFolderNotSupported` を `UNSUPPORTED` にして、「ログを書き出す」を案内するメッセージを返す。設定画面の「ログフォルダを開く」ボタンを Android で隠すことは、このリポジトリの範囲外（フロント。§13.5）。
 - 開けるアプリが無いときは `ActivityNotFoundException` を `no_app`（`exportfile.ErrNoApp`）にして返す。Android 11 以降は他のアプリが見えず（`<queries>` を宣言していない）事前確認できないので、Intent を投げた結果で判断する。
 
@@ -546,7 +546,7 @@ Android はブラウザが前面に出ている間、アプリのプロセス（
 |--------------|------|
 | `state`・PKCE verifier を SecureStore に保存して、起動後に完了する | しない。保存しても認可コードを受け取る口（待受）が無く、コードはブラウザのアドレスバーにしか残らない。使えない verifier を暗号化ストアに残さない（カスタムスキーム方式なら Intent で受けた `code` と保存した verifier で完了できるが、(b)(c) は採らない） |
 | 前面サービス（`WailsForegroundService`、`dataSync`）でログイン中だけプロセスを生かす | しない。前面サービスはこのアプリで使わない（§15.1。#88 で削除した）。プロセスが止められる確率を下げるだけで、止められた後の扱いは結局必要 |
-| **止められたことを次の起動で検出して「やり直し」と案内する（採用）** | `internal/oauth` の `Tracker`。認可を始めるときに SecureStore へ印（時刻のみ。秘密は入れない。キー `hitomado/oauth_in_progress`）を保存し、成功・失敗・キャンセル・タイムアウトのどれでも `End()` で消す。プロセスが止められると印が残るので、次の起動の最初の `TakeInterruptedAuth` が一度だけ `true` を返し、フロント（`accounts` ストアの `start`）が「ログインの途中でアプリが終了したため、完了できませんでした。もう一度『アカウントを追加』（または『再接続』）からやり直してください」のトーストを出す |
+| **止められたことを次の起動で検出して「やり直し」と案内する（採用）** | `internal/oauth` の `Tracker`。認可を始めるときに SecureStore へ印（時刻のみ。秘密は入れない。キー `nefos-inbox/oauth_in_progress`）を保存し、成功・失敗・キャンセル・タイムアウトのどれでも `End()` で消す。プロセスが止められると印が残るので、次の起動の最初の `TakeInterruptedAuth` が一度だけ `true` を返し、フロント（`accounts` ストアの `start`）が「ログインの途中でアプリが終了したため、完了できませんでした。もう一度『アカウントを追加』（または『再接続』）からやり直してください」のトーストを出す |
 
 「ログイン中の状態を壊さない」: 認可の途中のデータはメモリ（待受・`state`・verifier・進行中フラグ）だけで、永続化は上の印（時刻）だけ。プロセスが止められても DB・トークン・既存アカウントには何も書かれておらず、再起動後の「別のアカウント認可が進行中です」の状態も残らない（進行中フラグはメモリ上）。トークン交換の後（アカウント保存）でプロセスが止められた場合は、保存の途中の状態が既存の経路で扱われる（アカウント作成→トークン保存の失敗時はロールバック。`account_auth.go`）。
 
@@ -614,7 +614,7 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 | アプリ本体が動いている（Activity が破棄されただけでプロセスと同期ループは残っている場合を含む） | Worker は別の同期を始めず、アプリ本体のスケジューラに**「今すぐ 1 回更新」**（`Scheduler.Refresh`）を頼む。60 秒のタイマーが OS に止められていても、Worker が起きたときに追いつく。新着の通知はアプリ本体の通知経路が出す（結果の新着は空） |
 | ヘッドレス同期の実行中にアプリ本体が起動した | `run.go` が DB を開く前に `headless.AppStarting()` を呼び、実行中のヘッドレス同期を取り消して終わりを待つ（上限 10 秒）。その後は上の行になる |
 
-- ヘッドレス同期の組み立て: ログ（`Hitomado/logs`。アプリ本体と同じファイル）→ `store.Open` → `gmail.NewClient`（資格情報は `SecretBridge`）→ `syncer.New`（通知は**集めるだけ**の `Notifier`。トレイは無い）→ `RefreshAll`（再接続待ち以外の全アカウントを `Refresh`）→ `Shutdown`。60 秒ループと**同じ `cycle`**（初回・リセット同期は通知しない、通知を切ったアカウントは通知しない、1 スレッド 1 通知）なので、新着の判定は Windows・前面と同じ。DB がまだ無い（アカウント未登録）ときは何もしない（DB を作らない）。1 回の上限は 5 分（WorkManager のジョブの上限より短い）。
+- ヘッドレス同期の組み立て: ログ（`Nefos Inbox/logs`。アプリ本体と同じファイル）→ `store.Open` → `gmail.NewClient`（資格情報は `SecretBridge`）→ `syncer.New`（通知は**集めるだけ**の `Notifier`。トレイは無い）→ `RefreshAll`（再接続待ち以外の全アカウントを `Refresh`）→ `Shutdown`。60 秒ループと**同じ `cycle`**（初回・リセット同期は通知しない、通知を切ったアカウントは通知しない、1 スレッド 1 通知）なので、新着の判定は Windows・前面と同じ。DB がまだ無い（アカウント未登録）ときは何もしない（DB を作らない）。1 回の上限は 5 分（WorkManager のジョブの上限より短い）。
 - Worker が OS に止められたとき（制約が外れた・時間切れ）は `onStopped` → `nativeCancel` で Go の同期を取り消す。
 - 結果は JSON（`headless.Encode`。ASCII のみ。失敗は理由のコード `busy`／`failed` だけ）。新着の表示文字列は、Windows のトーストと同じ `notify.Text`（制御文字・不可視文字の除去と長さの切り詰め）で整形してから渡す。
 
@@ -731,7 +731,7 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 
 **構成**（本物の Google アカウントは使わない）:
 
-- **テスト用起動モード**（`internal/e2e`）: ビルドタグ **`e2e`**（かつ `production` でない）のときだけ、`run.go` が Gmail クライアントと資格情報ストアを、**メモリ上のシード済みフェイク**に差し替える。フェイクは既存のテスト用 `internal/app/apptest.FakeGmail`（`internal/app/apptests` が使うのと同じもの）で、シードは**アカウント 1 件（`e2e-user@example.com`）・INBOX のスレッド 3 件（件名 `E2E seed thread 1`〜`3`、新しいものから 1 時間ずつ古く、最新の 2 件が未読）**。DB（実 SQLite）は通常どおり、初回だけアカウントと OAuth クライアントを作る。同期は**実エンジン**が通常どおりこのフェイクに対して走る（一覧は DB から出る）。`RecordingGmail` が下書きの作成・更新を `files/Hitomado/e2e/drafts/<id>.txt` にも書き出し、E2E が「返信下書きが Gmail へ渡った」ことを読み取る。
+- **テスト用起動モード**（`internal/e2e`）: ビルドタグ **`e2e`**（かつ `production` でない）のときだけ、`run.go` が Gmail クライアントと資格情報ストアを、**メモリ上のシード済みフェイク**に差し替える。フェイクは既存のテスト用 `internal/app/apptest.FakeGmail`（`internal/app/apptests` が使うのと同じもの）で、シードは**アカウント 1 件（`e2e-user@example.com`）・INBOX のスレッド 3 件（件名 `E2E seed thread 1`〜`3`、新しいものから 1 時間ずつ古く、最新の 2 件が未読）**。DB（実 SQLite）は通常どおり、初回だけアカウントと OAuth クライアントを作る。同期は**実エンジン**が通常どおりこのフェイクに対して走る（一覧は DB から出る）。`RecordingGmail` が下書きの作成・更新を `files/Nefos Inbox/e2e/drafts/<id>.txt` にも書き出し、E2E が「返信下書きが Gmail へ渡った」ことを読み取る。
 - **release に混入させない**: ① `internal/e2e/override_off.go`（`!e2e || production`）は何もしない。シード・フェイクを含むファイルは全て `e2e && !production` のビルドタグつきで、通常のビルドにはコンパイルされない。② `android:e2e:apk`（`E2E=true`）は debug ビルドだけ（`build` の precondition が `PRODUCTION=true` との併用を拒否）。③ `verify-apk.sh` が `libwails.so` に E2E の印（`hitomado-e2e-backend-v1`）が**無い**ことを検査する（`task android:verify` の対象に追加）。④ E2E ビルドでは WorkManager の登録（`ScheduleSync`）を行わない（フェイクの資格情報は Worker（ヘッドレス）から使えないため）。
 - **Go の単体テスト**: `go test -tags e2e ./internal/e2e/...`（シードの冪等・実エンジンでの初回同期で一覧に 3 件・`RecordingGmail` の書き出し）。
 
@@ -749,12 +749,12 @@ Go のゴルーチンは任意の OS スレッドで動くため、呼び戻し�
 
 ```sh
 wails3 task android:e2e:apk ARCH=amd64          # x86_64 エミュレーター用。実機（arm64）は ARCH=arm64（既定はホストの arch）
-wails3 task android:e2e:run                      # 接続中の端末（ANDROID_SERIAL で指定）。bin/hitomado-e2e.apk を入れて通す
+wails3 task android:e2e:run                      # 接続中の端末（ANDROID_SERIAL で指定）。bin/nefos-inbox-e2e.apk を入れて通す
 ```
 
 **実機で回す手順**（arm64。`adb` が使え、開発者オプション・USB デバッグが有効な端末）:
 
-1. `wails3 task android:e2e:apk ARCH=arm64` で `bin/hitomado-e2e.apk` を作る。
+1. `wails3 task android:e2e:apk ARCH=arm64` で `bin/nefos-inbox-e2e.apk` を作る。
 2. `adb devices` で端末が見えることを確認し、複数台なら `export ANDROID_SERIAL=<serial>`。
 3. `E2E_KILL_RENDERER=0 wails3 task android:e2e:run`（市販の実機は `adb root` が使えない。レンダラの kill は、手順 4 で手動で行う）。
 4. レンダラ落ちを実機で試すとき: 一覧が出た状態で、`chrome://crash` に相当するものは WebView には無いので、`adb shell am kill` は使えない。Android Studio の Profiler か、`adb shell` で root が取れるデバッグ用端末で `ps -A | grep sandboxed_process` の pid を `kill -9` する。**実機ではまだ実行していない**。
@@ -1018,7 +1018,7 @@ Google の公式文書（[Using OAuth 2.0 to Access Google APIs — Refresh toke
 **ログ（再接続待ちに切り替わるときの理由と経路。完了条件 1）**
 
 - `account needs reauth`（Warn）: 切り替えの瞬間に 1 件（`needs_reauth` へ変わるたびに 1 件。すでに再接続待ちのアカウントは出さない）。属性: `account`（アカウント ID。**メールアドレスは載せない**）、`reason`（§21.1 の表。分からなければ空）、`trigger`（`sync`＝同期周期、`action`＝利用者の操作〔スレッドを開く・続きを読み込む・送信など〕）、`prev_status`、`since_last_sync_s`（直近に同期できてからの秒数。記録があるとき）、`err`（元のエラー。トークン・応答本文は含まない。鍵の喪失なら `(cause: java.lang.SecurityException>java.security.InvalidKeyException)` のように Java の例外クラス名の連鎖が付く）、`origin`。
-- **`origin`（フォアグラウンドかバックグラウンドか）**: `app`＝アプリ本体（画面・前面の 60 秒ループ）。`headless`＝Activity の無い Worker のヘッドレス同期（`internal/headless`。アプリ本体が動いていないプロセスで起きた同期）。`app_background`＝Worker に頼まれてアプリ本体のスケジューラが行った更新で、新たに再接続待ちになったとき（`account needs reauth during background sync`。理由は同じ時刻の `origin=app` の `account needs reauth`）。Go のログ（アプリ本体と Worker は同じ `Hitomado/logs`）に、`logging.WithOrigin` で付ける。
+- **`origin`（フォアグラウンドかバックグラウンドか）**: `app`＝アプリ本体（画面・前面の 60 秒ループ）。`headless`＝Activity の無い Worker のヘッドレス同期（`internal/headless`。アプリ本体が動いていないプロセスで起きた同期）。`app_background`＝Worker に頼まれてアプリ本体のスケジューラが行った更新で、新たに再接続待ちになったとき（`account needs reauth during background sync`。理由は同じ時刻の `origin=app` の `account needs reauth`）。Go のログ（アプリ本体と Worker は同じ `Nefos Inbox/logs`）に、`logging.WithOrigin` で付ける。
 - `account connected`（Info）: アカウントの追加（`via=add`）・再接続（`via=reconnect`）が済んだ時刻。再接続待ちまでの期間（「テスト」の 7 日など）を読むための起点。
 - `Gmail API が 401 を返しました（アクセストークンを取り直して再試行）`（Info）: 再接続待ち（`api_401`）の前触れ。1 回目の 401 は、再試行で成功すると何も残らなかった。
 - `アカウントのトークンを Google 側で revoke しました`／`保存しないトークンを Google 側で revoke しました`（Info）: §21.3 の最後の行の突き合わせ用。revoke に失敗したときは出さない（既存の Info「revoke に失敗（無視）」）。
@@ -1076,5 +1076,5 @@ Windows の動き（同期・再試行・状態の切り替え・判定）は変
 
 - 実機・本物の Google での再接続待ちの頻度と原因。**頻発の根本原因は未特定**。
 - 実機の Keystore の失敗の実態（`SecureStore` の再試行 3 回で足りているか。§21.2）。
-- 実機・エミュレーターで、`origin=headless`／`app_background` のログが書き出しの zip に入ること（Go のユニットテストまで。書き出しは既存の仕組みで、ログファイルはアプリ本体と Worker で同じ `Hitomado/logs`）。
+- 実機・エミュレーターで、`origin=headless`／`app_background` のログが書き出しの zip に入ること（Go のユニットテストまで。書き出しは既存の仕組みで、ログファイルはアプリ本体と Worker で同じ `Nefos Inbox/logs`）。
 - `SecureStore` の例外クラス名の連鎖の実際の値（JVM のテストは模擬の例外）。

@@ -2,26 +2,26 @@
 
 > 関連: [環境構築 §4.3 Windows インストーラー](setup.md#43-windows-インストーラー) / [MCP 連携とログ](../mcp.md) / [コンポーネント設計](../components/overview.md)
 
-CI（Linux・windows-latest）とローカルのテストでは確かめられず、Windows の実機や本物の Google アカウントが要る項目を集める。#1・#10・#14 を PR（#2・#11・#22）のマージで close したとき、各 PR の「未確認」に残った項目を [#174](https://github.com/ousiassllc/hitomado/issues/174) で追跡している。本書はその手順と、確かめた結果の記録場所である。
+CI（Linux・windows-latest）とローカルのテストでは確かめられず、Windows の実機や本物の Google アカウントが要る項目を集める。#1・#10・#14 を PR（#2・#11・#22）のマージで close したとき、各 PR の「未確認」に残った項目を [#174](https://github.com/ousiassllc/nefos-inbox/issues/174) で追跡している。本書はその手順と、確かめた結果の記録場所である。
 
 自動化できない理由は、Windows のデスクトップ（資格情報マネージャー・トースト・トレイ・インストーラーの GUI）と、実 Google のアカウント・同意画面を CI から操作できないこと。ここで確かめた内容は、結果（日付・版・環境・合否）を §結果 に追記し、#174 のチェックボックスと対応させる。
 
 ## 準備
 
 - Windows 10 以降の x64 実機（または仮想マシン）。WebView2 ランタイムが入っていない状態と入っている状態の両方があるとよい。
-- 確認する版のインストーラーと `SHA256SUMS.txt`（[Releases](https://github.com/ousiassllc/hitomado/releases) から取る）。`Get-FileHash -Algorithm SHA256 <ファイル>` の値が `SHA256SUMS.txt` の行と一致することを先に確かめる。
+- 確認する版のインストーラーと `SHA256SUMS.txt`（[Releases](https://github.com/ousiassllc/nefos-inbox/releases) から取る）。`Get-FileHash -Algorithm SHA256 <ファイル>` の値が `SHA256SUMS.txt` の行と一致することを先に確かめる。
 - 実 Gmail の確認用に、テスト用の Google アカウントと、**デスクトップ アプリ種別**の OAuth クライアント（作り方は [README](../../README.md) の OAuth クライアントの節）。
-- 既に Nefos Inbox（旧名 Hitomado）を使っている PC では、`%APPDATA%\Hitomado\` と資格情報マネージャーの `Hitomado:` の項目が実データと共有になる。確認前にバックアップするか、専用の Windows ユーザー・仮想マシンを使う。
+- 既に Nefos Inbox（旧名 Hitomado）を使っている PC では、`%APPDATA%\Nefos Inbox\` と資格情報マネージャーの `Nefos Inbox:` の項目が実データと共有になる。確認前にバックアップするか、専用の Windows ユーザー・仮想マシンを使う。
 
 ## 確認項目と手順
 
 ### A. 資格情報マネージャー・トースト・トレイ・単一インスタンス・`wails3 build`（PR #2）
 
 1. `wails3 build`（または `task package VERSION=X.Y.Z`）で exe を作り、エラーなく起動する。
-2. アカウントを追加し、コントロールパネル → 資格情報マネージャー → Windows 資格情報に、`Hitomado:` で始まる項目（ターゲット名 `Hitomado:hitomado/<種別>/<ID>`）ができることを確かめる。アプリを閉じて開き直しても再認証なしで使える。アカウントを削除すると該当の項目が消える。
+2. アカウントを追加し、コントロールパネル → 資格情報マネージャー → Windows 資格情報に、`Nefos Inbox:` で始まる項目（ターゲット名 `Nefos Inbox:nefos-inbox/<種別>/<ID>`）ができることを確かめる。アプリを閉じて開き直しても再認証なしで使える。アカウントを削除すると該当の項目が消える。
 3. 新着（テスト用アカウントへ別のアカウントからメールを送る）でトースト通知が出る。トーストの送信元（アプリ名）は「Nefos Inbox」と表示される。トーストをクリックすると、そのスレッドが開く。通知をオフにしたアカウントでは出ない。
-4. ウィンドウの × で終了せずトレイへ格納される。トレイメニューの「開く」で戻り、未読があるときはトレイアイコンにバッジが付く。「終了」でプロセスが終わる（タスクマネージャーに `hitomado.exe` が残らない）。
-5. 起動中にもう一度 `hitomado.exe` を起動すると、2 つ目のプロセスは終了し、既存のウィンドウが前面に出る（ウィンドウがトレイにあるときも同じ）。
+4. ウィンドウの × で終了せずトレイへ格納される。トレイメニューの「開く」で戻り、未読があるときはトレイアイコンにバッジが付く。「終了」でプロセスが終わる（タスクマネージャーに `nefos-inbox.exe` が残らない）。
+5. 起動中にもう一度 `nefos-inbox.exe` を起動すると、2 つ目のプロセスは終了し、既存のウィンドウが前面に出る（ウィンドウがトレイにあるときも同じ）。
 
 ### B. 実 Google／Gmail への OAuth・API 通信（PR #2）
 
@@ -34,14 +34,15 @@ CI は `httptest` の偽サーバーだけを使うため、実通信はここ�
 
 ### C. インストーラーの GUI と「アプリと機能」（PR #11）
 
-1. インストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）を普通に実行する。UAC は出ない。ウィザードにコンポーネント選択（スタートメニュー必須・デスクトップは任意。既定はオフ）と完了ページが出て、文言・レイアウトが崩れていない。製品名は「Nefos Inbox」と表示され、スタートメニューに「Nefos Inbox」のショートカット（`Nefos Inbox.lnk`）ができる（デスクトップを選んだときは、デスクトップにも同じ名前で）。
-2. 設定 → アプリ → インストールされているアプリ（「アプリと機能」）に「Nefos Inbox」が出る。表示名・版・発行元・インストール先が正しい（インストール先の既定は `%LOCALAPPDATA%\Programs\Hitomado` のまま）。そこからアンインストールでき、アンインストールでプログラム・ショートカット・登録が消え、`%APPDATA%\Hitomado\` と資格情報マネージャーの項目は残る。
+1. インストーラー（`nefos-inbox-vX.Y.Z-windows-amd64-setup.exe`）を普通に実行する。UAC は出ない。ウィザードにコンポーネント選択（スタートメニュー必須・デスクトップは任意。既定はオフ）と完了ページが出て、文言・レイアウトが崩れていない。製品名は「Nefos Inbox」と表示され、スタートメニューに「Nefos Inbox」のショートカット（`Nefos Inbox.lnk`）ができる（デスクトップを選んだときは、デスクトップにも同じ名前で）。
+2. 設定 → アプリ → インストールされているアプリ（「アプリと機能」）に「Nefos Inbox」が出る。表示名・版・発行元・インストール先が正しい（インストール先の既定は `%LOCALAPPDATA%\Programs\Nefos Inbox`）。そこからアンインストールでき、アンインストールでプログラム・ショートカット・登録が消え、`%APPDATA%\Nefos Inbox\` と資格情報マネージャーの項目は残る。
 3. WebView2 ランタイムが無い PC では、インストーラーが同梱のブートストラッパーで入れる。
-4. 表示名の変更前（旧名 Hitomado）の版が入っている PC で新しい版を上書きインストールする。「アプリと機能」の表示が「Nefos Inbox」に変わり、スタートメニューの旧ショートカット（`Hitomado.lnk`）が消えて `Nefos Inbox.lnk` だけが残る（デスクトップに旧ショートカットがあったときは `Nefos Inbox.lnk` に置き換わる）。`HKCU\Software\Classes\AppUserModelId\Hitomado` が消え、アプリを起動すると `...\AppUserModelId\Nefos Inbox` ができる。インストール先・`%APPDATA%\Hitomado\`・資格情報マネージャーの項目は変わらず、再認証なしで使える。
+4. 表示名の変更前（旧名 Hitomado）の版が入っている PC で新しい版を上書きインストールする。「アプリと機能」の表示が「Nefos Inbox」に変わり、スタートメニューの旧ショートカット（`Hitomado.lnk`）が消えて `Nefos Inbox.lnk` だけが残る（デスクトップに旧ショートカットがあったときは `Nefos Inbox.lnk` に置き換わる）。`HKCU\Software\Classes\AppUserModelId\Hitomado` が消え、アプリを起動すると `...\AppUserModelId\Nefos Inbox` ができる。インストール先・`%APPDATA%\Nefos Inbox\`・資格情報マネージャーの項目は変わらず、再認証なしで使える（#402 より前の版からは、5 の確認をする）。
+5. v0.1.46 以前の Hitomado（`%LOCALAPPDATA%\Programs\Hitomado\hitomado.exe`・データ `%APPDATA%\Hitomado\`・資格情報 `Hitomado:hitomado/…`）が入っている PC で、アプリの自動アップデート（またはインストーラーのサイレント実行）で新しい版へ上書きする。`%LOCALAPPDATA%\Programs\Hitomado` が消えて `...\Programs\Nefos Inbox\nefos-inbox.exe` に替わり、スタートメニュー・デスクトップのショートカットが新しい exe を指す。起動すると `%APPDATA%\Hitomado\` が `%APPDATA%\Nefos Inbox\` になり（アカウント・設定・下書きが残る）、再認証なしで同期でき、資格情報マネージャーの項目が `Nefos Inbox:nefos-inbox/…` に替わる。
 
 ### D. 実アプリが起動中の上書きインストール拒否（PR #11）
 
-CI（`.github/scripts/test-installer.ps1`）は `ping.exe` を `hitomado.exe` の名前で常駐させて代用している。実アプリでは次を確かめる。
+CI（`.github/scripts/test-installer.ps1`）は `ping.exe` を `nefos-inbox.exe` の名前で常駐させて代用している。実アプリでは次を確かめる。
 
 1. 旧版を入れて起動したまま、新しい版のインストーラーを GUI で実行する。終了を促す表示が出て、再試行できる（何も書き換わらない）。
 2. 起動したまま `setup.exe /S` を実行すると、何も変えずに終了コード 5 で終わる（`$LASTEXITCODE`）。「アプリと機能」の版は変わらない。
@@ -59,9 +60,9 @@ sha256sum -c SHA256SUMS.txt --ignore-missing
 
 ### F. MCP・ログの設定画面（PR #22）
 
-1. 設定 → MCP: 既定はオフ。オンにすると待ち受けが始まり、「トークンを発行」で値が発行直後に 1 回だけ表示・コピーできる。再発行で古いトークンが 401 になる。無効化は確認モーダルを経由する。トークンは資格情報マネージャーに保存され、ファイル・ログに平文で残らない（`%APPDATA%\Hitomado\logs\` を検索して確かめる）。
+1. 設定 → MCP: 既定はオフ。オンにすると待ち受けが始まり、「トークンを発行」で値が発行直後に 1 回だけ表示・コピーできる。再発行で古いトークンが 401 になる。無効化は確認モーダルを経由する。トークンは資格情報マネージャーに保存され、ファイル・ログに平文で残らない（`%APPDATA%\Nefos Inbox\logs\` を検索して確かめる）。
 2. `Authorization: Bearer <トークン>` つきで [MCP 連携](../mcp.md#つなぎ方) の接続先 URL へつなげる。トークン無し・不一致は 401。
-3. 設定 → ログ: 「ログフォルダを開く」でエクスプローラーが `%APPDATA%\Hitomado\logs\` を開く。「ログの書き出し」で保存先を選べ、書き出したファイルにトークン・本文・件名・宛先が含まれない。
+3. 設定 → ログ: 「ログフォルダを開く」でエクスプローラーが `%APPDATA%\Nefos Inbox\logs\` を開く。「ログの書き出し」で保存先を選べ、書き出したファイルにトークン・本文・件名・宛先が含まれない。
 
 ### G. 本文 iframe の高さ計測・リンク捕捉・スクリプト遮断（#49）
 
@@ -101,7 +102,7 @@ sha256sum -c SHA256SUMS.txt --ignore-missing
 | B. 実 Google／Gmail への OAuth・API 通信 | — | — | — | **未確認**（実アカウントが要る） |
 | C. インストーラーの GUI・「アプリと機能」 | — | — | — | **未確認**（Windows のデスクトップが要る） |
 | D. 実アプリ起動中の上書きインストール拒否 | — | — | — | **未確認**（Windows 実機が要る。CI は `ping.exe` で代用） |
-| E. 初回リリースの成果物 | 2026-11-06 | v0.1.16 | Linux から `gh` で確認 | **確認済み**。Release に `hitomado-v0.1.16-windows-amd64-setup.exe`・`NOTICE`・`SHA256SUMS.txt`（Android の APK・macOS の zip も）が付いている。`SHA256SUMS.txt` に Windows インストーラーの行があり、`sha256sum -c` で一致した。初回のリリース（v0.1.0 など）はすでに別の版に置き換わっているため、現行の版で確かめた。`release.yml` の `publish` が、成果物の欠けた Release を出さない作りになっている（[setup.md §4.2](setup.md#42-releaseyml)） |
+| E. 初回リリースの成果物 | 2026-11-06 | v0.1.16 | Linux から `gh` で確認 | **確認済み**。Release に `nefos-inbox-v0.1.16-windows-amd64-setup.exe`・`NOTICE`・`SHA256SUMS.txt`（Android の APK・macOS の zip も）が付いている。`SHA256SUMS.txt` に Windows インストーラーの行があり、`sha256sum -c` で一致した。初回のリリース（v0.1.0 など）はすでに別の版に置き換わっているため、現行の版で確かめた。`release.yml` の `publish` が、成果物の欠けた Release を出さない作りになっている（[setup.md §4.2](setup.md#42-releaseyml)） |
 | F. MCP・ログの設定画面の GUI 操作 | — | — | — | **未確認**（Windows 実機が要る） |
 | G. 本文 iframe の高さ計測・リンク捕捉・スクリプト遮断（#49） | — | — | — | **未確認**（WebView2 の実機が要る。happy-dom の自動テストのみ） |
 

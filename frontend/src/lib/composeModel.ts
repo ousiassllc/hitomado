@@ -4,8 +4,8 @@ import type {
   ComposeSession,
   OpenComposeRequest,
   SendPreview,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import type { Address } from '../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
+import type { Address } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/domain/model'
 import { list } from './api'
 
 /** エディタが編集する内容。ComposeContent と同形で、配列は常に非 null。 */

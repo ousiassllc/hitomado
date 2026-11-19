@@ -11,11 +11,11 @@ import (
 	"net"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/logging"
-	"github.com/ousiassllc/hitomado/internal/oauth"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/oauth"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // エラーコード（バインディング仕様 §1.2）。

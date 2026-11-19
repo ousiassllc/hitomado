@@ -4,11 +4,11 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/notify"
-	"github.com/ousiassllc/hitomado/internal/oauth"
-	"github.com/ousiassllc/hitomado/internal/secrets"
-	"github.com/ousiassllc/hitomado/internal/update"
+	"github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
+	"github.com/ousiassllc/nefos-inbox/internal/oauth"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/update"
 )
 
 // FakeFlow は oauth.Flow のフェイク。Result／Err を返す。Block=true のときは ctx キャンセルか Complete まで待つ

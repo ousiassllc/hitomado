@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/update"
+	"github.com/ousiassllc/nefos-inbox/internal/update"
 )
 
 func TestManagerApplyOnExit(t *testing.T) {
@@ -26,7 +26,7 @@ func TestManagerApplyOnExit(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, started)
 		require.Len(t, e.launches, 1)
-		assert.Equal(t, filepath.Join(e.dir, "hitomado-v0.2.0-windows-amd64-setup.exe"), e.launches[0].path)
+		assert.Equal(t, filepath.Join(e.dir, "nefos-inbox-v0.2.0-windows-amd64-setup.exe"), e.launches[0].path)
 		assert.False(t, e.launches[0].opts.Relaunch)
 	})
 	t.Run("自動アップデートが無効で「再起動して更新」も押していなければ入れ替えない", func(t *testing.T) {

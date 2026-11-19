@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/callbackpage"
+	"github.com/ousiassllc/nefos-inbox/internal/callbackpage"
 )
 
 const (

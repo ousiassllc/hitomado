@@ -7,7 +7,7 @@ import (
 
 	gmailapi "google.golang.org/api/gmail/v1"
 
-	"github.com/ousiassllc/hitomado/internal/gmail/backoff"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/backoff"
 )
 
 // maxRetries は 429／5xx の再試行回数の上限（初回を除く）。

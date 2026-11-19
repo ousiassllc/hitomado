@@ -6,7 +6,7 @@ import (
 	"errors"
 	_ "unsafe" // go:linkname
 
-	"github.com/ousiassllc/hitomado/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
 )
 
 // Wails の Java ブリッジを名前で呼ぶ関数（pkg/application/application_android.go）。application.Android の公開メソッドには

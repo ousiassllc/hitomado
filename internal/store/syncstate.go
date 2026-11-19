@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/ousiassllc/hitomado/internal/store/db"
+	"github.com/ousiassllc/nefos-inbox/internal/store/db"
 )
 
 func (s *sqlStore) GetSyncState(ctx context.Context, accountID string) (SyncState, error) {

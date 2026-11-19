@@ -5,7 +5,7 @@ package platform
 import (
 	"github.com/wailsapp/wails/v3/pkg/services/notifications"
 
-	"github.com/ousiassllc/hitomado/internal/notify"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
 )
 
 // toast は OS のトースト通知を出す。クリックで onResponse が呼ばれる。

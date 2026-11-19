@@ -2,7 +2,7 @@
 import { Mail } from '@iconoir/vue'
 import { useVirtualizer } from '@tanstack/vue-virtual'
 import { computed, nextTick, ref, watch } from 'vue'
-import type { ThreadRef, ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ThreadRef, ThreadSummary } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { keyOf, rowHeightOf } from '../../lib/inboxItems'
 import { common } from '../../lib/messages'
 import { vOverlayScroll } from '../../lib/overlayScroll'

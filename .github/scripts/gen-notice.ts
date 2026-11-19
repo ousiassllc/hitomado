@@ -15,7 +15,7 @@ import { dirname, join, resolve } from 'node:path'
 
 const root = resolve(import.meta.dir, '../..')
 const noticePath = join(root, 'NOTICE')
-const REPO = 'https://github.com/ousiassllc/hitomado'
+const REPO = 'https://github.com/ousiassllc/nefos-inbox'
 
 type Component = {
   kind: 'Go' | 'npm'

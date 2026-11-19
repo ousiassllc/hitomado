@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/app/logcore"
-	"github.com/ousiassllc/hitomado/internal/mcpserver"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/app/logcore"
+	"github.com/ousiassllc/nefos-inbox/internal/mcpserver"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // MCPService は内蔵 MCP サーバーの設定・トークン・起動停止（バインディング仕様 §9）。

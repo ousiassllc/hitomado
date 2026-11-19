@@ -24,7 +24,7 @@ func TestPathTarget(t *testing.T) {
 
 func TestMIMEForName(t *testing.T) {
 	cases := map[string]string{
-		"a.pdf": "application/pdf", "A.PDF": "application/pdf", "hitomado-logs-1.zip": "application/zip",
+		"a.pdf": "application/pdf", "A.PDF": "application/pdf", "nefos-inbox-logs-1.zip": "application/zip",
 		"x.log": "text/plain", "p.jpeg": "image/jpeg", "s.xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
 		"noext": "application/octet-stream", "weird.zzzunknown": "application/octet-stream", "": "application/octet-stream",
 		"dir.pdf/": "application/octet-stream",

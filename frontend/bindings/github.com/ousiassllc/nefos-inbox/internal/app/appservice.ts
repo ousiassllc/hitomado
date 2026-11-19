@@ -19,7 +19,7 @@ import * as dto$0 from "./dto/models.js";
  * フロントは events.BeforeQuit を受けて未保存の下書きを保存してから呼ぶ（F-12）。
  */
 export function AckBeforeQuit(): $CancellablePromise<void> {
-    return $Call.ByID(910222355);
+    return $Call.ByID(3317451318);
 }
 
 /**
@@ -27,28 +27,28 @@ export function AckBeforeQuit(): $CancellablePromise<void> {
  * 無効のとき（アプリ内の更新確認を持たない OS を含む）、および dev・ローカルビルド（版 update.DevVersion）のときは通信せず {available:false}。
  */
 export function CheckForUpdate(): $CancellablePromise<dto$0.UpdateInfo> {
-    return $Call.ByID(338931324);
+    return $Call.ByID(3814996563);
 }
 
 /**
  * GetAppInfo はバージョン・更新確認と自動アップデートの有効／無効・データ保存先を返す。
  */
 export function GetAppInfo(): $CancellablePromise<dto$0.AppInfo> {
-    return $Call.ByID(2903597929);
+    return $Call.ByID(1782603378);
 }
 
 /**
  * GetInboxFilter は保存済みフィルタを返す。存在しないアカウント ID は除く。
  */
 export function GetInboxFilter(): $CancellablePromise<dto$0.InboxFilter> {
-    return $Call.ByID(1333674868);
+    return $Call.ByID(943338399);
 }
 
 /**
  * GetUpdateStatus は自動アップデートの現在の状態（ダウンロード中・入れ替え待ち・失敗・なし）を返す。
  */
 export function GetUpdateStatus(): $CancellablePromise<dto$0.UpdateStatus> {
-    return $Call.ByID(810034493);
+    return $Call.ByID(2407529168);
 }
 
 /**
@@ -56,7 +56,7 @@ export function GetUpdateStatus(): $CancellablePromise<dto$0.UpdateStatus> {
  * インストール後に起動し直す。送信中・下書きの保存中は VALIDATION（入れ替えない）。
  */
 export function RestartToUpdate(): $CancellablePromise<void> {
-    return $Call.ByID(3820631737);
+    return $Call.ByID(7394412);
 }
 
 /**
@@ -64,14 +64,14 @@ export function RestartToUpdate(): $CancellablePromise<void> {
  * 以後は新しい版のリンクを出すだけになる。入れ替えを行わないビルドでは UNSUPPORTED。
  */
 export function SetAutoUpdateEnabled(enabled: boolean): $CancellablePromise<void> {
-    return $Call.ByID(2308413777, enabled);
+    return $Call.ByID(2080603962, enabled);
 }
 
 /**
  * SetInboxFilter はフィルタを保存する。存在しないアカウント ID は除いて保存する。
  */
 export function SetInboxFilter(filter: dto$0.InboxFilter): $CancellablePromise<void> {
-    return $Call.ByID(3037705400, filter);
+    return $Call.ByID(1656827523, filter);
 }
 
 /**
@@ -79,7 +79,7 @@ export function SetInboxFilter(filter: dto$0.InboxFilter): $CancellablePromise<v
  * アカウントごとの通知のオン・オフはこれと別に効く（オフのアカウントは、どちらでも通知しない）。それ以外の値は VALIDATION（#395）。
  */
 export function SetNotifyScope(scope: string): $CancellablePromise<void> {
-    return $Call.ByID(1300710481, scope);
+    return $Call.ByID(2853506210, scope);
 }
 
 /**
@@ -87,12 +87,12 @@ export function SetNotifyScope(scope: string): $CancellablePromise<void> {
  * 固定され、送信は PrepareSend の確認トークンを使った Send を人がボタンを押したときだけ行う（#313）。
  */
 export function SetSendConfirmEnabled(enabled: boolean): $CancellablePromise<void> {
-    return $Call.ByID(608235485, enabled);
+    return $Call.ByID(3918203196, enabled);
 }
 
 /**
  * SetUpdateCheckEnabled は更新確認のオン／オフを保存する。アプリ内の更新確認を持たない OS（Android）では UNSUPPORTED。
  */
 export function SetUpdateCheckEnabled(enabled: boolean): $CancellablePromise<void> {
-    return $Call.ByID(2002059346, enabled);
+    return $Call.ByID(2571316087, enabled);
 }

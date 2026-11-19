@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
 )
 
 // 利用上限に当たったアカウントでは、あとから始まる別の呼び出しも、最初の送信の前に待ちが終わるのを待つ（上限中に投げ足して延ばさない。#392）。

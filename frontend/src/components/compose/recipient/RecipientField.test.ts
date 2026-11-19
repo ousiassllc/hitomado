@@ -1,11 +1,11 @@
 import { afterAll, afterEach, beforeEach, describe, expect, mock, test, vi } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
-import * as realCompose from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/composeservice'
+import * as realCompose from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/composeservice'
 import { SUGGEST_DELAY_MS } from '../../../composables/useContactSuggest'
 
 // 宛先候補を ↑↓ で選んだとき、一覧（max-height でスクロールする）の中で選んだ候補が見える位置へスクロールする（ガイド B6）。
 
-const B = '../../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+const B = '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 const candidates = Array.from({ length: 8 }, (_, i) => ({ email: `a${i}@example.com` }))
 mock.module(`${B}/composeservice`, () => ({
   SuggestContacts: async () => candidates,

@@ -1,6 +1,6 @@
 // 削除されたアカウントが保存済みフィルタに残らないようにする。
 import { type Ref, watch } from 'vue'
-import type { InboxFilter } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { InboxFilter } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 
 export function watchRemovedAccounts(
   accounts: { accounts: { id: string }[] },

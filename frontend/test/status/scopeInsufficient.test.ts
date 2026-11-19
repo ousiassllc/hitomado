@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, test } from 'bun:test'
 import { mount } from '@vue/test-utils'
-import type { Account } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { Account } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import AccountRow from '../../src/components/settings/accounts/AccountRow.vue'
 import { deriveBanners } from '../../src/lib/banners'
 import { isScopeInsufficientMessage } from '../../src/lib/scopeInsufficient'

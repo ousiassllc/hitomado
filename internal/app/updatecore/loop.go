@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/events"
 )
 
 // checkInterval は定期的な新バージョン確認の間隔（NF-D03）。

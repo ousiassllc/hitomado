@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { WarningTriangle } from '@iconoir/vue'
 import { computed, nextTick, ref, useId, watch } from 'vue'
-import { ComposeService } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app'
-import type { Address } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+import { ComposeService } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
+import type { Address } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/domain/model'
 import { useContactSuggest } from '../../../composables/useContactSuggest'
 import { call } from '../../../lib/api'
 import { compose as msg } from '../../../lib/messages'

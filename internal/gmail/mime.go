@@ -1,8 +1,8 @@
 package gmail
 
 import (
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/gmail/mimebuild"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/mimebuild"
 )
 
 // ErrInvalidMessage は BuildMIME／BuildDraftMIME の入力が不正（ヘッダインジェクション・不正なアドレス・宛先なし等）なことを表す。

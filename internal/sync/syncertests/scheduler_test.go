@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	syncer "github.com/ousiassllc/hitomado/internal/sync"
-	"github.com/ousiassllc/hitomado/internal/synctest"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	syncer "github.com/ousiassllc/nefos-inbox/internal/sync"
+	"github.com/ousiassllc/nefos-inbox/internal/synctest"
 )
 
 func quietAccount(h *harness, id string) {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { ChatGPTAccount } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ChatGPTAccount } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { settings as msg } from '../../../lib/messages'
 import { useSettingsStore } from '../../../stores/settings'
 import { useUiStore } from '../../../stores/ui'

@@ -1,8 +1,8 @@
 package platform
 
 import (
-	appevents "github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/notify"
+	appevents "github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
 )
 
 // deliverOpen は準備済みのフロントへ通知のタップの要求（開くスレッド）を notify:open-thread で届ける。

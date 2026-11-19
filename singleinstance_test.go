@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ousiassllc/hitomado/internal/capability"
+	"github.com/ousiassllc/nefos-inbox/internal/capability"
 )
 
 func TestSingleInstanceOptionsFollowCapability(t *testing.T) {

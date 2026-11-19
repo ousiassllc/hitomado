@@ -5,17 +5,17 @@
 ##
 ## 必須の定義（makensis の -D で渡す。build/windows/Taskfile.yml の installer:nsis が渡す）:
 ##   VERSION   版番号 X.Y.Z（exe の -X main.version と同じ値）
-##   ARG_EXE   同梱する hitomado.exe のパス
+##   ARG_EXE   同梱する nefos-inbox.exe のパス
 ##   OUTFILE   出力するインストーラーのパス
 ##
 ## 直接ビルドする例（exe を先に作っておく）:
-##   makensis -DVERSION=0.1.1 -DARG_EXE=..\..\..\bin\hitomado.exe -DOUTFILE=..\..\..\bin\setup.exe project.nsi
+##   makensis -DVERSION=0.1.1 -DARG_EXE=..\..\..\bin\nefos-inbox.exe -DOUTFILE=..\..\..\bin\setup.exe project.nsi
 ##
 ## 実行時の引数（アプリの自動アップデートが使う。docs/requirements/non-functional.md NF-D03）:
 ##   /S          サイレント（画面なし）
-##   /WAIT=秒    サイレント実行のとき、起動中の hitomado.exe が終了するのを最大この秒数（上限 300）待ってから上書きする。
+##   /WAIT=秒    サイレント実行のとき、起動中の nefos-inbox.exe（旧名の hitomado.exe を含む）が終了するのを最大この秒数（上限 300）待ってから上書きする。
 ##               省略（または 0）なら待たず、起動中は終了コード 5 で中止する
-##   /RELAUNCH   インストールが成功したら、インストール先の hitomado.exe を起動する
+##   /RELAUNCH   インストールが成功したら、インストール先の nefos-inbox.exe を起動する
 ##   /D=パス     インストール先（最後の引数・引用符なし。省略すると前回の場所）
 ##
 ## 日本語を含むため、このファイルは BOM 付き UTF-8 で保存する（.editorconfig）。
@@ -24,22 +24,25 @@
     !error "VERSION is required (-DVERSION=X.Y.Z)"
 !endif
 !ifndef ARG_EXE
-    !error "ARG_EXE is required (-DARG_EXE=path\to\hitomado.exe)"
+    !error "ARG_EXE is required (-DARG_EXE=path\to\nefos-inbox.exe)"
 !endif
 !ifndef OUTFILE
     !error "OUTFILE is required (-DOUTFILE=path\to\setup.exe)"
 !endif
 
-# 利用者に見せる名前。旧名（Hitomado）は、上書き更新でも変わらない名前（インストール先の既定・旧ショートカット・通知用の登録）の照合にだけ使う。
+# 利用者に見せる名前。旧名（Hitomado。v0.1.46 まで）は、上書き更新で片づける古いもの（インストール先・exe・ショートカット・
+# 通知用の登録・WebView2 のデータ置き場）の照合にだけ使う（#402）。
 !define APP_NAME     "Nefos Inbox"
+!define APP_EXE      "nefos-inbox.exe"
 !define LEGACY_NAME  "Hitomado"
-!define APP_EXE      "hitomado.exe"
+!define LEGACY_EXE   "hitomado.exe"
 !define COMPANY      "Ousias"
-!define APP_URL      "https://github.com/ousiassllc/hitomado"
+!define APP_URL      "https://github.com/ousiassllc/nefos-inbox"
 # 「アプリと機能」に出るキー。変えると別アプリ扱いになり、上書き更新できなくなる。
 !define UNINST_KEY   "Software\Microsoft\Windows\CurrentVersion\Uninstall\jp.ousias.hitomado"
-# WebView2 のデータ置き場（%APPDATA%\<exe 名>）。アプリのデータ（%APPDATA%\Hitomado）とは別物。
+# WebView2 のデータ置き場（%APPDATA%\<exe 名>）。アプリのデータ（%APPDATA%\Nefos Inbox）とは別物。
 !define WEBVIEW_DATA "$APPDATA\${APP_EXE}"
+!define LEGACY_WEBVIEW_DATA "$APPDATA\${LEGACY_EXE}"
 
 !include "LogicLib.nsh"
 !include "x64.nsh"
@@ -49,16 +52,20 @@
 
 !insertmacro GetOptions
 
-# 起動中の hitomado.exe の終了を待つ残り回数（0.5 秒単位。/WAIT=秒 から。サイレント実行のときだけ使う）と、
+# 起動中の exe の終了を待つ残り回数（0.5 秒単位。/WAIT=秒 から。サイレント実行のときだけ使う）と、
 # インストール後に起動し直すか（/RELAUNCH）。
 Var WaitLeft
 Var Relaunch
+# 上書き更新の前に入っていた場所（旧名 Hitomado の既定のインストール先など。今のインストール先と同じなら空）。
+Var OldInstDir
+# CheckNotRunning が確かめる exe のフルパス。
+Var CheckExe
 
 Name "${APP_NAME} ${VERSION}"
 OutFile "${OUTFILE}"
 RequestExecutionLevel user
-InstallDir "$LOCALAPPDATA\Programs\${LEGACY_NAME}"
-# 上書きインストールでは前回の場所を使う。
+InstallDir "$LOCALAPPDATA\Programs\${APP_NAME}"
+# 上書きインストールでは前回の場所を使う（旧名の既定の場所だったときは .onInit で新しい名前の場所に替える）。
 InstallDirRegKey HKCU "${UNINST_KEY}" "InstallLocation"
 ShowInstDetails show
 ShowUninstDetails show
@@ -92,14 +99,14 @@ VIAddVersionKey "ProductName"     "${APP_NAME}"
 
 !insertmacro MUI_LANGUAGE "Japanese"
 
-# 起動中の hitomado.exe は上書き・削除できない。実行中の exe は書き込みで開けないことを使って検出し、
+# 起動中の exe（CheckExe）は上書き・削除できない。実行中の exe は書き込みで開けないことを使って検出し、
 # 画面ありなら終了を促して再試行、サイレント（/S）なら /WAIT=秒 の間 0.5 秒ごとに再確認し、それでも開けなければエラーコード 5 で中止する。
 !macro DEFINE_CHECK_NOT_RUNNING PREFIX
 Function ${PREFIX}CheckNotRunning
     check:
-    IfFileExists "$INSTDIR\${APP_EXE}" 0 done
+    IfFileExists "$CheckExe" 0 done
     ClearErrors
-    FileOpen $0 "$INSTDIR\${APP_EXE}" a
+    FileOpen $0 "$CheckExe" a
     IfErrors locked
     FileClose $0
     Goto done
@@ -124,6 +131,7 @@ FunctionEnd
 Function .onInit
     StrCpy $WaitLeft 0
     StrCpy $Relaunch 0
+    StrCpy $OldInstDir ""
     ClearErrors
     ${GetOptions} $CMDLINE "/WAIT=" $0
     ${IfNot} ${Errors}
@@ -141,6 +149,7 @@ Function .onInit
         StrCpy $Relaunch 1
     ${EndIf}
     ClearErrors
+    Call ResolveInstallDir
 
     # 対応は x64 の Windows 10 以降と、ARM64 の Windows 11（x64 エミュレーションで x64 版の exe を動かす。ARM64 版のビルドは無い）。
     # ARM64 の Windows 10 は x64 エミュレーションが無い（x86 のみ）ので対象外。Windows 11 は build 22000 以降。
@@ -170,6 +179,17 @@ Function un.onInit
     StrCpy $WaitLeft 0
 FunctionEnd
 
+# 旧名（Hitomado）の既定のインストール先に入っていたときは、新しい名前の既定の場所へ替える（#402）。
+# 前回の場所は「アプリと機能」の登録（InstallDirRegKey）から来る。利用者が選んだ別の場所なら、そのまま使う
+# （exe の名前だけが変わる）。/D= で渡された場所も、旧名の既定の場所と同じでない限り、そのまま使う。
+# 旧い場所が今の場所と違うときは、あとで片づけるために OldInstDir に覚える。
+Function ResolveInstallDir
+    ${If} $INSTDIR == "$LOCALAPPDATA\Programs\${LEGACY_NAME}"
+        StrCpy $OldInstDir $INSTDIR
+        StrCpy $INSTDIR "$LOCALAPPDATA\Programs\${APP_NAME}"
+    ${EndIf}
+FunctionEnd
+
 # シェル（Explorer）にアイコンの変更を知らせ、アイコンのキャッシュを更新させる（SHChangeNotify(SHCNE_ASSOCCHANGED, SHCNF_IDLIST)）。
 # 上書き更新やアンインストールのあとにタスクバー・スタートメニューへ古いアイコンが残るのを減らす（#391）。
 # ショートカットへ AppUserModelID を付けるには NSIS 標準に機能が無く（サードパーティのプラグインが要る）、アプリ側も付けないので扱わない。
@@ -177,11 +197,31 @@ FunctionEnd
     System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0x2000, p 0, p 0)'
 !macroend
 
-# 自動アップデートの「再起動して更新」（/RELAUNCH）。インストールが成功したときだけ、新しい hitomado.exe を起動する。
+# 自動アップデートの「再起動して更新」（/RELAUNCH）。インストールが成功したときだけ、新しい nefos-inbox.exe を起動する。
 Function .onInstSuccess
     !insertmacro NOTIFY_SHELL_ICON_CHANGED
     ${If} $Relaunch == 1
         Exec '"$INSTDIR\${APP_EXE}"'
+    ${EndIf}
+FunctionEnd
+
+# 旧名のプログラム（hitomado.exe・NOTICE.txt・uninstall.exe）を、今の場所と旧い場所から消す。再帰削除はしない
+# （利用者が選んだフォルダに他のファイルがあっても消さない）。フォルダは、空になったときだけ消える。
+# WebView2 のデータ置き場は exe の名前で決まるので、旧名のものは新しい名前へ移す（新しい名前が既にあれば旧名のものを消す）。
+Function CleanLegacyInstall
+    Delete "$INSTDIR\${LEGACY_EXE}"
+    ${If} $OldInstDir != ""
+        Delete "$OldInstDir\${LEGACY_EXE}"
+        Delete "$OldInstDir\NOTICE.txt"
+        Delete "$OldInstDir\uninstall.exe"
+        RMDir "$OldInstDir"
+    ${EndIf}
+    ${If} ${FileExists} "${LEGACY_WEBVIEW_DATA}\*.*"
+        ${If} ${FileExists} "${WEBVIEW_DATA}\*.*"
+            RMDir /r "${LEGACY_WEBVIEW_DATA}"
+        ${Else}
+            Rename "${LEGACY_WEBVIEW_DATA}" "${WEBVIEW_DATA}"
+        ${EndIf}
     ${EndIf}
 FunctionEnd
 
@@ -190,7 +230,16 @@ Section "${APP_NAME}（必須）"
     SetShellVarContext current
     SetRegView 64
 
+    # 起動中のアプリは上書き・削除できない。今の場所の exe と、旧名の exe（今の場所の hitomado.exe・旧いインストール先の
+    # hitomado.exe。v0.1.46 までのアプリが更新のために起動したインストーラーは、アプリが終わるのをここで待つ）を確かめる。
+    StrCpy $CheckExe "$INSTDIR\${APP_EXE}"
     Call CheckNotRunning
+    StrCpy $CheckExe "$INSTDIR\${LEGACY_EXE}"
+    Call CheckNotRunning
+    ${If} $OldInstDir != ""
+        StrCpy $CheckExe "$OldInstDir\${LEGACY_EXE}"
+        Call CheckNotRunning
+    ${EndIf}
 
     # WebView2 ランタイムが無ければ入れる（Windows 11 と最近の Windows 10 には入っている）。
     ReadRegStr $0 HKLM "SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}" "pv"
@@ -211,14 +260,20 @@ Section "${APP_NAME}（必須）"
     File "/oname=NOTICE.txt" "..\..\..\NOTICE"
     WriteUninstaller "$INSTDIR\uninstall.exe"
 
+    # スタートメニューのショートカットは、毎回作り直して新しい exe を指す（旧い exe を指していても張り替わる）。
     CreateShortcut "$SMPROGRAMS\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
-    # 上書き更新のとき、旧名（Hitomado）のショートカットと通知用の登録を新しい名前に置き換える。
-    # デスクトップのショートカットは、旧名のものがあったときだけ新しい名前で作り直す。
-    Delete "$SMPROGRAMS\${LEGACY_NAME}.lnk"
+    # デスクトップのショートカットは、あるとき（旧名のものも含む）だけ新しい名前で作り直して新しい exe を指す。
+    # 無いときは作らない（利用者が選んだときだけ、下のセクションで作る）。
     ${If} ${FileExists} "$DESKTOP\${LEGACY_NAME}.lnk"
         Delete "$DESKTOP\${LEGACY_NAME}.lnk"
         CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
+    ${ElseIf} ${FileExists} "$DESKTOP\${APP_NAME}.lnk"
+        CreateShortcut "$DESKTOP\${APP_NAME}.lnk" "$INSTDIR\${APP_EXE}"
     ${EndIf}
+
+    # 旧名（Hitomado）の残りを片づける（上書き更新のとき。無ければ何もしない）。
+    Delete "$SMPROGRAMS\${LEGACY_NAME}.lnk"
+    Call CleanLegacyInstall
     ReadRegStr $0 HKCU "Software\Classes\AppUserModelId\${LEGACY_NAME}" "CustomActivator"
     ${If} $0 != ""
         DeleteRegKey HKCU "Software\Classes\CLSID\$0"
@@ -246,14 +301,16 @@ Section /o "デスクトップにショートカットを作る"
 SectionEnd
 
 # アンインストールで消すのはプログラム本体・ショートカット・登録（通知用の登録を含む）だけ。利用者のデータ
-# （%APPDATA%\Hitomado の DB・設定・ログ、資格情報マネージャーの秘密）は消さない（docs/environment/setup.md §4.3）。
+# （%APPDATA%\Nefos Inbox の DB・設定・ログ、資格情報マネージャーの秘密）は消さない（docs/environment/setup.md §4.3）。
 Section "Uninstall"
     SetShellVarContext current
     SetRegView 64
 
+    StrCpy $CheckExe "$INSTDIR\${APP_EXE}"
     Call un.CheckNotRunning
 
     Delete "$INSTDIR\${APP_EXE}"
+    Delete "$INSTDIR\${LEGACY_EXE}"
     Delete "$INSTDIR\NOTICE.txt"
     Delete "$INSTDIR\uninstall.exe"
     # 再帰削除はしない（利用者が選んだフォルダに他のファイルがあっても消さない）。空のときだけ消える。
@@ -266,6 +323,7 @@ Section "Uninstall"
     Delete "$DESKTOP\${LEGACY_NAME}.lnk"
 
     RMDir /r "${WEBVIEW_DATA}"
+    RMDir /r "${LEGACY_WEBVIEW_DATA}"
 
     # アプリ（Wails の通知サービス）が起動時に HKCU へ書く通知用の登録。次の起動で作り直されるので、残さない。
     # CLSID の GUID は AppUserModelId\<アプリ名> の CustomActivator に入っている。登録の名前は、旧版では Hitomado、今の版では Nefos Inbox。

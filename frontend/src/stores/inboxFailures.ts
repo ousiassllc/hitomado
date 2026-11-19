@@ -2,7 +2,7 @@
 import type {
   AccountFailure,
   RefreshResult,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { isAppErrorLike, list } from '../lib/api'
 import { common } from '../lib/messages'
 

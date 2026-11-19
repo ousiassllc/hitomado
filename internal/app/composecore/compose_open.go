@@ -6,15 +6,15 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/bodyhtml"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/domain/quote"
-	"github.com/ousiassllc/hitomado/internal/domain/reply"
-	"github.com/ousiassllc/hitomado/internal/domain/signature"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/bodyhtml"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/quote"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/reply"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/signature"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // labelDraft は Gmail の下書きメッセージに付くシステムラベル。

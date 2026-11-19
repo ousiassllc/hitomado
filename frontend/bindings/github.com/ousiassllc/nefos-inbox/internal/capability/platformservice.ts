@@ -19,5 +19,5 @@ import * as $models from "./models.js";
  * GetCapabilities はこの OS で提供する機能を返す。
  */
 export function GetCapabilities(): $CancellablePromise<$models.Capabilities> {
-    return $Call.ByID(3287974127);
+    return $Call.ByID(2694231482);
 }

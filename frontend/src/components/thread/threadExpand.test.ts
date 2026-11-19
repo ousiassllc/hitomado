@@ -1,12 +1,12 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import * as realCompose from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/composeservice'
+import * as realCompose from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/composeservice'
 import { ctl, detail, installMocks, REF, resetState, restoreMocks } from './threadTestKit'
 
 // スレッド内の返信・転送の作成画面を「広げる」（F-11「本文の入力欄の大きさ」。#112）。
 
-const B = '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+const B = '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 const session = {
   sessionId: 's1',
   mode: 'reply',

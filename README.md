@@ -7,7 +7,7 @@
 
 複数の Gmail／Google Workspace アドレスを 1 つの統合受信箱で扱い、**受信したアカウントから正しい送信元で返信できる**デスクトップアプリ（Windows。Android・macOS は試験段階の検証用配布）。アカウント切替と送信元の取り違えをなくすことが目的です。
 
-旧称は Hitomado です。リポジトリ名・配布ファイル名（`hitomado-vX.Y.Z-…`）・データの保存先（`%APPDATA%\Hitomado\`）・資格情報の名前には、更新とデータを引き継ぐため、今も hitomado の名前が残ります。
+旧称は Hitomado です。v0.1.46 までの Hitomado から上書き更新すると、データ（`%APPDATA%\Hitomado\` → `%APPDATA%\Nefos Inbox\`）・資格情報・インストール先・ショートカットは、新しい名前へ自動で引っ越します（再ログインは要りません）。アプリ ID（`jp.ousias.hitomado`）だけは、上書き更新を保つため変えていません。
 
 - 公開者のサーバーは持ちません。通信は利用者の PC と Google／AI プロバイダ（任意）／GitHub Releases（更新確認）の間だけで完結します。
 - Gmail の制限付きスコープの審査（CASA）を避けるため、**利用者が自分の Google Cloud で OAuth クライアントを作る**方式（BYO OAuth）です。手順は [OAuth クライアントの作り方](#oauth-クライアントの作り方) を参照してください。
@@ -30,8 +30,8 @@
 
 ## インストール
 
-1. [Releases](https://github.com/ousiassllc/hitomado/releases) から最新の `hitomado-vX.Y.Z-windows-amd64-setup.exe` をダウンロードします。同じ Release の `SHA256SUMS.txt` でハッシュを確認できます（PowerShell: `Get-FileHash .\hitomado-vX.Y.Z-windows-amd64-setup.exe -Algorithm SHA256`）。
-2. ダウンロードしたインストーラーを実行します。**管理者権限は要りません**。利用者ごとに `%LOCALAPPDATA%\Programs\Hitomado` へ入ります（インストール先は画面で変えられます）。初回は [SmartScreen の警告](#smartscreen-の警告について)が出ることがあります。
+1. [Releases](https://github.com/ousiassllc/nefos-inbox/releases) から最新の `nefos-inbox-vX.Y.Z-windows-amd64-setup.exe` をダウンロードします。同じ Release の `SHA256SUMS.txt` でハッシュを確認できます（PowerShell: `Get-FileHash .\nefos-inbox-vX.Y.Z-windows-amd64-setup.exe -Algorithm SHA256`）。
+2. ダウンロードしたインストーラーを実行します。**管理者権限は要りません**。利用者ごとに `%LOCALAPPDATA%\Programs\Nefos Inbox` へ入ります（インストール先は画面で変えられます。旧名の Hitomado が入っていたときは、その場所・ショートカットを片づけて、こちらへ替わります）。初回は [SmartScreen の警告](#smartscreen-の警告について)が出ることがあります。
    - スタートメニューに「Nefos Inbox」が登録されます。デスクトップのショートカットは、インストール時に選んだときだけ作られます。
    - WebView2 ランタイムが無い PC では、インストーラーが一緒に入れます。
 3. スタートメニューの「Nefos Inbox」から起動します。初回は [OAuth クライアントを作成](#oauth-クライアントの作り方)し、アプリの設定 → OAuth クライアントに登録してから、アカウントを追加します。
@@ -44,7 +44,7 @@ Android と macOS の試験版（検証用。警告が出る前提）は、[Andr
 
 - アプリは起動時と 24 時間ごとに新しい版を確認し、あれば設定画面などに表示します（設定でオフにできます）。Windows 版は、新しい版を自動でダウンロードして `SHA256SUMS.txt` と照合し、「再起動して更新」を押したとき、または次にアプリを終了するときに入れ替えます（送信中・下書きの保存中は入れ替えません。設定の「自動アップデート」でオフにでき、オフならリンクを出すだけです）。ハッシュが合わないファイルは使わずに捨てます。
 - 更新するには、新しい版のインストーラーをそのまま実行します（**上書きインストール**）。前回の場所に入り、データ・アカウント・設定はそのまま残ります。Nefos Inbox が起動中なら、タスクトレイのアイコンから「終了」してから実行してください（起動中はインストーラーが先へ進めません）。
-- 版番号は、インストーラー・アプリの設定画面・「アプリと機能」・`hitomado.exe` のプロパティで同じ値です。
+- 版番号は、インストーラー・アプリの設定画面・「アプリと機能」・`nefos-inbox.exe` のプロパティで同じ値です。
 
 ### アンインストール
 
@@ -54,10 +54,10 @@ Android と macOS の試験版（検証用。警告が出る前提）は、[Andr
 
 | 残るもの | 場所 | 内容 |
 |----------|------|------|
-| DB・設定・ログ | `%APPDATA%\Hitomado\` | メタデータのキャッシュ、アカウント・設定、ログ |
-| 資格情報 | Windows 資格情報マネージャー（「Windows 資格情報」の `Hitomado:` で始まる項目） | リフレッシュトークン、OAuth クライアントシークレット、AI の API キー、ChatGPT ログインのトークン |
+| DB・設定・ログ | `%APPDATA%\Nefos Inbox\` | メタデータのキャッシュ、アカウント・設定、ログ |
+| 資格情報 | Windows 資格情報マネージャー（「Windows 資格情報」の `Nefos Inbox:` で始まる項目） | リフレッシュトークン、OAuth クライアントシークレット、AI の API キー、ChatGPT ログインのトークン |
 
-完全に消したいときは、先にアプリの設定でアカウントを削除し（Google 側のトークンも失効します）、アンインストール後に `%APPDATA%\Hitomado\` を削除し、資格情報マネージャーに `Hitomado:` で始まる項目が残っていれば削除してください。
+完全に消したいときは、先にアプリの設定でアカウントを削除し（Google 側のトークンも失効します）、アンインストール後に `%APPDATA%\Nefos Inbox\` を削除し、資格情報マネージャーに `Nefos Inbox:` で始まる項目が残っていれば削除してください。
 
 ### SmartScreen の警告について
 
@@ -66,7 +66,7 @@ Android と macOS の試験版（検証用。警告が出る前提）は、[Andr
 1. 警告画面の **「詳細情報」** をクリックします。
 2. 表示された **「実行」** をクリックします。
 
-ダウンロード元が [公式の Releases](https://github.com/ousiassllc/hitomado/releases) であることと、`SHA256SUMS.txt` のハッシュが一致することを確認してから実行してください。
+ダウンロード元が [公式の Releases](https://github.com/ousiassllc/nefos-inbox/releases) であることと、`SHA256SUMS.txt` のハッシュが一致することを確認してから実行してください。
 
 #### スマート アプリ コントロールが有効な Windows 11 の場合
 
@@ -82,28 +82,28 @@ Windows 11 の**スマート アプリ コントロール（Smart App Control）
 
 ## Android 版（試験段階・検証用）
 
-Releases の `hitomado-vX.Y.Z-android-arm64.apk`（arm64 の実機向け。`SHA256SUMS.txt` でハッシュを確認できます）を Android 12（API 31）以上の端末へ入れて試せます。Google Play では配布していません。OAuth クライアントは [Android で使う場合の OAuth クライアント](#android-で使う場合の-oauth-クライアント)を参照してください。
+Releases の `nefos-inbox-vX.Y.Z-android-arm64.apk`（arm64 の実機向け。`SHA256SUMS.txt` でハッシュを確認できます）を Android 12（API 31）以上の端末へ入れて試せます。Google Play では配布していません。OAuth クライアントは [Android で使う場合の OAuth クライアント](#android-で使う場合の-oauth-クライアント)を参照してください。
 
 1. 端末の設定で、APK を開くアプリ（ブラウザ・ファイル）に「不明なアプリのインストール」を許可し、APK をインストールします。Play プロテクトの警告が出ることがあります。
 2. 起動して、Windows 版と同じように OAuth クライアントの登録・アカウントの追加をします。
 
 **警告が出る前提です（意図した状態です）。** Google Play では配布していないので、Play プロテクトの警告が出ることがあります。この APK は、リポジトリの管理者が保管する**固定の署名鍵**で署名していて、どの版も署名証明書が同じです。そのため:
 
-- **新しい版は、入っている版の上に上書きインストールできます**。アカウント・設定・下書きは残ります。新しい APK を開いて「更新」を選ぶか、PC に接続した端末なら `adb install -r hitomado-vX.Y.Z-android-arm64.apk` を実行します。
-- **固定の鍵に切り替えた最初の版だけは、上書きできません。** それより前の APK は、版ごとに作る使い捨ての鍵で署名していたため、入れようとすると「アプリがインストールされていません」「競合するパッケージ」などで失敗します。この切り替えのときだけ、いったんアンインストールして入れ直します。**アプリのデータ（アカウント・設定・下書き）は消えます**。PC に接続した端末なら `adb uninstall jp.ousias.hitomado` の後に `adb install hitomado-vX.Y.Z-android-arm64.apk`、端末だけなら「設定 → アプリ → Nefos Inbox → アンインストール」の後に新しい APK を入れます。次の版からは上書きで更新できます。
+- **新しい版は、入っている版の上に上書きインストールできます**。アカウント・設定・下書きは残ります。新しい APK を開いて「更新」を選ぶか、PC に接続した端末なら `adb install -r nefos-inbox-vX.Y.Z-android-arm64.apk` を実行します。
+- **固定の鍵に切り替えた最初の版だけは、上書きできません。** それより前の APK は、版ごとに作る使い捨ての鍵で署名していたため、入れようとすると「アプリがインストールされていません」「競合するパッケージ」などで失敗します。この切り替えのときだけ、いったんアンインストールして入れ直します。**アプリのデータ（アカウント・設定・下書き）は消えます**。PC に接続した端末なら `adb uninstall jp.ousias.hitomado` の後に `adb install nefos-inbox-vX.Y.Z-android-arm64.apk`、端末だけなら「設定 → アプリ → Nefos Inbox → アンインストール」の後に新しい APK を入れます。次の版からは上書きで更新できます。
 - アプリ内で新しい版を確認してリンクを出しますが、自動では入れ替えません（新しい APK は Releases から入れてください）。
 - エミュレーター（x86_64）向けの APK は添付していません。
 
 ## macOS 版（試験段階・検証用）
 
-Releases の `hitomado-vX.Y.Z-macos-arm64.zip`（Apple Silicon）または `hitomado-vX.Y.Z-macos-amd64.zip`（Intel）をダウンロードし、`SHA256SUMS.txt` でハッシュを確認します（`shasum -a 256 hitomado-vX.Y.Z-macos-arm64.zip`）。zip を開くと `Hitomado.app` ができるので、`/Applications` などへ置いて起動します。動作環境は macOS 12 以上です。
+Releases の `nefos-inbox-vX.Y.Z-macos-arm64.zip`（Apple Silicon）または `nefos-inbox-vX.Y.Z-macos-amd64.zip`（Intel）をダウンロードし、`SHA256SUMS.txt` でハッシュを確認します（`shasum -a 256 nefos-inbox-vX.Y.Z-macos-arm64.zip`）。zip を開くと `Nefos Inbox.app` ができるので、`/Applications` などへ置いて起動します。動作環境は macOS 12 以上です。
 
 **警告が出る前提です（意図した状態です）。** この `.app` は ad-hoc 署名（`codesign -s -`）だけで、Apple の Developer ID の署名も公証もしていません。ダウンロードした直後は Gatekeeper が「開発元を検証できません」「壊れているため開けません」などの警告を出して起動を止めます。次のどちらかで開けます。
 
-- 初回だけ、Finder で `Hitomado.app` を **右クリック（Control＋クリック）→「開く」** を選び、確認で「開く」を押す（macOS 15 以降は、一度ブロックされたあとに「システム設定 → プライバシーとセキュリティ」の「このまま開く」を押す）。
-- ターミナルで検疫属性を外す: `xattr -dr com.apple.quarantine /Applications/Hitomado.app`
+- 初回だけ、Finder で `Nefos Inbox.app` を **右クリック（Control＋クリック）→「開く」** を選び、確認で「開く」を押す（macOS 15 以降は、一度ブロックされたあとに「システム設定 → プライバシーとセキュリティ」の「このまま開く」を押す）。
+- ターミナルで検疫属性を外す: `xattr -dr com.apple.quarantine /Applications/Nefos Inbox.app`
 
-ダウンロード元が [公式の Releases](https://github.com/ousiassllc/hitomado/releases) であることと、ハッシュが一致することを確認してから実行してください。データは `~/Library/Application Support/Hitomado/`、資格情報はキーチェーン（サービス名 `Hitomado`）に保存します。アプリ内の更新確認は新しい版のリンクを出すだけで、自動では入れ替えません（新しい `.app` で置き換えてください。データは残ります）。実機での動作確認は限定的です。
+ダウンロード元が [公式の Releases](https://github.com/ousiassllc/nefos-inbox/releases) であることと、ハッシュが一致することを確認してから実行してください。データは `~/Library/Application Support/Nefos Inbox/`、資格情報はキーチェーン（サービス名 `Hitomado`）に保存します。アプリ内の更新確認は新しい版のリンクを出すだけで、自動では入れ替えません（新しい `.app` で置き換えてください。データは残ります）。実機での動作確認は限定的です。
 
 
 ## OAuth クライアントの作り方
@@ -148,9 +148,9 @@ OAuth 同意画面の公開ステータスが **外部かつ「テスト」** �
 ## データの保存とセキュリティ
 
 - リフレッシュトークン・Client Secret・AI の API キー・ChatGPT ログインのトークンは **Windows 資格情報マネージャー**に保存します。ファイル・ログに平文では残りません。
-- ローカル DB（`%APPDATA%\Hitomado\hitomado.db`）には、**メール本文・添付は保存しません**。保存するのは差出人・件名・日時・スニペット・ラベル・同期状態・宛先候補のみです。件名とスニペットは暗号化されないため、**BitLocker などのディスク暗号化の利用を推奨**します。
+- ローカル DB（`%APPDATA%\Nefos Inbox\hitomado.db`）には、**メール本文・添付は保存しません**。保存するのは差出人・件名・日時・スニペット・ラベル・同期状態・宛先候補のみです。件名とスニペットは暗号化されないため、**BitLocker などのディスク暗号化の利用を推奨**します。
 - 保存した添付ファイルには Windows の Mark-of-the-Web（`Zone.Identifier` の `ZoneId=3`）を付けます。開くときに SmartScreen／保護ビューが働きます（FAT/exFAT など代替データストリーム非対応のボリュームでは付かず、保存自体は成功します）。
-- ログ（`%APPDATA%\Hitomado\logs\`）にトークン・パスワード・OAuth 情報・本文・件名・宛先は出力しません（書き込む前に伏せます）。設定 → ログ から、フォルダを開く・書き出すことができます。形式・保持期間は [docs/mcp.md](docs/mcp.md#ログ) にあります。
+- ログ（`%APPDATA%\Nefos Inbox\logs\`）にトークン・パスワード・OAuth 情報・本文・件名・宛先は出力しません（書き込む前に伏せます）。設定 → ログ から、フォルダを開く・書き出すことができます。形式・保持期間は [docs/mcp.md](docs/mcp.md#ログ) にあります。
 - ChatGPT のプランでのログイン（Sign in with ChatGPT）は OpenAI の公式画面（システムブラウザ）で行い、Nefos Inbox はパスワードもセッション Cookie も受け取りません。Codex CLI など他アプリの認証情報は読みません。Nefos Inbox は OpenAI の公式アプリではありません。使った分は ChatGPT の設定の使用状況（https://chatgpt.com/settings/usage）で確認でき、連携はそこから解除できます。
 - MCP サーバーは既定でオフです。オンにしても、アプリが作るトークン（Bearer）が無い接続は拒否します。既定は `127.0.0.1` のみで待ち受け、別のアドレス（tailnet など）は設定で明示的に許可したときだけです。トークンは Windows 資格情報マネージャーに保存し、再発行・無効化できます。MCP には送信の機能が無く、下書きは必ずあなたがアプリで確認して送ります。
 - アプリが行う外部通信先は次の 6 種類だけです。公開者のサーバーへは一切通信しません。テレメトリもありません。
@@ -212,7 +212,7 @@ task check                      # CI と同等の検査（生成物の差分な�
 
 - 動作保証の対象は Windows です（Android・macOS は試験段階の検証用の配布です）。Linux では Go の単体テスト・フロントのテスト・lint を実行できますが、アプリ本体の実行確認は Windows で行ってください。Linux で Go をビルド・テストするときは GTK を使わない `CGO_ENABLED=0 go test -tags purego ./...` を使います。
 - `task dev`・`task build`（`VERSION` なし）の版は `0.0.0` です（`task package VERSION=X.Y.Z` で渡した値だけが配布物の版になります）。`0.0.0` の dev・ローカルビルドは更新確認も自動アップデートもしません（設定画面にも新しい版は出ません）。
-- **Android 版のビルド**（APK／AAB。`task android:package ARCH=arm64 VERSION=X.Y.Z` で `bin/hitomado.apk`、`task android:install` で実機へ）の手順・署名・版番号は [docs/environment/android.md](docs/environment/android.md) にあります。まだ試験段階で、Google Play では配布していません（Releases の APK は検証用です）。
+- **Android 版のビルド**（APK／AAB。`task android:package ARCH=arm64 VERSION=X.Y.Z` で `bin/nefos-inbox.apk`、`task android:install` で実機へ）の手順・署名・版番号は [docs/environment/android.md](docs/environment/android.md) にあります。まだ試験段階で、Google Play では配布していません（Releases の APK は検証用です）。
 - 仕様書は [docs/overview.md](docs/overview.md) のドキュメントマップから辿れます。
 - マージは squash／rebase せず、マージコミット方式です。コミットには `git commit -s`（Signed-off-by）を付けます。
-- リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けのインストーラー（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）・Android の APK（`hitomado-vX.Y.Z-android-arm64.apk`）・macOS の zip（`hitomado-vX.Y.Z-macos-arm64.zip`・`hitomado-vX.Y.Z-macos-amd64.zip`）・`NOTICE`・`SHA256SUMS.txt` を Releases に添付します（Windows は署名なし、Android は固定鍵の署名（Google Play の署名ではありません）、macOS は ad-hoc 署名のみで、Windows・macOS は正式な署名・公証をしません）。どれか 1 つのビルドが失敗したら Release は作りません。Android の固定鍵は管理者が GitHub Secrets（`ANDROID_KEYSTORE_BASE64`・`ANDROID_KEYSTORE_PASSWORD`・`ANDROID_KEY_ALIAS`・`ANDROID_KEY_PASSWORD`）に登録します（鍵の作り方・登録の手順・控えは [docs/environment/android.md §4.1](docs/environment/android.md#41-リリースの固定鍵github-secrets310)）。Secrets が無いと、使い捨ての鍵では公開せず Release の Android のビルドが失敗します。PR の CI（フォークを含む）は Secrets を使わず、使い捨ての鍵でビルドします。手元でインストーラーを作るときは、Windows で [NSIS](https://nsis.sourceforge.io/)（`makensis`）を入れて `task package VERSION=X.Y.Z` を実行します（`bin/` に出力）。macOS の `.app`・zip は、macOS 上で `task package VERSION=X.Y.Z`（Apple Silicon なら arm64。Intel 向けは `ARCH=amd64` を付ける）で `bin/` に作れます。手でタグを打つ必要はありません。
+- リリースは自動です。`main` にマージされるたびに、GitHub Actions が最新の `v*` タグから patch を 1 つ上げたタグ（`v0.1.0` → `v0.1.1`。タグがまだ無ければ最初は `v0.1.0`）を作り、Windows 向けのインストーラー（`nefos-inbox-vX.Y.Z-windows-amd64-setup.exe`）・Android の APK（`nefos-inbox-vX.Y.Z-android-arm64.apk`）・macOS の zip（`nefos-inbox-vX.Y.Z-macos-arm64.zip`・`nefos-inbox-vX.Y.Z-macos-amd64.zip`）・`NOTICE`・`SHA256SUMS.txt` を Releases に添付します（Windows は署名なし、Android は固定鍵の署名（Google Play の署名ではありません）、macOS は ad-hoc 署名のみで、Windows・macOS は正式な署名・公証をしません）。どれか 1 つのビルドが失敗したら Release は作りません。Android の固定鍵は管理者が GitHub Secrets（`ANDROID_KEYSTORE_BASE64`・`ANDROID_KEYSTORE_PASSWORD`・`ANDROID_KEY_ALIAS`・`ANDROID_KEY_PASSWORD`）に登録します（鍵の作り方・登録の手順・控えは [docs/environment/android.md §4.1](docs/environment/android.md#41-リリースの固定鍵github-secrets310)）。Secrets が無いと、使い捨ての鍵では公開せず Release の Android のビルドが失敗します。PR の CI（フォークを含む）は Secrets を使わず、使い捨ての鍵でビルドします。手元でインストーラーを作るときは、Windows で [NSIS](https://nsis.sourceforge.io/)（`makensis`）を入れて `task package VERSION=X.Y.Z` を実行します（`bin/` に出力）。macOS の `.app`・zip は、macOS 上で `task package VERSION=X.Y.Z`（Apple Silicon なら arm64。Intel 向けは `ARCH=amd64` を付ける）で `bin/` に作れます。手でタグを打つ必要はありません。

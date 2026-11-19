@@ -12,8 +12,8 @@ import (
 	"golang.org/x/oauth2"
 	"google.golang.org/api/googleapi"
 
-	"github.com/ousiassllc/hitomado/internal/gmail/googleerr"
-	"github.com/ousiassllc/hitomado/internal/gmail/tokenauth"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/googleerr"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/tokenauth"
 )
 
 // retryClass は失敗の再試行方針。

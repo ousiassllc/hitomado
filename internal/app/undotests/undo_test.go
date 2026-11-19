@@ -8,10 +8,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/app"
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/apptest"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/app"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apptest"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
 )
 
 func newInboxSvc(t *testing.T) (*app.InboxService, *apptest.Env) {

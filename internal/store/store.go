@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
 )
 
 // ストアのエラー。

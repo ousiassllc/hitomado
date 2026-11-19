@@ -1,9 +1,9 @@
 package app
 
 import (
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/mcpcore"
-	"github.com/ousiassllc/hitomado/internal/app/threadcache"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/mcpcore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/threadcache"
 )
 
 // Services は Wails に登録するバインディングサービスの組。

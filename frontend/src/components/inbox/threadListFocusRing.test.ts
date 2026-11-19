@@ -2,7 +2,7 @@ import { describe, expect, test } from 'bun:test'
 import { parse } from '@vue/compiler-sfc'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import ThreadList from './ThreadList.vue'
 
 setActivePinia(createPinia())

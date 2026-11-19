@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/events"
 )
 
 // recordingLogger は書かれた内容を buf に集める slog.Logger を返す。

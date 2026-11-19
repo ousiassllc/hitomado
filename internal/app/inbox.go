@@ -3,11 +3,11 @@ package app
 import (
 	"context"
 
-	"github.com/ousiassllc/hitomado/internal/app/appcore"
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/app/searchcore"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/app/appcore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/app/searchcore"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 const (

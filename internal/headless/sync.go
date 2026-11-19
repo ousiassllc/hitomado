@@ -10,13 +10,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/app/logcore"
-	"github.com/ousiassllc/hitomado/internal/clock"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/logging"
-	"github.com/ousiassllc/hitomado/internal/secrets"
-	"github.com/ousiassllc/hitomado/internal/store"
-	syncer "github.com/ousiassllc/hitomado/internal/sync"
+	"github.com/ousiassllc/nefos-inbox/internal/app/logcore"
+	"github.com/ousiassllc/nefos-inbox/internal/clock"
+	"github.com/ousiassllc/nefos-inbox/internal/datamigrate"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
+	syncer "github.com/ousiassllc/nefos-inbox/internal/sync"
 )
 
 // DBFileName はデータフォルダの下の SQLite ファイル名。
@@ -54,6 +55,10 @@ func Run(o Options) (out string) {
 }
 
 func syncOnce(ctx context.Context, o Options) (Result, error) {
+	// アプリ本体より先にヘッドレス同期が動いたとき（更新のあと、まだアプリを開いていない）も、古い名前のデータフォルダを移す（#402）。
+	if _, err := datamigrate.Migrate(o.DataDir); err != nil {
+		return Result{}, fmt.Errorf("headless: %w", err)
+	}
 	dbPath := filepath.Join(o.DataDir, DBFileName)
 	if _, err := os.Stat(dbPath); errors.Is(err, fs.ErrNotExist) {
 		return Result{}, nil // 初回起動前。アカウントは無い（DB を作らない）

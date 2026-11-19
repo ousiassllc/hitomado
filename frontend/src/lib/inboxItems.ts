@@ -2,7 +2,7 @@
 import type {
   ThreadRef,
   ThreadSummary,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 
 export function threadKey(accountId: string, threadId: string): string {
   return `${accountId}:${threadId}`

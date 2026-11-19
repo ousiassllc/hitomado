@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test'
-import type { Address } from '../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+import type { Address } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/domain/model'
 import { type SuggestTimer, useContactSuggest } from './useContactSuggest'
 
 class FakeTimer implements SuggestTimer {

@@ -8,7 +8,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/ousiassllc/hitomado/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
 )
 
 // SaveFile は保存先を選ばせる。キャンセルは ok=false。選ばれたパスへそのまま書く Target を返す。

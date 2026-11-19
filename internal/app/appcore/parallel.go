@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // SearchParallelism は 1 つの操作内で同時に走らせる Gmail 呼び出し数の上限（レート制限はクライアント側）。

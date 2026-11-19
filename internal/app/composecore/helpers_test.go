@@ -3,7 +3,7 @@ package composecore_test
 import (
 	"testing"
 
-	"github.com/ousiassllc/hitomado/internal/app/composecore/composetest"
+	"github.com/ousiassllc/nefos-inbox/internal/app/composecore/composetest"
 )
 
 // composetest のフィクスチャ・補助関数の短い別名。

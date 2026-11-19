@@ -41,13 +41,13 @@ var (
 	ErrAssetMissing = errors.New("update: Release に必要な添付ファイルがありません")
 
 	versionRe   = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
-	installerRe = regexp.MustCompile(`^hitomado-v([0-9]+\.[0-9]+\.[0-9]+)-windows-amd64-setup\.exe$`)
+	installerRe = regexp.MustCompile(`^(?:nefos-inbox|hitomado)-v([0-9]+\.[0-9]+\.[0-9]+)-windows-amd64-setup\.exe$`)
 	sha256Re    = regexp.MustCompile(`^[0-9a-fA-F]{64}$`)
 )
 
 // InstallerName は版 X.Y.Z の Windows インストーラーの添付ファイル名。
 func InstallerName(version string) string {
-	return "hitomado-v" + version + "-windows-amd64-setup.exe"
+	return "nefos-inbox-v" + version + "-windows-amd64-setup.exe"
 }
 
 // Staged はダウンロードと SHA-256 の照合が済み、入れ替えを待つインストーラー。

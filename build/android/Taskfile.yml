@@ -159,7 +159,7 @@ tasks:
         ./gradlew -PappVersion={{.APP_VERSION}} testDebugUnitTest
 
   e2e:apk:
-    summary: Builds the E2E debug APK (tag e2e; seeded fake Gmail) as bin/hitomado-e2e.apk for the emulator of the host arch
+    summary: Builds the E2E debug APK (tag e2e; seeded fake Gmail) as bin/nefos-inbox-e2e.apk for the emulator of the host arch
     desc: |
       Never a release build: the e2e tag is only honored together with the debug tags, and
       android:verify fails if a release APK contains the E2E marker. Run it with
@@ -176,7 +176,7 @@ tasks:
       - echo "E2E APK created {{.BIN_DIR}}/{{.APP_NAME}}-e2e.apk"
 
   e2e:run:
-    summary: Runs the E2E on a connected device or emulator with bin/hitomado-e2e.apk (adb + UI Automator; no real Google account)
+    summary: Runs the E2E on a connected device or emulator with bin/nefos-inbox-e2e.apk (adb + UI Automator; no real Google account)
     cmds:
       - bash build/android/e2e/run.sh "{{.BIN_DIR}}/{{.APP_NAME}}-e2e.apk" "{{.APP_ID}}"
 
@@ -330,7 +330,7 @@ tasks:
           CGO_ENABLED: "0"
 
   verify:
-    summary: Checks bin/hitomado.apk (package, version, permissions, backup, signature). Pass APK=<path> to check another file
+    summary: Checks bin/nefos-inbox.apk (package, version, permissions, backup, signature). Pass APK=<path> to check another file
     cmds:
       - bash build/android/scripts/verify-apk.sh "{{.APK | default (printf "%s/%s.apk" .BIN_DIR .APP_NAME)}}" "{{.APP_ID}}" "{{.APP_VERSION}}" "{{.SDK_ROOT}}"
 
@@ -474,7 +474,7 @@ tasks:
         msg: "adb not found. Install the Android SDK platform-tools (or set ANDROID_HOME)"
 
   install:
-    summary: Installs the APK built by android:package (bin/hitomado.apk) on a connected physical device with adb
+    summary: Installs the APK built by android:package (bin/nefos-inbox.apk) on a connected physical device with adb
     desc: |
       Keeps the app's data (adb install -r). Run `task android:package ARCH=arm64 VERSION=X.Y.Z` first.
       DEVICE_ID=<serial> picks the device when several are connected; APK=<path> installs another file.

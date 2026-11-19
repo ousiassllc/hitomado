@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import * as NotifyService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/notifycore/notifyservice'
+import * as NotifyService from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/notifycore/notifyservice'
 import { call, parseBindingError } from '../lib/api'
 import { settings as msg } from '../lib/messages'
 import { useUiStore } from './ui'

@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // Store は store.Store の必要メソッドだけを実装するテスト専用フェイク（未実装は nil 埋め込みで panic）。

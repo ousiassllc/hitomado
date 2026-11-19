@@ -4,11 +4,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 // trackerKey は「認可の途中」を表す印のキー（資格情報ストア。秘密は入れない）。
-const trackerKey = "hitomado/oauth_in_progress"
+const trackerKey = "nefos-inbox/oauth_in_progress"
 
 // Tracker は認可の進行中を資格情報ストアへ印として残し、認可の途中でプロセスが止められたこと
 // （Android がブラウザに出ている間にアプリのプロセスを終了させた場合など）を次の起動で検出する。

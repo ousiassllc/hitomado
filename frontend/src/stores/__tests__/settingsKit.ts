@@ -1,10 +1,10 @@
 // 設定ストアのテスト共通の土台（バインディング・イベントのモック）。
 // bun のモジュールキャッシュはテストファイルをまたぐため、ストアを使うテストは同じ状態（calls・responses など）を共有する。
 import { mock } from 'bun:test'
-import * as realBindings from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import * as realBindings from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 import * as realEvents from '../../lib/events'
 
-const BINDINGS = '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+const BINDINGS = '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 
 type Handler = (payload: unknown) => void
 export const handlers = new Map<string, Handler>()

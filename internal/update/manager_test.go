@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/update"
-	"github.com/ousiassllc/hitomado/internal/update/updatetest"
+	"github.com/ousiassllc/nefos-inbox/internal/update"
+	"github.com/ousiassllc/nefos-inbox/internal/update/updatetest"
 )
 
 // fakeFetcher は Stage の代わりに、dir へファイルを書いて返す。
@@ -192,12 +192,14 @@ func TestManagerStartupCleansStagingDir(t *testing.T) {
 	partial := write("download-123.tmp")
 	applied := write(update.InstallerName("0.2.0")) // 入れ替え済み（今の版以下）
 	pending := write(update.InstallerName("0.3.0"))
+	legacyApplied := write("hitomado-v0.2.0-windows-amd64-setup.exe") // v0.1.46 までの名前で取得した入れ替え済みのもの（#402）
 	unrelated := write("keep.txt")
 
 	update.NewManager(update.ManagerOptions{Current: "0.2.0", Dir: dir}).Close()
 
 	assert.NoFileExists(t, partial)
 	assert.NoFileExists(t, applied)
+	assert.NoFileExists(t, legacyApplied)
 	assert.FileExists(t, pending)
 	assert.FileExists(t, unrelated)
 }

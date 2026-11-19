@@ -5,9 +5,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/app/appcore"
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/app/appcore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
 )
 
 // SaveAttachment は保存ダイアログ（Android は Storage Access Framework）で選ばれた場所へ添付を書き込む。

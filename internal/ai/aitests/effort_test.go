@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
 )
 
 // generateWith は provider に effort つきの入力を渡し、偽サーバーが受け取った要求本文を返す。

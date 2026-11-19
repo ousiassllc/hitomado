@@ -1,4 +1,4 @@
-import type { AIConfig } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { AIConfig } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { hasProviderCredential } from '../../../lib/aiConfig'
 import type { AiPrecheckConfig } from '../../../lib/aiPrecheck'
 

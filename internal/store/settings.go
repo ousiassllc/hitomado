@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/ousiassllc/hitomado/internal/store/db"
+	"github.com/ousiassllc/nefos-inbox/internal/store/db"
 )
 
 func (s *sqlStore) GetSetting(ctx context.Context, key string) (string, bool, error) {

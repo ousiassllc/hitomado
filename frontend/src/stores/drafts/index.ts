@@ -2,8 +2,8 @@
 // 一覧は Gmail の下書きそのもの（ListDrafts）で、アプリでは保存しない。表示するアカウントは受信箱と同じ絞り込み（inbox.filter）に従う。
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
-import { ComposeService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
-import type { DraftSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import { ComposeService } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
+import type { DraftSummary } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { call, list, parseBindingError } from '../../lib/api'
 import { applyErrorEffects } from '../../lib/errorEffects'
 import { drafts as msg } from '../../lib/messages'

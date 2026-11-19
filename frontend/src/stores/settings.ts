@@ -6,7 +6,7 @@ import {
   LogService,
   MCPService,
   ThreadService,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 import type {
   AIConfig,
   AIModelList,
@@ -15,7 +15,7 @@ import type {
   MCPConfig,
   MCPStatus,
   UpdateInfo,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { aiModelsKey, normalizeAIConfig } from '../lib/aiConfig'
 import { call, list, parseBindingError } from '../lib/api'
 import {
