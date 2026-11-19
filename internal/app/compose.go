@@ -3,10 +3,10 @@ package app
 import (
 	"context"
 
-	"github.com/ousiassllc/hitomado/internal/app/composecore"
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/app/composecore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
 )
 
 // ComposeService は作成セッション・下書き・送信前確認・送信・宛先候補（バインディング仕様 §5）。Wails のバインディング面で、実装は composecore に委譲する。

@@ -1,6 +1,6 @@
 // 設定「通知するメール」（メインだけ／すべて。既定はメインだけ。#395）の保存。値は AppInfo.notifyScope（settingsStore.appInfo）にある。
 // 通知を出すかどうかの絞り込みは Go の同期が行う（Windows のトーストも Android のバックグラウンド同期の通知も同じ）。
-import { AppService } from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import { AppService } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 import { call } from '../lib/api'
 import { useSettingsStore } from '../stores/settings'
 

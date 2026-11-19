@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ousiassllc/hitomado/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
 )
 
 func TestBusy(t *testing.T) {

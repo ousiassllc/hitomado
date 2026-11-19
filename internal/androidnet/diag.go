@@ -7,7 +7,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
 )
 
 // bridgeBackgroundBlocked は Java（NetBridge.resolve）が「アプリが背面で、有効なネットワークが無い」ときに返すコード。

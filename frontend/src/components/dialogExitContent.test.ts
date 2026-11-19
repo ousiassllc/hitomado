@@ -5,7 +5,7 @@ import { defineComponent } from 'vue'
 import type {
   Account,
   SendPreview,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { useAccountsStore } from '../stores/accounts'
 import { useComposeStore } from '../stores/compose'
 import { useSettingsStore } from '../stores/settings'

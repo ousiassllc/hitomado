@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ArrowDown, ArrowUp } from '@iconoir/vue'
 import { computed, ref, watch } from 'vue'
-import type { Account } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { Account } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { isClientRejectedMessage } from '../../../lib/clientRejected'
 import { settings as msg } from '../../../lib/messages'
 import { isScopeInsufficientMessage } from '../../../lib/scopeInsufficient'

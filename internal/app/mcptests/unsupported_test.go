@@ -8,9 +8,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/capability"
-	"github.com/ousiassllc/hitomado/internal/mcpserver"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/capability"
+	"github.com/ousiassllc/nefos-inbox/internal/mcpserver"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // Android（MCP の機能が無い OS）では、PC で保存した「オン」の設定が DB にあっても待ち受けない（#89）。

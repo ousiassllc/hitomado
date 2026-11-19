@@ -2,7 +2,7 @@
 // JSON は camelCase、日時は Unix ミリ秒、ID は文字列。
 package dto
 
-import "github.com/ousiassllc/hitomado/internal/domain/model"
+import "github.com/ousiassllc/nefos-inbox/internal/domain/model"
 
 // ThreadRef はスレッドの参照。
 type ThreadRef struct {

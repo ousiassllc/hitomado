@@ -84,7 +84,7 @@ graph TD
 ### ディレクトリ構成（目安）
 
 ```
-hitomado/
+nefos-inbox/
 ├─ main.go                 # エントリポイント（run() を呼び、失敗時は致命的エラーを表示して終了）
 ├─ run.go                  # composition root（Wails アプリ作成・単一インスタンス・依存の組み立て・サービス登録・トレイ生成。機能の有無は capability に従う）
 ├─ runguard.go ほか        # run() の二重実行の防止（runguard）・多重起動の防止（singleinstance）・ウィンドウ状態の保存復元（windowstate）・バインディングの登録（services_binding）
@@ -131,12 +131,13 @@ hitomado/
 
 Windows 版は新しい版を自動でダウンロードして入れ替える。実装は `internal/update`（ダウンロード・照合・入れ替えの指示）と `internal/app/updatecore`（設定・イベント・終了時の入れ替え）。
 
-- **通信先**: 更新確認は `api.github.com`（`releases/latest`。応答の `assets` から添付ファイルの URL を得る）。ダウンロードは `github.com/ousiassllc/hitomado/releases/download/vX.Y.Z/<ファイル名>`（`hitomado-vX.Y.Z-windows-amd64-setup.exe` と `SHA256SUMS.txt`）で、配信元（`release-assets.githubusercontent.com`。以前は `objects.githubusercontent.com`）へ 302 でリダイレクトされる。接続できるのは HTTPS で、`github.com` と `*.githubusercontent.com` だけ（リダイレクト先も同じ検査。リダイレクトは 5 回まで）。署名つきのリダイレクト先 URL のクエリはログ・エラー文面に残さない
-- **ダウンロードと照合**（`update.Stager`）: ①添付に `hitomado-vX.Y.Z-windows-amd64-setup.exe`（`X.Y.Z` は `tag_name` から。数字 3 つだけの版）と `SHA256SUMS.txt` が揃っているか確認（無ければ何も取らずに失敗）→ ②`SHA256SUMS.txt`（64 KiB まで）から該当の行（`<64 桁の 16 進>  <ファイル名>`）を読む → ③インストーラーを保存先 `%APPDATA%\Hitomado\updates`（権限 0700）の一時ファイル（`download-*.tmp`）へ保存しながら SHA-256 を計算（サイズ上限 200 MiB・宣言サイズ〔`assets[].size`〕との一致・全体のタイムアウト 10 分）→ ④ハッシュが一致したときだけ確定名（`hitomado-vX.Y.Z-windows-amd64-setup.exe`）へ移す。一致しなければ一時ファイルを消して `ErrChecksumMismatch`（確定名のファイルは作らない・入れ替えの対象にしない）。同じ版の照合済みファイルが既にあれば取り直さない（ハッシュが変わっていれば消して取り直す）。`SHA256SUMS.txt` は同じ Release の添付で、署名されていない（NF-D02）。このハッシュ照合は、転送の破損と配信経路の差し替えを検出するもので、Release 自体が乗っ取られた場合は防げない（信頼の根は GitHub と公開者の Release で、手動インストールと同じ）
+- **通信先**: 更新確認は `api.github.com`（`releases/latest`。応答の `assets` から添付ファイルの URL を得る）。ダウンロードは `github.com/ousiassllc/nefos-inbox/releases/download/vX.Y.Z/<ファイル名>`（`nefos-inbox-vX.Y.Z-windows-amd64-setup.exe` と `SHA256SUMS.txt`）で、配信元（`release-assets.githubusercontent.com`。以前は `objects.githubusercontent.com`）へ 302 でリダイレクトされる。接続できるのは HTTPS で、`github.com` と `*.githubusercontent.com` だけ（リダイレクト先も同じ検査。リダイレクトは 5 回まで）。署名つきのリダイレクト先 URL のクエリはログ・エラー文面に残さない
+- **名前変更との互換（#402）**: v0.1.46 以前のアプリは、添付から `hitomado-vX.Y.Z-windows-amd64-setup.exe` と、`SHA256SUMS.txt` のその名前の行だけを探す（無いと `ErrAssetMissing`）。そのため Release には、同じ中身のインストーラーを `nefos-inbox-vX.Y.Z-…` と旧名 `hitomado-vX.Y.Z-…` の両方で添付し、`SHA256SUMS.txt` にも両方の行を載せる（`release.yml`）。更新確認の宛先は、旧い版が `ousiassllc/hitomado`、新しい版が `ousiassllc/nefos-inbox`。GitHub 上でリポジトリをリネームすると、旧名の API・ダウンロードの URL は新しい名前へリダイレクトされる（`http.Client` は GET の 301 を追う。`defaultAllowURL` は `github.com` と `*.githubusercontent.com`）ので、旧い版も更新できる。リネーム前に新しい名前を引く版が出ても、新しい版は旧名のリポジトリの Release（`hitomado`）を見つけられる必要がある点はリネームの順序で扱う（PR の説明）
+- **ダウンロードと照合**（`update.Stager`）: ①添付に `nefos-inbox-vX.Y.Z-windows-amd64-setup.exe`（`X.Y.Z` は `tag_name` から。数字 3 つだけの版）と `SHA256SUMS.txt` が揃っているか確認（無ければ何も取らずに失敗）→ ②`SHA256SUMS.txt`（64 KiB まで）から該当の行（`<64 桁の 16 進>  <ファイル名>`）を読む → ③インストーラーを保存先 `%APPDATA%\Nefos Inbox\updates`（権限 0700）の一時ファイル（`download-*.tmp`）へ保存しながら SHA-256 を計算（サイズ上限 200 MiB・宣言サイズ〔`assets[].size`〕との一致・全体のタイムアウト 10 分）→ ④ハッシュが一致したときだけ確定名（`nefos-inbox-vX.Y.Z-windows-amd64-setup.exe`）へ移す。一致しなければ一時ファイルを消して `ErrChecksumMismatch`（確定名のファイルは作らない・入れ替えの対象にしない）。同じ版の照合済みファイルが既にあれば取り直さない（ハッシュが変わっていれば消して取り直す）。`SHA256SUMS.txt` は同じ Release の添付で、署名されていない（NF-D02）。このハッシュ照合は、転送の破損と配信経路の差し替えを検出するもので、Release 自体が乗っ取られた場合は防げない（信頼の根は GitHub と公開者の Release で、手動インストールと同じ）
 - **状態**（`update.Manager`）: 「ダウンロード中」「入れ替え待ち（照合済み）」「失敗」「なし」を持ち、変わるたびに `update:status` を発行する（§発行イベント）。新しい版が見つかる（起動時・24 時間ごと・手動確認）たびに、自動アップデートが有効ならバックグラウンドでダウンロードを始める（確認の応答は待たせない）。同じ版が入れ替え待ちなら何もしない。より新しい版が見つかれば古いファイルを消す。起動時に、途中のダウンロードと、今の版以下のインストーラーを保存先から消す
 - **入れ替えのタイミング（既定）**: ダウンロードと照合が済んだら、設定画面（一般）と通知領域（バナー）に「再起動して更新」を出す。**押さなくても、次にアプリを終了するときに入れ替える**（どちらも下の安全条件つき）。設定でオフなら、どちらも行わない
 - **安全条件**: 送信（`Send`）・下書きの保存（`SaveDraft`）・下書きの削除（`DiscardCompose`）は、進行中を `deps.Busy`（カウンタ）に記録する。入れ替えを指示する関数（`Manager.RequestRestart`／`ApplyOnExit`）は、注入された「いま安全か」（`Busy.Active() == false`）を見て、進行中なら `ErrBusy` を返して入れ替えない（「再起動して更新」は `VALIDATION`、終了時は見送って次の終了に回す）。入れ替えの直前に、保存済みのファイルの SHA-256 をもう一度照合し、一致しなければ破棄して入れ替えない
-- **入れ替えの方法（NSIS インストーラーのサイレント実行）**: 実行中の `hitomado.exe` は上書きできず、インストーラーは起動中だと終了コード 5 で中止する（[setup.md §4.3](../environment/setup.md#43-windows-インストーラー)）。そのため、アプリが終了処理（同期・MCP・更新確認ループの停止、ウィンドウ状態の保存）を済ませたあと、`wapp.Quit()` の直前に、インストーラーを**アプリから分離した子プロセス**（`DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`・ウィンドウなし。親が終了しても生き続ける）として起動し、アプリは終了する。引数は `/S /WAIT=60`（「再起動して更新」のときは `/RELAUNCH` を足す）。`/D=` は付けない（前回のインストール先を引き継ぐ）。`/S` はサイレント（管理者権限は不要）、`/WAIT=秒` はサイレント実行のとき、起動中の `hitomado.exe` が終了するまで最大その秒数（0.5 秒ごとに再確認。上限 300）待ってから上書きする（省略時は従来どおり待たず、終了コード 5 で中止する。アプリの終了処理の終わりと、インストーラーの上書きの開始のあいだの競合を避ける）、`/RELAUNCH` はインストールの成功後に（`.onInstSuccess`）インストール先の `hitomado.exe` を起動する。**インストール後の起動し直しは NSIS 側で行う**（既存の `project.nsi` の最小限の拡張。別の起動用ヘルパーは作らない。インストーラーはアプリが終了してから動くため、起動し直しがアプリより長生きでき、失敗時にアプリが残っていない場合も扱える）。終了時の入れ替え（`/RELAUNCH` なし）は、更新したあと次に利用者が自分で起動するまで起動しない。プロセスの分離起動はビルドタグで分ける（`launch_windows.go`／`launch_other.go`。Windows 以外では `ErrUnsupported`）
+- **入れ替えの方法（NSIS インストーラーのサイレント実行）**: 実行中の `nefos-inbox.exe` は上書きできず、インストーラーは起動中だと終了コード 5 で中止する（[setup.md §4.3](../environment/setup.md#43-windows-インストーラー)）。そのため、アプリが終了処理（同期・MCP・更新確認ループの停止、ウィンドウ状態の保存）を済ませたあと、`wapp.Quit()` の直前に、インストーラーを**アプリから分離した子プロセス**（`DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP`・ウィンドウなし。親が終了しても生き続ける）として起動し、アプリは終了する。引数は `/S /WAIT=60`（「再起動して更新」のときは `/RELAUNCH` を足す）。`/D=` は付けない（前回のインストール先を引き継ぐ）。`/S` はサイレント（管理者権限は不要）、`/WAIT=秒` はサイレント実行のとき、起動中の `nefos-inbox.exe` が終了するまで最大その秒数（0.5 秒ごとに再確認。上限 300）待ってから上書きする（省略時は従来どおり待たず、終了コード 5 で中止する。アプリの終了処理の終わりと、インストーラーの上書きの開始のあいだの競合を避ける）、`/RELAUNCH` はインストールの成功後に（`.onInstSuccess`）インストール先の `nefos-inbox.exe` を起動する。**インストール後の起動し直しは NSIS 側で行う**（既存の `project.nsi` の最小限の拡張。別の起動用ヘルパーは作らない。インストーラーはアプリが終了してから動くため、起動し直しがアプリより長生きでき、失敗時にアプリが残っていない場合も扱える）。終了時の入れ替え（`/RELAUNCH` なし）は、更新したあと次に利用者が自分で起動するまで起動しない。プロセスの分離起動はビルドタグで分ける（`launch_windows.go`／`launch_other.go`。Windows 以外では `ErrUnsupported`）
 - **インストーラーの失敗**: 入れ替えを指示するとき、起動した版を保存先の `last-attempt` に記録する。次の起動で記録の版が今の版より新しければ（版が上がらなかった = インストーラーが完了しなかった）、ログに警告を残し、画面に「前回の更新の入れ替えが完了しませんでした」と出して、終了時の自動の入れ替えは止める（「再起動して更新」を押したときだけ再試行する）。版が上がっていれば記録を消す。起動に失敗（実行ファイルが無い等）したときは記録を残さず、ログに残して、今の版のまま終了する
 - **対象外**: 版が `0.0.0`（dev・ローカルビルド）は確認も自動アップデートもしない（`Manager` を作らない）。入れ替えを行えないビルド（Windows 以外。Android を含む）も `Manager` を作らず、設定画面に自動アップデートの項目を出さない（`AppInfo.autoUpdateSupported` が偽）。Android は更新確認だけを行い、新しい版があれば（リンクの）バナーと設定のリンクで知らせる（ダウンロードと入れ替えはしない。Play では配布せず、利用者が Releases の APK を手で入れる運用のため。APK は固定鍵で署名するので上書きインストールで更新できる。固定鍵に切り替えた最初の版だけは、入っている版の uninstall が要る）。
 
@@ -156,12 +157,12 @@ Windows 版は新しい版を自動でダウンロードして入れ替える。
 
 | データ | 保存先 | 備考 |
 |--------|--------|------|
-| リフレッシュトークン・Client Secret・AI API キー・ChatGPT ログインのトークン | Windows 資格情報マネージャー（Android は EncryptedSharedPreferences。鍵は Android Keystore） | `hitomado/<種別>/<ID>` 形式のキー名。Android で Keystore の鍵が失われたときは、保存済みの値が空になり、`secrets.ErrKeyLost`（`ErrNotFound` も満たす）で「要再接続」へ案内する |
-| アカウント・OAuth クライアント（Secret を除く）・署名・設定・同期状態・スレッド／メッセージのメタデータ・スニペット・連絡先候補 | SQLite（`%APPDATA%\Hitomado\hitomado.db`、WAL） | 本文・添付は保存しない（NF-S08） |
+| リフレッシュトークン・Client Secret・AI API キー・ChatGPT ログインのトークン | Windows 資格情報マネージャー（Android は EncryptedSharedPreferences。鍵は Android Keystore） | `nefos-inbox/<種別>/<ID>` 形式のキー名（v0.1.46 までの `hitomado/<種別>/<ID>`〔Windows のサービス名は `Hitomado`〕は、読んだときに新しい名前へ移す。`secrets.WithLegacy`）。Android で Keystore の鍵が失われたときは、保存済みの値が空になり、`secrets.ErrKeyLost`（`ErrNotFound` も満たす）で「要再接続」へ案内する |
+| アカウント・OAuth クライアント（Secret を除く）・署名・設定・同期状態・スレッド／メッセージのメタデータ・スニペット・連絡先候補 | SQLite（`%APPDATA%\Nefos Inbox\hitomado.db`、WAL） | 本文・添付は保存しない（NF-S08） |
 | メッセージ本文・添付データ | Go プロセスのメモリ（LRU・直近 50 スレッド） | NF-S09 |
 | 下書き | **Gmail の下書き**（`users.drafts`） | ローカルに保存しない。例外: 送信元未選択の新規作成はメモリのみ |
-| ログ | `%APPDATA%\Hitomado\logs\`（JSON Lines。5 MB×5 世代・30 日） | NF-S10 |
-| MCP トークン | Windows 資格情報マネージャー（`hitomado/mcp_token`。Android は上と同じ暗号化ストア） | NF-S13 |
+| ログ | `%APPDATA%\Nefos Inbox\logs\`（JSON Lines。5 MB×5 世代・30 日） | NF-S10 |
+| MCP トークン | Windows 資格情報マネージャー（`nefos-inbox/mcp_token`。Android は上と同じ暗号化ストア） | NF-S13 |
 
 ## 7. 通信フロー
 
@@ -432,7 +433,7 @@ sequenceDiagram
 
 ## 9. ビルド・CI
 
-- ローカル: `wails3 dev`（開発）、`wails3 package VERSION=X.Y.Z`（NSIS インストーラー `bin/hitomado-vX.Y.Z-windows-amd64-setup.exe` を作る。`task package` も同じ）。`sqlc generate` と `wails3 generate bindings` の生成物はコミットする（差分が出ていないことを CI で検査する）
+- ローカル: `wails3 dev`（開発）、`wails3 package VERSION=X.Y.Z`（NSIS インストーラー `bin/nefos-inbox-vX.Y.Z-windows-amd64-setup.exe` を作る。`task package` も同じ）。`sqlc generate` と `wails3 generate bindings` の生成物はコミットする（差分が出ていないことを CI で検査する）
 - GitHub Actions: lint（ubuntu）、test（ubuntu／windows のマトリクス。Go のテスト・vet、フロントは `bun test`）、build（`windows-latest` で `wails3 package` によりインストーラーを作り、インストール・上書き・アンインストールを検証する）、installer-arm64（`windows-11-arm` で同じ x64 のインストーラーと exe を検証する）。`main` への push（PR のマージ）ごとに CI を通したうえで patch を 1 つ上げたタグを自動で作り、インストーラーを Releases に添付する。詳細は [環境構築 §4](../environment/setup.md)
 - マイグレーションは `internal/store/migrations/*.sql`（goose）を `embed` し、起動時に適用する。失敗時は起動中止（NF 可用性）
 
@@ -476,3 +477,4 @@ sequenceDiagram
 | 1.33 | 2026-11-15 | §7.7（Inbox Zero）のカレンダーの判定を、端末内の判定（MIME のパート・送信元）から Classifier の選択肢（`calendar`）に改めた。優先順位は 返信済み → AI。カレンダーだけがオンのときも AI の前提を検査する。MIME のパートによる判定の記述を削除した | #377 |
 | 1.34 | 2026-11-15 | §7.4・§7.5・§7.6 で、要約・質問の AI の選択を `ai.features.draft` から専用の `ai.features.threadAi`（「要約・質問」）に改めた（未選択なら `draft` へ切り替えず `AI_NOT_CONFIGURED`）。マイグレーション `00003_ai_thread_feature` が `draft` の選択を `threadAi` へ写す（`00002` を適用済みの DB でも効く） | #376 |
 | 1.35 | 2026-11-18 | §7.2 の同期のシーケンス図に、新着通知の対象（設定「通知するメール」。既定は「メインだけ」）を追記した | #395 |
+| 1.36 | 2026-11-19 | 内部の名前を `nefos-inbox` にそろえた（保存先 `%APPDATA%\Nefos Inbox`・資格情報・exe・配布ファイル名・Go モジュール）。更新確認は新しい名前のインストーラーを探す（旧名の添付も Release に付ける） | #402 |

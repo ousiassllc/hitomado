@@ -15,12 +15,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/app"
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/apptest"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/exportfile"
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/app"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apptest"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // newLogSvc は実際のログ組み立て（伏せ処理つき）の出力を buf で受ける LogService を返す。
@@ -119,7 +119,7 @@ func TestExportLogsWritesZipOfLogFiles(t *testing.T) {
 	res, err := svc.ExportLogs(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, dto.ExportLogsResult{Saved: true, Path: e.Files.Path}, res)
-	assert.Contains(t, e.Files.Suggested[0], "hitomado-logs-")
+	assert.Contains(t, e.Files.Suggested[0], "nefos-inbox-logs-")
 	zr, err := zip.OpenReader(e.Files.Path)
 	require.NoError(t, err)
 	defer func() { _ = zr.Close() }()

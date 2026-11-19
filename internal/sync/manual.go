@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // account は id の実行時状態を返す（無ければ作る）。Shutdown 済みなら ErrClosed。

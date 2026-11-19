@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ousiassllc/hitomado/internal/app/bodyhtml"
+	"github.com/ousiassllc/nefos-inbox/internal/app/bodyhtml"
 )
 
 func TestTextToHTML(t *testing.T) {

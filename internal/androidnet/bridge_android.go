@@ -9,7 +9,7 @@ import (
 	"fmt"
 	_ "unsafe" // go:linkname
 
-	"github.com/ousiassllc/hitomado/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
 )
 
 // Wails の Java ブリッジを名前で呼ぶ関数。internal/platform/docbridge_android.go と同じ仕組み（理由・制約もそちらを参照）。

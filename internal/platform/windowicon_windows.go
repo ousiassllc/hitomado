@@ -9,7 +9,7 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/events"
 )
 
-// appIconResourceID は hitomado.exe に埋め込まれたアイコングループのリソース ID（Wails の既定。build/windows/icon.ico）。
+// appIconResourceID は nefos-inbox.exe に埋め込まれたアイコングループのリソース ID（Wails の既定。build/windows/icon.ico）。
 const appIconResourceID = 3
 
 var (

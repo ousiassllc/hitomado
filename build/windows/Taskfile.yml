@@ -37,7 +37,7 @@ tasks:
       GOARCH: '{{.ARCH | default ARCH}}'
 
   package:
-    summary: Builds the executable and the NSIS installer (bin/hitomado-vX.Y.Z-windows-amd64-setup.exe)
+    summary: Builds the executable and the NSIS installer (bin/nefos-inbox-vX.Y.Z-windows-amd64-setup.exe)
     cmds:
       - task: build
         vars:
@@ -46,7 +46,7 @@ tasks:
       - task: installer:nsis
 
   installer:nsis:
-    summary: Packs the already built bin/hitomado.exe into the per-user NSIS installer (needs makensis)
+    summary: Packs the already built bin/nefos-inbox.exe into the per-user NSIS installer (needs makensis)
     dir: build/windows/nsis
     preconditions:
       - sh: '{{if regexMatch "^[0-9]+\\.[0-9]+\\.[0-9]+$" .APP_VERSION}}true{{else}}false{{end}}'
@@ -65,7 +65,7 @@ tasks:
     cmds:
       # Windows の task には cat などの外部コマンドが無いので、組み込みの printf だけで書く。
       - >-
-        printf '{"fixed":{"file_version":"%s","product_version":"%s"},"info":{"0409":{"FileVersion":"%s","ProductVersion":"%s","CompanyName":"Ousias","FileDescription":"Nefos Inbox - multi-account Gmail inbox","LegalCopyright":"Nefos Inbox contributors, AGPL-3.0","ProductName":"Nefos Inbox","Comments":"https://github.com/ousiassllc/hitomado"}}}\n'
+        printf '{"fixed":{"file_version":"%s","product_version":"%s"},"info":{"0409":{"FileVersion":"%s","ProductVersion":"%s","CompanyName":"Ousias","FileDescription":"Nefos Inbox - multi-account Gmail inbox","LegalCopyright":"Nefos Inbox contributors, AGPL-3.0","ProductName":"Nefos Inbox","Comments":"https://github.com/ousiassllc/nefos-inbox"}}}\n'
         '{{.APP_VERSION}}' '{{.APP_VERSION}}' '{{.APP_VERSION}}' '{{.APP_VERSION}}'
         > info.generated.json
 

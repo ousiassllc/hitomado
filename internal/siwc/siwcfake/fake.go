@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/siwc"
+	"github.com/ousiassllc/nefos-inbox/internal/siwc"
 )
 
 // Account は Fake が持つ ChatGPT アカウント 1 件。

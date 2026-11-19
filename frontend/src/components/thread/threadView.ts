@@ -1,5 +1,5 @@
 // スレッド表示の純粋なロジック（メッセージの展開規則・宛先の整形）。
-import type { ThreadDetail } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ThreadDetail } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 
 interface Addr {
   name?: string

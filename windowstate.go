@@ -5,8 +5,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/platform"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/platform"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // loadWindowState は保存されたウィンドウ状態を読む。無い・壊れているときは既定値。

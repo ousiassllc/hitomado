@@ -1,6 +1,6 @@
 // 設定「送信前に確認画面を出す」（既定オン。#313）の保存。値は AppInfo.sendConfirmEnabled（settingsStore.appInfo）にある。
 // 送信フロー（useComposeSend）はこの値がオフで警告が無いときだけ確認画面を省く。
-import { AppService } from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import { AppService } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 import { call } from '../lib/api'
 import { useSettingsStore } from '../stores/settings'
 

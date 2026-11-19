@@ -3,10 +3,10 @@ package app
 import (
 	"context"
 
-	"github.com/ousiassllc/hitomado/internal/app/appcore"
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/app/searchcore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/appcore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/app/searchcore"
 )
 
 // Search は Gmail 検索クエリを各アカウントで並列実行し、最終メッセージ日時の降順で統合する（結果は保存しない）。

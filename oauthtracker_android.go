@@ -3,8 +3,8 @@
 package main
 
 import (
-	"github.com/ousiassllc/hitomado/internal/oauth"
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/oauth"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 // newOAuthTracker は Android で、認可の途中でプロセスが止められたことを検出する Tracker を返す。

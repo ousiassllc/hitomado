@@ -3,7 +3,7 @@ import { mount } from '@vue/test-utils'
 import type {
   ThreadDetail,
   ThreadMessage,
-} from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { FALLBACK_HEIGHT } from './bodyFrame'
 import MessageBody from './MessageBody.vue'
 import MessageCard from './MessageCard.vue'

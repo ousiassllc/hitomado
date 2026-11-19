@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/notify"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // UI に出すステータスメッセージ。機密（トークン・本文・宛先）を含めない。

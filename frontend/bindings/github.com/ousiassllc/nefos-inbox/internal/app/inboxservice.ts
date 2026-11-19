@@ -19,14 +19,14 @@ import * as dto$0 from "./dto/models.js";
  * Archive は INBOX ラベルを除去する。
  */
 export function Archive(refs: dto$0.ThreadRef[] | null): $CancellablePromise<dto$0.ThreadSummary[] | null> {
-    return $Call.ByID(3481227409, refs);
+    return $Call.ByID(1036962820, refs);
 }
 
 /**
  * GetUnreadCounts はアカウントごとの受信箱の未読スレッド数を返す。
  */
 export function GetUnreadCounts(): $CancellablePromise<{ [_ in string]?: number } | null> {
-    return $Call.ByID(1893575540);
+    return $Call.ByID(2417355329);
 }
 
 /**
@@ -35,35 +35,35 @@ export function GetUnreadCounts(): $CancellablePromise<{ [_ in string]?: number 
  * タブ・未読のみの絞り込みはローカルのキャッシュだけに掛かる（appcore.InboxFilterOf）。
  */
 export function ListInbox(q: dto$0.InboxQuery): $CancellablePromise<dto$0.ThreadPage> {
-    return $Call.ByID(1786551739, q);
+    return $Call.ByID(2983933802, q);
 }
 
 /**
  * ListLabels はユーザー作成ラベルを返す（labels.list で更新。オフライン時はキャッシュ）。
  */
 export function ListLabels(accountID: string): $CancellablePromise<dto$0.Label[] | null> {
-    return $Call.ByID(2543891978, accountID);
+    return $Call.ByID(2824748689, accountID);
 }
 
 /**
  * MarkRead は UNREAD ラベルを付与・除去する。
  */
 export function MarkRead(refs: dto$0.ThreadRef[] | null, read: boolean): $CancellablePromise<dto$0.ThreadSummary[] | null> {
-    return $Call.ByID(2299048096, refs, read);
+    return $Call.ByID(3092117323, refs, read);
 }
 
 /**
  * ModifyLabels はユーザー作成ラベルの付与・除去。システムラベル・未知のラベルは VALIDATION。
  */
 export function ModifyLabels(ref: dto$0.ThreadRef, addLabelIDs: string[] | null, removeLabelIDs: string[] | null): $CancellablePromise<dto$0.ThreadSummary> {
-    return $Call.ByID(3842352212, ref, addLabelIDs, removeLabelIDs);
+    return $Call.ByID(2436815419, ref, addLabelIDs, removeLabelIDs);
 }
 
 /**
  * Refresh は差分同期を今すぐ実行して完了を待つ。空は全アカウント。
  */
 export function Refresh(accountIDs: string[] | null): $CancellablePromise<dto$0.RefreshResponse> {
-    return $Call.ByID(3372514952, accountIDs);
+    return $Call.ByID(4285427837, accountIDs);
 }
 
 /**
@@ -71,21 +71,21 @@ export function Refresh(accountIDs: string[] | null): $CancellablePromise<dto$0.
  * 入力の検証と対象アカウントの解決だけここで行い、検索の本体は searchcore.Search。
  */
 export function Search(q: dto$0.SearchQuery): $CancellablePromise<dto$0.ThreadPage> {
-    return $Call.ByID(498908709, q);
+    return $Call.ByID(3042804310, q);
 }
 
 /**
  * Trash はスレッドをゴミ箱へ移す。
  */
 export function Trash(refs: dto$0.ThreadRef[] | null): $CancellablePromise<dto$0.ThreadSummary[] | null> {
-    return $Call.ByID(685588537, refs);
+    return $Call.ByID(4260851740, refs);
 }
 
 /**
  * Unarchive は Archive の取り消し。INBOX ラベルを付け直す。
  */
 export function Unarchive(refs: dto$0.ThreadRef[] | null): $CancellablePromise<dto$0.ThreadSummary[] | null> {
-    return $Call.ByID(1975345532, refs);
+    return $Call.ByID(2020934837, refs);
 }
 
 /**
@@ -93,5 +93,5 @@ export function Unarchive(refs: dto$0.ThreadRef[] | null): $CancellablePromise<d
  * （ゴミ箱へ移す前に受信箱にあったスレッド用。Trash は INBOX を除去し、Gmail の untrash が INBOX を戻すとは限らない）。
  */
 export function Untrash(refs: dto$0.ThreadRef[] | null, backToInbox: boolean): $CancellablePromise<dto$0.ThreadSummary[] | null> {
-    return $Call.ByID(3151414372, refs, backToInbox);
+    return $Call.ByID(733134933, refs, backToInbox);
 }

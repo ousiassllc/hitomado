@@ -10,7 +10,7 @@ import (
 
 	"github.com/jhillyerd/enmime/v2"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
 )
 
 // CreateDraft は Drafts／DraftRaw に保存し、"draft-N" を返す。

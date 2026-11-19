@@ -8,9 +8,9 @@ import (
 	"html"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/domain/signature"
-	"github.com/ousiassllc/hitomado/internal/domain/textconv"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/signature"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/textconv"
 )
 
 // dateLayout は引用ヘッダの日時書式。src.Date のタイムゾーンはそのまま使う。

@@ -8,13 +8,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/secrets"
-	"github.com/ousiassllc/hitomado/internal/siwc"
-	"github.com/ousiassllc/hitomado/internal/siwc/siwctest"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/siwc"
+	"github.com/ousiassllc/nefos-inbox/internal/siwc/siwctest"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
-// v0.1.7 までの形式（アカウント 1 件・hitomado/chatgpt_token/<kind>）から、再ログインなしで移行できる。
+// v0.1.7 までの形式（アカウント 1 件・chatgpt_token/<kind>）から、再ログインなしで移行できる。
 func TestLegacySingleAccountIsMigrated(t *testing.T) {
 	legacyKey := secrets.LegacyChatGPTTokenKey
 	seed := func(t *testing.T, e *siwctest.Env, signedIn bool) {

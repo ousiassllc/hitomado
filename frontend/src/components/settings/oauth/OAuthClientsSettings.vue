@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Key } from '@iconoir/vue'
 import { computed, ref } from 'vue'
-import type { OAuthClient } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { OAuthClient } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { parseBindingError } from '../../../lib/api'
 import { settings as msg } from '../../../lib/messages'
 import { useAccountsStore } from '../../../stores/accounts'

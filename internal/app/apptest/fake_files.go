@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
 )
 
 // FakeFiles は deps.FileDialog のフェイク。Cancel=true で「キャンセル」、それ以外は Path を返す。

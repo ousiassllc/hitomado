@@ -12,7 +12,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/gmail/gmailtest"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/gmailtest"
 )
 
 // sentGmailOpt は偽 Gmail の送信時の挙動。

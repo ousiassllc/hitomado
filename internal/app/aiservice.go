@@ -3,9 +3,9 @@ package app
 import (
 	"context"
 
-	"github.com/ousiassllc/hitomado/internal/app/aicore"
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/app/aicore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
 )
 
 // AIService は AI のつなぎ先・機能ごとに使う AI・同意・下書き生成・スレッドの要約と質問（バインディング仕様 §6）。Wails のバインディング面で、実装は aicore に委譲する。

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import type { NewDraftContext } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { NewDraftContext } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { features } from '../../../../test/aiConfigKit'
 import { compose as msg } from '../../../lib/messages'
 import { useComposeStore } from '../../../stores/compose'

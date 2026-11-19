@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // logProgress はログインの段階の進み（待受の開始・ブラウザへの受け渡し・ブラウザからの戻り・完了）を Info で記録する。

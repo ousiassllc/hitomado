@@ -1,12 +1,12 @@
 import { expect, mock } from 'bun:test'
 import { createPinia, setActivePinia } from 'pinia'
-import * as realAccount from '../bindings/github.com/ousiassllc/hitomado/internal/app/accountservice'
-import * as realApp from '../bindings/github.com/ousiassllc/hitomado/internal/app/appservice'
-import type { ThreadSummary } from '../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import * as realInbox from '../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
+import * as realAccount from '../bindings/github.com/ousiassllc/nefos-inbox/internal/app/accountservice'
+import * as realApp from '../bindings/github.com/ousiassllc/nefos-inbox/internal/app/appservice'
+import type { ThreadSummary } from '../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
+import * as realInbox from '../bindings/github.com/ousiassllc/nefos-inbox/internal/app/inboxservice'
 import * as realEvents from '../src/lib/events'
 
-const B = '../bindings/github.com/ousiassllc/hitomado/internal/app'
+const B = '../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 
 type Handler = (payload: unknown) => void
 export const handlers = new Map<string, Handler>()

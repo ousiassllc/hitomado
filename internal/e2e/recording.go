@@ -8,12 +8,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/ousiassllc/hitomado/internal/app/apptest"
-	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apptest"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
 )
 
 // DraftsDir は RecordingGmail が下書きの内容を書き出すディレクトリ（dir 配下）。
-// E2E スクリプトが `adb shell run-as <app> cat files/Hitomado/e2e/drafts/<id>.txt` で読み、返信下書きが Gmail へ渡ったことを確かめる。
+// E2E スクリプトが `adb shell run-as <app> cat "files/Nefos Inbox/e2e/drafts/<id>.txt"` で読み、返信下書きが Gmail へ渡ったことを確かめる。
 const DraftsDir = "e2e/drafts"
 
 // RecordingGmail は FakeGmail の下書きの作成・更新を、解析した内容（宛先・件名・本文）でファイルにも残す。

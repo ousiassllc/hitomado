@@ -7,8 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/app/appcore"
-	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/app/appcore"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
 )
 
 func png(data string) gmail.InlinePart {

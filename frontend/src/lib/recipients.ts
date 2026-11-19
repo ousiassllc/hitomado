@@ -1,6 +1,6 @@
 // 宛先入力の補助（貼り付けの複数アドレス分割・チップの形式表示）。
 // 検証の正は Go（PrepareSend の INVALID_ADDRESS）。ここは入力の分割と、明らかな誤りの強調だけを担う。
-import type { Address } from '../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+import type { Address } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/domain/model'
 
 const LIKELY_EMAIL = /^[^\s@<>,;"]+@[^\s@<>,;"]+$/
 

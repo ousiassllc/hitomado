@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/ousiassllc/hitomado/internal/app/appcore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/appcore"
 )
 
 // octetStream は種類が分からないときの MIME。

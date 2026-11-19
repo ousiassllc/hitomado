@@ -1,6 +1,6 @@
 package syncer
 
-import "github.com/ousiassllc/hitomado/internal/logging"
+import "github.com/ousiassllc/nefos-inbox/internal/logging"
 
 // runRetention は保持期間を過ぎたスレッドを起動直後と 24 時間ごとに削除する。
 func (s *Scheduler) runRetention() {

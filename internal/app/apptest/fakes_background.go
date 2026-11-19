@@ -3,7 +3,7 @@ package apptest
 import (
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/notify"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
 )
 
 // FakeBackground は notify.Background のフェイク。呼び出しを記録する。

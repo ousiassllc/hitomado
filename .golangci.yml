@@ -25,4 +25,4 @@ formatters:
   settings:
     goimports:
       local-prefixes:
-        - github.com/ousiassllc/hitomado
+        - github.com/ousiassllc/nefos-inbox

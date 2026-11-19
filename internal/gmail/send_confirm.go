@@ -13,7 +13,7 @@ import (
 
 	gmailapi "google.golang.org/api/gmail/v1"
 
-	"github.com/ousiassllc/hitomado/internal/gmail/mimebuild"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/mimebuild"
 )
 
 const (

@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import type { Capabilities } from '../../../bindings/github.com/ousiassllc/hitomado/internal/capability'
+import type { Capabilities } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/capability'
 import { usePlatformStore } from '../../stores/platform'
 import { useSettingsStore } from '../../stores/settings'
 import GeneralSettings from './GeneralSettings.vue'

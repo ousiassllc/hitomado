@@ -18,32 +18,32 @@ import * as dto$0 from "./dto/models.js";
  * AckChatGPTPlanNotice は「ChatGPT プランを使っています」の確認を済みにする（そのアカウントでは以後出さない）。
  */
 export function AckChatGPTPlanNotice(accountID: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(4151883632, accountID);
+    return $Call.ByID(474721769, accountID);
 }
 
 /**
  * AskAboutThread は ref のスレッドの内容と history（それまでの質問と回答）を文脈に、question へ答える（F-18）。保存しない。
  */
 export function AskAboutThread(ref: dto$0.ThreadRef, requestID: string, question: string, history: dto$0.ThreadAITurn[] | null): $CancellablePromise<dto$0.ThreadAIResult> {
-    return $Call.ByID(2705963357, ref, requestID, question, history);
+    return $Call.ByID(191347444, ref, requestID, question, history);
 }
 
 /**
  * CancelGenerate は実行中の生成を中止する（GenerateReplyDraft・SummarizeThread・AskAboutThread・FindInboxZeroCandidates は CANCELLED で終わる）。
  */
 export function CancelGenerate(requestID: string): $CancellablePromise<void> {
-    return $Call.ByID(624546058, requestID);
+    return $Call.ByID(1350791775, requestID);
 }
 
 /**
  * CancelSignInChatGPT は進行中の ChatGPT ログインを中止する（SignInChatGPT は OAUTH_CANCELLED で終わる）。
  */
 export function CancelSignInChatGPT(): $CancellablePromise<void> {
-    return $Call.ByID(3955981226);
+    return $Call.ByID(444560229);
 }
 
 export function ClearAIApiKey(provider: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(1793260813, provider);
+    return $Call.ByID(425583262, provider);
 }
 
 /**
@@ -53,14 +53,14 @@ export function ClearAIApiKey(provider: string): $CancellablePromise<dto$0.AICon
  * 中止は CancelGenerate（CANCELLED）。アーカイブは行わない（InboxService.Archive を使う）。
  */
 export function FindInboxZeroCandidates(refs: dto$0.ThreadRef[] | null, requestID: string): $CancellablePromise<dto$0.InboxZeroResult> {
-    return $Call.ByID(3006175544, refs, requestID);
+    return $Call.ByID(263655971, refs, requestID);
 }
 
 /**
  * GenerateNewDraft は new セッションの本文を、AI への指示（必須）と入力済みの件名・宛先から生成する（F-08。#365）。保存しない。
  */
 export function GenerateNewDraft(sessionID: string, requestID: string, instruction: string, content: dto$0.NewDraftContext): $CancellablePromise<dto$0.ReplyDraft> {
-    return $Call.ByID(2044483105, sessionID, requestID, instruction, content);
+    return $Call.ByID(2788095048, sessionID, requestID, instruction, content);
 }
 
 /**
@@ -68,87 +68,87 @@ export function GenerateNewDraft(sessionID: string, requestID: string, instructi
  * instruction は任意の「AI への指示」（空・空白だけは指示なし。2,000 文字まで。保存しない）。
  */
 export function GenerateReplyDraft(sessionID: string, requestID: string, instruction: string): $CancellablePromise<dto$0.ReplyDraft> {
-    return $Call.ByID(4105461667, sessionID, requestID, instruction);
+    return $Call.ByID(3771748530, sessionID, requestID, instruction);
 }
 
 export function GetAIConfig(): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(792522765);
+    return $Call.ByID(1949211866);
 }
 
 /**
  * GetInboxZeroSettings は Inbox Zero の設定（「不要なメール」の理由ごとのオン・オフ）を返す。未設定は全部オン（#314）。
  */
 export function GetInboxZeroSettings(): $CancellablePromise<dto$0.InboxZeroSettings> {
-    return $Call.ByID(2571272336);
+    return $Call.ByID(207964913);
 }
 
 /**
  * ListAIModels は渡された送信先（openai は baseURL）のモデル一覧を、保存前でも取得する。取得できないときは Reason つきの空の一覧を返す。
  */
 export function ListAIModels(provider: string, baseURL: string): $CancellablePromise<dto$0.AIModelList> {
-    return $Call.ByID(1674781123, provider, baseURL);
+    return $Call.ByID(3758754990, provider, baseURL);
 }
 
 export function RecordAIConsent(provider: string, baseURL: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(1816542130, provider, baseURL);
+    return $Call.ByID(3931865913, provider, baseURL);
 }
 
 /**
  * RemoveChatGPTAccount はログアウト済みの ChatGPT アカウントの登録を忘れる。
  */
 export function RemoveChatGPTAccount(accountID: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(2171931377, accountID);
+    return $Call.ByID(1913906120, accountID);
 }
 
 /**
  * SelectChatGPTAccount は下書きに使う ChatGPT アカウントを切り替える（ログイン中のアカウントだけ）。
  */
 export function SelectChatGPTAccount(accountID: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(337628381, accountID);
+    return $Call.ByID(1974125092, accountID);
 }
 
 export function SetAIApiKey(provider: string, apiKey: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(3227425416, provider, apiKey);
+    return $Call.ByID(1372814911, provider, apiKey);
 }
 
 /**
  * SetAIBaseURL は OpenAI 互換の Base URL（つなぎ先の設定）を保存する。
  */
 export function SetAIBaseURL(baseURL: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(1521819535, baseURL);
+    return $Call.ByID(1682978510, baseURL);
 }
 
 /**
  * SetAIFeature は機能（draft／threadAi／inboxZero）で使う AI・モデル・エフォートを保存する。
  */
 export function SetAIFeature(feature: string, provider: string, model: string, effort: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(1650750743, feature, provider, model, effort);
+    return $Call.ByID(2147132958, feature, provider, model, effort);
 }
 
 /**
  * SetInboxZeroReasons は「不要なメール」の理由ごとのオン・オフを保存する（広告・通知・ニュースレター・返信済み・カレンダー）。
  */
 export function SetInboxZeroReasons(reasons: dto$0.InboxZeroReasons): $CancellablePromise<dto$0.InboxZeroSettings> {
-    return $Call.ByID(1259288786, reasons);
+    return $Call.ByID(2501885989, reasons);
 }
 
 /**
  * SignInChatGPT は OpenAI の公式画面で ChatGPT にログインする（完了・中止・時間切れまでブロック）。accountId が空なら別のアカウントを追加し、指定したときはその登録で再ログインする。
  */
 export function SignInChatGPT(accountID: string): $CancellablePromise<dto$0.AIConfig> {
-    return $Call.ByID(392229644, accountID);
+    return $Call.ByID(3707328843, accountID);
 }
 
 /**
  * SignOutChatGPT は指定した ChatGPT アカウントだけログアウトする（OpenAI 側の失効を試み、そのトークンを消す）。
  */
 export function SignOutChatGPT(accountID: string): $CancellablePromise<dto$0.ChatGPTSignOutResult> {
-    return $Call.ByID(1327661325, accountID);
+    return $Call.ByID(4017392708, accountID);
 }
 
 /**
  * SummarizeThread は ref のスレッドの全メッセージ（下書きを除く。合計 40,000 文字を目安）を要約する（F-17）。保存しない。
  */
 export function SummarizeThread(ref: dto$0.ThreadRef, requestID: string): $CancellablePromise<dto$0.ThreadAIResult> {
-    return $Call.ByID(1487157928, ref, requestID);
+    return $Call.ByID(42890547, ref, requestID);
 }

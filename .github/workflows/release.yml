@@ -65,13 +65,13 @@ jobs:
         shell: pwsh
         env:
           TAG: ${{ needs.version.outputs.tag }}
-        run: Move-Item "bin\hitomado-$env:TAG-windows-amd64-setup.exe" .
+        run: Move-Item "bin\nefos-inbox-$env:TAG-windows-amd64-setup.exe" .
       - uses: actions/upload-artifact@v4
         with:
           name: release-windows
           # NOTICE（リポジトリ直下。インストーラーに同梱したものと同じファイル）も同じコミットから添付する。
           path: |
-            hitomado-*-windows-amd64-setup.exe
+            nefos-inbox-*-windows-amd64-setup.exe
             NOTICE
           if-no-files-found: error
 
@@ -90,7 +90,7 @@ jobs:
         uses: ./.github/actions/build-android-apk
         with:
           version: ${{ needs.version.outputs.tag }}
-          output: out/hitomado-${{ needs.version.outputs.tag }}-android-arm64.apk
+          output: out/nefos-inbox-${{ needs.version.outputs.tag }}-android-arm64.apk
           keystore-base64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
           keystore-password: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           key-alias: ${{ secrets.ANDROID_KEY_ALIAS }}
@@ -99,7 +99,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: release-android
-          path: out/hitomado-*-android-arm64.apk
+          path: out/nefos-inbox-*-android-arm64.apk
           if-no-files-found: error
 
   # macOS の .app を zip にしたもの。署名は ad-hoc だけで公証はしない（Gatekeeper の警告が出る。README.md）。
@@ -122,7 +122,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: release-macos-${{ matrix.arch }}
-          path: bin/hitomado-${{ needs.version.outputs.tag }}-macos-${{ matrix.arch }}.zip
+          path: bin/nefos-inbox-${{ needs.version.outputs.tag }}-macos-${{ matrix.arch }}.zip
           if-no-files-found: error
 
   publish:
@@ -135,15 +135,24 @@ jobs:
         with:
           pattern: release-*
           merge-multiple: true
+      # v0.1.46 までのアプリの自動アップデートは、Release の添付から hitomado-vX.Y.Z-windows-amd64-setup.exe（この名前だけ）と、
+      # SHA256SUMS.txt のその名前の行を探す（internal/update/stage.go の installerRe。#402）。名前を変えただけで、
+      # 旧い版が新しい版を取れなくなるので、同じ中身を旧名でも添付する（ハッシュも同じ）。旧い版が使われなくなったら外す。
+      - name: Legacy installer name (for v0.1.46 and earlier)
+        env:
+          TAG: ${{ needs.version.outputs.tag }}
+        run: |
+          cp "nefos-inbox-${TAG}-windows-amd64-setup.exe" "hitomado-${TAG}-windows-amd64-setup.exe"
       - name: Checksums
         run: |
           # 全成果物（と NOTICE）の SHA-256。アプリ内の更新確認は、この中の Windows インストーラーの行だけを使う。
           # glob が 1 つも一致しない成果物があれば sha256sum が失敗する（成果物の欠けた Release を出さない）。
           sha256sum \
+            nefos-inbox-*-windows-amd64-setup.exe \
             hitomado-*-windows-amd64-setup.exe \
-            hitomado-*-android-arm64.apk \
-            hitomado-*-macos-arm64.zip \
-            hitomado-*-macos-amd64.zip \
+            nefos-inbox-*-android-arm64.apk \
+            nefos-inbox-*-macos-arm64.zip \
+            nefos-inbox-*-macos-amd64.zip \
             NOTICE > SHA256SUMS.txt
           cat SHA256SUMS.txt
       - name: Publish release
@@ -153,10 +162,11 @@ jobs:
           REPO: ${{ github.repository }}
         run: |
           files=(
+            nefos-inbox-*-windows-amd64-setup.exe
             hitomado-*-windows-amd64-setup.exe
-            hitomado-*-android-arm64.apk
-            hitomado-*-macos-arm64.zip
-            hitomado-*-macos-amd64.zip
+            nefos-inbox-*-android-arm64.apk
+            nefos-inbox-*-macos-arm64.zip
+            nefos-inbox-*-macos-amd64.zip
             NOTICE
             SHA256SUMS.txt
           )

@@ -2,7 +2,7 @@ package update
 
 import "strconv"
 
-// installerWait は、起動したインストーラーが hitomado.exe のロックの解除（アプリの終了）を待つ秒数の上限。
+// installerWait は、起動したインストーラーが nefos-inbox.exe のロックの解除（アプリの終了）を待つ秒数の上限。
 // インストーラーはアプリの終了前に起動され得るため、サイレント実行でも実行中の上書き拒否（終了コード 5）の前に待つ
 // （build/windows/nsis/project.nsi の /WAIT=秒）。
 const installerWait = 60

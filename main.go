@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/ousiassllc/hitomado/internal/logging"
-	"github.com/ousiassllc/hitomado/internal/platform"
-	"github.com/ousiassllc/hitomado/internal/update"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/platform"
+	"github.com/ousiassllc/nefos-inbox/internal/update"
 )
 
 //go:embed all:frontend/dist

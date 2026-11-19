@@ -7,8 +7,8 @@ import (
 
 	"golang.org/x/net/html"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/gmail/mimeparse"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/mimeparse"
 )
 
 var cidRef = regexp.MustCompile(`(?i)\bcid:([^"'\s()<>]+)`)

@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, mock, test } from 'bun:test'
 import { effectScope } from 'vue'
-import * as realApp from '../../bindings/github.com/ousiassllc/hitomado/internal/app/appservice'
+import * as realApp from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/appservice'
 import * as realEvents from '../lib/events'
 import * as realCompose from '../stores/compose'
 
@@ -19,7 +19,7 @@ const ctl = {
 }
 const log: string[] = []
 
-mock.module('../../bindings/github.com/ousiassllc/hitomado/internal/app/appservice', () => ({
+mock.module('../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/appservice', () => ({
   ...real.app,
   AckBeforeQuit: async () => {
     log.push('ack')
@@ -48,7 +48,7 @@ mock.module('../stores/compose', () => ({
 const { useQuitFlush } = await import('./useQuitFlush')
 
 afterAll(() => {
-  mock.module('../../bindings/github.com/ousiassllc/hitomado/internal/app/appservice', () => ({
+  mock.module('../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/appservice', () => ({
     ...real.app,
   }))
   mock.module('../lib/events', () => ({ ...real.events }))

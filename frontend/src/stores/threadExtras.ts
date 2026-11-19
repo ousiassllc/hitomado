@@ -4,10 +4,10 @@ import type {
   Label,
   ThreadDetail,
   ThreadRef,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import * as InboxService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
-import * as ThreadService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/threadservice'
-import type { AttachmentInfo } from '../../bindings/github.com/ousiassllc/hitomado/internal/domain/model'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
+import * as InboxService from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/inboxservice'
+import * as ThreadService from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/threadservice'
+import type { AttachmentInfo } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/domain/model'
 import { type AppError, list } from '../lib/api'
 import { thread as msg } from '../lib/messages'
 import { isOpenableUrl } from '../lib/sanitize'

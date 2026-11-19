@@ -12,10 +12,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/secrets"
-	"github.com/ousiassllc/hitomado/internal/siwc"
-	"github.com/ousiassllc/hitomado/internal/siwc/siwctest"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/siwc"
+	"github.com/ousiassllc/nefos-inbox/internal/siwc/siwctest"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 func TestLongTokensAreSplitUnderTheCredentialStoreLimit(t *testing.T) {

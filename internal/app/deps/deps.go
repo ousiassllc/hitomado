@@ -5,20 +5,20 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
-	"github.com/ousiassllc/hitomado/internal/app/threadcache"
-	"github.com/ousiassllc/hitomado/internal/capability"
-	"github.com/ousiassllc/hitomado/internal/clock"
-	"github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/exportfile"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/notify"
-	"github.com/ousiassllc/hitomado/internal/oauth"
-	"github.com/ousiassllc/hitomado/internal/secrets"
-	"github.com/ousiassllc/hitomado/internal/siwc"
-	"github.com/ousiassllc/hitomado/internal/store"
-	syncer "github.com/ousiassllc/hitomado/internal/sync"
-	"github.com/ousiassllc/hitomado/internal/update"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/app/threadcache"
+	"github.com/ousiassllc/nefos-inbox/internal/capability"
+	"github.com/ousiassllc/nefos-inbox/internal/clock"
+	"github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
+	"github.com/ousiassllc/nefos-inbox/internal/oauth"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/siwc"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
+	syncer "github.com/ousiassllc/nefos-inbox/internal/sync"
+	"github.com/ousiassllc/nefos-inbox/internal/update"
 )
 
 // FileDialog は保存先を利用者に選ばせる。キャンセルは ok=false。
@@ -78,7 +78,7 @@ type Deps struct {
 	Classifier ClassifierFactory
 	ChatGPT    siwc.Auth // Sign in with ChatGPT（ログイン・更新・ログアウト）
 	Logger     *slog.Logger
-	DataDir    string // %APPDATA%\Hitomado
+	DataDir    string // %APPDATA%\Nefos Inbox
 	Version    string
 
 	// Capabilities はこの OS で提供する機能（MCP・自動更新など。Android では無効）。ゼロ値は全機能が無効。

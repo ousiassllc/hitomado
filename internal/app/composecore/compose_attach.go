@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"slices"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/exportfile"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // attachmentLimitBytes は添付合計の上限（Gmail の 25MB。転送元の添付を含む）。

@@ -17,8 +17,8 @@ import java.io.File;
 final class HeadlessSync {
     private static final String TAG = "HeadlessSync";
 
-    /** アプリのデータフォルダ（Go の datadir_android.go と同じ files/Hitomado）。 */
-    static final String DATA_DIR_NAME = "Hitomado";
+    /** アプリのデータフォルダ（Go の datadir_android.go と同じ files/Nefos Inbox）。 */
+    static final String DATA_DIR_NAME = "Nefos Inbox";
 
     private static volatile boolean loaded;
 

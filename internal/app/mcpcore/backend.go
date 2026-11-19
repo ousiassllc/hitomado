@@ -9,17 +9,17 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/ousiassllc/hitomado/internal/app/appcore"
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/bodyhtml"
-	"github.com/ousiassllc/hitomado/internal/app/composecore"
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/domain/textconv"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/mcpserver"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/app/appcore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/bodyhtml"
+	"github.com/ousiassllc/nefos-inbox/internal/app/composecore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/textconv"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/mcpserver"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // maxBodyRunes は MCP に返す 1 メッセージの本文の上限（巨大なメールでクライアントの文脈を埋めない）。

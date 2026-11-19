@@ -3,7 +3,7 @@ package aicoretests
 import (
 	"context"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
 )
 
 // SummarizeThread は入力を記録し、entered を閉じ、threadFn（無ければ固定の要約）で応答する。

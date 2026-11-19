@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Label } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { Label } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import BaseChip from '../ui/BaseChip.vue'
 import BaseTooltip from '../ui/BaseTooltip.vue'
 

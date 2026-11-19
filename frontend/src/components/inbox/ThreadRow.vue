@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Attachment, WarningTriangle } from '@iconoir/vue'
 import { computed } from 'vue'
-import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { formatDate } from '../../lib/format'
 import { common } from '../../lib/messages'
 import AccountChip from '../account/AccountChip.vue'

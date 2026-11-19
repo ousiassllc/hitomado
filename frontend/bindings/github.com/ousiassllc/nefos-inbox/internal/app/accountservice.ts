@@ -19,14 +19,14 @@ import * as dto$0 from "./dto/models.js";
  * AddOAuthClient は OAuth クライアントを登録し、Client Secret を資格情報ストアへ保存する。
  */
 export function AddOAuthClient(name: string, clientID: string, clientSecret: string): $CancellablePromise<dto$0.OAuthClient> {
-    return $Call.ByID(3481562567, name, clientID, clientSecret);
+    return $Call.ByID(1705196660, name, clientID, clientSecret);
 }
 
 /**
  * CancelAddAccount は進行中の認可（追加・再接続）を中断する。進行中でなければ何もしない。
  */
 export function CancelAddAccount(): $CancellablePromise<void> {
-    return $Call.ByID(530036086);
+    return $Call.ByID(1891499881);
 }
 
 /**
@@ -35,7 +35,7 @@ export function CancelAddAccount(): $CancellablePromise<void> {
  * Secret の削除に失敗したときは DB 行を残してエラーを返し、DB の削除に失敗したときは Secret を元に戻す。
  */
 export function DeleteOAuthClient(id: string): $CancellablePromise<void> {
-    return $Call.ByID(3994097819, id);
+    return $Call.ByID(2973242138, id);
 }
 
 /**
@@ -45,21 +45,21 @@ export function DeleteOAuthClient(id: string): $CancellablePromise<void> {
  * 署名の本文はログにもエラーにも出さない。
  */
 export function FetchGmailSignature(accountID: string): $CancellablePromise<dto$0.GmailSignature> {
-    return $Call.ByID(2429326502, accountID);
+    return $Call.ByID(2546000447, accountID);
 }
 
 /**
  * ListAccounts は sortOrder 昇順のアカウント一覧を返す。
  */
 export function ListAccounts(): $CancellablePromise<dto$0.Account[] | null> {
-    return $Call.ByID(2596683606);
+    return $Call.ByID(2992698273);
 }
 
 /**
  * ListOAuthClients は登録済みクライアントを返す（Secret は返さない）。
  */
 export function ListOAuthClients(): $CancellablePromise<dto$0.OAuthClient[] | null> {
-    return $Call.ByID(863775759);
+    return $Call.ByID(2791744828);
 }
 
 /**
@@ -67,7 +67,7 @@ export function ListOAuthClients(): $CancellablePromise<dto$0.OAuthClient[] | nu
  * VALIDATION で拒否し、トークンは保存しない。
  */
 export function Reconnect(accountID: string): $CancellablePromise<dto$0.Account> {
-    return $Call.ByID(696126355, accountID);
+    return $Call.ByID(2751776062, accountID);
 }
 
 /**
@@ -75,47 +75,47 @@ export function Reconnect(accountID: string): $CancellablePromise<dto$0.Account>
  * 先に同期を止めて実行中の周期の終了を待ってから DB を削除する（DB 削除に失敗したら同期を再開）。revoke の失敗は無視する。
  */
 export function RemoveAccount(accountID: string): $CancellablePromise<void> {
-    return $Call.ByID(781556185, accountID);
+    return $Call.ByID(1259805420, accountID);
 }
 
 /**
  * ReorderAccounts は全アカウント ID を過不足なく受け取って並び順を更新する。
  */
 export function ReorderAccounts(accountIDs: string[] | null): $CancellablePromise<dto$0.Account[] | null> {
-    return $Call.ByID(4200524137, accountIDs);
+    return $Call.ByID(2295960804, accountIDs);
 }
 
 /**
  * SetSignature は署名を保存する。許可タグ以外はここで除去する。
  */
 export function SetSignature(accountID: string, signatureHTML: string): $CancellablePromise<dto$0.Account> {
-    return $Call.ByID(510500280, accountID, signatureHTML);
+    return $Call.ByID(997054687, accountID, signatureHTML);
 }
 
 /**
  * StartAddAccount は認可の完了・キャンセル・タイムアウトまでブロックする。ctx キャンセルは OAUTH_CANCELLED。
  */
 export function StartAddAccount(oauthClientID: string): $CancellablePromise<dto$0.Account> {
-    return $Call.ByID(278461760, oauthClientID);
+    return $Call.ByID(3738370909, oauthClientID);
 }
 
 /**
  * TakeInterruptedAuth は前回の起動が認可の途中で止められていたか（Android）を一度だけ返す。画面が「やり直し」を案内する。Windows は常に false。
  */
 export function TakeInterruptedAuth(): $CancellablePromise<boolean> {
-    return $Call.ByID(1824336271);
+    return $Call.ByID(2698177798);
 }
 
 /**
  * UpdateAccount は表示名・色・通知設定を更新する。
  */
 export function UpdateAccount(accountID: string, patch: dto$0.AccountPatch): $CancellablePromise<dto$0.Account> {
-    return $Call.ByID(2175422958, accountID, patch);
+    return $Call.ByID(1359144099, accountID, patch);
 }
 
 /**
  * UpdateOAuthClient の clientSecret は空文字なら更新しない。
  */
 export function UpdateOAuthClient(id: string, name: string, clientID: string, clientSecret: string): $CancellablePromise<dto$0.OAuthClient> {
-    return $Call.ByID(2070144905, id, name, clientID, clientSecret);
+    return $Call.ByID(3882807300, id, name, clientID, clientSecret);
 }

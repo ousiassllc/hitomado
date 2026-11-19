@@ -19,19 +19,19 @@ import * as dto$0 from "./dto/models.js";
  * ExportLogs は保存先を選ばせ、ログを zip にして書き出す。キャンセルは Saved=false。
  */
 export function ExportLogs(): $CancellablePromise<dto$0.ExportLogsResult> {
-    return $Call.ByID(3480587922);
+    return $Call.ByID(19552977);
 }
 
 /**
  * OpenLogFolder はログフォルダを OS のファイルマネージャーで開く。
  */
 export function OpenLogFolder(): $CancellablePromise<void> {
-    return $Call.ByID(521948667);
+    return $Call.ByID(451228166);
 }
 
 /**
  * ReportClientError はフロントの未処理例外・Promise の reject・バインディング呼び出しの失敗を Go のログに記録する。
  */
 export function ReportClientError(e: dto$0.ClientError): $CancellablePromise<void> {
-    return $Call.ByID(3892033248, e);
+    return $Call.ByID(874045409, e);
 }

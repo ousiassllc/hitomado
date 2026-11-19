@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/zalando/go-keyring"
 
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 func TestKeyringRoundTrip(t *testing.T) {
@@ -26,8 +26,8 @@ func TestKeyringRoundTrip(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "v1", got)
 
-	// service=Hitomado, user=キー名で保存される。
-	direct, err := keyring.Get("Hitomado", key)
+	// service=Nefos Inbox, user=キー名で保存される。
+	direct, err := keyring.Get("Nefos Inbox", key)
 	require.NoError(t, err)
 	assert.Equal(t, "v1", direct)
 
@@ -68,4 +68,25 @@ func TestKeyringTooBigPassesThrough(t *testing.T) {
 	t.Cleanup(keyring.MockInit)
 	err := secrets.NewKeyring().Set("k", "v")
 	require.ErrorIs(t, err, keyring.ErrSetDataTooBig)
+}
+
+// v0.1.46 までの保存先（service=Hitomado, user=hitomado/…）の値は、読んだときに新しい保存先へ移り、再ログインは要らない。
+func TestKeyringMigratesLegacyCredentials(t *testing.T) {
+	keyring.MockInit()
+	require.NoError(t, keyring.Set("Hitomado", "hitomado/refresh_token/acc1", "tok"))
+	require.NoError(t, keyring.Set("Hitomado", "hitomado/chatgpt_token/cid/access#0", "chunk"))
+	s := secrets.NewKeyring()
+
+	got, err := s.Get(secrets.RefreshTokenKey("acc1"))
+	require.NoError(t, err)
+	assert.Equal(t, "tok", got)
+	moved, err := keyring.Get("Nefos Inbox", "nefos-inbox/refresh_token/acc1")
+	require.NoError(t, err)
+	assert.Equal(t, "tok", moved)
+	_, err = keyring.Get("Hitomado", "hitomado/refresh_token/acc1")
+	require.ErrorIs(t, err, keyring.ErrNotFound, "移したあとは旧名の項目を残さない")
+
+	got, err = s.Get(secrets.ChatGPTTokenKey("cid", "access") + "#0")
+	require.NoError(t, err)
+	assert.Equal(t, "chunk", got, "分割保存の接尾辞も引き継ぐ")
 }

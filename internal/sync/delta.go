@@ -4,9 +4,9 @@ import (
 	"context"
 	"slices"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/notify"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 const (

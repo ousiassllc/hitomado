@@ -14,11 +14,11 @@ import (
 
 	"golang.org/x/time/rate"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/exportfile"
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // フロントのエラー報告の上限。画面側の暴走でログが埋まらないよう、1 秒に 1 件・同時 30 件まで受ける。
@@ -112,7 +112,7 @@ func (s *Service) OpenLogFolder(_ context.Context) error {
 // ExportLogs は保存先を選ばせ、ログ（現行とローテーション済み）を zip にして書き出す。キャンセルは Saved=false。
 // Result.Path は Windows では保存したパス、Android では利用者が選んだ保存先のファイル名。
 func (s *Service) ExportLogs(ctx context.Context) (dto.ExportLogsResult, error) {
-	name := "hitomado-logs-" + s.d.Clock.Now().Format("20060102-150405") + ".zip"
+	name := "nefos-inbox-logs-" + s.d.Clock.Now().Format("20060102-150405") + ".zip"
 	target, ok, err := s.d.Files.SaveFile(ctx, name)
 	if err != nil {
 		return dto.ExportLogsResult{}, apperr.FromInfra(err, "")

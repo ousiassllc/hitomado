@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { mount } from '@vue/test-utils'
-import type { AIModelList } from '../../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { AIModelList } from '../../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { COMMON_EFFORTS, effortChoices } from '../../../../lib/aiConfig'
 import BaseSelect from '../../../ui/BaseSelect.vue'
 import AIEffortField from '../AIEffortField.vue'

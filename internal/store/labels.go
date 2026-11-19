@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ousiassllc/hitomado/internal/store/db"
+	"github.com/ousiassllc/nefos-inbox/internal/store/db"
 )
 
 // ReplaceLabels はアカウントのラベル一覧を labels で置き換える。

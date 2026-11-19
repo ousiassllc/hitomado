@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import type { AIConfig } from '../../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { AIConfig } from '../../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { features } from '../../../../../test/aiConfigKit'
 import { useSettingsStore } from '../../../../stores/settings'
 import { useUiStore } from '../../../../stores/ui'

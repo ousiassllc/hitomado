@@ -3,7 +3,7 @@ package syncer
 import (
 	"context"
 
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 func (a *account) signal() {

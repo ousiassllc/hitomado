@@ -89,8 +89,8 @@ import "C"
 import (
 	"unsafe"
 
-	"github.com/ousiassllc/hitomado/internal/headless"
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/headless"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 // Java_com_wails_app_HeadlessSync_nativeSyncOnce は全アカウントを 1 回同期し、結果の JSON（headless.Encode）を返す。

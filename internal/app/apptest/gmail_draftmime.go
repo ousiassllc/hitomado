@@ -9,10 +9,10 @@ import (
 
 	"github.com/jhillyerd/enmime/v2"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/domain/textconv"
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/gmail/mimeparse"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/textconv"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/mimeparse"
 )
 
 // storeDraft は下書きの MIME を解析して Drafts／DraftRaw に保存する（f.mu を保持して呼ぶ）。

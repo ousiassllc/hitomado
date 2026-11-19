@@ -4,12 +4,12 @@
 // 設定「送信前に確認画面を出す」がオフで、警告が無いときだけ、ダイアログを出さずに PrepareSend の確認トークンで
 // そのまま Send する（#313。送信元の固定と、送信ボタンを押したときだけ送ることは変えない）。
 import type { ComputedRef, Ref } from 'vue'
-import { ComposeService } from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import { ComposeService } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 import type {
   ComposeAttachment,
   ComposeSession,
   SendPreview,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { call, list, parseBindingError } from '../lib/api'
 import { needsReprepare } from '../lib/composeErrors'
 import {

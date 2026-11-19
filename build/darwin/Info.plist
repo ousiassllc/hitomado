@@ -14,7 +14,7 @@
         <key>CFBundleDisplayName</key>
         <string>Nefos Inbox</string>
         <key>CFBundleExecutable</key>
-        <string>hitomado</string>
+        <string>nefos-inbox</string>
         <key>CFBundleIdentifier</key>
         <string>jp.ousias.hitomado</string>
         <key>CFBundleVersion</key>
@@ -22,7 +22,7 @@
         <key>CFBundleShortVersionString</key>
         <string>0.0.0</string>
         <key>CFBundleGetInfoString</key>
-        <string>https://github.com/ousiassllc/hitomado</string>
+        <string>https://github.com/ousiassllc/nefos-inbox</string>
         <key>CFBundleIconFile</key>
         <string>icons</string>
         <key>LSMinimumSystemVersion</key>

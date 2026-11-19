@@ -10,7 +10,7 @@ info:
   productIdentifier: "jp.ousias.hitomado"
   description: "Multi-account Gmail unified inbox"
   copyright: "Nefos Inbox contributors, AGPL-3.0"
-  comments: "https://github.com/ousiassllc/hitomado"
+  comments: "https://github.com/ousiassllc/nefos-inbox"
   version: "0.0.0"
 
 # Dev mode configuration

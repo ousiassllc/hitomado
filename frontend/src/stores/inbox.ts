@@ -1,12 +1,12 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import * as AppService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/appservice'
+import * as AppService from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/appservice'
 import type {
   InboxFilter,
   ThreadPage,
   ThreadSummary,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import * as InboxService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
+import * as InboxService from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/inboxservice'
 import { type AppError, call, list, parseBindingError } from '../lib/api'
 import { EVENTS, onEvent, type SyncUpdatedPayload } from '../lib/events'
 import { keyOf, mergeFailures, mergeHead, viewKeyOf } from '../lib/inboxItems'

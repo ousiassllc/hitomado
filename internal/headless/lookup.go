@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // StoreLookup は gmail.AccountLookup の store 実装。アカウントが使う OAuth クライアントの資格情報の参照元を返す。

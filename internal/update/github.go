@@ -13,8 +13,8 @@ import (
 
 const (
 	defaultBaseURL = "https://api.github.com"
-	defaultRepo    = "ousiassllc/hitomado"
-	defaultUA      = "Hitomado"
+	defaultRepo    = "ousiassllc/nefos-inbox"
+	defaultUA      = "NefosInbox"
 	httpTimeout    = 30 * time.Second
 	maxBodyBytes   = 1 << 20
 )
@@ -23,8 +23,8 @@ const (
 type Options struct {
 	HTTPClient *http.Client
 	BaseURL    string // 既定 https://api.github.com
-	Repo       string // 既定 ousiassllc/hitomado
-	UserAgent  string // 例: Hitomado/0.1.0。既定 Hitomado
+	Repo       string // 既定 ousiassllc/nefos-inbox
+	UserAgent  string // 例: NefosInbox/0.1.0。既定 NefosInbox
 }
 
 type github struct {

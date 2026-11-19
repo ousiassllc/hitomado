@@ -24,7 +24,7 @@ Nefos Inbox には MCP（Model Context Protocol）サーバーを内蔵してい
 ```json
 {
   "mcpServers": {
-    "hitomado": {
+    "nefos-inbox": {
       "type": "http",
       "url": "http://127.0.0.1:47650/mcp",
       "headers": { "Authorization": "Bearer <発行したトークン>" }
@@ -58,7 +58,7 @@ Nefos Inbox には MCP（Model Context Protocol）サーバーを内蔵してい
 ### トークン
 
 - アプリが作る乱数（256 ビット。`hmcp_` で始まる）の Bearer トークンです。1 つだけで、再発行すると古いものは無効になります。「トークンを無効にする」で以後のすべての接続を拒否します。
-- **Windows 資格情報マネージャー**（キー `hitomado/mcp_token`）に保存します。SQLite・設定・ログには入りません。画面にも発行直後の 1 回しか出しません。
+- **Windows 資格情報マネージャー**（キー `nefos-inbox/mcp_token`）に保存します。SQLite・設定・ログには入りません。画面にも発行直後の 1 回しか出しません。
 
 ## ツール
 
@@ -87,12 +87,12 @@ MCP の呼び出しはログに残ります（いつ・どのツール・成否�
 
 ### 場所
 
-`%APPDATA%\Hitomado\logs\hitomado.log`（他の OS では `os.UserConfigDir()` 配下の `Hitomado/logs/`）。設定 → **ログ** の「ログフォルダを開く」で開けます。「ログを書き出す」で、現行とローテーション済みのログを zip にして保存先を選んで書き出せます（Android ではフォルダを開けないので、こちらで取り出します）。
+`%APPDATA%\Nefos Inbox\logs\hitomado.log`（他の OS では `os.UserConfigDir()` 配下の `Nefos Inbox/logs/`）。設定 → **ログ** の「ログフォルダを開く」で開けます。「ログを書き出す」で、現行とローテーション済みのログを zip にして保存先を選んで書き出せます（Android ではフォルダを開けないので、こちらで取り出します）。
 
 ### 形式とローテーション
 
 - JSON Lines（1 行 1 レコード）。`time`（ミリ秒・タイムゾーンのオフセットつき。例 `2026-11-03T09:00:00.123+09:00`）・`level`・`msg` のほか、すべてのレコードに `app_version`（アプリの版）と `os`（`windows/amd64` など）を付けます。
-- 5 MB で切り替え、最大 5 世代（`hitomado-<時刻>.log`）、30 日を過ぎたものは削除します。
+- 5 MB で切り替え、最大 5 世代（`hitomado-<時刻>.log`（ファイル名は旧名のまま））、30 日を過ぎたものは削除します。
 
 ### 記録するもの
 
@@ -120,7 +120,7 @@ Linux の CI では確かめられない次の 3 点は、Windows 実機での�
 |------|----------|------|
 | ローテーション中の読み取り | 書き込み中のログを `get_logs` で連続して読みながら、5MB を超えてローテーションさせ、ログの欠落・エラーが出ないか見る。Go の `os.Open` は `FILE_SHARE_DELETE` を付けないため、読み取り中は lumberjack の `rename` が失敗し得る（`internal/logging/reader.go` の `readFile`）。出るなら共有モードつきで開く | 未確認 |
 | 「ログフォルダを開く」 | 設定 → ログ →「ログフォルダを開く」で、エクスプローラーが実際に開くか（`internal/platform/wails.go` の `Paths.OpenPath`） | 未確認 |
-| MCP トークン | 発行・再発行・無効化で、資格情報マネージャーの `hitomado/mcp_token` が保存・置き換え・削除されるか（`internal/mcpserver/token.go`） | 未確認 |
+| MCP トークン | 発行・再発行・無効化で、資格情報マネージャーの `nefos-inbox/mcp_token` が保存・置き換え・削除されるか（`internal/mcpserver/token.go`） | 未確認 |
 
 ## 実装の場所
 

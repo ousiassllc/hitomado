@@ -15,11 +15,11 @@ import (
 	gmailapi "google.golang.org/api/gmail/v1"
 	"google.golang.org/api/option"
 
-	"github.com/ousiassllc/hitomado/internal/clock"
-	"github.com/ousiassllc/hitomado/internal/gmail/backoff"
-	"github.com/ousiassllc/hitomado/internal/gmail/cooldown"
-	"github.com/ousiassllc/hitomado/internal/gmail/tokenauth"
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/clock"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/backoff"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/cooldown"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/tokenauth"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 const (

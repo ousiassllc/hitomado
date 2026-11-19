@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
 )
 
 // FakeClassifier は ai.Classifier（Inbox Zero の判定）のフェイク。工場の呼び出し（選んだ AI・API キー）と質問の入力を記録し、

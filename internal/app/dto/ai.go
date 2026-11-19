@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/ousiassllc/hitomado/internal/domain/model"
+import "github.com/ousiassllc/nefos-inbox/internal/domain/model"
 
 // AI を使う機能の ID（SetAIFeature の feature。AIFeatures のキーと同じ）。
 const (

@@ -4,8 +4,8 @@ import type { Ref } from 'vue'
 import type {
   ThreadRef,
   ThreadSummary,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
-import * as InboxService from '../../bindings/github.com/ousiassllc/hitomado/internal/app/inboxservice'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
+import * as InboxService from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/inboxservice'
 import type { AppError } from '../lib/api'
 import { list } from '../lib/api'
 import { failedRefsOf } from '../lib/errorEffects'

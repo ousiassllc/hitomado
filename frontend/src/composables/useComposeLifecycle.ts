@@ -1,11 +1,11 @@
 // 作成セッションの保存・終了（composeStore の一部）。下書き保存は自動保存（useAutosave）に集約する。
 import type { Ref } from 'vue'
-import { ComposeService } from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import { ComposeService } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 import type {
   ComposeContent,
   ComposeSession,
   SendPreview,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { call, parseBindingError } from '../lib/api'
 import { type EditableContent, snapshotOf } from '../lib/composeModel'
 import { compose as msg } from '../lib/messages'

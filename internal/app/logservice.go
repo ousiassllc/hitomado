@@ -3,9 +3,9 @@ package app
 import (
 	"context"
 
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/app/logcore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/app/logcore"
 )
 
 // LogsDirName はデータフォルダの下のログフォルダ名。

@@ -76,4 +76,8 @@ type Bridge = bridge
 
 // NewBridgeStore は b を使う Store を返す。Wails の application.Android（Activity のあるプロセス）のほかに、
 // Activity の無い WorkManager の Worker から呼ぶ JNI の窓口（internal/androidbg）にも使う。
-func NewBridgeStore(b Bridge) Store { return newBridgeStore(b) }
+// v0.1.46 までのキー名（hitomado/…）で保存された値は、読んだときに新しいキー名へ移す（WithLegacy。同じストアの中で移す）。
+func NewBridgeStore(b Bridge) Store {
+	s := newBridgeStore(b)
+	return WithLegacy(s, s)
+}

@@ -9,8 +9,8 @@ import (
 
 	gmailapi "google.golang.org/api/gmail/v1"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/gmail/mimeparse"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/mimeparse"
 )
 
 // errBadBody は本文データが base64url として壊れているときのエラー。

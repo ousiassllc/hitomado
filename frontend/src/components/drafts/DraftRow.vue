@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Trash } from '@iconoir/vue'
 import { computed } from 'vue'
-import type { DraftSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { DraftSummary } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { list } from '../../lib/api'
 import { formatDate } from '../../lib/format'
 import { drafts as msg } from '../../lib/messages'

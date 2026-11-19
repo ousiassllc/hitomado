@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/update"
-	"github.com/ousiassllc/hitomado/internal/update/updatetest"
+	"github.com/ousiassllc/nefos-inbox/internal/update"
+	"github.com/ousiassllc/nefos-inbox/internal/update/updatetest"
 )
 
 var installerBody = []byte("MZ dummy installer body")
@@ -46,12 +46,12 @@ func TestStageDownloadsAndVerifies(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "0.2.0", got.Version)
-	assert.Equal(t, filepath.Join(dir, "hitomado-v0.2.0-windows-amd64-setup.exe"), got.Path)
+	assert.Equal(t, filepath.Join(dir, "nefos-inbox-v0.2.0-windows-amd64-setup.exe"), got.Path)
 	assert.Equal(t, updatetest.Sum(installerBody), got.SHA256)
 	body, err := os.ReadFile(got.Path)
 	require.NoError(t, err)
 	assert.Equal(t, installerBody, body)
-	assert.Equal(t, []string{"hitomado-v0.2.0-windows-amd64-setup.exe"}, dirFiles(t, dir), "一時ファイルが残らない")
+	assert.Equal(t, []string{"nefos-inbox-v0.2.0-windows-amd64-setup.exe"}, dirFiles(t, dir), "一時ファイルが残らない")
 }
 
 func TestStageFollowsRedirectToAllowedHost(t *testing.T) {
@@ -62,12 +62,12 @@ func TestStageFollowsRedirectToAllowedHost(t *testing.T) {
 
 	_, err := srv.Stager(dir).Stage(t.Context(), latest(t, srv))
 	require.NoError(t, err)
-	assert.Equal(t, 1, cdn.Hits("/dl/hitomado-v0.2.0-windows-amd64-setup.exe"))
+	assert.Equal(t, 1, cdn.Hits("/dl/nefos-inbox-v0.2.0-windows-amd64-setup.exe"))
 }
 
 func TestStageRejectsChecksumMismatch(t *testing.T) {
 	srv := updatetest.NewServer(t, "0.2.0", installerBody)
-	srv.Sums = updatetest.Sum([]byte("something else")) + "  hitomado-v0.2.0-windows-amd64-setup.exe\n"
+	srv.Sums = updatetest.Sum([]byte("something else")) + "  nefos-inbox-v0.2.0-windows-amd64-setup.exe\n"
 	dir := t.TempDir()
 
 	_, err := srv.Stager(dir).Stage(t.Context(), latest(t, srv))
@@ -77,7 +77,7 @@ func TestStageRejectsChecksumMismatch(t *testing.T) {
 
 func TestStageChecksumFileForms(t *testing.T) {
 	sum := updatetest.Sum(installerBody)
-	name := "hitomado-v0.2.0-windows-amd64-setup.exe"
+	name := "nefos-inbox-v0.2.0-windows-amd64-setup.exe"
 	for label, sums := range map[string]string{
 		"他のファイルの行の後（NOTICE を含む）": strings.Repeat("0", 64) + "  NOTICE\n" + strings.ToUpper(sum) + "  " + name + "\n",
 		"バイナリ指定の *":              sum + " *" + name + "\r\n",
@@ -132,7 +132,7 @@ func TestStageMissingAssets(t *testing.T) {
 func TestStageIgnoresOtherPlatformAssets(t *testing.T) {
 	srv := updatetest.NewServer(t, "0.2.0", installerBody)
 	name := update.InstallerName("0.2.0")
-	apk, mac := "hitomado-v0.2.0-android-arm64.apk", "hitomado-v0.2.0-macos-arm64.zip"
+	apk, mac := "nefos-inbox-v0.2.0-android-arm64.apk", "nefos-inbox-v0.2.0-macos-arm64.zip"
 	srv.Sums = strings.Repeat("1", 64) + "  " + apk + "\n" +
 		strings.Repeat("2", 64) + "  " + mac + "\n" +
 		strings.Repeat("3", 64) + "  NOTICE\n" +
@@ -171,7 +171,7 @@ func TestStageSizeLimit(t *testing.T) {
 	_, err := st.Stage(t.Context(), latest(t, srv))
 	require.Error(t, err)
 	assert.Empty(t, dirFiles(t, dir))
-	assert.Zero(t, srv.Hits("/dl/hitomado-v0.2.0-windows-amd64-setup.exe"), "添付の大きさが上限を超えるなら取りにいかない")
+	assert.Zero(t, srv.Hits("/dl/nefos-inbox-v0.2.0-windows-amd64-setup.exe"), "添付の大きさが上限を超えるなら取りにいかない")
 }
 
 // 添付の宣言（size）より実際の本体が大きい・小さいときも使わない。

@@ -903,7 +903,7 @@ public class WailsBridge {
      */
     private static final String DOCUMENT_EVENT = "hitomado:document";
     /** FileProvider（res/xml/file_paths.xml）が公開する、開いてよいディレクトリ（files/ 配下）。両方を揃えること。 */
-    private static final String OPENABLE_DIR = "Hitomado/logs";
+    private static final String OPENABLE_DIR = "Nefos Inbox/logs";
 
     private final DocumentExporter.Host documentHost = new DocumentExporter.Host() {
         @Override public File exportsDir() {
@@ -1026,7 +1026,7 @@ public class WailsBridge {
 
     /**
      * ファイルを既定のアプリで開く（ACTION_VIEW + FileProvider）。json: {"path":"…","mime":"…"}。
-     * 開いてよいのは files/Hitomado/logs の配下のファイルだけ。コード: bad_path／is_directory／no_app／failed。
+     * 開いてよいのは files/Nefos Inbox/logs の配下のファイルだけ。コード: bad_path／is_directory／no_app／failed。
      * 開けるアプリが無ければ no_app（Intent を投げた結果で判断する。Android 11 以降は他のアプリが見えず事前確認できない）。
      */
     public String documentOpen(final String json) {

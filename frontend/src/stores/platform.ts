@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import {
   type Capabilities,
   PlatformService,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/capability'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/capability'
 import { call, parseBindingError } from '../lib/api'
 import { settings as msg } from '../lib/messages'
 import { useUiStore } from './ui'

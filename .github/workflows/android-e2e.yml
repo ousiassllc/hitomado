@@ -63,7 +63,7 @@ jobs:
           force-avd-creation: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
           disable-animations: true
-          script: bash build/android/e2e/run.sh bin/hitomado-e2e.apk jp.ousias.hitomado
+          script: bash build/android/e2e/run.sh bin/nefos-inbox-e2e.apk jp.ousias.hitomado
         env:
           E2E_OUT: ${{ runner.temp }}/e2e-out
           E2E_LIST_TIMEOUT: "300"

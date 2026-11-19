@@ -1,13 +1,13 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
-import { ComposeService } from '../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import { ComposeService } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 import type {
   ComposeAttachment,
   ComposeContent,
   ComposeSession,
   OpenComposeRequest,
   SendPreview,
-} from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { useAutosave } from '../composables/useAutosave'
 import { useComposeLifecycle } from '../composables/useComposeLifecycle'
 import { useComposeSend } from '../composables/useComposeSend'

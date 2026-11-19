@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/ousiassllc/hitomado/internal/domain/model"
+import "github.com/ousiassllc/nefos-inbox/internal/domain/model"
 
 // OpenComposeRequest は作成セッションの開始要求。
 type OpenComposeRequest struct {

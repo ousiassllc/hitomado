@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ChatGPTAccount } from '../../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ChatGPTAccount } from '../../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { settings as msg } from '../../../lib/messages'
 import BaseButton from '../../ui/BaseButton.vue'
 

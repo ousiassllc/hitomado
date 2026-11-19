@@ -1,6 +1,6 @@
 name: Build the macOS app
 description: >-
-  macOS のランナーで bin/Hitomado.app（ad-hoc 署名）と bin/hitomado-v<version>-macos-<arch>.zip を作り、検査する。
+  macOS のランナーで bin/Nefos Inbox.app（ad-hoc 署名）と bin/nefos-inbox-v<version>-macos-<arch>.zip を作り、検査する。
   呼び出し側で actions/checkout を済ませておく。CI とリリースで同じ手順を使うためのもの。
   Developer ID の署名も公証もしない（ダウンロードした zip は Gatekeeper の警告が出る。README.md）。
 inputs:
@@ -39,9 +39,9 @@ runs:
       run: |
         set -x
         version="${VERSION#v}"
-        app=bin/Hitomado.app
-        zip="bin/hitomado-v${version}-macos-${ARCH}.zip"
-        exe="${app}/Contents/MacOS/hitomado"
+        app="bin/Nefos Inbox.app"
+        zip="bin/nefos-inbox-v${version}-macos-${ARCH}.zip"
+        exe="${app}/Contents/MacOS/nefos-inbox"
         plist="${app}/Contents/Info.plist"
 
         plutil -lint "$plist"
@@ -61,8 +61,8 @@ runs:
         # zip を展開し直しても署名が通る（ditto で作った zip の往復）。
         rm -rf "${RUNNER_TEMP}/unzipped" && mkdir -p "${RUNNER_TEMP}/unzipped"
         ditto -x -k "$zip" "${RUNNER_TEMP}/unzipped"
-        codesign --verify --deep --strict "${RUNNER_TEMP}/unzipped/Hitomado.app"
-        codesign -dv "${RUNNER_TEMP}/unzipped/Hitomado.app" 2>&1 | grep -F 'Signature=adhoc'
+        codesign --verify --deep --strict "${RUNNER_TEMP}/unzipped/Nefos Inbox.app"
+        codesign -dv "${RUNNER_TEMP}/unzipped/Nefos Inbox.app" 2>&1 | grep -F 'Signature=adhoc'
         ls -l "$zip"
     - name: Smoke test (the app stays up for 10 seconds)
       # arm64 のランナーで動かせるのは arm64 だけ（amd64 はクロスビルドなので起動しない）。
@@ -70,7 +70,7 @@ runs:
       shell: bash
       run: |
         log="${RUNNER_TEMP}/smoke.log"
-        bin/Hitomado.app/Contents/MacOS/hitomado >"$log" 2>&1 &
+        "bin/Nefos Inbox.app/Contents/MacOS/nefos-inbox" >"$log" 2>&1 &
         pid=$!
         trap 'kill "$pid" 2>/dev/null || true' EXIT
         # 起動直後に落ちる（ライブラリが見つからない・初期化の失敗）ことを、10 秒まで 1 秒ごとの生存確認で調べる。

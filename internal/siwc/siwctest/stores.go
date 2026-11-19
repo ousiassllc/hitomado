@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 // テスト用の秘密らしい値。ログ・エラー・戻り値に出てはならない。

@@ -28,21 +28,21 @@ type Store interface {
 	Delete(key string) error // 無くてもエラーにしない
 }
 
-// キー名は hitomado/<種別>/<ID>（ER §1）。
+// キー名は nefos-inbox/<種別>/<ID>（ER §1）。v0.1.46 までの hitomado/<種別>/<ID> は legacy.go が読み出し時に移す。
 
 // RefreshTokenKey はアカウントのリフレッシュトークンのキー。
-func RefreshTokenKey(accountID string) string { return "hitomado/refresh_token/" + accountID }
+func RefreshTokenKey(accountID string) string { return keyPrefix + "refresh_token/" + accountID }
 
 // OAuthClientSecretKey は OAuth クライアントの Client Secret のキー。
 func OAuthClientSecretKey(oauthClientID string) string {
-	return "hitomado/oauth_client_secret/" + oauthClientID
+	return keyPrefix + "oauth_client_secret/" + oauthClientID
 }
 
 // AIAPIKeyKey は AI プロバイダ（anthropic／openai）の API キーのキー。
-func AIAPIKeyKey(provider string) string { return "hitomado/ai_api_key/" + provider }
+func AIAPIKeyKey(provider string) string { return keyPrefix + "ai_api_key/" + provider }
 
 // MCPTokenKey は内蔵 MCP サーバーの Bearer トークンのキー。
-func MCPTokenKey() string { return "hitomado/mcp_token" }
+func MCPTokenKey() string { return keyPrefix + "mcp_token" }
 
 // ChatGPTTokenKey は Sign in with ChatGPT のトークンのキー。ChatGPT アカウント（クライアント登録）ごとに別のキーを使う。
 // clientID は発行された client_id、kind は access／refresh／id。
@@ -50,9 +50,9 @@ func MCPTokenKey() string { return "hitomado/mcp_token" }
 // （大文字小文字だけが違う client_id は呼び出し側＝internal/siwc が登録時に拒否する。キーの形式は変えない）。
 // Windows 資格情報マネージャーの 1 件あたりの上限（約 2.5KB）を超える値は呼び出し側で分割する。
 func ChatGPTTokenKey(clientID, kind string) string {
-	return "hitomado/chatgpt_token/" + clientID + "/" + kind
+	return keyPrefix + "chatgpt_token/" + clientID + "/" + kind
 }
 
-// LegacyChatGPTTokenKey は v0.1.7 までの ChatGPT アカウント 1 件だけを前提にしたトークンのキー（hitomado/chatgpt_token/<kind>）。
+// LegacyChatGPTTokenKey は v0.1.7 までの ChatGPT アカウント 1 件だけを前提にしたトークンのキー（chatgpt_token/<kind>。旧キー名の接頭辞は hitomado/）。
 // 複数アカウントの保存へ移行するための読み取り・削除にだけ使う。
-func LegacyChatGPTTokenKey(kind string) string { return "hitomado/chatgpt_token/" + kind }
+func LegacyChatGPTTokenKey(kind string) string { return keyPrefix + "chatgpt_token/" + kind }

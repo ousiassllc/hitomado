@@ -19,14 +19,14 @@ import * as dto$0 from "./dto/models.js";
  * GetMCPStatus は設定と待ち受けの状態を返す。
  */
 export function GetMCPStatus(): $CancellablePromise<dto$0.MCPStatus> {
-    return $Call.ByID(1044886159);
+    return $Call.ByID(3612376112);
 }
 
 /**
  * IssueMCPToken はトークンを（再）発行する。古いトークンは無効になり、開いている接続は切れる。値を返すのはこの 1 回だけ。
  */
 export function IssueMCPToken(): $CancellablePromise<dto$0.MCPTokenResult> {
-    return $Call.ByID(960983425);
+    return $Call.ByID(2958695624);
 }
 
 /**
@@ -34,12 +34,12 @@ export function IssueMCPToken(): $CancellablePromise<dto$0.MCPTokenResult> {
  * このプロセスでは無効にして接続を切る（エラーは返す。再起動すると残ったトークンが有効に戻る）。
  */
 export function RevokeMCPToken(): $CancellablePromise<dto$0.MCPStatus> {
-    return $Call.ByID(4210082566);
+    return $Call.ByID(2240949741);
 }
 
 /**
  * SetMCPConfig は設定を検証して保存し、待ち受けに反映する。待ち受けに失敗しても設定は保存し、状態の Error に理由を入れる。
  */
 export function SetMCPConfig($in: dto$0.MCPConfig): $CancellablePromise<dto$0.MCPStatus> {
-    return $Call.ByID(1659555139, $in);
+    return $Call.ByID(1937709812, $in);
 }

@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 	_ "modernc.org/sqlite" // 検証用の直接接続（store が保存した行の確認）
 
-	"github.com/ousiassllc/hitomado/internal/clock"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/clock"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // testStore は Store と、保存内容を直接確認するための読み取り用接続。

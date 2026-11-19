@@ -9,8 +9,8 @@ import (
 	gmailapi "google.golang.org/api/gmail/v1"
 	"google.golang.org/api/googleapi"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/gmail/mimeparse"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail/mimeparse"
 )
 
 // ModifyThread はスレッドのラベルを付与・除去する（threads.modify）。

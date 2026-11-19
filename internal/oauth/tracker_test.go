@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/ousiassllc/hitomado/internal/oauth"
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/oauth"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 // trackerKey は tracker.go の印のキー（非公開）と同じ値。キーの変更は保存済みの印の扱いが変わるため、ここでも固定する。
-const trackerKey = "hitomado/oauth_in_progress"
+const trackerKey = "nefos-inbox/oauth_in_progress"
 
 func marked(kv secrets.Store) bool {
 	_, err := kv.Get(trackerKey)

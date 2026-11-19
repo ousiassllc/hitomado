@@ -14,8 +14,8 @@ import (
 	"github.com/jhillyerd/enmime/v2"
 	"github.com/oklog/ulid/v2"
 
-	"github.com/ousiassllc/hitomado/internal/domain/model"
-	"github.com/ousiassllc/hitomado/internal/domain/textconv"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/model"
+	"github.com/ousiassllc/nefos-inbox/internal/domain/textconv"
 )
 
 // ErrInvalid は入力が不正（ヘッダインジェクション・不正なアドレス・宛先なし等）なことを表す。

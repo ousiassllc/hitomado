@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ThreadSummary } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import BaseButton from '../ui/BaseButton.vue'
 import ThreadList from './ThreadList.vue'
 

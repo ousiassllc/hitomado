@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // ShutdownGrace は終了処理（同期の停止）を待つ上限。Run がトレイ終了を経由せず戻ったとき（SIGINT・セッション終了など）、

@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/events"
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/events"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // QuitGrace はフロントが未保存の下書きを保存して Ack するのを待つ上限。

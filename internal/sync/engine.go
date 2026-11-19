@@ -5,7 +5,7 @@ package syncer
 import (
 	"context"
 
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // RefreshResult は手動更新のアカウントごとの結果。

@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
 )
 
 // Key はフェイクのマップキー（アカウント ID とスレッド ID 等を "/" で連結する）。

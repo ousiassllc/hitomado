@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ousiassllc/hitomado/internal/secrets"
+	"github.com/ousiassllc/nefos-inbox/internal/secrets"
 )
 
 // TokenPrefix は Hitomado が発行するトークンの接頭辞（ログの伏せ処理が拾えるように固定する）。

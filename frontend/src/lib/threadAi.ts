@@ -1,5 +1,5 @@
 // スレッドの AI 要約・質問（F-17・F-18）の純ロジック。会話を AI へ渡す長さに収める。
-import type { ThreadAITurn } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { ThreadAITurn } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 
 /** 質問の最大文字数（Go の ai.MaxQuestionRunes と同じ。docs/api §6。#207）。 */
 export const MAX_QUESTION_CHARS = 2000

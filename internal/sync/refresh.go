@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ousiassllc/hitomado/internal/gmail"
-	"github.com/ousiassllc/hitomado/internal/logging"
+	"github.com/ousiassllc/nefos-inbox/internal/gmail"
+	"github.com/ousiassllc/nefos-inbox/internal/logging"
 )
 
 // refreshCall はアカウント 1 件分の手動更新。実行中の呼び出しは共有し、完了から 5 秒間は結果を使い回す。

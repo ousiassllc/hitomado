@@ -3,9 +3,9 @@
 package notifycore
 
 import (
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
 )
 
 // NotifyService は通知の許可状態・OS の通知設定・通知のタップで開くスレッド（バインディング仕様 §7.4）。

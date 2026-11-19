@@ -1,9 +1,9 @@
 package appcore
 
 import (
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/dto"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/dto"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // InboxFilterOf は InboxQuery のタブ・未読のみ・カーソルから store.InboxFilter を作る（AccountIDs・Limit は呼び出し側で設定）。

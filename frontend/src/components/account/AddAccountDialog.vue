@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import type { Account } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+import type { Account } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { parseBindingError } from '../../lib/api'
 import { common } from '../../lib/messages'
 import { useAccountsStore } from '../../stores/accounts'

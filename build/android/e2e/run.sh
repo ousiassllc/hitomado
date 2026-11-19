@@ -6,7 +6,7 @@
 # 使い方: run.sh <e2e の apk> <applicationId>
 # 環境変数:
 #   ANDROID_SERIAL        対象の端末（adb の -s と同じ。端末が 1 台ならなくてよい）
-#   E2E_OUT               スクリーンショット・ダンプ・logcat の出力先（既定: /tmp/hitomado-e2e-out）
+#   E2E_OUT               スクリーンショット・ダンプ・logcat の出力先（既定: /tmp/nefos-inbox-e2e-out）
 #   E2E_LIST_TIMEOUT      起動後に一覧が出るまでの上限の秒（既定 600。KVM なしのエミュレーターは 1 分以上かかる）
 #   E2E_STEP_TIMEOUT      その他の各手順の上限の秒（既定 300）
 #   E2E_KILL_RENDERER     1 のとき、最後にレンダラのプロセスを kill -9 して復帰を確かめる（既定 1。adb root が要る＝
@@ -19,7 +19,7 @@ apk="${1:?usage: run.sh <apk> <applicationId>}"
 app_id="${2:?usage: run.sh <apk> <applicationId>}"
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ui="$here/ui.py"
-out="${E2E_OUT:-/tmp/hitomado-e2e-out}"
+out="${E2E_OUT:-/tmp/nefos-inbox-e2e-out}"
 list_timeout="${E2E_LIST_TIMEOUT:-600}"
 step_timeout="${E2E_STEP_TIMEOUT:-300}"
 kill_renderer="${E2E_KILL_RENDERER:-1}"
@@ -51,8 +51,8 @@ metric() { echo "METRIC $1=$2"; }
 
 shot() { adb exec-out screencap -p >"$out/$1.png" 2>/dev/null || true; }
 dump() { # 画面の XML を $out/ui.xml に取る（遷移中で失敗しても呼び出し側が再試行する）
-  adb shell uiautomator dump /sdcard/hitomado-e2e-ui.xml >/dev/null 2>&1 || return 1
-  adb exec-out cat /sdcard/hitomado-e2e-ui.xml >"$out/ui.xml" 2>/dev/null || return 1
+  adb shell uiautomator dump /sdcard/nefos-inbox-e2e-ui.xml >/dev/null 2>&1 || return 1
+  adb exec-out cat /sdcard/nefos-inbox-e2e-ui.xml >"$out/ui.xml" 2>/dev/null || return 1
 }
 # 前面に「応答なし」ダイアログ（システムアプリのもの。ソフトウェア描画のエミュレーターで出る）があれば、「待つ」を選んで閉じる。
 # 現在の $out/ui.xml を見る（ダンプは呼び出し側が取る）。閉じたら 0。
@@ -164,7 +164,7 @@ if tap_text "$subject" && wait_for "thread" "$step_timeout" "$reply_all_label"; 
     got=""
     t0="$(now)"
     while [ $(($(now) - t0)) -lt "$step_timeout" ]; do
-      got="$(adb shell "run-as $app_id sh -c 'cat files/Hitomado/e2e/drafts/*.txt'" 2>/dev/null | tr -d '\r' || true)"
+      got="$(adb shell "run-as $app_id sh -c 'cat files/Nefos\ Inbox/e2e/drafts/*.txt'" 2>/dev/null | tr -d '\r' || true)"
       grep -q "$typed_text" <<<"$got" && break
       sleep 3
     done
@@ -174,7 +174,7 @@ if tap_text "$subject" && wait_for "thread" "$step_timeout" "$reply_all_label"; 
       grep -q 'thread: e2e-thread-1' <<<"$got" && pass "draft is attached to the thread" || failed "draft is attached to the thread"
     else
       failed "draft reached Gmail within ${step_timeout}s"
-      echo "--- drafts dir ---"; adb shell "run-as $app_id ls -R files/Hitomado/e2e" 2>&1 || true
+      echo "--- drafts dir ---"; adb shell "run-as $app_id ls -R files/Nefos\ Inbox/e2e" 2>&1 || true
     fi
   else
     failed "reply editor opens"

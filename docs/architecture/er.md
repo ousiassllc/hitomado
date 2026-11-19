@@ -10,12 +10,12 @@
 
 | 資格情報キー | 内容 |
 |--------------|------|
-| `hitomado/refresh_token/<account_id>` | アカウントのリフレッシュトークン |
-| `hitomado/oauth_client_secret/<oauth_client_id>` | OAuth クライアントの Client Secret |
-| `hitomado/ai_api_key/<provider>` | AI プロバイダの API キー。`<provider>` は `anthropic`／`openai`（下書きの生成）と `typesafe`（TypeSafe AI。Inbox Zero の判定に使う。下書きのプロバイダではない） |
-| `hitomado/mcp_token` | 内蔵 MCP サーバーの Bearer トークン（発行・再発行で置き換え、無効化で削除。[MCP](../mcp.md)） |
-| `hitomado/oauth_in_progress` | Android で認可（ブラウザへ移っている間）が進行中であることを示す印。値は開始時刻（RFC 3339）だけで、state・PKCE verifier などの秘密は入れない。認可の成功・失敗・キャンセル・タイムアウトで削除し、次の起動で残っていれば「認可の途中でプロセスが止められた」と検出して 1 回だけ案内する（[Android](../environment/android.md)） |
-| `hitomado/chatgpt_token/<client_id>/<kind>` | ChatGPT ログイン（Sign in with ChatGPT）のトークン。ChatGPT アカウント（クライアント登録）ごとに `<client_id>`（発行されたクライアント ID）で別のキーにし、ほかのアカウントのトークンと混ぜない。Windows 資格情報マネージャーはキーの大文字小文字を区別しないので、`<client_id>` は大文字小文字を無視して一意として扱う（大文字小文字だけが違う登録は拒否。§3.9）。`kind` は `access`（アクセストークン）／`refresh`（リフレッシュトークン）／`id`（ID トークン。任意）。1 件の上限（Windows は約 2.5KB）を超える値は `<キー>#0`、`#1`… に分割し、先頭のキーに `chunks:<個数>` を置く。v0.1.7 までの `hitomado/chatgpt_token/<kind>`（アカウント 1 件）は、最初の読み取りで新しいキーへ移して消す（消すのに失敗しても、残っている間は後の読み取りで消し直す） |
+| `nefos-inbox/refresh_token/<account_id>` | アカウントのリフレッシュトークン |
+| `nefos-inbox/oauth_client_secret/<oauth_client_id>` | OAuth クライアントの Client Secret |
+| `nefos-inbox/ai_api_key/<provider>` | AI プロバイダの API キー。`<provider>` は `anthropic`／`openai`（下書きの生成）と `typesafe`（TypeSafe AI。Inbox Zero の判定に使う。下書きのプロバイダではない） |
+| `nefos-inbox/mcp_token` | 内蔵 MCP サーバーの Bearer トークン（発行・再発行で置き換え、無効化で削除。[MCP](../mcp.md)） |
+| `nefos-inbox/oauth_in_progress` | Android で認可（ブラウザへ移っている間）が進行中であることを示す印。値は開始時刻（RFC 3339）だけで、state・PKCE verifier などの秘密は入れない。認可の成功・失敗・キャンセル・タイムアウトで削除し、次の起動で残っていれば「認可の途中でプロセスが止められた」と検出して 1 回だけ案内する（[Android](../environment/android.md)） |
+| `nefos-inbox/chatgpt_token/<client_id>/<kind>` | ChatGPT ログイン（Sign in with ChatGPT）のトークン。ChatGPT アカウント（クライアント登録）ごとに `<client_id>`（発行されたクライアント ID）で別のキーにし、ほかのアカウントのトークンと混ぜない。Windows 資格情報マネージャーはキーの大文字小文字を区別しないので、`<client_id>` は大文字小文字を無視して一意として扱う（大文字小文字だけが違う登録は拒否。§3.9）。`kind` は `access`（アクセストークン）／`refresh`（リフレッシュトークン）／`id`（ID トークン。任意）。1 件の上限（Windows は約 2.5KB）を超える値は `<キー>#0`、`#1`… に分割し、先頭のキーに `chunks:<個数>` を置く。v0.1.7 までの `nefos-inbox/chatgpt_token/<kind>`（アカウント 1 件）は、最初の読み取りで新しいキーへ移して消す（消すのに失敗しても、残っている間は後の読み取りで消し直す） |
 
 - **ID**: ローカルで採番するテーブルの主キーは **ULID（TEXT）**。Gmail 由来の ID（スレッド・メッセージ・ラベル）は Gmail の文字列 ID を使い、アカウントをまたいで一意でないため **`account_id` との複合主キー**にする
 - **日時**: UTC の Unix ミリ秒（`INTEGER`）。**真偽値**: `INTEGER`（0／1、`CHECK (x IN (0,1))`）
@@ -336,7 +336,7 @@ erDiagram
 | `notify.scope` | `"primary"` | 新着通知の対象にするメール（#395）。`"primary"`＝メインだけ（既定）、`"all"`＝受信トレイの新着すべて。全アカウント共通。未設定・壊れた値・未知の値は `"primary"`（更新前から使っている利用者も「メインだけ」）。「メインだけ」は、新着メッセージに `CATEGORY_SOCIAL`・`CATEGORY_PROMOTIONS`・`CATEGORY_UPDATES`・`CATEGORY_FORUMS` のどれも付いていないものだけを通知する（[F-10](../requirements/functional.md)）。値は JSON の文字列 |
 | `update.last_checked_at` | `1730000000000` | 最終確認日時 |
 | `window.state` | `{"x":100,"y":60,"width":1280,"height":800,"maximized":false}` | ウィンドウ状態。位置・サイズは最大化していないときの DIP 値（`x`／`y` は省略可。省略時は位置を OS に任せる）。画面外の位置は起動時に捨てる（[F-10](../requirements/functional.md)） |
-| `mcp.config` | `{"enabled":false,"host":"127.0.0.1","port":47650,"allowNonLoopback":false}` | 内蔵 MCP サーバーの設定（[MCP](../mcp.md)）。未設定・壊れた値は既定（オフ。`host` は `127.0.0.1`、`port` は `47650`）として読み、空の `host`・`port` 0 も既定で埋める。`allowNonLoopback` は loopback 以外での待ち受けを明示的に許可する。**トークンは含まない**（資格情報ストアの `hitomado/mcp_token`） |
+| `mcp.config` | `{"enabled":false,"host":"127.0.0.1","port":47650,"allowNonLoopback":false}` | 内蔵 MCP サーバーの設定（[MCP](../mcp.md)）。未設定・壊れた値は既定（オフ。`host` は `127.0.0.1`、`port` は `47650`）として読み、空の `host`・`port` 0 も既定で埋める。`allowNonLoopback` は loopback 以外での待ち受けを明示的に許可する。**トークンは含まない**（資格情報ストアの `nefos-inbox/mcp_token`） |
 
 ## 4. インデックス
 
@@ -390,3 +390,4 @@ erDiagram
 | 1.23 | 2026-11-15 | §3.9 の `inbox_zero.reasons` で、`calendar` を端末内の判定から AI で判定する理由に改めた（端末内の判定は `replied` だけ） | #377 |
 | 1.24 | 2026-11-15 | §3.9 の `ai.features` に `threadAi`（「要約・質問」で使う AI。選べるプロバイダ・`effort` は `draft` と同じ）を追加した。要約・質問は `draft` の選択に頼らない。マイグレーション `00003_ai_thread_feature` が、`threadAi` が無く `draft` がある `ai.features` に `draft` の選択を写す（`00002` を適用済みの DB でも効く。`00002` は変えない。Down は `threadAi` を捨てる） | #376 |
 | 1.25 | 2026-11-18 | §3.9 の `app_settings` に `notify.scope`（新着通知の対象。`"primary"`＝メインだけ〔既定〕／`"all"`）を追加した | #395 |
+| 1.26 | 2026-11-19 | §1 の資格情報キーの接頭辞を `hitomado/` から `nefos-inbox/` に、Windows のサービス名を `Hitomado` から `Nefos Inbox` に変更した。旧キーは読んだときに新しいキーへ移す（再ログイン不要）。データの保存先は `%APPDATA%\Nefos Inbox`（旧 `Hitomado`）。DB・ログのファイル名は変えない | #402 |

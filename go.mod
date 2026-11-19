@@ -1,4 +1,4 @@
-module github.com/ousiassllc/hitomado
+module github.com/ousiassllc/nefos-inbox
 
 go 1.26.11
 

@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ousiassllc/hitomado/internal/app/appcore"
+	"github.com/ousiassllc/nefos-inbox/internal/app/appcore"
 )
 
 func TestParallelDoRunsAll(t *testing.T) {

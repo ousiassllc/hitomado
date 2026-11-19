@@ -4,9 +4,9 @@ import (
 	"context"
 	"strconv"
 
-	"github.com/ousiassllc/hitomado/internal/app/apperr"
-	"github.com/ousiassllc/hitomado/internal/app/deps"
-	"github.com/ousiassllc/hitomado/internal/store"
+	"github.com/ousiassllc/nefos-inbox/internal/app/apperr"
+	"github.com/ousiassllc/nefos-inbox/internal/app/deps"
+	"github.com/ousiassllc/nefos-inbox/internal/store"
 )
 
 // SendConfirmEnabled は送信前に確認画面を出す設定（既定オン。#313）。未設定・壊れた値は有効。

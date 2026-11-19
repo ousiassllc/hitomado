@@ -8,7 +8,7 @@ import (
 
 	"github.com/wailsapp/wails/v3/pkg/application"
 
-	"github.com/ousiassllc/hitomado/internal/exportfile"
+	"github.com/ousiassllc/nefos-inbox/internal/exportfile"
 )
 
 // SaveFile は保存先を利用者に選ばせる（Android の Storage Access Framework。ACTION_CREATE_DOCUMENT）。

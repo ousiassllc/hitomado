@@ -1,6 +1,6 @@
 package dto
 
-import "github.com/ousiassllc/hitomado/internal/domain/model"
+import "github.com/ousiassllc/nefos-inbox/internal/domain/model"
 
 // ThreadMessage はスレッド内のメッセージ。BodyHTML は未サニタイズ（サニタイズはフロント）。
 type ThreadMessage struct {

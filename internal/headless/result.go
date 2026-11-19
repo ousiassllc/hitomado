@@ -7,8 +7,8 @@ package headless
 import (
 	"errors"
 
-	"github.com/ousiassllc/hitomado/internal/asciijson"
-	"github.com/ousiassllc/hitomado/internal/notify"
+	"github.com/ousiassllc/nefos-inbox/internal/asciijson"
+	"github.com/ousiassllc/nefos-inbox/internal/notify"
 )
 
 // AccountStatus はアカウント 1 件の今回の同期の結果。

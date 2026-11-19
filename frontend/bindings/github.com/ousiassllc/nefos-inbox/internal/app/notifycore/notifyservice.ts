@@ -20,21 +20,21 @@ import * as dto$0 from "../dto/models.js";
  * denied は、許可されていない・OS の設定で通知がオフ・それらのどちらでも出せない状態。
  */
 export function GetNotificationPermission(): $CancellablePromise<string> {
-    return $Call.ByID(2010720787);
+    return $Call.ByID(3965350914);
 }
 
 /**
  * OpenNotificationSettings は OS の「このアプリの通知設定」を開く。開けなければ UNSUPPORTED。
  */
 export function OpenNotificationSettings(): $CancellablePromise<void> {
-    return $Call.ByID(2844768267);
+    return $Call.ByID(127326148);
 }
 
 /**
  * RequestNotificationPermission は通知の許可のダイアログを出す。許可済み・永続的に拒否済みでは何も出ない。結果は待たない。
  */
 export function RequestNotificationPermission(): $CancellablePromise<void> {
-    return $Call.ByID(3752293706);
+    return $Call.ByID(478498743);
 }
 
 /**
@@ -42,5 +42,5 @@ export function RequestNotificationPermission(): $CancellablePromise<void> {
  * フロントの準備前にあれば返し（なければ null）、以後の要求は notify:open-thread で届く。
  */
 export function TakePendingOpenThread(): $CancellablePromise<dto$0.ThreadRef | null> {
-    return $Call.ByID(3832879933);
+    return $Call.ByID(3367608584);
 }

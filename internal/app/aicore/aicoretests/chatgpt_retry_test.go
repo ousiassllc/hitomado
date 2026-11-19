@@ -7,7 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
-	"github.com/ousiassllc/hitomado/internal/ai"
+	"github.com/ousiassllc/nefos-inbox/internal/ai"
 )
 
 // 401 以外（利用枠・対象外・その他の 403 に当たる ErrFailed）ではトークンを更新せず、スレッドを再送しない。

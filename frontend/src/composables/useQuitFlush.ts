@@ -1,4 +1,4 @@
-import { AckBeforeQuit } from '../../bindings/github.com/ousiassllc/hitomado/internal/app/appservice'
+import { AckBeforeQuit } from '../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/appservice'
 import { call } from '../lib/api'
 import { EVENTS } from '../lib/events'
 import { useComposeStore } from '../stores/compose'

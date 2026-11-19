@@ -1,6 +1,6 @@
 name: Build the Windows installer
 description: >-
-  windows-latest で hitomado.exe と NSIS インストーラー bin/hitomado-v<version>-windows-amd64-setup.exe を作る。
+  windows-latest で nefos-inbox.exe と NSIS インストーラー bin/nefos-inbox-v<version>-windows-amd64-setup.exe を作る。
   呼び出し側で actions/checkout を済ませておく。CI とリリースで同じ手順を使うためのもの。
 inputs:
   version:

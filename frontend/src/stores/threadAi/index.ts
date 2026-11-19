@@ -1,10 +1,10 @@
 import { defineStore } from 'pinia'
 import { computed, ref, watch } from 'vue'
-import { AIService } from '../../../bindings/github.com/ousiassllc/hitomado/internal/app'
+import { AIService } from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app'
 import type {
   ThreadAIResult,
   ThreadRef,
-} from '../../../bindings/github.com/ousiassllc/hitomado/internal/app/dto'
+} from '../../../bindings/github.com/ousiassllc/nefos-inbox/internal/app/dto'
 import { call, parseBindingError } from '../../lib/api'
 import { threadKey } from '../../lib/inboxItems'
 import { type ThreadAiTurn, trimHistory } from '../../lib/threadAi'
